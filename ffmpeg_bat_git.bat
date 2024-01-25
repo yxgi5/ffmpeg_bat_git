@@ -140,7 +140,6 @@ set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrap
 for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 echo SRC_BITRATE=%SRC_BITRATE%
 
-
 set "BIT="
 echo BIT init=%BIT%
 if /i %SRC_CODEC%==h264 (
@@ -148,13 +147,13 @@ rem SRC_BITRATE less than 2.58M
 ::echo im here
     if %SRC_BITRATE% lss 2705326 (
         echo here1
-        call :calc_bitrate70
+        call :calc_bitrate 70 BIT
         echo BIT=%BIT%
     ) else (
         echo here2
         set /a BIT=%SRC_BITRATE%*100/25
         echo BIT before funtion=%BIT%
-        call :calc_bitrate25
+        call :calc_bitrate 25 BIT
         echo BIT=%BIT%
     )
     echo here3
@@ -171,19 +170,14 @@ rem SRC_BITRATE less than 2.58M
 
 pause
 
-:calc_bitrate70
-set /a BIT=%SRC_BITRATE%*100/70
-echo 70
-echo BIT=%BIT%
-exit /b 0
 
-:calc_bitrate25
+:calc_bitrate
 ::SetLocal EnableExtensions
 ::SetLocal EnableDelayedExpansion
 set "BIT="
-set /a BIT=%SRC_BITRATE%*100/25
+set /a BIT=%SRC_BITRATE%*100/%~1
 echo BIT in funtion=%BIT%
-echo 25
+SET %~2 %BIT%
 echo BIT=%BIT%
 echo return
 ::endlocal & endlocal
