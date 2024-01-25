@@ -1,5 +1,5 @@
 @echo off
-SetLocal EnableExtensions
+::SetLocal EnableExtensions
 
 echo ============================================================
 echo 欢迎使用ffmpeg视频 intel qsv h265 压缩批处理工具
@@ -110,6 +110,8 @@ set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_w
 ::echo VAR2=%VAR2%
 ::pause
 
+set "SRC_W=0"
+set "SRC_H=0"
 setlocal EnableDelayedExpansion
 set "output_cnt=0"
 for /F "delims=" %%f in ('"%SRC_ROSOLUTION%"') do (
@@ -124,6 +126,10 @@ set SRC_W=!output[1]!
 set SRC_H=!output[2]!
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
+rem pass local var to global var
+endlocal & set SRC_W=%SRC_W% & set SRC_H=%SRC_H%
+echo SRC_W=%SRC_W%
+echo SRC_H=%SRC_H%
 ::pause
 
 set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%TARGET_PATH%""
@@ -131,43 +137,61 @@ for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 echo SRC_BITRATE=%SRC_BITRATE%
 if /i %SRC_CODEC%==h264  (
     if %SRC_BITRATE% lss 2705326 (          rem SRC_BITRATE less than 2.58M
-        set /a BIT=SRC_BITRATE/70*100
+        set /a BIT=SRC_BITRATE*70/100
     ) else if %SRC_BITRATE% lss 4162040 (   rem Xmax*65%=2.58M
-        set /a BIT=SRC_BITRATE/65*100
+        set /a BIT=SRC_BITRATE*65/100
     ) else if %SRC_BITRATE% lss 4508877 (   rem Xmax*60%=2.58M
-        set /a BIT=SRC_BITRATE/60*100
+        set /a BIT=SRC_BITRATE*60/100
     ) else if %SRC_BITRATE% lss 4918775 (   rem Xmax*55%=2.58M
-        set /a BIT=SRC_BITRATE/55*100
+        set /a BIT=SRC_BITRATE*55/100
     ) else if %SRC_BITRATE% lss 5410652 (   rem Xmax*50%=2.58M
-        set /a BIT=SRC_BITRATE/50*100
+        set /a BIT=SRC_BITRATE*50/100
     ) else if %SRC_BITRATE% lss 6011836 (   rem Xmax*45%=2.58M
-        set /a BIT=SRC_BITRATE/45*100
+        set /a BIT=SRC_BITRATE*45/100
     ) else if %SRC_BITRATE% lss 6763315 (   rem Xmax*40%=2.58M
-        set /a BIT=SRC_BITRATE/40*100
+        set /a BIT=SRC_BITRATE*40/100
     ) else if %SRC_BITRATE% lss 7729503 (   rem Xmax*35%=2.58M
-        set /a BIT=SRC_BITRATE/35*100
+        set /a BIT=SRC_BITRATE*35/100
     ) else if %SRC_BITRATE% lss 9017753 (   rem Xmax*30%=2.58M
-        set /a BIT=SRC_BITRATE/30*100
+        set /a BIT=SRC_BITRATE*30/100
     ) else if %SRC_BITRATE% lss 10821304 (   rem Xmax*25%=2.58M
-        set /a BIT=SRC_BITRATE/25*100
+        set /a BIT=SRC_BITRATE*25/100
     ) else if %SRC_BITRATE% lss 10821304 (   rem Xmax*25%=2.58M
-        set /a BIT=SRC_BITRATE/25*100
+        set /a BIT=SRC_BITRATE*25/100
     ) else (   rem 
         echo here
-        set /a BIT=SRC_BITRATE/25*100
+        set /a BIT=SRC_BITRATE*25/100
     )
-    echo SRC_BITRATE=%SRC_BITRATE%
-    echo TARGET_BITRATE=%BIT%
-    ::call :DivideByInteger %TARGET_BITRATE% %SRC_BITRATE%
-    pause
-    set /a percentage=(%TARGET_BITRATE%*100)/%SRC_BITRATE%
-    echo percentage=%percentage%%
 ) else if %SRC_CODEC%==h265 (
     if %SRC_BITRATE% lss 2705326 (  rem SRC_BITRATE less than 2.58M
         echo 码率太低，不要转换
         pause
         exit /b 0
     )
+)
+
+
+echo TARGET_BITRATE=%BIT%
+set TARGET_BITRATE=%BIT%
+echo TARGET_BITRATE=%TARGET_BITRATE%
+set "percentage="
+
+::set "TARGET_BITRATE="
+::if defined TARGET_BITRATE (echo 1) else (echo 0)
+
+::set "TARGET_BITRATE="
+::if %TARGET_BITRATE% neq [] (
+::    set /a percentage=(24459900*100^)/45000000
+::    echo percentage=%percentage%%%
+::) else (
+::    set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
+::    echo percentage=%percentage%%%
+::)
+
+
+if defined TARGET_BITRATE (
+    set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
+    echo percentage=%percentage%%%
 )
 
 pause
