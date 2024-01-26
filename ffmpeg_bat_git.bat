@@ -59,7 +59,7 @@ echo SRC_FRAMERATE=%SRC_FRAMERATE%
 
 if %SRC_FRAMERATE% gtr 31 (
     SET "RUN_COM=%RUN_COM% -r 30"
-    echo "TEAR DOWN TARGET FRAME RATE TO 30"
+    echo TEAR DOWN TARGET FRAME RATE TO 30
 )
 ::pause
 
@@ -142,217 +142,208 @@ echo SRC_PIX=%SRC_PIX%
 set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%TARGET_PATH%""
 for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 echo SRC_BITRATE=%SRC_BITRATE%
-if /i %SRC_CODEC%==h264  (
-    if %SRC_PIX% leq 12288 (
-        set /a BIT=95892
-    ) else if %SRC_PIX% leq 19200 (
-        set /a BIT=135504
-    ) else if %SRC_PIX% leq 21120 (   rem Xmax*60%=2.58M
-        set /a BIT=145888
-    ) else if %SRC_PIX% leq 25344 (   rem Xmax*55%=2.58M
-        set /a BIT=168023
-    ) else if %SRC_PIX% leq 38400 (   rem Xmax*50%=2.58M
-        set /a BIT=231836
-    ) else if %SRC_PIX% leq 64000 (   rem Xmax*45%=2.58M
-        set /a BIT=344400
-    ) else if %SRC_PIX% leq 76800 (   rem 5M<br<5M, 45%
-        set /a BIT=396653
-    ) else if %SRC_PIX% leq 84480 (   rem 5M<br<7.5M, 45%
-        set /a BIT=427051
-    ) else if %SRC_PIX% leq 96000 (   rem 7.5M<br<10M, 40%
-        set /a BIT=471513
-    ) else if %SRC_PIX% leq 101376 (   rem 10M<br<12M, 35%
-        set /a BIT=491844
-    ) else if %SRC_PIX% leq 103680 (   rem 12M<br<16M, 30%
-        set /a BIT=500483
-    ) else if %SRC_PIX% leq 112320 (   rem 12M<br<16M, 30%
-        set /a BIT=532503
-    ) else if %SRC_PIX% leq 120000 (   rem 12M<br<16M, 30%
-        set /a BIT=560501
-    ) else if %SRC_PIX% leq 128000 (   rem 12M<br<16M, 30%
-        set /a BIT=589240
-    ) else if %SRC_PIX% leq 153600 (   rem 12M<br<16M, 30%
-        set /a BIT=678641
-    ) else if %SRC_PIX% leq 153600 (   rem 12M<br<16M, 30%
-        set /a BIT=678641
-    ) else if %SRC_PIX% leq 168960 (   rem 12M<br<16M, 30%
-        set /a BIT=730651
-    ) else if %SRC_PIX% leq 168960 (   rem 12M<br<16M, 30%
-        set /a BIT=730651
-    ) else if %SRC_PIX% leq 202752 (   rem 12M<br<16M, 30%
-        set /a BIT=841506
-    ) else if %SRC_PIX% leq 202752 (   rem 12M<br<16M, 30%
-        set /a BIT=841506
-    ) else if %SRC_PIX% leq 224000 (
-         set /a BIT=909058    
-    ) else if %SRC_PIX% leq 230400 (
-         set /a BIT=929118    
-    ) else if %SRC_PIX% leq 307200 (
-         set /a BIT=1161100    
-    ) else if %SRC_PIX% leq 337920 (
-         set /a BIT=1250085    
-    ) else if %SRC_PIX% leq 345600 (
-         set /a BIT=1272042    
-    ) else if %SRC_PIX% leq 368640 (
-         set /a BIT=1337264    
-    ) else if %SRC_PIX% leq 384000 (
-         set /a BIT=1380235    
-    ) else if %SRC_PIX% leq 405504 (
-         set /a BIT=1439750    
-    ) else if %SRC_PIX% leq 407040 (
-         set /a BIT=1443974    
-    ) else if %SRC_PIX% leq 409920 (
-         set /a BIT=1451883    
-    ) else if %SRC_PIX% leq 414720 (
-         set /a BIT=1465038    
-    ) else if %SRC_PIX% leq 460800 (
-         set /a BIT=1589646    
-    ) else if %SRC_PIX% leq 480000 (
-         set /a BIT=1640726    
-    ) else if %SRC_PIX% leq 518400 (
-         set /a BIT=1741534    
-    ) else if %SRC_PIX% leq 552960 (
-         set /a BIT=1830829    
-    ) else if %SRC_PIX% leq 589824 (
-         set /a BIT=1924703    
-    ) else if %SRC_PIX% leq 614400 (
-         set /a BIT=1986550    
-    ) else if %SRC_PIX% leq 614400 (
-         set /a BIT=1986550    
-    ) else if %SRC_PIX% leq 786432 (
-         set /a BIT=2405264    
-    ) else if %SRC_PIX% leq 912384 (
-         set /a BIT=2698662    
-    ) else if %SRC_PIX% leq 921600 (
-         set /a BIT=2719757    
-    ) else if %SRC_PIX% leq 983040 (
-         set /a BIT=2859210    
-    ) else if %SRC_PIX% leq 995328 (
-         set /a BIT=2886862    
-    ) else if %SRC_PIX% leq 1024000 (
-         set /a BIT=2951086    
-    ) else if %SRC_PIX% leq 1049088 (
-         set /a BIT=3006950    
-    ) else if %SRC_PIX% leq 1228800 (
-         set /a BIT=3398829    
-    ) else if %SRC_PIX% leq 1296000 (
-         set /a BIT=3541970    
-    ) else if %SRC_PIX% leq 1310720 (
-         set /a BIT=3573100    
-    ) else if %SRC_PIX% leq 1440000 (
-         set /a BIT=3843232    
-    ) else if %SRC_PIX% leq 1470000 (
-         set /a BIT=3905121    
-    ) else if %SRC_PIX% leq 1555200 (
-         set /a BIT=4079363    
-    ) else if %SRC_PIX% leq 1622016 (
-         set /a BIT=4214505    
-    ) else if %SRC_PIX% leq 1638400 (
-         set /a BIT=4247451    
-    ) else if %SRC_PIX% leq 1764000 (
-         set /a BIT=4497612    
-    ) else if %SRC_PIX% leq 1920000 (
-         set /a BIT=4802813    
-    ) else if %SRC_PIX% leq 2073600 (
-         set /a BIT=5097902    
-    ) else if %SRC_PIX% leq 2211840 (
-         set /a BIT=5359291    
-    ) else if %SRC_PIX% leq 2304000 (
-         set /a BIT=5531503    
-    ) else if %SRC_PIX% leq 2359296 (
-         set /a BIT=5634083    
-    ) else if %SRC_PIX% leq 2457600 (
-         set /a BIT=5815124    
-    ) else if %SRC_PIX% leq 2592000 (
-         set /a BIT=6060029    
-    ) else if %SRC_PIX% leq 2688000 (
-         set /a BIT=6233208    
-    ) else if %SRC_PIX% leq 2764800 (
-         set /a BIT=6370750    
-    ) else if %SRC_PIX% leq 3145728 (
-         set /a BIT=7040805    
-    ) else if %SRC_PIX% leq 3686400 (
-         set /a BIT=7961404    
-    ) else if %SRC_PIX% leq 3686400 (
-         set /a BIT=7961404    
-    ) else if %SRC_PIX% leq 4085760 (
-         set /a BIT=8621822    
-    ) else if %SRC_PIX% leq 4096000 (
-         set /a BIT=8638559    
-    ) else if %SRC_PIX% leq 4953600 (
-         set /a BIT=10009382    
-    ) else if %SRC_PIX% leq 5038848 (
-         set /a BIT=10142584    
-    ) else if %SRC_PIX% leq 5184000 (
-         set /a BIT=10368225    
-    ) else if %SRC_PIX% leq 5242880 (
-         set /a BIT=10459349    
-    ) else if %SRC_PIX% leq 5760000 (
-         set /a BIT=11250092    
-    ) else if %SRC_PIX% leq 5880000 (
-         set /a BIT=11431258    
-    ) else if %SRC_PIX% leq 6000000 (
-         set /a BIT=11611594    
-    ) else if %SRC_PIX% leq 6144000 (
-         set /a BIT=11826928    
-    ) else if %SRC_PIX% leq 6291456 (
-         set /a BIT=12046256    
-    ) else if %SRC_PIX% leq 6553600 (
-         set /a BIT=12433341    
-    ) else if %SRC_PIX% leq 7372800 (
-         set /a BIT=13621327    
-    ) else if %SRC_PIX% leq 7680000 (
-         set /a BIT=14059024    
-    ) else if %SRC_PIX% leq 8294400 (
-         set /a BIT=14922822    
-    ) else if %SRC_PIX% leq 8847360 (
-         set /a BIT=15687974    
-    ) else if %SRC_PIX% leq 9216000 (
-         set /a BIT=16192079    
-    ) else if %SRC_PIX% leq 11059200 (
-         set /a BIT=18648764    
-    ) else if %SRC_PIX% leq 12000000 (
-         set /a BIT=19866510    
-    ) else if %SRC_PIX% leq 12582912 (
-         set /a BIT=20610182    
-    ) else if %SRC_PIX% leq 14745600 (
-         set /a BIT=23305002    
-    ) else if %SRC_PIX% leq 16384000 (
-         set /a BIT=25287203    
-    ) else if %SRC_PIX% leq 20358144 (
-         set /a BIT=29920991    
-    ) else if %SRC_PIX% leq 20971520 (
-         set /a BIT=30617105    
-    ) else if %SRC_PIX% leq 26214400 (
-         set /a BIT=36395470    
-    ) else if %SRC_PIX% leq 30720000 (
-         set /a BIT=41154247    
-    ) else if %SRC_PIX% leq 33177600 (
-         set /a BIT=43682800    
-    ) else if %SRC_PIX% leq 35389440 (
-         set /a BIT=45922587    
-    ) else if %SRC_PIX% leq 36864000 (
-         set /a BIT=47398228    
-    ) else if %SRC_PIX% leq 44236800 (
-         set /a BIT=54589555    
-    ) else if %SRC_PIX% leq 67108864 (
-         set /a BIT=75394630    
-    ) else if %SRC_PIX% leq 132710400 (
-         set /a BIT=127870381    
-    ) else if %SRC_PIX% leq 141557760 (
-         set /a BIT=134426794    
-    ) else (   rem > 16M, 25%
-        echo "Manual handle it"
-        exit /b 1
-    )
-) else if %SRC_CODEC%==h265 (
-    if %SRC_BITRATE% lss 2705326 (  rem SRC_BITRATE less than 2.58M
-        echo 码率太低，不要转换
-        pause
-        exit /b 0
-    )
+if %SRC_PIX% leq 12288 (
+    set /a BIT=95892
+) else if %SRC_PIX% leq 19200 (
+    set /a BIT=135504
+) else if %SRC_PIX% leq 21120 (   rem Xmax*60%=2.58M
+    set /a BIT=145888
+) else if %SRC_PIX% leq 25344 (   rem Xmax*55%=2.58M
+    set /a BIT=168023
+) else if %SRC_PIX% leq 38400 (   rem Xmax*50%=2.58M
+    set /a BIT=231836
+) else if %SRC_PIX% leq 64000 (   rem Xmax*45%=2.58M
+    set /a BIT=344400
+) else if %SRC_PIX% leq 76800 (   rem 5M<br<5M, 45%
+    set /a BIT=396653
+) else if %SRC_PIX% leq 84480 (   rem 5M<br<7.5M, 45%
+    set /a BIT=427051
+) else if %SRC_PIX% leq 96000 (   rem 7.5M<br<10M, 40%
+    set /a BIT=471513
+) else if %SRC_PIX% leq 101376 (   rem 10M<br<12M, 35%
+    set /a BIT=491844
+) else if %SRC_PIX% leq 103680 (   rem 12M<br<16M, 30%
+    set /a BIT=500483
+) else if %SRC_PIX% leq 112320 (   rem 12M<br<16M, 30%
+    set /a BIT=532503
+) else if %SRC_PIX% leq 120000 (   rem 12M<br<16M, 30%
+    set /a BIT=560501
+) else if %SRC_PIX% leq 128000 (   rem 12M<br<16M, 30%
+    set /a BIT=589240
+) else if %SRC_PIX% leq 153600 (   rem 12M<br<16M, 30%
+    set /a BIT=678641
+) else if %SRC_PIX% leq 153600 (   rem 12M<br<16M, 30%
+    set /a BIT=678641
+) else if %SRC_PIX% leq 168960 (   rem 12M<br<16M, 30%
+    set /a BIT=730651
+) else if %SRC_PIX% leq 168960 (   rem 12M<br<16M, 30%
+    set /a BIT=730651
+) else if %SRC_PIX% leq 202752 (   rem 12M<br<16M, 30%
+    set /a BIT=841506
+) else if %SRC_PIX% leq 202752 (   rem 12M<br<16M, 30%
+    set /a BIT=841506
+) else if %SRC_PIX% leq 224000 (
+     set /a BIT=909058    
+) else if %SRC_PIX% leq 230400 (
+     set /a BIT=929118    
+) else if %SRC_PIX% leq 307200 (
+     set /a BIT=1161100    
+) else if %SRC_PIX% leq 337920 (
+     set /a BIT=1250085    
+) else if %SRC_PIX% leq 345600 (
+     set /a BIT=1272042    
+) else if %SRC_PIX% leq 368640 (
+     set /a BIT=1337264    
+) else if %SRC_PIX% leq 384000 (
+     set /a BIT=1380235    
+) else if %SRC_PIX% leq 405504 (
+     set /a BIT=1439750    
+) else if %SRC_PIX% leq 407040 (
+     set /a BIT=1443974    
+) else if %SRC_PIX% leq 409920 (
+     set /a BIT=1451883    
+) else if %SRC_PIX% leq 414720 (
+     set /a BIT=1465038    
+) else if %SRC_PIX% leq 460800 (
+     set /a BIT=1589646    
+) else if %SRC_PIX% leq 480000 (
+     set /a BIT=1640726    
+) else if %SRC_PIX% leq 518400 (
+     set /a BIT=1741534    
+) else if %SRC_PIX% leq 552960 (
+     set /a BIT=1830829    
+) else if %SRC_PIX% leq 589824 (
+     set /a BIT=1924703    
+) else if %SRC_PIX% leq 614400 (
+     set /a BIT=1986550    
+) else if %SRC_PIX% leq 614400 (
+     set /a BIT=1986550    
+) else if %SRC_PIX% leq 786432 (
+     set /a BIT=2405264    
+) else if %SRC_PIX% leq 912384 (
+     set /a BIT=2698662    
+) else if %SRC_PIX% leq 921600 (
+     set /a BIT=2719757    
+) else if %SRC_PIX% leq 983040 (
+     set /a BIT=2859210    
+) else if %SRC_PIX% leq 995328 (
+     set /a BIT=2886862    
+) else if %SRC_PIX% leq 1024000 (
+     set /a BIT=2951086    
+) else if %SRC_PIX% leq 1049088 (
+     set /a BIT=3006950    
+) else if %SRC_PIX% leq 1228800 (
+     set /a BIT=3398829    
+) else if %SRC_PIX% leq 1296000 (
+     set /a BIT=3541970    
+) else if %SRC_PIX% leq 1310720 (
+     set /a BIT=3573100    
+) else if %SRC_PIX% leq 1440000 (
+     set /a BIT=3843232    
+) else if %SRC_PIX% leq 1470000 (
+     set /a BIT=3905121    
+) else if %SRC_PIX% leq 1555200 (
+     set /a BIT=4079363    
+) else if %SRC_PIX% leq 1622016 (
+     set /a BIT=4214505    
+) else if %SRC_PIX% leq 1638400 (
+     set /a BIT=4247451    
+) else if %SRC_PIX% leq 1764000 (
+     set /a BIT=4497612    
+) else if %SRC_PIX% leq 1920000 (
+     set /a BIT=4802813    
+) else if %SRC_PIX% leq 2073600 (
+     set /a BIT=5097902    
+) else if %SRC_PIX% leq 2211840 (
+     set /a BIT=5359291    
+) else if %SRC_PIX% leq 2304000 (
+     set /a BIT=5531503    
+) else if %SRC_PIX% leq 2359296 (
+     set /a BIT=5634083    
+) else if %SRC_PIX% leq 2457600 (
+     set /a BIT=5815124    
+) else if %SRC_PIX% leq 2592000 (
+     set /a BIT=6060029    
+) else if %SRC_PIX% leq 2688000 (
+     set /a BIT=6233208    
+) else if %SRC_PIX% leq 2764800 (
+     set /a BIT=6370750    
+) else if %SRC_PIX% leq 3145728 (
+     set /a BIT=7040805    
+) else if %SRC_PIX% leq 3686400 (
+     set /a BIT=7961404    
+) else if %SRC_PIX% leq 3686400 (
+     set /a BIT=7961404    
+) else if %SRC_PIX% leq 4085760 (
+     set /a BIT=8621822    
+) else if %SRC_PIX% leq 4096000 (
+     set /a BIT=8638559    
+) else if %SRC_PIX% leq 4953600 (
+     set /a BIT=10009382    
+) else if %SRC_PIX% leq 5038848 (
+     set /a BIT=10142584    
+) else if %SRC_PIX% leq 5184000 (
+     set /a BIT=10368225    
+) else if %SRC_PIX% leq 5242880 (
+     set /a BIT=10459349    
+) else if %SRC_PIX% leq 5760000 (
+     set /a BIT=11250092    
+) else if %SRC_PIX% leq 5880000 (
+     set /a BIT=11431258    
+) else if %SRC_PIX% leq 6000000 (
+     set /a BIT=11611594    
+) else if %SRC_PIX% leq 6144000 (
+     set /a BIT=11826928    
+) else if %SRC_PIX% leq 6291456 (
+     set /a BIT=12046256    
+) else if %SRC_PIX% leq 6553600 (
+     set /a BIT=12433341    
+) else if %SRC_PIX% leq 7372800 (
+     set /a BIT=13621327    
+) else if %SRC_PIX% leq 7680000 (
+     set /a BIT=14059024    
+) else if %SRC_PIX% leq 8294400 (
+     set /a BIT=14922822    
+) else if %SRC_PIX% leq 8847360 (
+     set /a BIT=15687974    
+) else if %SRC_PIX% leq 9216000 (
+     set /a BIT=16192079    
+) else if %SRC_PIX% leq 11059200 (
+     set /a BIT=18648764    
+) else if %SRC_PIX% leq 12000000 (
+     set /a BIT=19866510    
+) else if %SRC_PIX% leq 12582912 (
+     set /a BIT=20610182    
+) else if %SRC_PIX% leq 14745600 (
+     set /a BIT=23305002    
+) else if %SRC_PIX% leq 16384000 (
+     set /a BIT=25287203    
+) else if %SRC_PIX% leq 20358144 (
+     set /a BIT=29920991    
+) else if %SRC_PIX% leq 20971520 (
+     set /a BIT=30617105    
+) else if %SRC_PIX% leq 26214400 (
+     set /a BIT=36395470    
+) else if %SRC_PIX% leq 30720000 (
+     set /a BIT=41154247    
+) else if %SRC_PIX% leq 33177600 (
+     set /a BIT=43682800    
+) else if %SRC_PIX% leq 35389440 (
+     set /a BIT=45922587    
+) else if %SRC_PIX% leq 36864000 (
+     set /a BIT=47398228    
+) else if %SRC_PIX% leq 44236800 (
+     set /a BIT=54589555    
+) else if %SRC_PIX% leq 67108864 (
+     set /a BIT=75394630    
+) else if %SRC_PIX% leq 132710400 (
+     set /a BIT=127870381    
+) else if %SRC_PIX% leq 141557760 (
+     set /a BIT=134426794    
+) else (   rem > 16M, 25%
+    echo "Manual handle it"
+    exit /b 1
 )
-
 
 echo TARGET_BITRATE=%BIT%
 set TARGET_BITRATE=%BIT%
@@ -374,7 +365,7 @@ set "percentage="
 
 ::if defined TARGET_BITRATE (
     set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
-    echo percentage=%percentage%%%
+    ::echo percentage=%percentage%%%
     ::set /a tmp=%TARGET_BITRATE%*100
     ::echo tmp=%tmp%
     ::call :numOK "%tmp%" %SRC_BITRATE% percentage
@@ -382,17 +373,20 @@ set "percentage="
     echo percentage=%percentage%%%
 ::)
 
-:: if %percentage% gtr 100 (
-::    exit /b 0
-::)
+if %percentage% gtr 100 (
+   echo bitrate too low, no need to compress
+   exit /b 2
+)
 
-pause
+::pause
 
 
 SET /P BIT=请输入输出码率(如128k,不输入则保持默认):
 ::IF DEFINED BIT SET "RUN_COM=%RUN_COM% -b %BIT%"
 if not defined BIT set BIT=2.58M
 echo BITRATE=%BIT%
+::pause
+
 if defined BIT set "RUN_COM=%RUN_COM% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 SET /P OUT=请输入输出文件(如output.mp4,不输入则输出output.mp4):
 IF NOT DEFINED OUT SET OUT=output.mp4
@@ -419,9 +413,9 @@ exit /b 0
 :numOK
 setlocal EnableDelayedExpansion
 set numA=%~1
-echo numA=%numA%
+::echo numA=%numA%
 set numB=%~2
-echo numB=%numB%
+::echo numB=%numB%
 
 set decimals=4
 set /A one=1, decimalsP1=decimals+1
@@ -437,13 +431,13 @@ set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA*one/fpB
 ::echo %numA% * %numB% = !mul:~0,-%decimals%!.!mul:~-%decimals%!
 ::echo %numA% / %numB% = !div:~0,-%decimals%!.!div:~-%decimals%!
 
-echo fpA=!fpA!
-echo one=!one!
-echo fpB=!fpB!
-echo div=!div!
+::echo fpA=!fpA!
+::echo one=!one!
+::echo fpB=!fpB!
+::echo div=!div!
 ::set /a ret = !div:~0,-%decimals%!
 set /a ret = !div!
-echo ret=%ret%
+::echo ret=%ret%
 endlocal & set /a %~3=%ret%
 exit /b 0
 
