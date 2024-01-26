@@ -148,17 +148,17 @@ if /i %SRC_CODEC%==h264  (
         set /a BIT=SRC_BITRATE*50/100
     ) else if %SRC_BITRATE% lss 6011836 (   rem Xmax*45%=2.58M
         set /a BIT=SRC_BITRATE*45/100
-    ) else if %SRC_BITRATE% lss 6763315 (   rem Xmax*40%=2.58M
+    ) else if %SRC_BITRATE% lss 6763315 (   rem 5M<br<5M, 45%
         set /a BIT=SRC_BITRATE*40/100
-    ) else if %SRC_BITRATE% lss 7729503 (   rem Xmax*35%=2.58M
+    ) else if %SRC_BITRATE% lss 7729503 (   rem 5M<br<7.5M, 45%
         set /a BIT=SRC_BITRATE*35/100
-    ) else if %SRC_BITRATE% lss 9017753 (   rem Xmax*30%=2.58M
+    ) else if %SRC_BITRATE% lss 9017753 (   rem 7.5M<br<10M, 40%
         set /a BIT=SRC_BITRATE*30/100
-    ) else if %SRC_BITRATE% lss 10821304 (   rem Xmax*25%=2.58M
+    ) else if %SRC_BITRATE% lss 10821304 (   rem 10M<br<12M, 35%
         set /a BIT=SRC_BITRATE*25/100
-    ) else if %SRC_BITRATE% lss 10821304 (   rem Xmax*25%=2.58M
+    ) else if %SRC_BITRATE% lss 16777216 (   rem 12M<br<16M, 30%
         set /a BIT=SRC_BITRATE*25/100
-    ) else (   rem 
+    ) else (   rem > 16M, 25%
         echo here
         set /a BIT=SRC_BITRATE*25/100
     )
@@ -189,10 +189,15 @@ set "percentage="
 ::)
 
 
-if defined TARGET_BITRATE (
+::if defined TARGET_BITRATE (
     set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
     echo percentage=%percentage%%%
-)
+    ::set /a tmp=%TARGET_BITRATE%*100
+    ::echo tmp=%tmp%
+    ::call :numOK "%tmp%" %SRC_BITRATE% percentage
+    call :numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
+    echo percentage=%percentage%%%
+::)
 
 pause
 
@@ -223,6 +228,38 @@ exit /b 0
 ::        set /a %1_%%i = DBI_Digit / %2
 ::    )
 ::    goto :EOF
+
+:numOK
+setlocal EnableDelayedExpansion
+set numA=%~1
+echo numA=%numA%
+set numB=%~2
+echo numB=%numB%
+
+set decimals=4
+set /A one=1, decimalsP1=decimals+1
+::for /L %%i in (1,1,%decimals%) do set "one=!one!0"
+for /L %%i in (1,1,2) do set "one=!one!0"
+
+set "fpA=%numA:.=%"
+set "fpB=%numB:.=%"
+set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA*one/fpB
+
+::echo %numA% + %numB% = !add:~0,-%decimals%!.!add:~-%decimals%!
+::echo %numA% - %numB% = !sub:~0,-%decimals%!.!sub:~-%decimals%!
+::echo %numA% * %numB% = !mul:~0,-%decimals%!.!mul:~-%decimals%!
+::echo %numA% / %numB% = !div:~0,-%decimals%!.!div:~-%decimals%!
+
+echo fpA=!fpA!
+echo one=!one!
+echo fpB=!fpB!
+echo div=!div!
+::set /a ret = !div:~0,-%decimals%!
+set /a ret = !div!
+echo ret=%ret%
+endlocal & set /a %~3=%ret%
+exit /b 0
+
 
 
 :NO_PATH_ERR
