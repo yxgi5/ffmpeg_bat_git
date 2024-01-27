@@ -17,17 +17,21 @@ if not defined FFMPEG_PATH goto NO_PATH_ERR
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
-
-::echo SRC_FILE=%SRC_FILE%
-IF [%1] NEQ [] SET SRC_FILE=%1
-IF NOT DEFINED SRC_FILE SET /P SRC_FILE=请输入待压缩视频地址:
-SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
+SET SRC_FILE=%1
+IF [%1] NEQ [] (
+echo SRC_FILE=%SRC_FILE%
+echo Aaaaaaaa=%RUN_COM%
+) else (
+SET /P SRC_FILE=请输入待压缩视频地址:
+)
+SET "RUN_COM=%RUN_COM% -i %SRC_FILE%"
+echo BbbbbbBbbbbb=%RUN_COM%
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
 ::IF DEFINED RES SET "RUN_COM=%RUN_COM% -s %RES%"
 ::SET /P FPS=请输入输出帧率(如15,不输入则保持默认):
 ::IF DEFINED FPS SET "RUN_COM=%RUN_COM% -r %FPS%"
 
-set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "%SRC_FILE%""
+set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE%"
 ::echo SRC_CODEC=%SRC_CODEC%
 
 ::set /p SRC_CODEC1=%SRC_CODEC%
@@ -53,7 +57,7 @@ for /f "delims=" %%i in ('"%SRC_CODEC%"') do set SRC_CODEC=%%i
 echo SRC_CODEC=%SRC_CODEC%
 ::pause
 
-set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate "%SRC_FILE%""
+set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate %SRC_FILE%"
 for /f "delims=" %%i in ('"%SRC_FRAMERATE%"') do set SRC_FRAMERATE=%%i
 echo SRC_FRAMERATE=%SRC_FRAMERATE%
 
@@ -64,7 +68,7 @@ if %SRC_FRAMERATE% gtr 31 (
 ::pause
 
 set count=1
-set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
+set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%"
 
 ::for /f "delims=" %%i in ('"%SRC_ROSOLUTION%"') do (
 ::set VAR=%%i
@@ -139,7 +143,7 @@ set /a SRC_PIX=%SRC_W%*%SRC_H%
 echo SRC_PIX=%SRC_PIX%
 ::pause
 
-set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%SRC_FILE%""
+set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x %SRC_FILE%"
 for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 echo SRC_BITRATE=%SRC_BITRATE%
 if %SRC_PIX% leq 12288 (
@@ -390,7 +394,7 @@ echo BITRATE=%BIT%
 if defined BIT set "RUN_COM=%RUN_COM% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 
 ::echo %SRC_FILE%
-if defined SRC_FILE call :extract "%SRC_FILE%" TARGET_PATH TARGET_NAME
+if defined SRC_FILE call :extract %SRC_FILE% TARGET_PATH TARGET_NAME
 echo %TARGET_PATH%%TARGET_NAME%
 set TARGET_FILE=%TARGET_PATH%%TARGET_NAME%
 ::goto :eof
