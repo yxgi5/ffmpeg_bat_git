@@ -434,8 +434,13 @@ echo TARGET_FILE=%TARGET_FILE%
 SET "RUN_COM=%RUN_COM% "%TARGET_FILE%""
 echo RUN_COM:%RUN_COM%
 %RUN_COM%
+IF %ERRORLEVEL% NEQ 0 ( 
+   echo 转换已完成
+) else (
+   echo 转换已取消
+)
 ::echo.
-echo 转换已完成
+
 
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
