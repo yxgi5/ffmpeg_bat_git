@@ -17,11 +17,17 @@ if not defined FFMPEG_PATH goto NO_PATH_ERR
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
+SET SRC_FILE=%~1
+::echo %SRC_FILE:~0,1%
 
-::echo SRC_FILE=%SRC_FILE%
-IF [%1] NEQ [] SET SRC_FILE=%1
-IF NOT DEFINED SRC_FILE SET /P SRC_FILE=请输入待压缩视频地址:
+IF [%1] NEQ [] (
+echo SRC_FILE="%SRC_FILE%"
+echo Aaaaaaaa=%RUN_COM%
+) else (
+SET /P SRC_FILE=请输入待压缩视频地址:
+)
 SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
+echo BbbbbbBbbbbb=%RUN_COM%
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
 ::IF DEFINED RES SET "RUN_COM=%RUN_COM% -s %RES%"
 ::SET /P FPS=请输入输出帧率(如15,不输入则保持默认):
@@ -49,18 +55,28 @@ rem cmd 'cd'== linux 'pwd'
 ::echo SRC_CODEC1=%SRC_CODEC1%
 ::pause
 
-for /f "delims=" %%i in ('"%SRC_CODEC%"') do set SRC_CODEC=%%i
+%SRC_CODEC% > "temp"
+set /p SRC_CODEC=<"temp"
+del "temp"
+::for /f "delims=" %%i in ('"%SRC_CODEC%"') do set SRC_CODEC=%%i
 echo SRC_CODEC=%SRC_CODEC%
 ::pause
 
 set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate "%SRC_FILE%""
-for /f "delims=" %%i in ('"%SRC_FRAMERATE%"') do set SRC_FRAMERATE=%%i
+::for /f "delims=" %%i in ('"%SRC_FRAMERATE%"') do set SRC_FRAMERATE=%%i
+%SRC_FRAMERATE% > "temp"
+set /p SRC_FRAMERATE=<"temp"
+del "temp"
 echo SRC_FRAMERATE=%SRC_FRAMERATE%
+set /a SRC_FRAMERATE=%SRC_FRAMERATE%
+::echo SRC_FRAMERATE=%SRC_FRAMERATE%
 
 if %SRC_FRAMERATE% gtr 31 (
-    SET "RUN_COM=%RUN_COM% -r 30"
+    SET RUN_COM=%RUN_COM% -r 30
     echo TEAR DOWN TARGET FRAME RATE TO 30
+    echo cccccccccc=%RUN_COM%
 )
+::goto :eof
 ::pause
 
 set count=1
@@ -119,10 +135,12 @@ set "SRC_W=0"
 set "SRC_H=0"
 setlocal EnableDelayedExpansion
 set "output_cnt=0"
-for /F "delims=" %%f in ('"%SRC_ROSOLUTION%"') do (
+%SRC_ROSOLUTION% >  "temp.txt"
+for /F "delims=" %%f in (temp.txt) do (
     set /a output_cnt+=1
     set "output[!output_cnt!]=%%f"
 )
+del "temp.txt"
 ::for /L %%n in (1 1 !output_cnt!) DO (
 ::echo %%n
 ::echo !output[%%n]!
@@ -140,7 +158,11 @@ echo SRC_PIX=%SRC_PIX%
 ::pause
 
 set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%SRC_FILE%""
-for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
+::for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
+%SRC_BITRATE% > "temp"
+set /p SRC_BITRATE=<"temp"
+del "temp"
+
 echo SRC_BITRATE=%SRC_BITRATE%
 if %SRC_PIX% leq 12288 (
     set /a BIT=95892
@@ -345,6 +367,10 @@ if %SRC_PIX% leq 12288 (
     exit /b 1
 )
 
+if not defined BIT (
+    exit /b 2
+)
+
 ::echo TARGET_BITRATE=%BIT%
 set TARGET_BITRATE=%BIT%
 echo TARGET_BITRATE=%TARGET_BITRATE%
@@ -375,16 +401,16 @@ set "percentage="
 
 if %percentage% gtr 100 (
    echo bitrate too low, no need to compress
-   exit /b 2
+   exit /b 3
 )
 
 ::pause
 
 
-SET /P BIT=请输入输出码率(如128k,不输入则保持默认):
+IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如128k,不输入则保持默认):
 ::IF DEFINED BIT SET "RUN_COM=%RUN_COM% -b %BIT%"
-if not defined BIT set BIT=2.58M
-echo BITRATE=%BIT%
+::if not defined BIT set BIT=2.58M
+echo TARGET_BITRATE=%BIT%
 ::pause
 
 if defined BIT set "RUN_COM=%RUN_COM% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
@@ -401,7 +427,7 @@ set TARGET_FILE=%TARGET_PATH%%TARGET_NAME%
 ::pause
 ::goto :eof
 
-SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
+IF not [%1] NEQ [] SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
 IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
@@ -410,6 +436,14 @@ echo RUN_COM:%RUN_COM%
 %RUN_COM%
 ::echo.
 echo 转换已完成
+
+echo SRC_W=%SRC_W%
+echo SRC_H=%SRC_H%
+echo SRC_PIX=%SRC_PIX%
+echo SRC_BITRATE=%SRC_BITRATE%
+echo TARGET_BITRATE=%TARGET_BITRATE%
+echo percentage=%percentage%
+
 ::echo 正在打开输出文件
 ::%TARGET_FILE%
 pause
