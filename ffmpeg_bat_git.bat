@@ -21,11 +21,11 @@ SET SRC_FILE=%~1
 ::echo %SRC_FILE:~0,1%
 
 IF [%1] NEQ [] (
-echo SRC_FILE="%SRC_FILE%"
 echo Aaaaaaaa=%RUN_COM%
 ) else (
 SET /P SRC_FILE=请输入待压缩视频地址:
 )
+echo SRC_FILE="%SRC_FILE%"
 SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
 echo BbbbbbBbbbbb=%RUN_COM%
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
@@ -157,13 +157,39 @@ set /a SRC_PIX=%SRC_W%*%SRC_H%
 echo SRC_PIX=%SRC_PIX%
 ::pause
 
+set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
+echo SRC_SIZE=%SRC_SIZE%
+%SRC_SIZE% > "size"
+set /p SRC_SIZE=<"size"
+del "size"
+echo SRC_SIZE=%SRC_SIZE%
+
+set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
+%SRC_DURATION% > "duration"
+set /p SRC_DURATION=<"duration"
+del "duration"
+echo SRC_DURATION=%SRC_DURATION%
+
+
+
 set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%SRC_FILE%""
 ::for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 %SRC_BITRATE% > "temp"
 set /p SRC_BITRATE=<"temp"
 del "temp"
-
 echo SRC_BITRATE=%SRC_BITRATE%
+
+IF %ERRORLEVEL% NEQ 0 ( 
+echo ddddddddddd
+echo SRC_BITRATE=%SRC_BITRATE%
+) else (
+echo eeeeeeeeeee
+::set /a SRC_BITRATE=8 * %SRC_SIZE% / %SRC_DURATION%
+call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+)
+echo SRC_BITRATE=%SRC_BITRATE%
+::pause
+
 if %SRC_PIX% leq 12288 (
     set /a BIT=95892
 ) else if %SRC_PIX% leq 19200 (
@@ -431,17 +457,26 @@ IF not [%1] NEQ [] SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到
 IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
-SET "RUN_COM=%RUN_COM% "%TARGET_FILE%""
+
 echo RUN_COM:%RUN_COM%
-%RUN_COM%
-IF %ERRORLEVEL% NEQ 0 ( 
-   echo 转换已完成
+rem handler name with ) (   call set 
+IF not [%1] NEQ [] (
+    call SET "RUN_COM=%%RUN_COM%% -xerror -abort_on empty_output "%%TARGET_FILE%%""
 ) else (
-   echo 转换已取消
+    call SET "RUN_COM=%%RUN_COM%% -xerror -abort_on empty_output -n "%%TARGET_FILE%%""
+)
+
+echo RUN_COM:%RUN_COM%
+echo fffffffff
+::pause
+%RUN_COM%
+::echo %ERRORLEVEL%
+IF %ERRORLEVEL% NEQ 0 ( 
+   echo 转换出错
+) else (
+   echo 转换已取消或完成
 )
 ::echo.
-
-
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
 echo SRC_PIX=%SRC_PIX%
@@ -491,6 +526,30 @@ set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA*one/fpB
 ::echo div=!div!
 ::set /a ret = !div:~0,-%decimals%!
 set /a ret = !div!
+::echo ret=%ret%
+endlocal & set /a %~3=%ret%
+exit /b 0
+
+:calc_bitrate_fromsize
+setlocal EnableDelayedExpansion
+set numA=%~1
+::echo numA=%numA%
+set numB=%~2
+::echo numB=%numB%
+
+set decimals=1
+set /A one=1, decimalsP1=decimals+1
+::for /L %%i in (1,1,%decimals%) do set "one=!one!0"
+for /L %%i in (1,1,1) do set "one=!one!0"
+
+set "fpA=%numA:.=%"
+::echo !fpA!
+set "fpB=%numB:~0%"
+::echo !fpB!
+set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA/fpB
+
+::echo %numA% / %numB% = !div!
+set /a ret = 8*!div!
 ::echo ret=%ret%
 endlocal & set /a %~3=%ret%
 exit /b 0
