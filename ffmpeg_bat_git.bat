@@ -187,8 +187,8 @@ set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrap
 set /p SRC_BITRATE=<"temp"
 del "temp"
 echo SRC_BITRATE=%SRC_BITRATE%
-
-IF %ERRORLEVEL% NEQ 0 ( 
+set /a SRC_BITRATE=%SRC_BITRATE%
+IF not %ERRORLEVEL% NEQ 0  if %SRC_BITRATE% GTR 0 ( 
 echo ddddddddddd
 echo SRC_BITRATE=%SRC_BITRATE%
 ) else (
