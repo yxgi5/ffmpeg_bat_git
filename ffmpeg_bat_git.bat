@@ -25,9 +25,15 @@ echo Aaaaaaaa=%RUN_COM%
 ) else (
 SET /P SRC_FILE=请输入待压缩视频地址:
 )
+
+IF not defined SRC_FILE (
+    echo 没有输入文件
+    exit /b 1
+)
+
 set SRC_FILE=%SRC_FILE:"=%
 echo SRC_FILE="%SRC_FILE%"
-pause
+::pause
 
 SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
 echo BbbbbbBbbbbb=%RUN_COM%
@@ -393,11 +399,11 @@ if %SRC_PIX% leq 12288 (
      set /a BIT=134426794    
 ) else (   rem > 16M, 25%
     echo "Manual handle it"
-    exit /b 1
+    exit /b 2
 )
 
 if not defined BIT (
-    exit /b 2
+    exit /b 3
 )
 
 ::echo TARGET_BITRATE=%BIT%
@@ -430,7 +436,12 @@ set "percentage="
 
 if %percentage% gtr 100 (
    echo bitrate too low, no need to compress
-   exit /b 3
+   exit /b 4
+)
+
+if %percentage% lss 0 (
+   echo bitrate unnomal, please check
+   exit /b 5
 )
 
 ::pause
@@ -489,7 +500,7 @@ echo percentage=%percentage%
 
 ::echo 正在打开输出文件
 ::%TARGET_FILE%
-pause
+::IF not [%1] NEQ [] pause
 exit /b 0
 
 :::DivideByInteger

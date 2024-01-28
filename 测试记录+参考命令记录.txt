@@ -1,0 +1,124 @@
+
+
+for /f "delims=" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov""') do set SRC_CODEC=%i
+
+
+for /f "delims=" %i in ('"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）\2016-02-10 100206.mov"') do set SRC_CODEC=%i
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）\2016-02-10 100206.mov"
+
+for /f "tokens=*" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）\2016-02-10 100206.mov""') do set SRC_CODEC=%i
+
+
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "J:\porno\车展走秀\a (14).mkv"
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "J:\porno\车展走秀\a (14).mkv"
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -print_format ini -select_streams v:0 -show_entries stream=duration -of csv=p=0:s=x "J:\porno\车展走秀\a (14).mkv"
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "J:\porno\车展走秀\a (14).mkv"
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -show_entries format=size -of default=noprint_wrappers=1:nokey=1 "J:\porno\车展走秀\a (14).mkv"
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 "J:\porno\车展走秀\a (14).mkv"
+
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -hide_banner -of default=noprint_wrappers=0 "J:\porno\车展走秀\a (14).mkv"
+
+
+"C:\Program Files\ffmpeg\bin\ffmpeg.exe" -v error -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output -n "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov" - >error.log 2>&1
+
+"C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output -n "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov" - >stdout.log  2>error.log
+
+
+	var sss = make([]string, 0)
+	sss = append(sss,
+		"-re",
+		"-i", "path/source/video.mp4",
+		"-map", "0",
+		"-c:a", "aac",
+		"-c:v", "libx264",
+		"-b:v:0", "750k",
+		"-s:v:0", "640x360",
+		"-vf:v:0", "scale=-1:360",
+		//"filter:v",       "fps=24",
+		"-profile:v:0", "main",
+		"-bf", "1",
+		"-keyint_min", "120",
+		"-g", "120",
+		"-sc_threshold", "0",
+		"-b_strategy", "0",
+		"-ar:a:0", "22050",
+		"-use_timeline", "1",
+		"-use_template", "1",
+		"-window_size", "5",
+		"-adaptation_sets", "\"id=0,streams=v id=1,streams=a\"",
+		"-f", "dash",
+		"/path/out.mpd",
+	)
+	command := exec.Command("ffmpeg",
+		sss...,
+	)
+        ffmt.Println(command.String())
+	output, err := command.CombinedOutput()
+	fmt.Println(string(output))
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+
+"C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov"
+
+cmd /c ""C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov"" &  echo %ERRORLEVEL%
+
+cmd /c ""C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov" 2>&1"
+
+for /f delims^=^ eol^= %i in ('""C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov""') do set VAR=%i
+echo %VAR%
+
+cmd.exe /c ""C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov"" 
+echo %ERRORLEVEL%
+
+
+"C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 678641  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -xerror -abort_on empty_output -loglevel error "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓-compressed.mov"
+
+
+
+
+
+
+
+
+
+交互传入文件名为空
+.\ffmpeg_bat_git.bat
+
+
+文件名含括号, 无引号交互传入
+.\ffmpeg_bat_git.bat
+J:\porno\车展走秀\a (14).mkv
+
+
+文件名含括号, 有引号参数传入
+.\ffmpeg_bat_git.bat "J:\porno\车展走秀\a (14).mkv"
+
+
+文件名含括号, 有引号交互传入
+.\ffmpeg_bat_git.bat
+"J:\porno\车展走秀\a (14).mkv"
+
+
+测试 too low
+参数式
+.\ffmpeg_bat_git.bat "D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）\2016-02-10 100206.mov"
+
+交互式1
+.\ffmpeg_bat_git.bat
+D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）\2016-02-10 100206.mov
+
+交互式2
+.\ffmpeg_bat_git.bat
+"D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）\2016-02-10 100206.mov"
+
+
+文件路径空格测试
+.\ffmpeg_bat_git.bat "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov"
