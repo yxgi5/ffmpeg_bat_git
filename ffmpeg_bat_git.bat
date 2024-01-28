@@ -25,7 +25,10 @@ echo Aaaaaaaa=%RUN_COM%
 ) else (
 SET /P SRC_FILE=请输入待压缩视频地址:
 )
+set SRC_FILE=%SRC_FILE:"=%
 echo SRC_FILE="%SRC_FILE%"
+pause
+
 SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
 echo BbbbbbBbbbbb=%RUN_COM%
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
