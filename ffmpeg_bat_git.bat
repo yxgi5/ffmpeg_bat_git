@@ -19,13 +19,18 @@ if not defined FFMPEG_PATH goto NO_PATH_ERR
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
-SET SRC_FILE=%~1
+SET "SRC_FILE="
+
+if [%1] neq [] (
+    echo aaaaaaaa
+    SET SRC_FILE=%1
+)
+rem cut string
 ::echo %SRC_FILE:~0,1%
 
-IF [%1] NEQ [] (
-echo Aaaaaaaa=%RUN_COM%
-) else (
-SET /P SRC_FILE=请输入待压缩视频地址:
+if not defined SRC_FILE (
+    echo bbbbbbbb
+    SET /P SRC_FILE=请输入待压缩视频地址:
 )
 
 IF not defined SRC_FILE (
@@ -33,18 +38,21 @@ IF not defined SRC_FILE (
     exit /b 1
 )
 
-set SRC_FILE=%SRC_FILE:"=%
-echo SRC_FILE="%SRC_FILE%"
+set SRC_FILE="%SRC_FILE:"=%"
+
+echo SRC_FILE:%SRC_FILE%
 ::pause
 
-SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
-echo BbbbbbBbbbbb=%RUN_COM%
+SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&%"
+echo cccccccc
+echo RUN_COM0=%RUN_COM%
+
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
 ::IF DEFINED RES SET "RUN_COM=%RUN_COM% -s %RES%"
 ::SET /P FPS=请输入输出帧率(如15,不输入则保持默认):
 ::IF DEFINED FPS SET "RUN_COM=%RUN_COM% -r %FPS%"
 
-set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "%SRC_FILE%""
+set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE:&=^&%"
 ::echo SRC_CODEC=%SRC_CODEC%
 
 ::set /p SRC_CODEC1=%SRC_CODEC%
@@ -67,6 +75,7 @@ rem cmd 'cd'== linux 'pwd'
 ::pause
 
 %SRC_CODEC% > "temp"
+
 set /p SRC_CODEC=<"temp"
 del "temp"
 ::for /f "delims=" %%i in ('"%SRC_CODEC%"') do set SRC_CODEC=%%i
@@ -74,7 +83,7 @@ echo SRC_CODEC=%SRC_CODEC%
 ::pause
 
 ::set "SRC_FRAMERATE="
-set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate "%SRC_FILE%""
+set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate %SRC_FILE:&=^&%"
 ::for /f "delims=" %%i in ('"%SRC_FRAMERATE%"') do set SRC_FRAMERATE=%%i
 %SRC_FRAMERATE% > "temp"
 set /p SRC_FRAMERATE=<"temp"
@@ -86,14 +95,15 @@ set /a SRC_FRAMERATE=%SRC_FRAMERATE%
 if %SRC_FRAMERATE% gtr 31 (
     SET RUN_COM=%RUN_COM% -r 30
     echo TEAR DOWN TARGET FRAME RATE TO 30
-    echo cccccccccc=%RUN_COM%
+    echo dddddddd
+    echo RUN_COM=%RUN_COM%
 )
 ::goto :eof
 ::pause
 
 set count=1
 ::set "SRC_ROSOLUTION="
-set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
+set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
 
 ::for /f "delims=" %%i in ('"%SRC_ROSOLUTION%"') do (
 ::set VAR=%%i
@@ -172,14 +182,14 @@ set /a SRC_PIX=%SRC_W%*%SRC_H%
 echo SRC_PIX=%SRC_PIX%
 ::pause
 
-set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
-echo SRC_SIZE=%SRC_SIZE%
+set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
+::echo SRC_SIZE=%SRC_SIZE%
 %SRC_SIZE% > "size"
 set /p SRC_SIZE=<"size"
 del "size"
 echo SRC_SIZE=%SRC_SIZE%
 
-set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
+set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
 %SRC_DURATION% > "duration"
 set /p SRC_DURATION=<"duration"
 del "duration"
@@ -187,26 +197,23 @@ echo SRC_DURATION=%SRC_DURATION%
 
 
 ::set "SRC_BITRATE="
-set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%SRC_FILE%""
+set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x %SRC_FILE:&=^&%"
 ::for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 %SRC_BITRATE% > "temp"
 set /p SRC_BITRATE=<"temp"
 del "temp"
-echo SRC_BITRATE=%SRC_BITRATE%
+::echo SRC_BITRATE0=%SRC_BITRATE%
 set /a SRC_BITRATE=%SRC_BITRATE%
 IF not %ERRORLEVEL% NEQ 0 ( 
-  if %SRC_BITRATE% GTR 0 (
-     echo ddddddddddd
-     echo SRC_BITRATE=%SRC_BITRATE%
-  ) else (
-     echo eeeeeeeeeee
+  if %SRC_BITRATE% == 0 (
+     echo eeeeeeee
      ::set /a SRC_BITRATE=8 * %SRC_SIZE% / %SRC_DURATION%
      call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
   )
 ) else (
-echo fffffffff
-::set /a SRC_BITRATE=8 * %SRC_SIZE% / %SRC_DURATION%
-call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+    echo fffffffff
+    ::set /a SRC_BITRATE=8 * %SRC_SIZE% / %SRC_DURATION%
+    call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
 )
 echo SRC_BITRATE=%SRC_BITRATE%
 ::pause
@@ -465,13 +472,15 @@ IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如128k,不输入则保持默认):
 ::if not defined BIT set BIT=2.58M
 echo TARGET_BITRATE=%BIT%
 ::pause
+::echo RUN_COM0:%RUN_COM%
+if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
+echo RUN_COM1:%RUN_COM%
 
-if defined BIT set "RUN_COM=%RUN_COM% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
-
-::echo %SRC_FILE%
-if defined SRC_FILE call :extract "%SRC_FILE%" TARGET_PATH TARGET_NAME
-echo %TARGET_PATH%%TARGET_NAME%
-set TARGET_FILE=%TARGET_PATH%%TARGET_NAME%
+echo.
+echo SRC_FILE:%SRC_FILE%
+if defined SRC_FILE call :extract %SRC_FILE% TARGET_PATH TARGET_NAME
+set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
+echo TARGET_FILE:%TARGET_FILE%
 ::goto :eof
 
 ::set OriginStr="C:/Demo/myproject/example.txt"
@@ -485,16 +494,17 @@ IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
-echo RUN_COM:%RUN_COM%
+echo RUN_COM2:%RUN_COM%
 rem handler name with ) (   call set 
 IF not [%1] NEQ [] (
-    call SET "RUN_COM=%%RUN_COM%% -xerror -abort_on empty_output "%%TARGET_FILE%%""
+    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output %TARGET_FILE%
 ) else (
-    call SET "RUN_COM=%%RUN_COM%% -xerror -abort_on empty_output -n "%%TARGET_FILE%%""
+    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output -n %TARGET_FILE%
 )
 
-echo RUN_COM:%RUN_COM%
+echo RUN_COM3:%RUN_COM%
 echo gggggggggg
+::goto :eof
 ::pause
 %RUN_COM%
 ::echo %ERRORLEVEL%
@@ -583,17 +593,18 @@ exit /b 0
 
 :extract
 rem 获取到文件路径
-::echo in extract()
-::echo %~dp1
-set %~2=%~dp1
+echo in extract()
+echo %~dp1
+set %~2="%~dp1"
 rem 获取到文件盘符
-::echo %~d1
+echo %~d1
 rem 获取到文件名称
-::echo %~n1
+echo "%~n1"
 rem 获取到文件后缀
-::echo %~x1
+echo %~x1
 ::set %~3=%~n1-compressed%~x1
-set %~3=%~n1-compressed.mp4
+set %~3="%~n1-compressed.mp4"
+echo "%~n1-compressed.mp4"
 exit /b 0
 
 
