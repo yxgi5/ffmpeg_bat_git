@@ -497,9 +497,9 @@ echo TARGET_FILE=%TARGET_FILE%
 echo RUN_COM2:%RUN_COM%
 rem handler name with ) (   call set 
 IF not [%1] NEQ [] (
-    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output %TARGET_FILE%
+    SET RUN_COM=%RUN_COM% %TARGET_FILE%
 ) else (
-    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output -n %TARGET_FILE%
+    SET RUN_COM=%RUN_COM% -n %TARGET_FILE%
 )
 
 echo RUN_COM3:%RUN_COM%
@@ -507,12 +507,10 @@ echo gggggggggg
 ::goto :eof
 ::pause
 %RUN_COM%
-::echo %ERRORLEVEL%
-IF %ERRORLEVEL% NEQ 0 ( 
-   echo 转换出错
-) else (
-   echo 转换已取消或完成, 默认不替换目标位置已经存在的文件, 请手动确认输出文件完整性
-)
+
+echo ERRORLEVEL:%ERRORLEVEL%
+echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完整性
+
 ::echo.
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
@@ -520,6 +518,7 @@ echo SRC_PIX=%SRC_PIX%
 echo SRC_BITRATE=%SRC_BITRATE%
 echo TARGET_BITRATE=%TARGET_BITRATE%
 echo percentage=%percentage%
+echo TARGET_FILE:%TARGET_FILE%
 
 ::echo 正在打开输出文件
 ::%TARGET_FILE%
