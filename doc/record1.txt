@@ -1,0 +1,112 @@
+```
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\ffmpeg\v0.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 2.58M -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\ffmpeg\v0_hevcqsv_2M58.mp4
+```
+=>speed 7.11x, size_out/size_in = 481/910 M, video_rate/total_rate = 2544/2678 kbps
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\ffmpeg\v0.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 1250k -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\ffmpeg\v0_hevcqsv_1250k.mp4"
+```
+=>speed 7.58x, size_out/size_in = 246/910 M, video_rate/total_rate = 1238/1372 kbps
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -cq 24 -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -fps_mode cfr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc_cfr_cq24.mp4"
+```
+=>speed 8.07x, size_out/size_in = 421/910 M, video_rate/total_rate = 2144/2342 kbps
+可以不要 -fps_mode cfr
+```
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -cq 24 -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -fps_mode cfr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc_cq24.mp4"
+```
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -global_quality 22 -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -fps_mode cfr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc_gq22.mp4"
+```
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -b:v 2.58M -g 250 -keyint_min 25 -profile:v main -preset p4 -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc-2M58_0.mp4"
+```
+=>speed 8.07x, size_out/size_in = 512/910 M, video_rate/total_rate = 2649/2847 kbps
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -b:v 2.58M -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc cbr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc-2M58_1.mp4"
+```
+=>speed 23.6x (-hwaccel cuda 比 qsv auto dxva2都要快), size_out/size_in = 498/910 M, video_rate/total_rate = 2574/2773 kbps
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel dxva2 -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -b:v 2.58M -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc cbr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc_2M58_2.mp4"
+```
+=>speed 7.91x
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -b:v 2.58M -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc cbr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc_2M58_3.mp4"
+```
+=>speed 16.2x (-hwaccel qsv 再用nvenc编码, 仅比用cuda+nvenc慢，比软解码要快)
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -b:v 2.58M -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc vbr -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_hevcnvenc-2M58_4.mp4"
+```
+size稍大
+
+
+
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc "d:\ffmpeg\v0_av1_0.mp4"
+
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -global_quality 22 "d:\ffmpeg\v0_av1_1.mp4"
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -b:v 2.58M -g 250 -keyint_min 25 -preset p4 -c:a aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\ffmpeg\v0_av1_2M58.mp4"
+```
+=>speed 19.2x
+
+```
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -b:v 2.58M -g 250 -keyint_min 25 -preset p4 -pix_fmt yuv420p -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\ffmpeg\v0_av1_2M58_1.mp4"
+```
+=>speed 17.9x
+-pix_fmt yuv420p -sws_flags bicubic 可以不要
+qsv 用 -pix_fmt nv12 -sws_flags bicubic
+可以用 -preset p4 -tune:v hq -rc cbr
+```
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -b:v 2.58M -g 250 -keyint_min 25 -preset p4 -tune:v hq -rc vbr -pix_fmt yuv420p -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\ffmpeg\v0_av1_2M58_2.mp4"
+```
+最好用cbr，默认是vbr
+```
+ffmpeg -hide_banner -threads 0 -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -b:v 2.58M -g 250 -keyint_min 25 -preset p4 -tune:v hq -rc cbr -pix_fmt yuv420p -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\ffmpeg\v0_av1_2M58_3.mp4"
+```
+
+
+
+
+ref
+
+"C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" -hide_banner -threads 0  -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -b:v 889k -map v:0 -c:a libopus -ar 48k -b:a 192k -map a:0 -pix_fmt yuv420p -sws_flags bicubic -svtav1-params "enable-force-key-frames=0" -metadata creation_time="2024-01-22T16:26:16.506697300Z" -y "d:\output-av1-2"
+
+"C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" -hide_banner -threads 0  -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v hevc_nvenc -b_ref_mode 0 -b:v 5000k -profile:v main -level 5.1 -g 250 -map v:0 -c:a aac -ar 48k -b:a 192k -map a:0 -pix_fmt yuv420p -x265-params "keyint=250" -sws_flags bicubic -tag:v hvc1 -metadata creation_time="2024-01-22T16:30:51.632238400Z" -y "D:\output-hevc_nvenc-1.mp4"
+
+"C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" -hide_banner -threads 0  -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v libsvtav1 -b:v 5000k -preset 8 -g 250 -map v:0 -c:a libopus -ar 48k -b:a 192k -map a:0 -pix_fmt yuv420p -sws_flags bicubic -svtav1-params "enable-force-key-frames=0" -metadata creation_time="2024-01-22T16:37:37.351244600Z" -y "d:\output-av1-3.mp4"
+
+"C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" -hide_banner -threads 0  -hwaccel cuda -i "D:\ffmpeg\v0.wmv" -c:v av1_nvenc -b:v 5000k -g 250 -map v:0 -c:a libopus -ar 48k -b:a 192k -map a:0 -pix_fmt yuv420p -sws_flags bicubic -svtav1-params "enable-force-key-frames=0" -metadata creation_time="2024-01-22T16:39:03.220770200Z" -y "d:\output-av1-4.mp4"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

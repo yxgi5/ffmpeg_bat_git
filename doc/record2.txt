@@ -1,0 +1,393 @@
+-q:v 0
+
+
+ffmpeg.exe -y -i input.xxx -c:v:0 hevc_qsv -b:v 2.58M? -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 30m -max_muxing_queue_size 1024 output.mp4
+
+
+ffmpeg.exe -y -i "input.xxx" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -global_quality:v 16？ -maxrate 5000k？ -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+一般 bufsize 控制比 maxrate 小大概 1/3 ~ 1/2 即可
+
+try cpr
+ffmpeg.exe -y -i "input.xxx" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -q:v 0 -maxrate 5000k -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+ffmpeg.exe -y -i "input.xxx" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -global_quality:v 16 -maxrate 5000k -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+ffmpeg.exe -y -i "input.xxx" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -qmin 10 -qmax 31 -maxrate 5000k -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg.exe -y -i "J:\porno\[丝雨]\丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -q:v 0 -maxrate 5000k -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\output1.mp4"
+ffmpeg.exe -y -i "J:\porno\[丝雨]\丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -global_quality:v 16 -maxrate 5000k -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\output2.mp4"
+ffmpeg.exe -y -i "J:\porno\[丝雨]\丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -preset veryfast -qmin 10 -qmax 31 -maxrate 5000k -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\output3.mp4"
+
+测试输入源 910 MB (954,377,720 字节)
+37713帧,VBR, Duration: 00:25:08.55, start: 0.000000, bitrate: 5061 kb/s
+  Metadata:
+    WMFSDKNeeded    : 0.0.0.0000
+    DeviceConformanceTemplate: MP@HL
+    WMFSDKVersion   : 11.0.5721.5275
+    IsVBR           : 1
+    VBR Peak        : 6969125
+    Buffer Average  : 89567
+  Duration: 00:25:08.55, start: 0.000000, bitrate: 5061 kb/s
+  Stream #0:0(eng): Audio: wmav2 (a[1][0][0] / 0x0161), 44100 Hz, 2 channels, fltp, 176 kb/s
+  Stream #0:1(eng): Video: wmv3 (Main) (WMV3 / 0x33564D57), yuv420p, 1280x720, 4876 kb/s, 25 fps, 25 tbr, 1k tbn
+[wmv3 @ 000002b894349280] Extra data: 8 bits left, value: 0
+
+output1 6.64 GB (7,133,007,321 字节)
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2mp41
+    encoder         : Lavf60.20.100
+  Duration: 00:25:08.60, start: 0.000000, bitrate: 37825 kb/s
+  Stream #0:0[0x1](eng): Video: hevc (Main) (hev1 / 0x31766568), yuv420p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], 37691 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+        encoder         : Lavc60.37.100 hevc_qsv
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][0
+
+
+output2 202 MB (211,915,951 字节)
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2mp41
+    encoder         : Lavf60.20.100
+  Duration: 00:25:08.60, start: 0.000000, bitrate: 1123 kb/s
+  Stream #0:0[0x1](eng): Video: hevc (Main) (hev1 / 0x31766568), yuv420p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], 989 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+        encoder         : Lavc60.37.100 hevc_qsv
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][0]
+        
+output2 202 MB (212,289,865 字节)
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2mp41
+    encoder         : Lavf60.20.100
+  Duration: 00:25:08.60, start: 0.000000, bitrate: 1125 kb/s
+  Stream #0:0[0x1](eng): Video: hevc (Main) (hev1 / 0x31766568), yuv420p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], 991 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+        encoder         : Lavc60.37.100 hevc_qsv
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][0]
+
+
+
+
+
+实际上控制比特率还是可以的
+-global_quality:v 16 -maxrate 10M 实际上是按默认-b:v 所以质量很低 修改为 => -global_quality:v 16 -b:v 10M -maxrate 10M 有这两个看起来 -global_quality:v 16 没有用 => -b:v 10M -maxrate 10M -bufsize 5M
+
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -profile:v main -preset fast -qmin 10 -qmax 31 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -map 0:1 -map 0:0 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg -hide_banner -v warning -stats -i "丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -maxrate 10M -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120M -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -maxrate 10M -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -profile:v main -preset fast -global_quality:v 16 -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -b:v 10M -maxrate 10M -bufsize 5M -g 250 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -max_muxing_queue_size 1024 "output.mp4"
+
+
+比较好的办法是控制质量
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -qmin 10 -qmax 31 -ar 44100 -b:a 128k -c:a aac -ac 2 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -qmin 10 -qmax 31 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -map 0:1 -map 0:0 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+
+和这个有区别吗？这样设置下加不加-qmax -qmin没有区别
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.wmv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -map 0:1 -map 0:0 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+输出流式文件的再转换呢？比特率有损失，但是不大1/5左右
+ffmpeg -hide_banner -v warning -stats -hwaccel dxva2 -i "丝袜足交.mp4" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset fast -global_quality:v 16 -qmin 10 -qmax 31 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -map 0:1 -map 0:0 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+
+结论:
+质量优先级高的, 先尝试控制q, 具体到hevc_qsv也就是-global_quality:v <q值这里一般用16>
+一般情况下, 直接控制比特率, 也就是-b:v <比特率>, 比特率可以根据目标大小来定，也可以根据q=16时候的比特率来估计
+
+
+record
+shanna qsv nvenc amf x265 x264
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -timestamp now -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -crf 19.0 -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交.mp4"
+ -f mp4 -timestamp now
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -crf 19.0 -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -timestamp now -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -crf 19.0 -g 300 -keyint_min 30 -fps_mode cfr -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 -x264opts force-cfr "D:\\[SHANA]丝袜足交 (4).mp4"
+ -f mp4 -timestamp now
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -crf 19.0 -shanakeyframe 12 -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -crf 19.0 -g 300 -keyint_min 30 -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (2).mp4"
+ -f mp4
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -crf 19.0 -shanakeyframe 12
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v libx264 -g 300 -keyint_min 30 -crf 19.0 -profile:v baseline  -preset veryfast  -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (3).mp4"
+ -f mp4
+ -c:v libx264 -shanakeyframe 12 -crf 19.0 -profile:v baseline -level auto -preset veryfast -tune:v none
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+ 
+https://ffmpeg.org/ffmpeg.html
+
+-f mp4  => 输出 mp4 格式
+-profile:v  baseline,main,high等
+-level auto 即可
+-preset fast  or  -preset veryfast
+-tune:v none  or  -tune:v ssim
+-timestamp now => 时间戳，一般不需要这个
+-shanakeyframe 12 => -g 300 -keyint_min 30, source video fps=25Hz, 300frames=12seconds, so GOP=fps*intervel_time=300. keyint表示关键帧（IDR帧）间隔，这个选项表示限制IDR帧间隔最小为GOP/10=1.2seconds=intervel_time/10
+-crf 19.0  比  -qp 23  常用一些
+-qp 23
+-b:v <目标码率> 平均码率也可以用
+-fps_mode == -vsync, -vsync is deprecated. passthrough (0), cfr (1), vfr (2)
+-fps_mode cfr : constant frame rate, Frames will be duplicated and dropped to achieve exactly the requested constant frame rate
+-fps_mode -1 is the same as -vsync -1 , auto (-1) - Chooses between cfr and vfr depending on muxer capabilities. passthrough (0), Each frame is passed with its timestamp from the demuxer to the muxer.
+-r 帧率： 可选。常用 -r 30 or -r 25 or 29.97 or 60
+
+一般来说，这样就够了
+ffmpeg -i src.mov -c:v libx264 -preset veryslow -crf 18 -c:a copy dest1.mp4
+libx264 默认crf23，18~28质量比较好
+libx265 默认crf28
+libvpx-vp9  默认crf31
+
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -timestamp now -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -qp 22 -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (2).mp4"
+ -f mp4
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -qp 23 -shanakeyframe 12 -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -timestamp now -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -b:v 10000k -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (3).mp4"
+
+ -f mp4 -timestamp now
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -b:v 10000k -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+ -f mp4 -timestamp now
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -b:v 10000k -shanakeyframe 10 -shanapass2
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters 
+ 
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -qp 23 -g 300 -keyint_min 30  -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 -x264opts opencl:opencl-device=0:opencl-clbin=settings/openclcache_x64.clbin "D:\\[SHANA]丝袜足交 (1).mp4"
+ -f mp4
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -qp 23 -shanakeyframe 12 -shanaopencl
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -qp 23 -g 300 -keyint_min 30  -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 -x264opts opencl:opencl-device=1:opencl-clbin=settings/openclcache_x64.clbin "D:\\[SHANA]丝袜足交 (5).mp4"
+ -f mp4
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -qp 23 -shanakeyframe 12 -shanaopencl
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 397166 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v libx264 -profile:v high  -preset veryfast -tune:v ssim -qp 23 -g 300 -keyint_min 30  -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 -x264opts opencl:opencl-device=2:opencl-clbin=settings/openclcache_x64.clbin "D:\\[SHANA]丝袜足交.mp4"
+ -f mp4
+ -c:v libx264 -profile:v high -level auto -preset veryfast -tune:v ssim -qp 23 -shanakeyframe 12 -shanaopencl
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+
+h264_qsv
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 3476908 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v h264_qsv -fps_mode cfr -profile:v high  -global_quality:v 26 -g 250 -keyint_min 25 -preset veryfast -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (18).mp4"
+ -f mp4
+ -c:v h264_qsv -profile:v high -level auto -global_quality:v 26 -shanakeyframe 10 -preset veryfast
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 3476908 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v h264_qsv -fps_mode cfr -profile:v high  -b:v 2000k -g 250 -keyint_min 25 -preset veryfast -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (20).mp4"
+ -f mp4
+ -c:v h264_qsv -profile:v high -level auto -b:v 2000k -shanakeyframe 10 -preset veryfast
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 3476908 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=44100:resampler=soxr"  -threads 0 -f mp4 -c:v h264_qsv -fps_mode cfr -profile:v high  -global_quality:v 26 -g 250 -keyint_min 25 -preset veryfast -fps_mode cfr -c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (22).mp4"
+ -f mp4
+ -c:v h264_qsv -profile:v high -level auto -global_quality:v 26 -shanakeyframe 10 -preset veryfast -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+h264_nvenc
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v h264_nvenc -profile:v high  -preset p4 -tune:v hq -cq 24 -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (23).mp4"
+ -f mp4
+ -c:v h264_nvenc -profile:v high -level auto -preset p4 -tune:v hq -cq 24 -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v h264_nvenc -profile:v high  -preset p4 -tune:v hq -qp 23 -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (24).mp4"
+ -f mp4
+ -c:v h264_nvenc -profile:v high -level auto -preset p4 -tune:v hq -qp 23 -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v h264_nvenc -profile:v high  -preset p4 -tune:v hq -b:v 2000k -g 250 -keyint_min 25 -rc cbr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (25).mp4"
+ -f mp4
+ -c:v h264_nvenc -profile:v high -level auto -preset p4 -tune:v hq -b:v 2000k -shanakeyframe 10 -shanarcmode const
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v h264_nvenc -profile:v high  -preset p4 -tune:v hq -b:v 2000k -g 250 -keyint_min 25 -rc vbr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (26).mp4"
+ -f mp4
+ -c:v h264_nvenc -profile:v high -level auto -preset p4 -tune:v hq -b:v 2000k -shanakeyframe 10 -shanarcmode variable
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v h264_nvenc -profile:v high  -preset p4 -tune:v hq -cq 24 -g 250 -keyint_min 25 -fps_mode cfr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (28).mp4"
+ -f mp4
+ -c:v h264_nvenc -profile:v high -level auto -preset p4 -tune:v hq -cq 24 -shanakeyframe 10 -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+
+
+h264_amf的记录
+ -f mp4
+ -c:v h264_amf -profile:v high -level auto -global_quality:v 26 -shanakeyframe 10 -quality speed
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+ -f mp4
+ -c:v h264_amf -profile:v high -level auto -b:v 2000k -shanakeyframe 10 -quality speed
+ -c:a libfdk_aac -ac 2 -b:a 128k
+ -sn -map_metadata -1 -map_chapters -1
+
+
+
+libx265
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v libx265 -preset veryfast  -crf 19.0 -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -x265-params keyint=250:min-keyint=25:crf=19.0 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (29).mp4"
+ -f mp4
+ -c:v libx265 -preset veryfast -tune:v none -crf 19.0 -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v libx265 -preset veryfast  -crf 19.0 -g 250 -keyint_min 25 -fps_mode cfr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -x265-params keyint=250:min-keyint=25:crf=19.0 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (32).mp4"
+ -f mp4
+ -c:v libx265 -preset veryfast -tune:v none -crf 19.0 -shanakeyframe 10 -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v libx265 -preset veryfast  -qp 23 -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -x265-params keyint=250:min-keyint=25:qp=23 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (30).mp4"
+ -f mp4
+ -c:v libx265 -preset veryfast -tune:v none -qp 23 -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v libx265 -preset veryfast  -b:v 2000k -g 250 -keyint_min 25 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -x265-params keyint=250:min-keyint=25 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (31).mp4"
+ -f mp4
+ -c:v libx265 -preset veryfast -tune:v none -b:v 2000k -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+hevc_amf的记录
+
+ -f mp4
+ -c:v hevc_amf -global_quality:v 26 -shanakeyframe 10 -profile:v main -level auto -quality speed
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+ -f mp4
+ -c:v hevc_amf -global_quality:v 26 -shanakeyframe 10 -fps_mode cfr -profile:v main -level auto -quality speed
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+ -f mp4
+ -c:v hevc_amf -b:v 2000k -shanakeyframe 10 -profile:v main -level auto -quality speed
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+
+hevc_qsv
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_qsv -fps_mode cfr -global_quality:v 26 -g 250 -keyint_min 25 -profile:v main  -preset veryfast -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (33).mp4"
+ -f mp4
+ -c:v hevc_qsv -global_quality:v 26 -shanakeyframe 10 -profile:v main -level auto -preset veryfast
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_qsv -fps_mode cfr -global_quality:v 26 -g 250 -keyint_min 25 -profile:v main  -preset veryfast -fps_mode cfr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (34).mp4"
+ -f mp4
+ -c:v hevc_qsv -global_quality:v 26 -shanakeyframe 10 -profile:v main -level auto -preset veryfast -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_qsv -fps_mode cfr -b:v 2000k -g 250 -keyint_min 25 -profile:v main  -preset veryfast -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (36).mp4"
+ -f mp4
+ -c:v hevc_qsv -b:v 2000k -shanakeyframe 10 -profile:v main -level auto -preset veryfast
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+
+hevc_nvenc
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_nvenc -cq 24 -g 250 -keyint_min 25 -profile:v main  -preset p4 -tune:v hq -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (37).mp4"
+ -f mp4
+ -c:v hevc_nvenc -cq 24 -shanakeyframe 10 -profile:v main -level auto -preset p4 -tune:v hq
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_nvenc -cq 24 -g 250 -keyint_min 25 -profile:v main  -preset p4 -tune:v hq -fps_mode cfr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (38).mp4"
+ -f mp4
+ -c:v hevc_nvenc -cq 24 -shanakeyframe 10 -profile:v main -level auto -preset p4 -tune:v hq -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_nvenc -qp 23 -g 250 -keyint_min 25 -profile:v main  -preset p4 -tune:v hq -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (39).mp4"
+ -f mp4
+ -c:v hevc_nvenc -qp 23 -shanakeyframe 10 -profile:v main -level auto -preset p4 -tune:v hq
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_nvenc -b:v 2000k -g 250 -keyint_min 25 -profile:v main  -preset p4 -tune:v hq -rc cbr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (40).mp4"
+ -f mp4
+ -c:v hevc_nvenc -b:v 2000k -shanakeyframe 10 -profile:v main -level auto -preset p4 -tune:v hq -shanarcmode const
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -gui_hwnd 922758 -hide_msg -y -i "J:\porno\[丝雨]\丝袜足交.wmv"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v hevc_nvenc -b:v 2000k -g 250 -keyint_min 25 -profile:v main  -preset p4 -tune:v hq -rc vbr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:1 -map 0:0 "D:\\[SHANA]丝袜足交 (41).mp4"
+ -f mp4
+ -c:v hevc_nvenc -b:v 2000k -shanakeyframe 10 -profile:v main -level auto -preset p4 -tune:v hq -shanarcmode variable
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+
+
+
+Av1
+ffmpeg.exe -y -i C:\Users\dengl\Desktop\pcie演示视频.mp4 -c:v:0 libaom-av1 -cpu-used 2 -threads 4 -b:v 1.33M -aspect 16:9 -c:a aac -strict -2 -rtbufsize 30m -max_muxing_queue_size 1024 "output.mp4"
+
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -hwaccel dxva2 -gui_hwnd 4793176 -hide_msg -y -i "C:\Users\dengl\Desktop\pcie演示视频.mp4"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v libaom-av1 -b:v 2000k -g 300 -keyint_min 30 -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -strict experimental -map 0:0 -map 0:1 "D:\\[SHANA]pcie演示视频 (1).mp4"
+ -f mp4
+ -c:v libaom-av1 -b:v 2000k -shanakeyframe 10
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+"C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  -threads 0 -thread_type frame -hwaccel dxva2 -gui_hwnd 4793176 -hide_msg -y -i "C:\Users\dengl\Desktop\pcie演示视频.mp4"  -af "aresample=48000:resampler=soxr"  -threads 0 -f mp4 -c:v libaom-av1 -b:v 2000k -g 300 -keyint_min 30 -fps_mode cfr -c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -strict experimental -map 0:0 -map 0:1 "D:\\[SHANA]pcie演示视频 (2).mp4"
+ -f mp4
+ -c:v libaom-av1 -b:v 2000k -shanakeyframe 10 -fps_mode cfr
+ -c:a libfdk_aac -ac 2 -b:a 192k
+ -sn -map_metadata -1 -map_chapters -1
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 

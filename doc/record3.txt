@@ -1,0 +1,75 @@
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -i "D:\BaiduNetdiskDownload\tmp\from\videos\2022101820\[digi-gra] chiharu miyazawa 宮沢ちはる hd.mkv" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 4000k -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\BaiduNetdiskDownload\tmp\to\videos\2022101820\[digi-gra] chiharu miyazawa 宮沢ちはる hd.mp4"
+
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov" -s 8192x540 -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 4000k -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\FFOutput\test.mp4"
+
+
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv ^
+-i "D:\BaiduNetdiskDownload\tmp\from\videos\2022101225\[digi-gra] ema futaba 二葉エマ hd .mkv" ^
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 4000k ^
+-g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"D:\BaiduNetdiskDownload\tmp\to\videos\2022101225\[digi-gra] ema futaba 二葉エマ hd.mp4"
+
+
+
+
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov"
+
+
+
+cmd 'cd'== linux 'pwd'
+for /f "delims=" %i in ('cd') do set tt=%i
+in batch 
+for /f "delims=" %%i in ('cd') do set tt=%%i
+
+for /f "tokens=*" %i in ('tasklist ^| findstr "explorer"') do set VAR=%i
+
+for /f "tokens=*" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov""') do set VAR=%i
+
+for /f "tokens=*" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height  -of default=noprint_wrappers=1:nokey=1 "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov""') do set VAR=%i
+
+```
+"C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height  -of default=noprint_wrappers=1:nokey=1 "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov"
+1920
+1080
+```
+
+set count=1
+for /f "tokens=* usebackq" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height  -of default=noprint_wrappers=1:nokey=1 "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov""') do (
+set VAR%count%=%i
+set /a count=%count%+1
+)
+echo %VAR1%
+echo %VAR2%
+
+set count=1
+set VAR%count%=a
+set /a count=%count%+1
+set VAR%count%=b
+echo %VAR1%
+echo %VAR2%
+pause
+
+
+
+setlocal EnableDelayedExpansion
+set "output_cnt=0"
+for /F "delims=" %f in ('dir /b') do (
+    set /a output_cnt+=1
+    set "output[!output_cnt!]=%f"
+)
+for /L %n in (1 1 !output_cnt!) DO echo !output[%n]!
+
+
+setlocal EnableDelayedExpansion
+set "output_cnt=0"
+for /F "delims=" %f in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height  -of default=noprint_wrappers=1:nokey=1 "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume なつめ愛莉 hd.mov""') do (
+    set /a output_cnt+=1
+    set "output[!output_cnt!]=%f"
+)
+for /L %n in (1 1 !output_cnt!) DO echo !output[%n]!
+
+
+
+
+
+
