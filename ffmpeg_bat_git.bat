@@ -427,6 +427,7 @@ if not defined BIT (
 )
 
 ::echo TARGET_BITRATE=%BIT%
+set /a BIT=%BIT% / 2
 set TARGET_BITRATE=%BIT%
 echo TARGET_BITRATE=%TARGET_BITRATE%
 set "percentage="
