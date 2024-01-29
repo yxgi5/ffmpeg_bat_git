@@ -476,8 +476,8 @@ echo RUN_COM1:%RUN_COM%
 ::echo %SRC_FILE%
 if defined SRC_FILE call :extract %SRC_FILE:^=% TARGET_PATH TARGET_NAME
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
-set TARGET_FILE=%TARGET_FILE:&=^&%
-echo TARGET_FILE:%TARGET_FILE%
+::set TARGET_FILE=%TARGET_FILE:&=^&%
+::echo TARGET_FILE:%TARGET_FILE%
 ::goto :eof
 
 ::set OriginStr="C:/Demo/myproject/example.txt"
@@ -488,15 +488,15 @@ echo TARGET_FILE:%TARGET_FILE%
 
 IF not [%1] NEQ [] SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
 IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
-echo SRC_FILE=%SRC_FILE%
+echo SRC_FILE=%SRC_FILE:^=%
 echo TARGET_FILE=%TARGET_FILE%
 
 echo RUN_COM2:%RUN_COM%
 rem handler name with ) (   call set 
 IF not [%1] NEQ [] (
-    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output %TARGET_FILE:^=%
+    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output %TARGET_FILE%
 ) else (
-    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output -n %TARGET_FILE:^=%
+    SET RUN_COM=%RUN_COM% -xerror -abort_on empty_output -n %TARGET_FILE%
 )
 
 echo RUN_COM3:%RUN_COM%

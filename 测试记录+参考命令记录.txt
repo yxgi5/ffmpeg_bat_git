@@ -128,4 +128,15 @@ D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）
 .\ffmpeg_bat_git.bat "D:\BaiduNetdiskDownload\tmp\from\videos\2022101924\[digi-gra] chiharu miyazawa 宮沢ちはる.mkv"
 
 
+ok
+.\ffmpeg_bat_git.bat "D:\BaiduNetdiskDownload\tmp\from\videos\2023082631\[Sheer&Lace]   2023.07.24   Lacerta - A Hairy Interlude_video(1).mp4"
+
+fail
+.\ffmpeg_bat_git.bat   
+"D:\BaiduNetdiskDownload\tmp\from\videos\2023082631\[Sheer&Lace]   2023.07.24   Lacerta - A Hairy Interlude_video(1).mp4"
+
+fail
+.\ffmpeg_bat_git.bat
+D:\BaiduNetdiskDownload\tmp\from\videos\2023082631\[Sheer&Lace]   2023.07.24   Lacerta - A Hairy Interlude_video(1).mp4
+
 
