@@ -592,7 +592,8 @@ rem 获取到文件名称
 ::echo %~n1
 rem 获取到文件后缀
 ::echo %~x1
-set %~3=%~n1-compressed%~x1
+::set %~3=%~n1-compressed%~x1
+set %~3=%~n1-compressed.mp4
 exit /b 0
 
 
