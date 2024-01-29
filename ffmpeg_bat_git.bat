@@ -19,7 +19,12 @@ if not defined FFMPEG_PATH goto NO_PATH_ERR
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
-SET SRC_FILE=%~1
+rem 参数进来肯定是带双引号的
+::echo patam:"%~1"
+::set patam="%~1"
+::SET SRC_FILE=%patam%
+SET SRC_FILE=%1
+::echo SRC_FILE:%SRC_FILE%
 ::echo %SRC_FILE:~0,1%
 
 IF [%1] NEQ [] (
@@ -33,18 +38,19 @@ IF not defined SRC_FILE (
     exit /b 1
 )
 
-set SRC_FILE=%SRC_FILE:"=%
-echo SRC_FILE="%SRC_FILE%"
+rem 没有必要去掉双引号
+::set SRC_FILE=%%SRC_FILE:"=%%
+echo SRC_FILE=%SRC_FILE%
 ::pause
 
-SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
+call set "RUN_COM=%%RUN_COM%% -i %%SRC_FILE%%"
 echo BbbbbbBbbbbb=%RUN_COM%
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
 ::IF DEFINED RES SET "RUN_COM=%RUN_COM% -s %RES%"
 ::SET /P FPS=请输入输出帧率(如15,不输入则保持默认):
 ::IF DEFINED FPS SET "RUN_COM=%RUN_COM% -r %FPS%"
 
-set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "%SRC_FILE%""
+call set "SRC_CODEC="%%FFPROBE_PATH%%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "%%SRC_FILE%%""
 ::echo SRC_CODEC=%SRC_CODEC%
 
 ::set /p SRC_CODEC1=%SRC_CODEC%
