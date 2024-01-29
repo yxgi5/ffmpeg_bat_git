@@ -194,11 +194,17 @@ set /p SRC_BITRATE=<"temp"
 del "temp"
 echo SRC_BITRATE=%SRC_BITRATE%
 set /a SRC_BITRATE=%SRC_BITRATE%
-IF not %ERRORLEVEL% NEQ 0  if %SRC_BITRATE% GTR 0 ( 
-echo ddddddddddd
-echo SRC_BITRATE=%SRC_BITRATE%
+IF not %ERRORLEVEL% NEQ 0 ( 
+  if %SRC_BITRATE% GTR 0 (
+     echo ddddddddddd
+     echo SRC_BITRATE=%SRC_BITRATE%
+  ) else (
+     echo eeeeeeeeeee
+     ::set /a SRC_BITRATE=8 * %SRC_SIZE% / %SRC_DURATION%
+     call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+  )
 ) else (
-echo eeeeeeeeeee
+echo fffffffff
 ::set /a SRC_BITRATE=8 * %SRC_SIZE% / %SRC_DURATION%
 call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
 )
@@ -488,14 +494,14 @@ IF not [%1] NEQ [] (
 )
 
 echo RUN_COM:%RUN_COM%
-echo fffffffff
+echo gggggggggg
 ::pause
 %RUN_COM%
 ::echo %ERRORLEVEL%
 IF %ERRORLEVEL% NEQ 0 ( 
    echo 转换出错
 ) else (
-   echo 转换已取消或完成
+   echo 转换已取消或完成, 默认不替换目标位置已经存在的文件, 请手动确认输出文件完整性
 )
 ::echo.
 echo SRC_W=%SRC_W%
@@ -564,14 +570,14 @@ set /A one=1, decimalsP1=decimals+1
 for /L %%i in (1,1,1) do set "one=!one!0"
 
 set "fpA=%numA:.=%"
-::echo !fpA!
+echo !fpA!
 set "fpB=%numB:~0%"
-::echo !fpB!
+echo !fpB!
 set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA/fpB
 
-::echo %numA% / %numB% = !div!
+echo %numA% / %numB% = !div!
 set /a ret = 8*!div!
-::echo ret=%ret%
+echo ret=%ret%
 endlocal & set /a %~3=%ret%
 exit /b 0
 

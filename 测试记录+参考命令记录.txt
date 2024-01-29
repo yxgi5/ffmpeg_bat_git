@@ -122,3 +122,10 @@ D:\BaiduNetdiskDownload\[裸条]\借贷宝11月12日更新\马   静（漂亮）
 
 文件路径空格测试
 .\ffmpeg_bat_git.bat "D:\BaiduNetdiskDownload\[裸条]\借贷宝10月22日更新\任   靓（肉偿）\任   靓.mov"
+
+
+测试bitrate获取逻辑
+.\ffmpeg_bat_git.bat "D:\BaiduNetdiskDownload\tmp\from\videos\2022101924\[digi-gra] chiharu miyazawa 宮沢ちはる.mkv"
+
+
+
