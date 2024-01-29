@@ -1,5 +1,7 @@
 @echo off
+::SetLocal
 ::SetLocal EnableExtensions
+::setlocal EnableDelayedExpansion
 
 echo ============================================================
 echo 欢迎使用ffmpeg视频 intel qsv h265 压缩批处理工具
@@ -71,6 +73,7 @@ del "temp"
 echo SRC_CODEC=%SRC_CODEC%
 ::pause
 
+::set "SRC_FRAMERATE="
 set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate "%SRC_FILE%""
 ::for /f "delims=" %%i in ('"%SRC_FRAMERATE%"') do set SRC_FRAMERATE=%%i
 %SRC_FRAMERATE% > "temp"
@@ -89,6 +92,7 @@ if %SRC_FRAMERATE% gtr 31 (
 ::pause
 
 set count=1
+::set "SRC_ROSOLUTION="
 set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "%SRC_FILE%""
 
 ::for /f "delims=" %%i in ('"%SRC_ROSOLUTION%"') do (
@@ -154,6 +158,8 @@ del "temp.txt"
 ::echo %%n
 ::echo !output[%%n]!
 ::)
+::set "SRC_W="
+::set "SRC_H="
 set SRC_W=!output[1]!
 set SRC_H=!output[2]!
 echo SRC_W=%SRC_W%
@@ -180,7 +186,7 @@ del "duration"
 echo SRC_DURATION=%SRC_DURATION%
 
 
-
+::set "SRC_BITRATE="
 set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "%SRC_FILE%""
 ::for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
 %SRC_BITRATE% > "temp"
@@ -199,6 +205,7 @@ call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
 echo SRC_BITRATE=%SRC_BITRATE%
 ::pause
 
+::set "BIT="
 if %SRC_PIX% leq 12288 (
     set /a BIT=95892
 ) else if %SRC_PIX% leq 19200 (
