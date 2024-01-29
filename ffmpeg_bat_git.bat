@@ -19,7 +19,37 @@ if not defined FFMPEG_PATH goto NO_PATH_ERR
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
-SET SRC_FILE=%~1
+rem 参数进来肯定是带双引号的
+::set patam="%~1"
+::echo patam:"%~1"
+SET SRC_FILE=%1
+::SET SRC_FILE=%~1
+
+rem special characters which cannot be used in a directory or file names in Windows
+rem < > : " / \ | ? *
+
+rem The special characters that require quotes are:
+rem <space> &()[]{}^=;!'+,`~      =和~没有找到替换办法
+
+set SRC_FILE=%SRC_FILE:^^=^%
+set SRC_FILE=%SRC_FILE:&=^&%
+set SRC_FILE=%SRC_FILE:(=^(%
+set SRC_FILE=%SRC_FILE:)=^)%
+set SRC_FILE=%SRC_FILE: =^ %
+set SRC_FILE=%SRC_FILE:[=^[%
+set SRC_FILE=%SRC_FILE:]=^]%
+set SRC_FILE=%SRC_FILE:{=^{%
+set SRC_FILE=%SRC_FILE:}=^}%
+set SRC_FILE=%SRC_FILE:;=^;%
+set SRC_FILE=%SRC_FILE:!=^!%
+set SRC_FILE=%SRC_FILE:'=^'%
+set SRC_FILE=%SRC_FILE:+=^+%
+set SRC_FILE=%SRC_FILE:,=^,%
+set SRC_FILE=%SRC_FILE:`=^`%
+echo SRC_FILE=%SRC_FILE%
+echo. &:: print /n
+::goto :eof
+
 ::echo %SRC_FILE:~0,1%
 
 IF [%1] NEQ [] (
@@ -33,10 +63,13 @@ IF not defined SRC_FILE (
     exit /b 1
 )
 
-set SRC_FILE=%SRC_FILE:"=%
-echo SRC_FILE="%SRC_FILE%"
+rem 没有必要去掉双引号
+::set SRC_FILE=%SRC_FILE:"=%
+echo SRC_FILE=%SRC_FILE%
+::goto :eof
 ::pause
 
+set SRC_FILE=%SRC_FILE:"=%
 SET "RUN_COM=%RUN_COM% -i "%SRC_FILE%""
 echo BbbbbbBbbbbb=%RUN_COM%
 ::SET /P RES=请输入输出分辨率(如854x480,不输入则保持默认):
