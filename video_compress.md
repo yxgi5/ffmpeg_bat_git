@@ -1623,3 +1623,69 @@ avif crf 4~5
 ```
 
 
+# ffprobe获取视频分辨率、编码等信息
+## 显示分辨率
+```
+ffprobe -v error -select_streams v -show_entries stream=width,height -of csv=p=0:s=x 1.mp4
+```
+## 分行显示分辨率
+```
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height  -of default=noprint_wrappers=1:nokey=1 1.mp4
+```
+
+## 显示视频编码
+```
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x  1.mp4
+```
+## 显示音频编码
+```
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -select_streams a:0 -show_entries stream=codec_name -of csv=p=0:s=x  1.mp4
+```
+## 显示文件大小
+```
+ffprobe -v error -show_entries format=size -of default=noprint_wrappers=1:nokey=1 1.mp4
+
+ffprobe -v error -show_entries format=size -of default=noprint_wrappers=1:nokey=1 input.mp4
+```
+## 显示时长
+```
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format ini -select_streams v:0 -show_entries stream=duration -of csv=p=0:s=x   1.mp4
+
+ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 1.mp4
+```
+## 视频码率
+```
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0  -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x  1.mp4
+
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat  -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x  1.mp4
+```
+什么是码率？很简单： 
+```
+bitrate = file size / duration 
+```
+比如一个文件20.8M，时长1分钟，那么，码率就是： 
+```
+biterate = 20.8M bit/60s = 20.8*1024*1024*8 bit/60s= 2831Kbps 
+```
+## 像素格式
+```
+ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=pix_fmt  -of csv=p=0:s=x  1.mp4
+```
+## 视频帧率
+```
+ffprobe -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate input.mp4
+
+ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate 1.mp4
+```
+## 视觉停留
+
+人类的眼睛所看画面的帧率高于16的时候，就会认为是连贯的，此现象称之为视觉停留
+
+
+
+
+
+
+
+
+
