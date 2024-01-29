@@ -1652,7 +1652,10 @@ ffprobe -v error -show_entries format=size -of default=noprint_wrappers=1:nokey=
 ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format ini -select_streams v:0 -show_entries stream=duration -of csv=p=0:s=x   1.mp4
 
 ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 1.mp4
+
+ffprobe -show_entries format=duration -v quiet -of csv="p=0"  1.mp4
 ```
+
 ## 视频码率
 ```
 ffprobe -v error -hide_banner -of default=noprint_wrappers=0  -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x  1.mp4
@@ -1671,11 +1674,17 @@ biterate = 20.8M bit/60s = 20.8*1024*1024*8 bit/60s= 2831Kbps
 ```
 ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=pix_fmt  -of csv=p=0:s=x  1.mp4
 ```
+## 视频总帧数
+```
+ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 1.mp4
+```
 ## 视频帧率
 ```
 ffprobe -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate input.mp4
 
 ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate 1.mp4
+
+ffprobe -v 0 -of csv="p=0" -select_streams V:0 -show_entries stream=r_frame_rate 1.mp4
 ```
 ## 视觉停留
 
