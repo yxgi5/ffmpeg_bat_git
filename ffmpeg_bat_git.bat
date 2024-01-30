@@ -455,12 +455,12 @@ set "percentage="
     echo percentage=%percentage%%%
 ::)
 
-if %percentage% gtr 100 (
+if %percentage% gtr 100 if [%1] neq [] (
    echo bitrate too low, no need to compress
    exit /b 4
 )
 
-if %percentage% lss 0 (
+if %percentage% lss 0 if [%1] neq [] (
    echo bitrate unnomal, please check
    exit /b 5
 )
