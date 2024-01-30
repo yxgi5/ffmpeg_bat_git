@@ -98,7 +98,7 @@ if %SRC_FRAMERATE% gtr 31 (
     echo TEAR DOWN TARGET FRAME RATE TO 30
     echo dddddddd
 )
-echo RUN_COM1:%RUN_COM%
+if %SRC_FRAMERATE% gtr 31 echo RUN_COM1:%RUN_COM%
 ::goto :eof
 ::pause
 
