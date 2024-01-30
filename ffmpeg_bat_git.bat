@@ -97,8 +97,8 @@ if %SRC_FRAMERATE% gtr 31 (
     SET RUN_COM=%RUN_COM% -r 30
     echo TEAR DOWN TARGET FRAME RATE TO 30
     echo dddddddd
-    echo RUN_COM=%RUN_COM%
 )
+echo RUN_COM1:%RUN_COM%
 ::goto :eof
 ::pause
 
@@ -468,14 +468,14 @@ if %percentage% lss 0 if [%1] neq [] (
 ::pause
 
 
-IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如128k,不输入则保持默认):
+IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
 ::IF DEFINED BIT SET "RUN_COM=%RUN_COM% -b %BIT%"
 ::if not defined BIT set BIT=2.58M
 echo TARGET_BITRATE=%BIT%
 ::pause
 ::echo RUN_COM0:%RUN_COM%
 if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
-echo RUN_COM1:%RUN_COM%
+echo RUN_COM2:%RUN_COM%
 
 echo.
 echo SRC_FILE:%SRC_FILE%
@@ -495,7 +495,7 @@ IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
-echo RUN_COM2:%RUN_COM%
+echo RUN_COM3:%RUN_COM%
 rem handler name with ) (   call set 
 IF not [%1] NEQ [] (
     SET RUN_COM=%RUN_COM% %TARGET_FILE%
@@ -503,7 +503,7 @@ IF not [%1] NEQ [] (
     SET RUN_COM=%RUN_COM% -n %TARGET_FILE%
 )
 
-echo RUN_COM3:%RUN_COM%
+echo RUN_COM4:%RUN_COM%
 echo gggggggggg
 ::goto :eof
 ::pause
