@@ -2,21 +2,22 @@
 ::SetLocal
 ::SetLocal EnableExtensions
 ::setlocal EnableDelayedExpansion
+chcp 65001
 
 echo ============================================================
-echo »¶Ó­Ê¹ÓÃffmpegÊÓÆµ intel qsv h265 Ñ¹ËõÅú´¦Àí¹¤¾ß
-echo ÄúÓĞÁ½ÖÖÊ¹ÓÃ·½Ê½:
-echo 1) Ö±½Ó½«´ıÑ¹ËõµÄÊÓÆµÍÏ·Åµ½Åú´¦ÀíÉÏ
-echo 2) ÔÚÏÂÃæÊäÈë´ıÑ¹ËõÊÓÆµµØÖ·
+echo æ¬¢è¿ä½¿ç”¨ffmpegè§†é¢‘ intel qsv h265 å‹ç¼©æ‰¹å¤„ç†å·¥å…·
+echo æ‚¨æœ‰ä¸¤ç§ä½¿ç”¨æ–¹å¼:
+echo 1) ç›´æ¥å°†å¾…å‹ç¼©çš„è§†é¢‘æ‹–æ”¾åˆ°æ‰¹å¤„ç†ä¸Š
+echo 2) åœ¨ä¸‹é¢è¾“å…¥å¾…å‹ç¼©è§†é¢‘åœ°å€
 echo.
-echo ÓÉ andreas ±àĞ´
+echo ç”± andreas ç¼–å†™
 echo ============================================================
 
 set FFPROBE_PATH=C:\Program Files\ffmpeg\bin\ffprobe.exe
 set FFMPEG_PATH=C:\Program Files\ffmpeg\bin\ffmpeg.exe
 ::if exist ffmpeg.exe set FFMPEG_PATH=ffmpeg.exe
 if not defined FFMPEG_PATH goto NO_PATH_ERR
-echo ÒÑÕÒµ½ffmpegÓÚ:%FFMPEG_PATH%
+echo å·²æ‰¾åˆ°ffmpegäº:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
 SET "SRC_FILE="
@@ -30,11 +31,11 @@ rem cut string
 
 if not defined SRC_FILE (
     echo bbbbbbbb
-    SET /P SRC_FILE=ÇëÊäÈë´ıÑ¹ËõÊÓÆµµØÖ·:
+    SET /P SRC_FILE=è¯·è¾“å…¥å¾…å‹ç¼©è§†é¢‘åœ°å€:
 )
 
 IF not defined SRC_FILE (
-    echo Ã»ÓĞÊäÈëÎÄ¼ş
+    echo æ²¡æœ‰è¾“å…¥æ–‡ä»¶
     exit /b 1
 )
 
@@ -47,9 +48,9 @@ SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&%"
 echo cccccccc
 echo RUN_COM0=%RUN_COM%
 
-::SET /P RES=ÇëÊäÈëÊä³ö·Ö±æÂÊ(Èç854x480,²»ÊäÈëÔò±£³ÖÄ¬ÈÏ):
+::SET /P RES=è¯·è¾“å…¥è¾“å‡ºåˆ†è¾¨ç‡(å¦‚854x480,ä¸è¾“å…¥åˆ™ä¿æŒé»˜è®¤):
 ::IF DEFINED RES SET "RUN_COM=%RUN_COM% -s %RES%"
-::SET /P FPS=ÇëÊäÈëÊä³öÖ¡ÂÊ(Èç15,²»ÊäÈëÔò±£³ÖÄ¬ÈÏ):
+::SET /P FPS=è¯·è¾“å…¥è¾“å‡ºå¸§ç‡(å¦‚15,ä¸è¾“å…¥åˆ™ä¿æŒé»˜è®¤):
 ::IF DEFINED FPS SET "RUN_COM=%RUN_COM% -r %FPS%"
 
 set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE:&=^&%"
@@ -63,7 +64,7 @@ rem cmd 'cd'== linux 'pwd'
 ::in batch 
 ::for /f "delims=" %%i in ('cd') do set tt=%%i
 ::for /f "tokens=*" %i in ('tasklist ^| findstr "explorer"') do set VAR=%i
-::for /f "tokens=*" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume ¤Ê¤Ä¤áÛÀò hd.mov""') do set VAR=%i
+::for /f "tokens=*" %i in ('""C:\Program Files\ffmpeg\bin\ffprobe.exe" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "D:\BaiduNetdiskDownload\tmp\from\videos\2022110725\[digi-gra] airi natsume ãªã¤ã‚æ„›è‰ hd.mov""') do set VAR=%i
 
 
 ::for /f "delims=" %%i in (%SRC_CODEC%) do echo %%i
@@ -467,7 +468,7 @@ if %percentage% lss 0 (
 ::pause
 
 
-IF not [%1] NEQ [] SET /P BIT=ÇëÊäÈëÊä³öÂëÂÊ(Èç128k,²»ÊäÈëÔò±£³ÖÄ¬ÈÏ):
+IF not [%1] NEQ [] SET /P BIT=è¯·è¾“å…¥è¾“å‡ºç ç‡(å¦‚128k,ä¸è¾“å…¥åˆ™ä¿æŒé»˜è®¤):
 ::IF DEFINED BIT SET "RUN_COM=%RUN_COM% -b %BIT%"
 ::if not defined BIT set BIT=2.58M
 echo TARGET_BITRATE=%BIT%
@@ -489,7 +490,7 @@ echo TARGET_FILE:%TARGET_FILE%
 ::pause
 ::goto :eof
 
-IF not [%1] NEQ [] SET /P TARGET_FILE=ÇëÊäÈëÊä³öÎÄ¼ş(Èçoutput.mp4,²»ÊäÈëÔòÊä³öµ½ÏàÍ¬ÎÄ¼ş¼Ğ²¢¼Óºó×º):
+IF not [%1] NEQ [] SET /P TARGET_FILE=è¯·è¾“å…¥è¾“å‡ºæ–‡ä»¶(å¦‚output.mp4,ä¸è¾“å…¥åˆ™è¾“å‡ºåˆ°ç›¸åŒæ–‡ä»¶å¤¹å¹¶åŠ åç¼€):
 IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
@@ -509,7 +510,7 @@ echo gggggggggg
 %RUN_COM%
 
 echo ERRORLEVEL:%ERRORLEVEL%
-echo ×ª»»ÒÑ³ö´í»òÍê³É, Ä¬ÈÏ²»Ìæ»», ÇëÊÖ¶¯È·ÈÏÊä³öÎÄ¼şÍêÕûĞÔ
+echo è½¬æ¢å·²å‡ºé”™æˆ–å®Œæˆ, é»˜è®¤ä¸æ›¿æ¢, è¯·æ‰‹åŠ¨ç¡®è®¤è¾“å‡ºæ–‡ä»¶å®Œæ•´æ€§
 
 ::echo.
 echo SRC_W=%SRC_W%
@@ -520,7 +521,7 @@ echo TARGET_BITRATE=%TARGET_BITRATE%
 echo percentage=%percentage%
 echo TARGET_FILE:%TARGET_FILE%
 
-::echo ÕıÔÚ´ò¿ªÊä³öÎÄ¼ş
+::echo æ­£åœ¨æ‰“å¼€è¾“å‡ºæ–‡ä»¶
 ::%TARGET_FILE%
 ::IF not [%1] NEQ [] pause
 exit /b 0
@@ -591,15 +592,15 @@ endlocal & set /a %~3=%ret%
 exit /b 0
 
 :extract
-rem »ñÈ¡µ½ÎÄ¼şÂ·¾¶
+rem è·å–åˆ°æ–‡ä»¶è·¯å¾„
 echo in extract()
 echo %~dp1
 set %~2="%~dp1"
-rem »ñÈ¡µ½ÎÄ¼şÅÌ·û
+rem è·å–åˆ°æ–‡ä»¶ç›˜ç¬¦
 echo %~d1
-rem »ñÈ¡µ½ÎÄ¼şÃû³Æ
+rem è·å–åˆ°æ–‡ä»¶åç§°
 echo "%~n1"
-rem »ñÈ¡µ½ÎÄ¼şºó×º
+rem è·å–åˆ°æ–‡ä»¶åç¼€
 echo %~x1
 ::set %~3=%~n1-compressed%~x1
 set %~3="%~n1-compressed.mp4"
@@ -609,6 +610,6 @@ exit /b 0
 
 
 :NO_PATH_ERR
-echo ÕÒ²»µ½ffmpeg.exe,Çë¼ì²éÎÄ¼şÄ¿Â¼
+echo æ‰¾ä¸åˆ°ffmpeg.exe,è¯·æ£€æŸ¥æ–‡ä»¶ç›®å½•
 pause
 exit /b 0
