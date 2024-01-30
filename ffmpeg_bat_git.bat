@@ -498,16 +498,19 @@ echo TARGET_FILE=%TARGET_FILE%
 echo RUN_COM3:%RUN_COM%
 rem handler name with ) (   call set 
 IF not [%1] NEQ [] (
+    echo executing 1
     SET RUN_COM=%RUN_COM% %TARGET_FILE%
 ) else (
+    echo executing 2
     SET RUN_COM=%RUN_COM% -n %TARGET_FILE%
 )
 
 echo RUN_COM4:%RUN_COM%
 echo gggggggggg
+echo.
 ::goto :eof
 ::pause
-%RUN_COM%
+call %RUN_COM%
 
 echo ERRORLEVEL:%ERRORLEVEL%
 echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完整性
