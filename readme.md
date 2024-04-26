@@ -37,4 +37,24 @@ opencmd.bat
 
 
 
+## linux 下通用的版本 (硬件编码器版本未测试)
+
+convert_from_list.sh + ffmpeg_lib265.sh
+
+必须加参数
+```
+./convert_from_list.sh list.txt
+```
+
+
+单独用和前面类似, 可以加一个文件名参数或者不加参数
+```
+./ffmpeg_lib265.sh  "/dss/xxx/xxx.mov"
+```
+```
+./ffmpeg_lib265.sh
+```
+
+
+
 
