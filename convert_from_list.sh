@@ -27,17 +27,32 @@ function pause() {
     read -n 1
 }
 
+# function check_param_number() {
+#     # 检查参数个数是否为1
+#     if [ $1 -ne 1 ]; then
+#         echo -e "\033[41;36mMore than one parameter. A single file name must given!\033[0m"
+#         exit 1
+#     fi
+# }
+
 function check_param_number() {
     # 检查参数个数是否为1
-    if [ $1 -ne 1 ]; then
-        echo -e "\033[41;36mMore than one parameter. A single file name must given!\033[0m"
+    # if [ "$1" -ne 1 ]; then
+    if [ "$1" -gt 1 ]; then
+        echo -e "\033[41;36mMore than one parameter. A single file name or keep it blank!\033[0m"
         exit 1
+    else
+        if [ "$1" -eq 0 ]; then
+            return 0
+        else
+            return 1
+        fi
     fi
 }
 
 function check_file_exists() {
     if ! [ -f "$1" ]; then
-        echo -e "\033[41;36mfile not exists!\033[0m"
+        echo -e "\033[41;36mList file not exists!\033[0m"
         exit 1
     fi
 }
@@ -57,10 +72,14 @@ function check_file_istext() {
 
 LIST_FILE=""
 check_param_number "$#"
-if [ "$?" -ne 0 ]; then
-    exit 1
+param_number=$?
+#echo $param_number
+if [ "$param_number" -eq 0 ]; then
+    LIST_FILE="list.txt"
+else
+    LIST_FILE="$1"
 fi
-LIST_FILE="$1"
+
 check_file_exists "${LIST_FILE}"
 if [ "$?" -ne 0 ]; then
     exit 1
@@ -79,12 +98,14 @@ check_file_istext "${LIST_FILE}"
 
 for line in $(cat ${LIST_FILE})
 do
-   echo $line
-   ./ffmpeg_lib265.sh "${line}"
-   if [ "$?" -ne 0 ]; then
-       echo -e "\033[41;36mConvert failed！\033[0m"
-       exit 1
-   fi
+    echo $line
+    #./ffmpeg_lib265.sh "${line}"
+    ./ffmpeg_hevc_vaapi.sh "${line}"
+
+    if [ "$?" -ne 0 ]; then
+        echo -e "\033[41;36mConvert failed！\033[0m"
+        exit 1
+    fi
 done
 
 # cat ${LIST_FILE} | while IFS= read -r line
