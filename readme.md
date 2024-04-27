@@ -37,7 +37,7 @@ opencmd.bat
 
 
 
-## linux 下通用的版本 (硬件编码器版本未测试)
+## linux 下通用的版本
 
 convert_from_list.sh + ffmpeg_lib265.sh
 
@@ -49,12 +49,40 @@ convert_from_list.sh + ffmpeg_lib265.sh
 
 单独用和前面类似, 可以加一个文件名参数或者不加参数
 ```
-./ffmpeg_lib265.sh  "/dss/xxx/xxx.mov"
+./ffmpeg_libx265.sh  "/dss/xxx/xxx.mov"
 ```
 ```
-./ffmpeg_lib265.sh
+./ffmpeg_libx265.sh
 ```
 
 
+### linux 下硬件加速
+查询显卡
+```
+lspci -vnn | grep -i VGA -A 12
+```
 
+查询软件支持的的硬件加速
+```
+$ ffmpeg -hide_banner -hwaccels shows
+Hardware acceleration methods:
+vdpau
+vaapi
+drm
+
+$ ffmpeg -hide_banner -init_hw_device list
+Supported hardware device types:
+vdpau
+vaapi
+drm
+
+```
+
+hevc_vaapi、h264_vaapi 测试ok。 
+
+查询软件支持的编码器和解码器
+```
+ffmpeg -hide_banner -encoders | grep hevc
+ffmpeg -hide_banner -decoders | grep hevc
+```
 
