@@ -1134,6 +1134,31 @@ ffmpeg -i in.mp4 -vf reverse -af areverse -preset superfast out.mp4
 ffmpeg -i 3.mp4 -vn -y -acodec copy 3.aac
 ffmpeg -i 3.mp4 -vn -y -acodec copy 3.m4a
 ```
+### ffmpeg提取MP4的音频
+```
+ffmpeg -i input.mp4 -vn -acodec copy output.aac
+```
+这里的参数解释如下：
+
+-i input.mp4 指定输入文件。
+
+-vn 表示不包含视频（即去除视频）。
+
+-acodec copy 表示复制音频编码（如果需要转换格式，可以指定为相应的编码器，如libopus，libmp3lame等）。
+
+output.aac 是输出的音频文件。
+
+### ffmpeg提取MP4的音频为mp3
+
+如果你想要转换音频格式，可以更改-acodec后面的编码器。例如，要将音频转换为MP3格式，可以使用：
+```
+ffmpeg -i input.mp4 -vn -acodec libmp3lame -ac 2 output.mp3
+
+ffmpeg -i input.mp4 -vn -c:a libmp3lame -ar 48k -b:a 192k -map a:0 -ac 2 output1.mp3
+```
+
+这里-ac 2指定了输出音频的声道数为2（立体声）。
+
 ## 裁剪视频crop filter
 
 从输入文件中选取你想要的矩形区域到输出文件中,常见用来去视频黑边。(x,y以左上角为零点）
