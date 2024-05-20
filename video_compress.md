@@ -1636,29 +1636,6 @@ ffmpeg -i input.mkv -x264opts "bframes=2:b-adapt=0" -r:v 30 -g 60 -sc_threshold 
 ```
 
 
-
-# jpg转avif
-可以用chrome浏览器查看
-```
-ffmpeg -i 0001.jpg -c:v libaom-av1 -still-picture 1 0001.avif
-ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -still-picture 1 0001.avif
-ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -crf 30 -still-picture 1 0001.avif       默认crf是32, 控制在38以下, 0是无损
-ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -aom-params lossless=1:threads=4 -still-picture 1 0001.avif
-ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -crf 0 -still-picture 1 0001.avif        这个也是无损转换
-```
-无损编码设置很像 `-libx265` 时候的 `-x265-params lossless=1`
-<https://trac.ffmpeg.org/wiki/Encode/AV1>
-
-
-# 图片压缩
-看起来效果差不多的设置
-```
-Caesium Image Compressor 92%
-heic 58~60%
-avif crf 4~5
-```
-
-
 # ffprobe获取视频分辨率、编码等信息
 ## 显示分辨率
 ```
@@ -1727,6 +1704,129 @@ ffprobe -v 0 -of csv="p=0" -select_streams V:0 -show_entries stream=r_frame_rate
 人类的眼睛所看画面的帧率高于16的时候，就会认为是连贯的，此现象称之为视觉停留
 
 
+#bash循环调用ffmpeg例子
+```
+for i in *.mp4; do ffmpeg -i "$i" -c:v libx265 -c:a copy -x265-params crf=25 $(dirname "$i")/new-$(basename "$i"); done
+```
+
+
+
+
+
+# 图片压缩
+看起来效果差不多的设置
+```
+Caesium Image Compressor 92%
+heic 58~60% ffmpeg 一般还不支持，heic可以用heic_tools的heif-convert.exe转换
+avif crf 4~5
+```
+
+# 图像转换
+
+## jpg转avif
+可以用chrome浏览器查看
+```
+ffmpeg -i 0001.jpg -c:v libaom-av1 -still-picture 1 0001.avif
+ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -still-picture 1 0001.avif
+ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -crf 30 -still-picture 1 0001.avif       默认crf是32, 控制在38以下, 0是无损
+ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -aom-params lossless=1:threads=4 -still-picture 1 0001.avif
+ffmpeg -i 0001.jpg -frames:v 1 -c:v libaom-av1 -crf 0 -still-picture 1 0001.avif        这个也是无损转换
+```
+无损编码设置很像 `-libx265` 时候的 `-x265-params lossless=1`
+<https://trac.ffmpeg.org/wiki/Encode/AV1>
+
+## 转出heic文件（ffmpeg不能）
+```
+sudo apt-get install libheif1 libheif-examples libheif-dev
+heif-enc -q 50 example.png
+```
+## heic文件转jpg等
+```
+for file in *.heic; do heif-convert $file ${file/%.heic/.jpg}; done
+```
+## webp转jpg
+```
+ffmpeg -i in.webp out.jpg
+for %i in (*.webp) do ffmpeg -i "%i" "%~ni.jpg"
+```
+## webp转换成png
+```
+ffmpeg -i in.webp out.png
+```
+## jpg转换成png
+```
+ffmpeg -i in.jpg out.png
+```
+## jpg转换成webp
+```
+ffmpeg -i in.jpg out.webp
+```
+## png转换成webp
+```
+ffmpeg -i in.png out.webp
+```
+## png转换成jpg
+```
+ffmpeg -i in.png out.jpg
+```
+## gif专项(ffmpeg+gifski+gifsicle)
+```
+ffmpeg -y -i file.mp4 -pix_fmt rgb24 -r 10 -s 320x480 file.gif
+magick  out.gif -fuzz 30% -layers Optimize result.gif
+
+gifsicle -O3 --lossy=35 -o lossy-compressed.gif input.gif
+
+ffmpeg -y -i file.mp4 -vf palettegen palette.png
+ffmpeg -y -i file.mp4 -i palette.png -filter_complex paletteuse -r 10 -s 320x480 file.gif
+ffmpeg -y -i file.mp4 -filter_complex "paletteuse,scale=iw*.2:ih*.2" palettegen palette.png
+ffmpeg -y -i input.mp4 -filter_complex "fps=5,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer" output.gif
+ffmpeg -i input.mp4 -filter_complex "[0:v]fps=10,scale=-1:90:flags=lanczos,split [a][b];[a] palettegen [p];[b][p] paletteuse" -y output.gif
+
+
+```
+#!/bin/sh
+
+palette="/tmp/palette.png"
+
+filters="fps=15,scale=320:-1:flags=lanczos"
+
+ffmpeg -v warning -i $1 -vf "$filters,palettegen=stats_mode=diff" -y $palette
+
+ffmpeg -i $1 -i $palette -lavfi "$filters,paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -y $2
+```
+
+ffmpeg -i foo.gif -c:v libx264 -crf 22 foo.mp4
+ffmpeg -i input.gif -pix_fmt yuv420p output.mp4
+ffmpeg -i input.gif -ss 00:00:00 -to 00:00:03 -c copy output.gif
+ffmpeg -i input.gif -vf "scale=iw/2:ih/2" output.gif
+ffmpeg -i my-animation.gif -c vp9 -b:v 0 -crf 41 my-animation.webm
+
+
+
+ffmpeg -i input.mp4 -c:v libx264 -tune zerolatency -preset ultrafast -crf 40 -c:a aac -b:a 32k output.mp4
+for %F in (*.mp4) do (If not Exist "%~nF" MkDir "%~nF" ffmpeg -i %F -r 1 -qscale:v 2 %~nF\%~nF-%3d.jpg)
+
+
+ffmpeg -i input.gif -c:v libx265 -preset veryslow -qp 0 output.mkv
+ffmpeg -i image-%06.png -o output.mkv will create a video from a list of images image-000000.png, image-000001.png etc.
+
+sudo apt install gifsicle
+curl -O https://deved-images.nyc3.cdn.digitaloceanspaces.com/gif-cli/app-platform.webm
+ffprobe app-platform.webm
+ffmpeg -ss 00:00:09 -to 00:00:12 -i app-platform.webm -c copy clip.webm
+ls -lh clip.webm
+ffmpeg -filter_complex "[0:v] fps=12,scale=w=540:h=-1,split [a][b];[a] palettegen [p];[b][p] paletteuse" -i clip.webm ffmpeg-sample.gif
+ls -lh ffmpeg-sample.gif
+gifski --fps 12 --width 540 -o gifski-sample.gif clip.webm
+ls -lh gifski-sample.gif
+gifski --fps 25 --width 1080 -o gifski-high.gif clip.webm
+ls -lh gifski-high.gif
+gifsicle -O3 --lossy=80 --colors 256 gifski-sample.gif -o optimized.gif
+ls -lh optimized.gif
+gifsicle --explode optimized.gif
+ls -lh optimized*
+gifsicle --rotate-90 optimized.gif -o rotated.gif
+```
 
 
 
