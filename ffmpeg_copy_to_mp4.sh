@@ -266,7 +266,6 @@ TARGET_FILE="$ABS_PATH/$filename_without_suffix"".mp4"
 
 echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
-echo "SRC ABS_NAME: ${ABS_NAME}"
 echo
 RUN_COM="${RUN_COM} -i \"${ABS_NAME}\""
 RUN_COM="${RUN_COM} -c:v copy -c:a copy -n \"${TARGET_FILE}\""
