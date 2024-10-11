@@ -218,7 +218,7 @@ if [[ $SRC_FRAMERATE == *"/"* ]]; then
 fi
 # echo $SRC_FRAMERATE
 
-RUN_COM="ffmpeg -hide_banner -threads 0"
+RUN_COM="ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
 
 # 使用ffprobe获取视频的分辨率信息
 # RESOLUTION=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv="p=0" "$VIDEO_PATH")
