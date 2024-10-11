@@ -1832,5 +1832,12 @@ gifsicle --rotate-90 optimized.gif -o rotated.gif
 
 
 
+# 仅转换为mp4封包
+```
+ffmpeg -i 3.mp4 -vn -y -acodec copy 3.aac
+ffmpeg -i input.mp4 -c:v copy -an out-no-audio.mp4
+ffmpeg -i input.mp4 -c:v copy -an out-no-audio.h264
+ffmpeg -i input.mp4 -c:a copy -vn out-no-video.aac
 
-
+ffmpeg -hide_banner -i input.flv -c:v copy -c:a copy output.mp4
+```
