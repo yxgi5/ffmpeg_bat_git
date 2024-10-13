@@ -101,8 +101,7 @@ do
     echo $line
     #./ffmpeg_lib265.sh "${line}"
     #./ffmpeg_hevc_qsv.sh "${line}"
-    #./ffmpeg_hevc_vaapi.sh "${line}"
-    ./ffmpeg_copy_to_mp4.sh "${line}"
+    ./ffmpeg_hevc_vaapi.sh "${line}"
 
     if [ "$?" -ne 0 ]; then
         echo -e "\033[41;36mConvert failed！\033[0m"
