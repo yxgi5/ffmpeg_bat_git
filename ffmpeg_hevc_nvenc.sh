@@ -531,8 +531,9 @@ fi
 # echo $RUN_COM
 
 echo "ABS_NAME: ${ABS_NAME}"
+# RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
 RUN_COM="${RUN_COM} -hwaccel cuvid -hwaccel_output_format cuda -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -c:v hevc_nvenc -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc cbr -fps_mode cfr -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+RUN_COM="${RUN_COM} -c:v hevc_nvenc -vf format=yuv420p -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc cbr -fps_mode cfr -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"

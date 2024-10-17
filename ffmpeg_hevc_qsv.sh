@@ -531,8 +531,9 @@ fi
 # echo $RUN_COM
 
 echo "ABS_NAME: ${ABS_NAME}"
-RUN_COM="${RUN_COM} -hwaccel qsv -hwaccel_output_format qsv -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
+# RUN_COM="${RUN_COM} -hwaccel qsv -hwaccel_output_format qsv -i \"${ABS_NAME}\""
+RUN_COM="${RUN_COM} -c:v hevc_qsv -vf format=yuv420p -fps_mode cfr -profile:v main -preset veryfast -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"

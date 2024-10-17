@@ -475,7 +475,7 @@ IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如1150k,不输入则保持�
 echo TARGET_BITRATE=%BIT%
 ::pause
 ::echo RUN_COM0:%RUN_COM%
-if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v:0 libx265 -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
+if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v libx265 -vf format=yuv420p -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 echo RUN_COM2:%RUN_COM%
 
 echo.

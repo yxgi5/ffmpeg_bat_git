@@ -18,7 +18,8 @@ set FFMPEG_PATH=C:\Program Files\ffmpeg\bin\ffmpeg.exe
 ::if exist ffmpeg.exe set FFMPEG_PATH=ffmpeg.exe
 if not defined FFMPEG_PATH goto NO_PATH_ERR
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
+::set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv"
+set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel auto"
 
 SET "SRC_FILE="
 
@@ -475,7 +476,8 @@ IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如1150k,不输入则保持�
 echo TARGET_BITRATE=%BIT%
 ::pause
 ::echo RUN_COM0:%RUN_COM%
-if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
+::if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT% -pix_fmt nv12 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
+if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v hevc_qsv -vf format=yuv420p -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT%  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 echo RUN_COM2:%RUN_COM%
 
 echo.
