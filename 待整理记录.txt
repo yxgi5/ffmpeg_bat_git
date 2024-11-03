@@ -1,0 +1,2478 @@
+
+
+"C:\Program Files\ffmpeg\bin\ffmpeg.exe" -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\BaiduNetdiskDownload\books\01 基础-高数【面授】\汤家凤18高数基础05.mp4" -c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v 915414  -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "D:\BaiduNetdiskDownload\books\01 基础-高数【 面授】\汤家凤18高数基础05-compressed.mp4"
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel qsv -hwaccel_output_format qsv \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-b.mp4'
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-b.mp4'
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 h264_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-b.mp4'
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 h264_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-b.mp4'
+
+
+
+ffmpeg -init_hw_device qsv=hw -filter_hw_device hw -v verbose -i Input.mkv -filter:v "scale=1920:-2,flags=lanczos,unsharp=5:5:.03:5:5:0.0" -c:v hevc_qsv -preset veryslow -extbrc 1 -look_ahead_depth 99 -b_strategy 1 -bf 7 -mbbrc 1 -rdo 1 -low_power 0 -adaptive_i 1 -adaptive_b 1 -async_depth 7 -b:v 25M -color_range tv -color_primaries:v bt709 -color_trc:v bt709 -colorspace:v bt709 Output.mkv
+
+
+ffmpeg \
+-init_hw_device qsv=hw -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel qsv \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-b.mp4'
+
+
+
+
+
+
+
+
+
+
+ffmpeg -hide_banner -loglevel verbose 
+ -init_hw_device qsv=hw -hwaccel qsv -hwaccel_device qsv -hwaccel_output_format qsv 
+ -i "InputFile.avi" 
+ -vsync vfr -c:a aac -profile:a aac_he -q:a 1.1 
+ -vf "hwupload=extra_hw_frames=128,vpp_qsv=w=iw/2:h=ih/2" 
+ -c:v hevc_qsv -preset faster -y 
+ "F:\Convert\OutputFile.mp4"
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-init_hw_device qsv=hw -hwaccel qsv -hwaccel_device qsv -filter_hw_device hw -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device_type=d3d11va -hwaccel qsv -hwaccel_device qsv -filter_hw_device hw -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+dxva2?
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device_type=d3d11va -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+tttt
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device=0 -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+tttt
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device=1 -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+xxxx
+
+
+
+
+fmpeg -y -v verbose -hwaccel qsv -hwaccel_output_format qsv -c:v h264_qsv -i input.mkv -vf "scale_qsv=w=1920:h=1080" -c:v h265_qsv -preset veryslow -global_quality 18 output.mkv
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-hwaccel qsv -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+ttt
+
+
+Use Intel(R) oneVPL to create MFX session, API version is 2.13, the required implementation version is 1.3
+libvpl
+cygvpl-2.dll
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-hwaccel qsv -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 h264_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:a copy \
+-c:v av1_qsv \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RUN_COM="${RUN_COM} -hwaccel cuvid -hwaccel_output_format cuda -i \"${ABS_NAME}\""
+RUN_COM="${RUN_COM} -c:v hevc_nvenc -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -profile:v main -preset p4 -tune:v hq -rc cbr -fps_mode cfr -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel cuvid -hwaccel_output_format cuda \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-b.mp4'
+
+
+
+
+
+
+
+
+
+
+--enable-gpl --enable-version3 --enable-static --pkg-config=pkgconf --disable-w32threads --disable-autodetect --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libuavs3d --enable-libzvbi --enable-librav1e --enable-libsvtav1 --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxvid --enable-libaom --enable-libjxl --enable-libopenjpeg --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-ffnvcodec --enable-nvdec --enable-nvenc --enable-dxva2 --enable-d3d11va --enable-libvpl --enable-libshaderc --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint
+
+
+
+libvpl
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CommandLine="C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  \
+-threads 0 -thread_type frame \
+-hwaccel dxva2 \
+-gui_hwnd 264650 -hide_msg -y \
+-i "E:\ssstwitter.com_1706861380736.mp4" \
+-af "aresample=48000:resampler=soxr" \
+-threads 0 -f mp4 \
+-c:v hevc_nvenc -b:v 2000k -profile:v main  -preset p4 -tune:v hq -rc vbr \
+-g 300 -keyint_min 30 -r 30 -fps_mode cfr \
+-c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k \
+-sn -map_metadata -1 -map_chapters -1 \
+-pix_fmt yuv420p \
+-map 0:0 -map 0:1 \
+"D:\\[SHANA]ssstwitter.com_1706861380736.mp4"
+
+
+
+
+CommandLine="C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  \
+-threads 0 -thread_type frame \
+-hwaccel dxva2 \
+-gui_hwnd 264650 -hide_msg -y -i "E:\ssstwitter.com_1706861380736.mp4"  -af "aresample=48000:resampler=soxr"  \
+-threads 0 -f mp4 -c:v hevc_qsv -fps_mode cfr -b:v 2000k -g 300 -keyint_min 30 -r 30 -profile:v main  -preset veryfast  -fps_mode cfr \
+-c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:0 -map 0:1 "D:\\[SHANA]ssstwitter.com_1706861380736.mp4"
+
+
+CommandLine="C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  \
+-threads 0 -thread_type frame \
+-hwaccel dxva2 \
+-gui_hwnd 264650 -hide_msg -y -i "E:\ssstwitter.com_1706861380736.mp4"  -vf "hflip" -af "aresample=48000:resampler=soxr"  \
+-threads 0 -f mp4 -c:v hevc_qsv -fps_mode cfr -b:v 2000k -g 300 -keyint_min 30 -r 30 -profile:v main  -preset veryfast  -fps_mode cfr \
+-c:a libfdk_aac -cutoff 18k -ac 2 -b:a 128k -sn -map_metadata -1 -map_chapters -1 -pix_fmt yuv420p -map 0:0 -map 0:1 "D:\\[SHANA]ssstwitter.com_1706861380736 (1).mp4"
+
+
+
+vbr
+
+CommandLine="C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" \
+-strict -2 -hide_banner -threads 0  \
+-hwaccel cuda -i "E:\ssstwitter.com_1706861380736.mp4" \
+-c:v libx265 -b:v 5000k -maxrate 8000k -bufsize 16000k -profile:v main -level 5.1 -g 250 -map v:0 \
+-c:a aac -ar 48k -b:a 128k -map a:0 \
+-pix_fmt yuv420p -x265-params "keyint=250" -sws_flags bicubic -tag:v hvc1 -map_metadata 0 -map_metadata:s:v 0:s:v -map_metadata:s:a 0:s:a -movflags use_metadata_tags -y "E:\ssstwitter.com_1706861380736-av1-2.mp4"
+
+CommandLine="C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" -strict -2 -hide_banner -threads 0  -hwaccel cuda -i "E:\ssstwitter.com_1706861380736.mp4" \
+-c:v libx265 -b:v 1067k -profile:v main -level 5.1 -g 250 -map v:0 -c:a aac -ar 48k -b:a 128k -map a:0 -pix_fmt yuv420p -x265-params "keyint=250" -sws_flags bicubic -tag:v hvc1 -map_metadata 0 -map_metadata:s:v 0:s:v -map_metadata:s:a 0:s:a -movflags use_metadata_tags -y "E:\ssstwitter.com_1706861380736-av1-2.mp4"
+
+
+
+
+
+cbr
+
+CommandLine="C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" \
+-strict -2 -hide_banner -threads 0  \
+-hwaccel cuda -i "E:\ssstwitter.com_1706861380736.mp4" \
+-c:v libx265 -b:v 5000k -minrate 5000k -maxrate 8000k -bufsize 16000k -profile:v main -level 5.1 -g 250 -map v:0 \
+-c:a aac -ar 48k -b:a 128k -map a:0 -pix_fmt yuv420p -x265-params "keyint=250:strict-cbr=1" -sws_flags bicubic -tag:v hvc1 -map_metadata 0 -map_metadata:s:v 0:s:v -map_metadata:s:a 0:s:a -movflags use_metadata_tags -y "E:\ssstwitter.com_1706861380736-av1-2.mp4"
+
+CommandLine="C:\Program Files\Shutter Encoder\Library\ffmpeg.exe" -strict -2 -hide_banner -threads 0  -hwaccel cuda -i "E:\ssstwitter.com_1706861380736.mp4" \
+-c:v libx265 -b:v 1067k -minrate 1067k -maxrate 1067k -bufsize 2134k -profile:v main -level 5.1 -g 250 -map v:0 -c:a aac -ar 48k -b:a 128k -map a:0 -pix_fmt yuv420p -x265-params "keyint=250:strict-cbr=1" -sws_flags bicubic -tag:v hvc1 -map_metadata 0 -map_metadata:s:v 0:s:v -map_metadata:s:a 0:s:a -movflags use_metadata_tags -y "E:\ssstwitter.com_1706861380736-av1-2.mp4"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CommandLine="C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  \
+-threads 0 -thread_type frame -hwaccel dxva2 -gui_hwnd 134194 -hide_msg -y \
+-i "E:\ssstwitter.com_1706861380736.mp4"  \
+-af "aresample=48000:resampler=soxr"  \
+-threads 0 -f mp4 \
+-c:v h264_qsv -b:v 2000k -profile:v main  -preset veryfast \
+-fps_mode cfr \
+-g 240 -keyint_min 24 \
+-c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k \
+-sn \
+-pix_fmt yuv420p \
+-map 0:0 -map 0:1 \
+"D:\\[SHANA]ssstwitter.com_1706861380736.mp4"
+
+
+
+
+
+
+
+
+CommandLine="C:\Program Files\ShanaEncoder\tools\x64\ShanaEncoder.sha"  \
+-threads 0 -thread_type frame -hwaccel dxva2 -gui_hwnd 265320 -hide_msg -y \
+-i "E:\ssstwitter.com_1706861380736.mp4"  \
+-af "aresample=48000:resampler=soxr"  \
+-threads 0 -f mp4 \
+-c:v hevc_nvenc -b:v 2000k -profile:v main  -preset p4 -tune:v hq -rc vbr \
+-g 240 -keyint_min 24 \
+-c:a libfdk_aac -cutoff 20k -ac 2 -b:a 192k \
+-sn \
+-map_metadata -1 -map_chapters -1 \
+-pix_fmt yuv420p \
+-map 0:0 -map 0:1 \
+"D:\\[SHANA]ssstwitter.com_1706861380736 (1).mp4"
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-init_hw_device qsv=hw -hwaccel qsv -hwaccel_device qsv -filter_hw_device hw -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/ssstwitter.com_1706861380736.mp4' \
+-c:v:0 hevc_qsv -fps_mode vfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/ssstwitter.com_1706861380736-c.mp4'
+
+
+
+
+
+ffmpeg -y -loglevel debug -init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i simpsons.mp4 -vf 'format=qsv,hwupload=extra_hw_frames=64'  \
+-c:v h264_qsv \
+-bf 3 -b:v 15M -maxrate:v 15M -bufsize:v 2M -r:v 30 -c:a copy -f mp4 trolled.mp4
+
+
+fmpeg -y -v verbose \
+-hwaccel qsv -hwaccel_output_format qsv \
+-c:v h264_qsv \
+-i input.mkv \
+-vf "scale_qsv=w=1920:h=1080" \
+-c:v h265_qsv -preset veryslow -global_quality 18 \
+output.mkv
+
+
+
+-loglevel debug == -v debug,
+一般用 -v verbose 即可
+
+
+
+-init_hw_device : iconvnitialise a new hardware device of type type called name, using the given device parameters. 
+-hwaccel : Use hardware acceleration to decode the matching stream(s).
+-hwaccel_output_format : 
+-hwaccel_device : 配合 -hwaccel option, Select a device to use for hardware acceleration.
+-filter_hw_device 配合 filter 比如 hwupload filter
+
+
+
+
+./ffmpeg -v verbose \
+-hwaccel cuda -hwaccel_output_format cuda -i input.mp4  \
+-init_hw_device cuda \
+-filter_complex \
+" \
+[0:v]scale_cuda=format=yuv444p[scaled_video];
+[scaled_video]bilateral_cuda=window_size=9:sigmaS=3.0:sigmaR=50.0" \
+-an -sn -c:v h264_nvenc -cq 20 out.mp4
+
+
+./ffmpeg \
+    -hwaccel cuda -hwaccel_output_format cuda -i input_green.mp4  \
+    -hwaccel cuda -hwaccel_output_format cuda -i base_video.mp4 \
+    -init_hw_device cuda \
+    -filter_complex \
+    " \
+        [0:v]chromakey_cuda=0x25302D:0.1:0.12:1[overlay_video]; \
+        [1:v]scale_cuda=format=yuv420p[base]; \
+        [base][overlay_video]overlay_cuda" \
+    -an -sn -c:v h264_nvenc -cq 20 output.mp4
+
+./ffmpeg -init_hw_device cuda=cuda -filter_hw_device cuda \
+    -f lavfi -i color=size=800x600:color=white,format=yuv420p \
+    -f lavfi -i yuvtestsrc=size=200x200,format=yuv420p \
+    -filter_complex \
+    " \
+        [0]hwupload[under]; \
+        [1]hwupload,chromakey_cuda=green:0.1:0.12[over]; \
+        [under][over]overlay_cuda" \
+    -c:v hevc_nvenc -cq 18 -preset slow output.mp4
+	
+	
+ffmpeg -init_hw_device vulkan -hwaccel vaapi -hwaccel_output_format vaapi ... -vf libplacebo
+
+
+
+Hardware Decode and Hardware Encode
+
+Use DX9 hardware decoder
+
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i input.mkv -c:v av1_amf output.mp4
+Use DX11 hardware decoder
+
+ffmpeg -hwaccel d3d11va -hwaccel_output_format d3d11 -i input.mkv -c:v hevc_amf output.mp4
+
+Software Decode and Hardware Encode
+
+Use the CPU to decode the input bitstream, and the GPU to encode the output stream.
+
+ffmpeg -i input.mkv -c:v av1_amf output.mp4
+
+
+Full hardware transcode with NVDEC and NVENC:
+
+ffmpeg -hwaccel cuda -hwaccel_output_format cuda -i input -c:v h264_nvenc -preset slow output
+ffmpeg -hwaccel_device 0 -hwaccel cuda -hwaccel_output_format cuda -i input h264_nvenc -preset slow output.mkv
+
+NVENC can accept d3d11 frames context directly.
+ffmpeg -y -hwaccel_output_format d3d11 -hwaccel d3d11va -i input.mp4 -c:v hevc_nvenc out.mp4
+
+AV1 NVDEC HW decoding requires using -c:v av1:
+ffmpeg -hwaccel nvdec -c:v av1 -i input_av1.mp4 output.ts
+
+
+
+ffmpeg如何控制profile&level
+举3个例子吧
+ffmpeg -i input.mp4 -profile:v baseline -level 3.0 output.mp4
+
+ffmpeg -i input.mp4 -profile:v main -level 4.2 output.mp4
+
+ffmpeg -i input.mp4 -profile:v high -level 5.1 output.mp4
+
+如果ffmpeg编译时加了external的libx264，那就这么写：
+ffmpeg -i input.mp4 -c:v libx264 -x264-params "profile=high:level=3.0" output.mp4
+
+HEVC制定了“层级”(tier) 和“等级”(level)。
+tier只有main和high。
+level有13级，如下所示：
+ffmpeg -i input.mp4 -c:v libx265 -x265-params "profile=high:level=3.0" output.mp4
+
+
+编码效率和视频质量的取舍(preset, crf)
+除了上面提到的，强行配置biterate，或者强行配置profile/level，还有2个参数可以控制编码效率。
+一个是preset，一个是crf。
+preset也挺粗暴，基本原则就是，如果你觉得编码太快或太慢了，想改改，可以用profile。
+preset有如下参数可用：
+
+ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow and placebo.
+编码加快，意味着信息丢失越严重，输出图像质量越差。
+
+CRF(Constant Rate Factor): 范围 0-51: 0是编码毫无丢失信息, 23 is 默认, 51 是最差的情况。相对合理的区间是18-28.
+值越大，压缩效率越高，但也意味着信息丢失越严重，输出图像质量越差。
+
+举个例子吧。
+ffmpeg -i input -c:v libx264 -profile:v main -preset:v fast -level 3.1 -x264opts crf=18
+(参考自：https://trac.ffmpeg.org/wiki/Encode/H.264)
+
+
+yuv转为图片
+有时候抓取的yuv想要给别人看，别人没软件打开，那就转png出去咯。
+
+ffmpeg -s 1280x360 -i yuv420p_61.yuv ~/test.png
+
+抽取视频某一帧YUV
+简单，你先用上面的方法，先抽出jpeg图片，然后把jpeg转为YUV。
+比如：
+你先抽取10帧图片。
+ffmpeg -i input.mp4 -ss 00:00:20 -t 10 -r 1 -q:v 2 -f image2 pic-%03d.jpeg
+
+然后，你就随便挑一张，转为YUV:
+ffmpeg -i pic-001.jpeg -s 1440x1440 -pix_fmt yuv420p xxx3.yuv
+如果-s参数不写，则输出大小与输入一样。
+
+当然了，YUV还有yuv422p啥的，你在-pix_fmt 换成yuv422p就行啦！
+
+提取视频的YUV420原始数据
+对于一下做底层编解码的人来说，有时候常要提取视频的YUV原始数据。
+怎么做？很简单：
+ffmpeg -i input.mp4 output.yuv
+怎么样，是不是太简单啦？！！！哈哈
+
+如果你想问yuv的数据，如何播放，我不会告诉你，RawPlayer挺好用的！！如果你在Ubuntu上呢？可以用ffplay
+
+
+提取视频ES数据
+ffmpeg –i input.mp4 –vcodec copy –an –f m4v output.h264
+
+
+
+
+
+
+
+
+
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel cuvid -hwaccel_output_format cuda \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b1.mp4'
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel qsv -hwaccel_output_format qsv \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b2.mp4'
+
+
+
+-bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=pc
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-vf format=yuv420p \
+#-bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=pc \
+-bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709 \
+#-color_primaries bt709 -color_trc bt709 -colorspace bt709 -range pc \
+#-color_primaries bt709 -color_trc bt709 -colorspace bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b3.mp4'
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-vf format=yuv420p \
+#-bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709:color_range=pc \
+#-bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709 \
+#-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range pc \
+#-color_primaries bt709 -color_trc bt709 -colorspace bt709 \
+#-vf color_primaries=bt709:color_trc=bt709:colorspace=bt709 \
+-vf color_primaries=bt709:color_trc=bt709:colorspace=bt709:color_range=pc \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b3.mp4'
+
+
+
+
+
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "E:\ssstwitter.com_1706861380736.mp4" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 559687 -fps_mode cfr -r 30 -vf format=yuv420p -color_primaries bt709 -color_trc bt709 -colorspace bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "E:\ssstwitter.com_1706861380736-b3.mp4"
+
+ffprobe -hide_banner "E:\ssstwitter.com_1706861380736-b3.mp4"
+
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "E:\ssstwitter.com_1706861380736.mp4" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 559687 -fps_mode cfr -r 30 -pix_fmt yuv420p -color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range pc -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "E:\ssstwitter.com_1706861380736-b4.mp4"
+
+ffprobe -hide_banner "E:\ssstwitter.com_1706861380736-b4.mp4"
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range pc \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b5.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b5.mp4'
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b6.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b6.mp4'
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b7.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b7.mp4'
+
+
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-vf "colormatrix=bt470bg:bt709" \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+-vf "prores_metadata=transfer_characteristics=bt709" \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b8.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b8.mp4'
+
+ffmpeg -i '/e/ssstwitter.com_1706861380736-b8.mp4' -c copy -bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709 '/e/ssstwitter.com_1706861380736-b8b.mp4'
+ffmpeg -i '/e/ssstwitter.com_1706861380736-b8.mp4' -c copy -bsf:v libplacebo=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv '/e/ssstwitter.com_1706861380736-b8b.mp4'
+ffmpeg -i "E:\ssstwitter.com_1706861380736-b8.mp4" -c copy -bsf:v prores_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709 "E:\ssstwitter.com_1706861380736-b8b.mp4"
+ffmpeg -i "E:\ssstwitter.com_1706861380736-b8.mp4" -c copy -bsf:v hevc_metadata=color_primaries=bt709:color_trc=bt709:colorspace=bt709 "E:\ssstwitter.com_1706861380736-b8b.mp4"
+
+
+
+ffmpeg -loglevel error -hide_banner -f 'lavfi' -i smptehdbars -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736.mp4' -frames:v 1 -codec:v hevc_qsv -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v hevc_metadata=chroma_sample_loc_type=0 -f hevc - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+ok
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ffmpeg -f lavfi -i anullsrc -i in.mp4 -c:v libx264 -pix_fmt yuv420p -profile:v main -video_track_timescale 30k -c:a aac -map 0:a -map 1:v -shortest out.mp4
+
+
+
+
+
+
+
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-vf "colormatrix=bt470bg:bt709" \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+-vf scale=out_color_matrix=bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b9.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b9.mp4'
+
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-vf "colormatrix=bt470bg:bt709" \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b10.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b10.mp4'
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736-b10.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-vf "colormatrix=bt470bg:bt709" \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_trc bt709 -colorspace bt709 -color_primaries bt709 -color_range tv \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b11.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b11.mp4'
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736-b11.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-vf "colormatrix=bt470bg:bt709" \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_primaries bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b12.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b12.mp4'
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736-b12.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+
+
+
+-vf "colormatrix=bt470bg:bt709" -color_range 1 -colorspace 1 -color_primaries 1 -color_trc 1
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_range 1 -colorspace 1 -color_primaries 1 -color_trc 1 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b13.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b13.mp4'
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736-b13.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel auto \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt nv12 \
+-color_range 1 -colorspace 1 -color_primaries 1 -color_trc 1 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b14.mp4'
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b14.mp4'
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736-b14.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+
+
+
+ffmpeg `
+-hide_banner -threads 0 `
+-hwaccel auto `
+-i "E:\ssstwitter.com_1706861380736.mp4" `
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr `
+-b:v 559687 `
+-fps_mode cfr -r 30 `
+-pix_fmt nv12 `
+-color_range 1 -colorspace 1 -color_primaries 1 -color_trc 1 `
+-g 250 -keyint_min 25 -sws_flags bicubic `
+-ar 44100 -b:a 128k -c:a aac -ac 2 `
+-map_metadata -1 `
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 `
+"E:\ssstwitter.com_1706861380736-b15.mp4"
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\ssstwitter.com_1706861380736.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 559687 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt nv12 ^
+-color_range 1 -colorspace 1 -color_primaries 1 -color_trc 1 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\ssstwitter.com_1706861380736-b15.mp4"
+
+
+ffprobe -hide_banner '/e/ssstwitter.com_1706861380736-b15.mp4'
+
+ffmpeg -loglevel error -hide_banner -i '/e/ssstwitter.com_1706861380736-b15.mp4' -frames:v 1 -codec:v libx264 -pix_fmt:v yuv420p -colorspace:v 'bt709' -color_primaries:v 'bt709' -color_trc:v 'bt709' -color_range:v 'tv' -bsf:v h264_metadata=chroma_sample_loc_type=0 -f h264 - | fq --decode 'avc_annexb' '.[] | objects | select(.nal_unit_type=="sps") | .sps | .vui_parameters | display'
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel cuvid -hwaccel_output_format cuda \
+-i '/e/ssstwitter.com_1706861380736.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv422p \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/e/ssstwitter.com_1706861380736-b16.mp4'
+
+
+
+
+
+
+
+
+
+ffmpeg -hide_banner -threads 0 -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "E:\ssstwitter.com_1706861380736.mp4" -vf 'hwmap=derive_device=qsv,format=dxva2_vld' -c:v h264_qsv output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "/e/ssstwitter.com_1706861380736.mp4" -vf 'hwmap=derive_device=qsv,format=dxva2_vld' -c:v h264_qsv output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "/e/ssstwitter.com_1706861380736.mp4" -vf 'hwmap=derive_device=qsv,format=dxva2_vld' -c:v h264_qsv output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "E:\ssstwitter.com_1706861380736.mp4" -vf 'hwmap=derive_device=qsv,format=qsv,scale_qsv=w=1280:h=720' -c:v h264_qsv output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt yuv422p output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format cuda -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt yuv422p output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt yuv422p output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel dxva2 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt yuv422p output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel d3d11va -hwaccel_output_format d3d11 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt yuv422p output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel d3d11va -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt yuv422p output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel d3d11va -hwaccel_output_format nv12 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format nv12 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+#ffmpeg -hide_banner -threads 0 -hwaccel cuvid -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+#ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format dxva2_vld -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format nv12 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+
+best
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format nv12 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format nv12 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format nv12 -init_hw_device qsv=hw -filter_hw_device hw -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 -c:v h264_qsv -pix_fmt nv12 output.mp4
+
+common
+ffmpeg -hide_banner -threads 0 -hwaccel auto -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4 == ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format nv12 -i "/e/ssstwitter.com_1706861380736.mp4" -c:v h264_qsv -pix_fmt nv12 output.mp4
+
+
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "/e/ssstwitter.com_1706861380736.mp4" -vf "vpp_qsv=tonemap=1,scale_qsv=format=nv12" -c:v h264_qsv -crf 23 -c:a aac output.mp4
+ 
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "/e/ssstwitter.com_1706861380736.mp4"  -vf 'hwdownload,format=p010,zscale=transfer=linear,tonemap=hable,zscale=transfer=bt709,format=yuv420p' -c:v h264_qsv -crf 23 -c:a aac output.mp4
+
+
+
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "/e/ssstwitter.com_1706861380736.mp4" -vf hwdownload,format=nv12 -c:v h264_qsv output.mp4
+ok
+ffmpeg -hwaccel d3d11va -hwaccel_output_format d3d11 -i "/e/ssstwitter.com_1706861380736.mp4" -vf hwdownload,format=nv12 -c:v h264_qsv output.mp4
+ok
+
+
+
+-hwaccel d3d11va -hwaccel_output_format d3d11
+-hwaccel dxva2 -hwaccel_output_format dxva2_vld
+-vf 'hwmap=derive_device=qsv,format=qsv'
+-i
+-cv
+
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "/e/ssstwitter.com_1706861380736.mp4" -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv output.mp4
+NG
+
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "/e/ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv -c:v h264_qsv output.mp4
+NG
+
+ffmpeg -hwaccel qsv -hwaccel_output_format qsv -i "/e/ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 -c:v h264_qsv output.mp4
+ok
+
+ffmpeg -hwaccel qsv -hwaccel_output_format qsv -i "/e/ssstwitter.com_1706861380736.mp4" -vf hwmap=derive_device=qsv,hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 -c:v h264_qsv output.mp4
+NG
+
+
+
+
+
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwdownload,format=nv12 -c:v h264_qsv output.mp4
+ok
+ffmpeg -hwaccel d3d11va -hwaccel_output_format d3d11 -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwdownload,format=nv12 -c:v h264_qsv output.mp4
+ok
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "E:\ssstwitter.com_1706861380736.mp4" -vf 'hwmap=derive_device=qsv,format=qsv' -c:v h264_qsv output.mp4
+NG
+ffmpeg -hwaccel dxva2 -hwaccel_output_format dxva2_vld -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv -c:v h264_qsv output.mp4
+NG
+ffmpeg -hwaccel qsv -hwaccel_output_format qsv -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 -c:v h264_qsv output.mp4
+ok
+ffmpeg -hwaccel qsv -hwaccel_output_format qsv -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwmap=derive_device=qsv,hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 -c:v h264_qsv output.mp4
+NG
+ffmpeg -hwaccel qsv -hwaccel_output_format qsv -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv,hwmap=derive_device=qsv,format=qsv,hwdownload,format=nv12 -c:v h264_qsv output.mp4
+NG
+ffmpeg -hwaccel qsv -hwaccel_output_format qsv -init_hw_device qsv=hw -filter_hw_device hw -v verbose -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv,hwmap=derive_device=qsv,format=qsv,hwdownload,format=nv12 -c:v h264_qsv output.mp4
+NG
+
+
+
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format cuda -init_hw_device qsv=hw -filter_hw_device hw -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 -c:v h264_qsv -pix_fmt nv12 output.mp4
+NG
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format cuda -init_hw_device qsv=hw -filter_hw_device hw -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwmap=derive_device=qsv,format=qsv,hwdownload,format=nv12 -c:v h264_qsv -pix_fmt nv12 output.mp4
+NG
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format nv12 -init_hw_device qsv=hw -filter_hw_device hw -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwmap=derive_device=qsv,format=nv12,hwdownload,format=nv12 -c:v h264_qsv -pix_fmt nv12 output.mp4
+NG
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format nv12 -init_hw_device qsv=hw -filter_hw_device hw -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwmap=derive_device=cuvid,format=nv12,hwdownload,format=nv12 -c:v h264_qsv -pix_fmt nv12 output.mp4
+NG
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel cuvid -hwaccel_output_format cuda -pix_fmt yuv420p -i "E:\ssstwitter.com_1706861380736.mp4" -vf hwmap=derive_device=qsv,format=qsv,hwdownload,format=nv12 -c:v h264_qsv -pix_fmt nv12 output.mp4
+NG
+
+
+
+
+h264_yuv420p(progressive)_1280x720.mp4						
+h264_yuv420p(tv, bt709, progressive)_1920x1080.mov
+h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4
+h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4
+hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4
+hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4
+
+
+
+
+E:\sample\h264_yuv420p(progressive)_1280x720.mp4												1359878/9953793
+E:\sample\h264_yuv420p(tv, bt709, progressive)_1920x1080.mov									2548951/15127600
+E:\sample\h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4				1359878/559687
+E:\sample\h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4									1359878/3286312
+E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4		2548951/16911305
+E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4		2548951/8910432
+
+```
+ffprobe -hide_banner "E:\sample\h264_yuv420p(progressive)_1280x720.mp4"
+ffprobe -hide_banner "E:\sample\h264_yuv420p(tv, bt709, progressive)_1920x1080.mov"
+ffprobe -hide_banner "E:\sample\h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4"
+ffprobe -hide_banner "E:\sample\h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4"
+ffprobe -hide_banner "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4"
+ffprobe -hide_banner "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4"
+
+
+D:\BaiduNetdiskDownload\ffmpeg_bat_git>ffprobe -hide_banner "E:\sample\h264_yuv420p(progressive)_1280x720.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\sample\h264_yuv420p(progressive)_1280x720.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:31.60, start: 0.000000, bitrate: 10025 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720, 9953 kb/s, 30 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 63 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+
+D:\BaiduNetdiskDownload\ffmpeg_bat_git>ffprobe -hide_banner "E:\sample\h264_yuv420p(tv, bt709, progressive)_1920x1080.mov"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\sample\h264_yuv420p(tv, bt709, progressive)_1920x1080.mov':
+  Metadata:
+    major_brand     : qt
+    minor_version   : 512
+    compatible_brands: qt
+    artist          : kongque.org
+    title           : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+  Duration: 00:00:31.10, start: 0.000000, bitrate: 15078 kb/s
+  Stream #0:0[0x1]: Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080, 14887 kb/s, 30 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : FFMP
+        encoder         : H.264
+      Side data:
+        displaymatrix: rotation of -90.00 degrees
+  Stream #0:1[0x2]: Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 181 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+
+D:\BaiduNetdiskDownload\ffmpeg_bat_git>ffprobe -hide_banner "E:\sample\h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\sample\h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 1
+    compatible_brands: isomiso4
+    creation_time   : 2023-12-23T01:53:24.000000Z
+  Duration: 00:05:48.77, start: 0.000000, bitrate: 691 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt470bg/smpte170m, progressive), 1280x720, 559 kb/s, 24 fps, 24 tbr, 90k tbn (default)
+      Metadata:
+        creation_time   : 2023-11-21T15:19:02.000000Z
+        handler_name    : Vireo Eyes v2.9.1
+        vendor_id       : [0][0][0][0]
+        encoder         : AVC Coding
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
+      Metadata:
+        creation_time   : 2023-11-21T15:19:02.000000Z
+        handler_name    : Vireo Ears v2.9.1
+        vendor_id       : [0][0][0][0]
+
+D:\BaiduNetdiskDownload\ffmpeg_bat_git>ffprobe -hide_banner "E:\sample\h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\sample\h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:38.76, start: 0.000000, bitrate: 3357 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuvj420p(pc, bt709, progressive), 1280x720, 3286 kb/s, 29 fps, 29 tbr, 1000k tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 60 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][0]
+
+D:\BaiduNetdiskDownload\ffmpeg_bat_git>ffprobe -hide_banner "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomdby1iso2mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:43.43, start: 0.000000, bitrate: 17047 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67, progressive), 1080x1920, 16911 kb/s, 30 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 129 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+
+D:\BaiduNetdiskDownload\ffmpeg_bat_git>ffprobe -hide_banner "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomdby1iso2mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:18.30, start: 0.000000, bitrate: 8762 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67, progressive), 1920x1080, 8588 kb/s, 29.99 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+      Side data:
+        displaymatrix: rotation of -90.00 degrees
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 163 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+		
+```	
+		
+		
+
+ffprobe -hide_banner "/e/sample/h264_yuv420p(progressive)_1280x720.mp4"
+ffprobe -hide_banner "/e/sample/h264_yuv420p(tv, bt709, progressive)_1920x1080.mov"
+ffprobe -hide_banner "/e/sample/h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4"
+ffprobe -hide_banner "/e/sample/h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4"
+ffprobe -hide_banner "/e/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4"
+ffprobe -hide_banner "/e/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4"
+
+```
+andy@LAPTOP-MECHREVO MINGW64 ~
+$ ffprobe -hide_banner "/e/sample/h264_yuv420p(progressive)_1280x720.mp4"
+ffprobe -hide_banner "/e/sample/h264_yuv420p(tv, bt709, progressive)_1920x1080.mov"
+ffprobe -hide_banner "/e/sample/h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4"
+ffprobe -hide_banner "/e/sample/h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4"
+ffprobe -hide_banner "/e/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4"
+ffprobe -hide_banner "/e/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:/sample/h264_yuv420p(progressive)_1280x720.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:31.60, start: 0.000000, bitrate: 10025 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720, 9953 kb/s, 30 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 63 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:/sample/h264_yuv420p(tv, bt709, progressive)_1920x1080.mov':
+  Metadata:
+    major_brand     : qt
+    minor_version   : 512
+    compatible_brands: qt
+    artist          : kongque.org
+    title           : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+  Duration: 00:00:31.10, start: 0.000000, bitrate: 15078 kb/s
+  Stream #0:0[0x1]: Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080, 14887 kb/s, 30 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : FFMP
+        encoder         : H.264
+      Side data:
+        displaymatrix: rotation of -90.00 degrees
+  Stream #0:1[0x2]: Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 181 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:/sample/h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 1
+    compatible_brands: isomiso4
+    creation_time   : 2023-12-23T01:53:24.000000Z
+  Duration: 00:05:48.77, start: 0.000000, bitrate: 691 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt470bg/smpte170m, progressive), 1280x720, 559 kb/s, 24 fps, 24 tbr, 90k tbn (default)
+      Metadata:
+        creation_time   : 2023-11-21T15:19:02.000000Z
+        handler_name    : Vireo Eyes v2.9.1
+        vendor_id       : [0][0][0][0]
+        encoder         : AVC Coding
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
+      Metadata:
+        creation_time   : 2023-11-21T15:19:02.000000Z
+        handler_name    : Vireo Ears v2.9.1
+        vendor_id       : [0][0][0][0]
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:/sample/h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:38.76, start: 0.000000, bitrate: 3357 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuvj420p(pc, bt709, progressive), 1280x720, 3286 kb/s, 29 fps, 29 tbr, 1000k tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 60 kb/s (default)
+      Metadata:
+        handler_name    : SoundHandler
+        vendor_id       : [0][0][0][0]
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomdby1iso2mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:43.43, start: 0.000000, bitrate: 17047 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67, progressive), 1080x1920, 16911 kb/s, 30 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 129 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomdby1iso2mp41
+    title           : kongque.org
+    artist          : kongque.org
+    encoder         : Lavf59.16.100
+    comment         : kongque.org
+    description     : kongque.org
+  Duration: 00:00:18.30, start: 0.000000, bitrate: 8762 kb/s
+  Stream #0:0[0x1](und): Video: hevc (Main 10) (hvc1 / 0x31637668), yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67, progressive), 1920x1080, 8588 kb/s, 29.99 fps, 30 tbr, 19200 tbn (default)
+      Metadata:
+        handler_name    : Core Media Video
+        vendor_id       : [0][0][0][0]
+      Side data:
+        displaymatrix: rotation of -90.00 degrees
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 163 kb/s (default)
+      Metadata:
+        handler_name    : Core Media Audio
+        vendor_id       : [0][0][0][0]
+```
+
+
+
+
+
+1. 互转
+1.1 从普通h264格式转为10-bit
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v main10 -preset p4 -tune:v hq -rc cbr ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output1.mp4"
+
+
+ffprobe -hide_banner "E:\output1.mp4"
+
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -profile:v main10 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output2.mp4"
+
+ffprobe -hide_banner "E:\output2.mp4"
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -profile:v main10 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output2.mp4"
+
+ffprobe -hide_banner "E:\output2.mp4"
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -profile:v main10 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output3.mp4"
+
+ffprobe -hide_banner "E:\output3.mp4"
+
+
+1.2 从普通h264格式转为12-bit
+
+
+andy@LAPTOP-MECHREVO MINGW64 ~
+$ x265 -V -D12
+x265 [info]: HEVC encoder version 3.5+1-f0c1022b6
+x265 [info]: build info [Windows][GCC 14.1.0][64 bit] 12bit
+x265 [info]: using cpu capabilities: MMX2 SSE2Fast LZCNT SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output4.mp4"
+
+ffprobe -hide_banner "E:\output4.mp4"
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -profile:v main12 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output5.mp4"
+
+ffprobe -hide_banner "E:\output5.mp4"
+same with E:\output4.mp4
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output6.mp4"
+
+ffprobe -hide_banner "E:\output6.mp4"
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -profile:v rext -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output7.mp4"
+
+
+ffprobe -hide_banner "E:\output7.mp4"
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v rext -preset p4 -tune:v hq -rc cbr ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output8.mp4"
+
+实际上替换成了p016le格式
+
+ffprobe -hide_banner "E:\output8.mp4"
+探测还是yuv420p10le，奇怪
+
+
+1.3 从普通h264格式转为16-bit
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv444p ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output9.mp4"
+
+ffprobe -hide_banner "E:\output9.mp4"
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv444p ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output10.mp4"
+
+ffprobe -hide_banner "E:\output10.mp4"
+
+1.4 10-bit转8-bit
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v libx265 -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output11.mp4"
+
+ffprobe -hide_banner "E:\output11.mp4"
+变成 yuv420p(tv, bt709, progressive)
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v libx265 -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output12.mp4"
+
+ffprobe -hide_banner "E:\output12.mp4"
+变成 yuv420p(tv, bt2020nc/bt2020/arib-std-b67, progressive)
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output13.mp4"
+
+ffprobe -hide_banner "E:\output13.mp4"
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output14.mp4"
+
+ffprobe -hide_banner "E:\output14.mp4"
+
+
+# 进阶
+硬件解码
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel qsv ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt nv12 ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel qsv  -hwaccel_output_format qsv ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt nv12 ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel qsv  -hwaccel_output_format qsv ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt nv12 ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel dxva2 -hwaccel_output_format dxva2_vld ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel dxva2 -hwaccel_output_format dxva2_vld ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel d3d11va -hwaccel_output_format d3d11 ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwupload=extra_hw_frames=64,format=qsv,hwdownload,format=nv12 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel d3d11va -hwaccel_output_format d3d11 ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=nv12 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel dxva2 ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+ffprobe -hide_banner "E:\output15.mp4"
+
+ok, 4.22x
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output16.mp4"
+
+
+ffprobe -hide_banner "E:\output16.mp4"
+
+ok, 4.64x
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuvid ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda -hwaccel_output_format cuda -init_hw_device cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-filter_complex "[0:v]scale_cuda=format=yuv444p[scaled_video];[scaled_video]bilateral_cuda=window_size=9:sigmaS=3.0:sigmaR=50.0" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda -hwaccel_output_format cuda -init_hw_device cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-filter_complex "[0:v]scale_cuda=format=yuv444p" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda -hwaccel_output_format cuda -init_hw_device cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-filter_complex "[0:v]scale_cuda=format=yuv420p10le" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda -hwaccel_output_format yuv420p10le -init_hw_device cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+OK, 4.17
+
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device qsv=hw,child_device_type=d3d11va ^
+-hwaccel qsv ^
+-hwaccel_device qsv ^
+-filter_hw_device hw ^
+-hwaccel_output_format qsv ^
+...
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device cuda ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-filter_hw_device cuda ^
+-hwaccel_output_format cuda ^
+...
+
+
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 1 ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 0 ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 1 ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+ffprobe -hide_banner "E:\output17.mp4"
+OK, 5.35x
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 1 ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output18.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 0 ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output18.mp4"
+
+ffprobe -hide_banner "E:\output18.mp4"
+
+OK,4.31x
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device qsv ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device cuda ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 1 ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 0 ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 1 ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+NG
+
+
+
+ffmpeg -hwaccel qsv -c:v hevc_qsv -load_plugin hevc_hw -i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" -vf hwdownload,format=p010 -pix_fmt p010le output.yuv
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device qsv ^
+-hwaccel qsv ^
+-c:v hevc_qsv ^
+-load_plugin hevc_hw ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=p010 ^
+-pix_fmt p010le ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+ffprobe -hide_banner "E:\output19.mp4"
+
+NG, not good
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device qsv ^
+-hwaccel qsv ^
+-hwaccel_output_format qsv ^
+-c:v hevc_qsv ^
+-load_plugin hevc_hw ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=p010 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output20.mp4"
+
+ffprobe -hide_banner "E:\output20.mp4"
+
+NG, not good, 长宽对换了
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device qsv ^
+-hwaccel qsv ^
+-hwaccel_output_format qsv ^
+-c:v hevc_qsv ^
+-load_plugin hevc_hw ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=nv12 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output21.mp4"
+
+NG
+
+
+
+ffmpeg -init_hw_device qsv=hw -filter_hw_device hw -f rawvideo -pix_fmt yuv420p -s:v 1920x1080 -i input.yuv -vf hwupload=extra_hw_frames=64,format=qsv -c:v h264_qsv -b:v 5M output.mp4
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device qsv=hw,child_device_type=d3d11va ^
+-hwaccel qsv ^
+-hwaccel_device qsv ^
+-filter_hw_device hw ^
+-hwaccel_output_format qsv ^
+-c:v hevc_qsv -load_plugin hevc_hw ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=qsv ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output22.mp4"
+
+NG
+
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-vf hwdownload,format=nv12 ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output23.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-vf hwdownload,format=nv12 ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output23.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format p010le ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-filter_hw_device cuda0 ^
+-vf hwupload=extra_hw_frames=64,format=p010le,hwdownload,format=nv12 ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output23.mp4"
+
+NG
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-filter_hw_device cuda0 ^
+-vf hwupload=extra_hw_frames=64,format=cuda,hwdownload,format=p010le ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output23.mp4"
+
+ffprobe -hide_banner "E:\output23.mp4"
+
+NG, not good, 长宽对换了
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-filter_hw_device cuda0 ^
+-vf hwupload=extra_hw_frames=64,format=cuda,hwdownload,format=nv12 ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output24.mp4"
+
+NG
+
+
+
+
+
+
+目的，
+通用的脚本模板
+可以转换h264->hevc
+至少能用qsv加速
+至少能把色彩空间模式归一化为nv12(bt709),即色彩深度和色彩空间转换
+最好能结合qsv和nvenc
+
