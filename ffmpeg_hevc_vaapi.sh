@@ -25,7 +25,7 @@ export LIBVA_DRIVER_NAME=iHD
 # echo $PPID        # 父进程ID
 
 echo ============================================================
-echo 欢迎使用ffmpeg视频 intel qsv h265 压缩批处理工具
+echo 欢迎使用ffmpeg视频压缩批处理工具
 echo
 echo 由 andreas 编写
 echo ============================================================
@@ -219,7 +219,7 @@ if [[ $SRC_FRAMERATE == *"/"* ]]; then
 fi
 # echo $SRC_FRAMERATE
 
-RUN_COM="ffmpeg -hide_banner -threads 0"
+RUN_COM="ffmpeg -hide_banner -threads 0 -v verbose"
 
 # 使用ffprobe获取视频的分辨率信息
 # RESOLUTION=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv="p=0" "$VIDEO_PATH")
@@ -532,9 +532,9 @@ fi
 # echo $RUN_COM
 
 echo "ABS_NAME: ${ABS_NAME}"
-# RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format vaapi -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -c:v hevc_vaapi -vf format=yuv420p -profile:v main -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
+# RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format vaapi -i \"${ABS_NAME}\""
+RUN_COM="${RUN_COM} -c:v hevc_vaapi -profile:v main -b:v $TARGET_BITRATE -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"

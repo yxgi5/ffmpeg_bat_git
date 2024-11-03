@@ -1,3 +1,294 @@
+# Official FFmpeg Documentation
+
+ffmpeg.org [Documentation](https://ffmpeg.org/documentation.html) The following documentation is regenerated nightly, and corresponds to the [newest FFmpeg revision](https://ffmpeg.org/download.html). Consult your locally installed documentation for older versions.
+
+## Command Line Tools Documentation
+
+  + [ffmpeg](https://ffmpeg.org/ffmpeg.html): ffmpeg tool
+  + [ffmpeg-all](https://ffmpeg.org/ffmpeg-all.html): ffmpeg tool and FFmpeg components
+  + [ffplay](https://ffmpeg.org/ffplay.html): ffplay tool
+  + [ffplay-all](https://ffmpeg.org/ffplay-all.html): ffplay tool and FFmpeg components
+  + [ffprobe](https://ffmpeg.org/ffprobe.html): ffprobe tool
+  + [ffprobe-all](https://ffmpeg.org/ffprobe.html): ffprobe tool and FFmpeg components
+
+## Components Documentation
+
+  + [Utilities](https://ffmpeg.org/ffmpeg-utils.html)
+  + [Video scaling and pixel format converter](https://ffmpeg.org/ffmpeg-scaler.html)
+  + [Audio resampler](https://ffmpeg.org/ffmpeg-resampler.html)
+  + [Encoders and decoders (codecs)](https://ffmpeg.org/ffmpeg-codecs.html)
+  + [Bitstream filters](https://ffmpeg.org/ffmpeg-bitstream-filters.html)
+  + [Muxers and demuxers (formats)](https://ffmpeg.org/ffmpeg-formats.html)
+  + [Protocols](https://ffmpeg.org/ffmpeg-protocols.html)
+  + [Input and output devices](https://ffmpeg.org/ffmpeg-devices.html)
+  + [Filters](https://ffmpeg.org/ffmpeg-filters.html)
+
+## Libraries Documentation
+
+  + [libavutil](https://ffmpeg.org/libavutil.html)
+  + [libswscale](https://ffmpeg.org/libswscale.html)
+  + [libswresample](https://ffmpeg.org/libswresample.html)
+  + [libavcodec](https://ffmpeg.org/libavcodec.html)
+  + [libavformat](https://ffmpeg.org/libavformat.html)
+  + [libavdevice](https://ffmpeg.org/libavdevice.html)
+  + [libavfilter](https://ffmpeg.org/libavfilter.html)
+
+## General Documentation
+
+  + [Frequently Asked Questions](https://ffmpeg.org/faq.html)
+  + [Supported External Libraries, Formats, Codecs or Features](https://ffmpeg.org/general.html)
+  + [Platform Specific Information](https://ffmpeg.org/platform.html)
+  + [Developer Documentation](https://ffmpeg.org/developer.html)
+  + [Git How-To](https://ffmpeg.org/git-howto.html)
+  + [FATE FFmpeg Automated Testing Environment](https://ffmpeg.org/git-howto.html)
+
+
+## API Documentation
+
+  + [Doxygen documentation](https://ffmpeg.org/doxygen/trunk/index.html) for current trunk (regenerated nightly); documentation for the [7.0](https://ffmpeg.org/doxygen/trunk/index.html), [6.1](https://ffmpeg.org/doxygen/6.1/index.html), [6.0](https://ffmpeg.org/doxygen/6.0/index.html), [5.1](https://ffmpeg.org/doxygen/5.1/index.html), [5.0](https://ffmpeg.org/doxygen/5.0/index.html), [4.4]https://ffmpeg.org/doxygen/4.4/index.html), [4.3](https://ffmpeg.org/doxygen/4.3/index.html), [4.2](https://ffmpeg.org/doxygen/4.2/index.html), [4.1](https://ffmpeg.org/doxygen/4.1/index.html), [4.0](https://ffmpeg.org/doxygen/4.0/index.html), [3.4](https://ffmpeg.org/doxygen/3.4/index.html), [3.3](https://ffmpeg.org/doxygen/3.3/index.html), [3.2](https://ffmpeg.org/doxygen/3.2/index.html), [3.1](https://ffmpeg.org/doxygen/3.1/index.html), [3.0](https://ffmpeg.org/doxygen/3.1/index.html), [2.8](https://ffmpeg.org/doxygen/2.8/index.html), [2.7](https://ffmpeg.org/doxygen/2.7/index.html), [2.6](https://ffmpeg.org/doxygen/2.6/index.html), [2.5](https://ffmpeg.org/doxygen/2.5/index.html), [2.4](https://ffmpeg.org/doxygen/2.4/index.html), [2.3](https://ffmpeg.org/doxygen/2.4/index.html), [2.2](https://ffmpeg.org/doxygen/2.4/index.html), [2.1](https://ffmpeg.org/doxygen/2.1/index.html), [2.0](https://ffmpeg.org/doxygen/2.0/index.html), [1.2](https://ffmpeg.org/doxygen/1.2/index.html), [1.1](https://ffmpeg.org/doxygen/1.1/index.html), [1.0](https://ffmpeg.org/doxygen/1.0/index.html), [0.11](https://ffmpeg.org/doxygen/0.11/index.html), [0.10](https://ffmpeg.org/doxygen/0.10/index.html), [0.9](https://ffmpeg.org/doxygen/0.10/index.html), [0.8](https://ffmpeg.org/doxygen/0.8/index.html), [0.7](https://ffmpeg.org/doxygen/0.7/index.html), [0.6](https://ffmpeg.org/doxygen/0.6/index.html) and [0.5](https://ffmpeg.org/doxygen/0.5/index.html) branches is also available.
+
+## Community Contributed Documentation
+
+  + [Official FFmpeg Wiki](https://trac.ffmpeg.org/wiki)
+  + [Books and other external resources](https://trac.ffmpeg.org/wiki/BooksAndOtherExternalResources)
+
+
+***
+# Official FFmpeg Wiki
+
+[Official FFmpeg Wiki](https://trac.ffmpeg.org/wiki) is intended for all kinds of FFmpeg and multimedia related information.
+
+## Bug Reports
+
+  + [List of Bug Reports]()
+  + [List of Tasks non developers can help with]()
+
+Please read the [​Bug Tracker Manual](https://git.videolan.org/?p=ffmpeg.git;a=blob_plain;f=doc/issue_tracker.txt;hb=HEAD) and [Submitting a Bug Report](https://ffmpeg.org/bugreports.html) before filing a new report. You must [register](https://trac.ffmpeg.org/register) before you can file a report or edit this wiki. For uploading samples > 2.5MB use the [​VideoLAN File Uploader](https://streams.videolan.org/upload/).
+
+## FFmpeg Official Documentation
+
+  + [Documentation](https://ffmpeg.org/documentation.html) – FFmpeg's main documentation page
+  + [Submit an FFmpeg Logo](https://ffmpeg.org/documentation.html) – Instructions on how to submit a themed logo or banner to FFmpeg
+
+## Developer Documentation
+
+  + [Development Policies and Guides](https://ffmpeg.org/developer.html)
+  + [Guide for Using Git](https://ffmpeg.org/git-howto.html)
+  + [Notes on Maintaining FFmpeg Source Code and Being a Maintainer](https://trac.ffmpeg.org/wiki/MaintainingFFmpeg)
+  + [FATE](https://trac.ffmpeg.org/wiki/FATE) – Our Continuous Integration Platform / regression testing system
+  + [Cleanup](https://trac.ffmpeg.org/wiki/Cleanup) – A list of components that may be considered candidates for removal
+  + Debugging
+    + [Macroblocks and Motion Vectors](https://trac.ffmpeg.org/wiki/Debug/MacroblocksAndMotionVectors)
+  + [How to apply patches from Patchwork](https://trac.ffmpeg.org/wiki/FetchingPatchworkPatches)
+
+## FFmpeg-related Sponsoring Programs
+
+  + Google Summer of Code
+    + [GSoC 2024](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2024)
+    + [GSoC 2023](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2023)
+    + [GSoC 2022](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2022)
+    + [GSoC 2021](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2022)
+    + [GSoC 2020](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2020)
+    + [GSoC 2019](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2019)
+    + [GSoC 2018](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2018)
+    + [GSoC 2017](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2017)
+    + [GSoC 2016](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2016)
+    + [GSoC 2015](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2015)
+    + [GSoC 2014](https://trac.ffmpeg.org/wiki/SponsoringPrograms/GSoC/2014)
+  + Outreachy
+    + [Outreachy - Dec 2016](https://trac.ffmpeg.org/wiki/SponsoringPrograms/Outreachy/2016-12)
+    + [Outreachy - May 2016](https://trac.ffmpeg.org/wiki/SponsoringPrograms/Outreachy/2016-05)
+    + [Outreachy - May 2015](https://trac.ffmpeg.org/wiki/SponsoringPrograms/Outreachy/2015-05)
+    + [OPW - Dec 2014](https://trac.ffmpeg.org/wiki/SponsoringPrograms/Outreachy/2015-05)
+  + Sovereign Tech Fund
+    + [STF 2024](https://trac.ffmpeg.org/wiki/SponsoringPrograms/STF/2024)
+
+## FFmpeg Developer Meetings
+
+  + [FFmeeting/2020-12](https://trac.ffmpeg.org/wiki/FFmeeting/2020-12)
+  + [FFmeeting/2020-02](https://trac.ffmpeg.org/wiki/FFmeeting/2020-02)
+  + [FFmeeting/2019-12](https://trac.ffmpeg.org/wiki/FFmeeting/2019-12)
+  + [FFmeeting/2016-05](https://trac.ffmpeg.org/wiki/FFmeeting/2016-05)
+  + [FFmeeting/2015-09](https://trac.ffmpeg.org/wiki/FFmeeting/2015-09)
+  + [FFmeeting/2014-10](https://trac.ffmpeg.org/wiki/FFmeeting/2014-10)
+  + [FFmeeting/2014-01](https://trac.ffmpeg.org/wiki/FFmeeting/2014-01)
+
+## FFmpeg at Conferences
+
+  + [Conferences Schedule](https://trac.ffmpeg.org/wiki/Conferences)
+
+## Community Contributed Documentation
+
+The guides below have been written by users and for users to supplement the official [FFmpeg Documentation](https://ffmpeg.org/documentation.html). If you're confused about something refer to the official documentation and if you're still having problems we can [help](https://ffmpeg.org/contact.html).
+
+## Books and other External Resources
+
+Books and other off-site resources of note are listed at [BooksAndOtherExternalResources](https://trac.ffmpeg.org/wiki/BooksAndOtherExternalResources)
+
+## Compiling FFmpeg
+
+  + [Generic Compilation Guide](https://trac.ffmpeg.org/wiki/CompilationGuide/Generic)
+  + [FFmpeg Compilation Guides](https://trac.ffmpeg.org/wiki/CompilationGuide/Generic) – Windows, macOS, Linux, and other platforms
+  + [Compile Benchmarks](https://trac.ffmpeg.org/wiki/CompileBenchmarks)
+
+## Encoding
+
+  + Video Codecs:
+    + [FFV1 Cheat Sheet](https://trac.ffmpeg.org/wiki/Encode/FFV1)
+    + [H.264 Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/H.264)
+    + [H.265 Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/H.265)
+    + [VP9 (WebM) Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/VP9)
+    + [AV1 Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/AV1)
+  + Legacy Codecs:
+    + [Xvid / DivX / MPEG-4 Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/MPEG-4)
+    + [VP8 (WebM) Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/VP8)
+    + [Theora Video and Vorbis Audio Encoding Guide](https://trac.ffmpeg.org/wiki/TheoraVorbisEncodingGuide)
+  + Audio Codecs:
+    + [AAC Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/AAC)
+    + [MP3 Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/MP3)
+  + General encoding guides:
+    + [Guidelines for high quality audio encoding](https://trac.ffmpeg.org/wiki/Encode/HighQualityAudio)
+    + [VFX Pipeline Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/VFX)
+    + [How to encode videos for YouTube and other video sharing sites](https://trac.ffmpeg.org/wiki/Encode/YouTube)
+
+## Hardware acceleration
+
+  + [Hardware acceleration introduction with FFmpeg](https://trac.ffmpeg.org/wiki/HWAccelIntro)
+  + [QuickSync](https://trac.ffmpeg.org/wiki/Hardware/QuickSync) - "Intel Quick Sync Video" is the marketing name for a set of hardware features available inside many Intel GPUs.
+  + [VAAPI](https://trac.ffmpeg.org/wiki/Hardware/VAAPI) - Video Acceleration API (VAAPI) is a non-proprietary and royalty-free open source software library ("libva") and API specification, initially developed by Intel but can be used in combination with other devices.
+  + [AMF](https://trac.ffmpeg.org/wiki/Hardware/AMF) - The Advanced Media Framework (AMF) SDK provides developers with easy access to AMD GPUs for multimedia processing.
+
+## Grabbing / Capturing
+
+  + [Capturing audio with FFmpeg and ALSA](https://trac.ffmpeg.org/wiki/Capture/ALSA)
+  + [How to grab the desktop (screen) with FFmpeg](https://trac.ffmpeg.org/wiki/Capture/Desktop)
+  + [How to capture a lightning (thunderbolt) with FFmpeg](https://trac.ffmpeg.org/wiki/Capture/Lightning)
+  + [How to capture a webcam input](https://trac.ffmpeg.org/wiki/Capture/Webcam)
+  + [How to capture with acquisition card on Linux](https://trac.ffmpeg.org/wiki/Capture/V4L2_ALSA)
+  + [DirectShow](https://trac.ffmpeg.org/wiki/DirectShow)
+
+## Streaming
+
+  + [Encoding for Streaming Sites](https://trac.ffmpeg.org/wiki/EncodingForStreamingSites) such as twitch.tv, ustream.tv, YouTube Live, and other RTMP(E) streaming providers.
+  + [Streaming Guide](https://trac.ffmpeg.org/wiki/StreamingGuide)
+  + [Streaming media with ffserver](https://trac.ffmpeg.org/wiki/ffserver)
+
+## Filtering
+
+  + [Filtering Guide](https://trac.ffmpeg.org/wiki/FilteringGuide), including syntax for filter options
+  + [Fancy Filtering Examples](https://trac.ffmpeg.org/wiki/FancyFilteringExamples)
+  + [Scaling](https://trac.ffmpeg.org/wiki/Scaling) (re-sizing) video
+  + [Xfade](https://trac.ffmpeg.org/wiki/Xfade) – Crossfades, wipes, and other transitions
+  + [Blend](https://trac.ffmpeg.org/wiki/Blend) – Examples for blend filter
+  + [Postprocessing](https://trac.ffmpeg.org/wiki/Postprocessing) – Postprocessing low-quality video with FFmpeg
+  + [Stereoscopic](https://trac.ffmpeg.org/wiki/Stereoscopic) – 3D movies with ffmpeg
+  + [Null](https://trac.ffmpeg.org/wiki/Null) – Filter for testing decoding speed
+  + [Null filter and anullsrc source](https://trac.ffmpeg.org/wiki/HowToFixTvPlaybackIssues) - How to use them to fix TV playback issues
+  + [WaveformMonitor](https://trac.ffmpeg.org/wiki/WaveformMonitor) – Waveform Monitor in FFmpeg
+  + [Vectorscope](https://trac.ffmpeg.org/wiki/Vectorscope) – Vectorscope in FFmpeg
+  + [Histogram](https://trac.ffmpeg.org/wiki/Histogram) – Histogram in FFmpeg
+  + [Afade audio filter curves illustrated](https://trac.ffmpeg.org/wiki/AfadeCurves)
+  + [Remap](https://trac.ffmpeg.org/wiki/RemapFilter) – Copies pixels from source frame to target frame based on mapping files/streams
+  + [Audio Channel Manipulation](https://trac.ffmpeg.org/wiki/AudioChannelManipulation) – Upmix, downmix, split, and manipulate audio channels
+  + [Audio Volume Manipulation](https://trac.ffmpeg.org/wiki/AudioVolume) – Change audio volume and perform normalization (peak, RMS, EBU R128)
+  + [How to remove advertising](https://trac.ffmpeg.org/wiki/HowToRemoveAdvertising) - Use drawbox and delogo filters combined with segment muxer
+  + [Cropping a video stream](https://trac.ffmpeg.org/wiki/CroppingVideo) - An alternative to cropdetect filter
+  + [Denoise Examples](https://trac.ffmpeg.org/wiki/DenoiseExamples) - Denoise filter examples for end-users
+
+## Images / Frames
+
+  + [Create a video slideshow from images](https://trac.ffmpeg.org/wiki/Slideshow)
+  + [Create a thumbnail image every X seconds of the video](https://trac.ffmpeg.org/wiki/Create%20a%20thumbnail%20image%20every%20X%20seconds%20of%20the%20video)
+  + [How to take multiple screenshots to an image (tile, mosaic)](https://trac.ffmpeg.org/wiki/How%20to%20take%20multiple%20screenshots%20to%20an%20image%20(tile%2C%20mosaic))
+  + [Create a mosaic out of several input videos](https://trac.ffmpeg.org/wiki/Create%20a%20mosaic%20out%20of%20several%20input%20videos)
+  + [Create a mosaic out of several input videos using xstack](https://trac.ffmpeg.org/wiki/Create%20a%20mosaic%20out%20of%20several%20input%20videos%20using%20xstack)
+  + [Create a sliding and bouncing overlay](https://trac.ffmpeg.org/wiki/BouncingOverlay)
+  + [Create a Waveform Image from an Audio Stream](https://trac.ffmpeg.org/wiki/Waveform)
+
+## Subtitles
+
+  + [How to burn subtitles into the video](https://trac.ffmpeg.org/wiki/HowToBurnSubtitlesIntoVideo)
+  + [How to convert other FFmpeg-supported subtitles to ASS format](https://trac.ffmpeg.org/wiki/HowToConvertSubtitleToASS)
+  + [How to convert YouTube SBV to SRT](https://trac.ffmpeg.org/wiki/HowToConvertYouTubeSBVtoSRT)
+  + [How to extract subtitles](https://trac.ffmpeg.org/wiki/ExtractSubtitles) that are included within video files.
+  + [How to extract and remove closed captions](https://trac.ffmpeg.org/wiki/HowToExtractAndRemoveClosedCaptions)
+  + [Managing other languages than English](https://trac.ffmpeg.org/wiki/ManagingOtherLanguagesThanEnglish)
+
+## Developing Programs Using the FFmpeg Libraries
+
+  + [How to setup Eclipse IDE for FFmpeg development](https://trac.ffmpeg.org/wiki/Eclipse)
+  + [Using libav*](https://trac.ffmpeg.org/wiki/Using%20libav*) – Instructions for how to integrate FFmpeg's main libraries into your own custom programs
+  + [Including FFmpeg headers in a C++ application](https://trac.ffmpeg.org/wiki/Including%20FFmpeg%20headers%20in%20a%20C%2B%2B%20application)
+  + [​List of FFmpeg API changes/compatibility test results](https://abi-laboratory.pro/tracker/timeline/ffmpeg/)
+  + [​Lei Xiaohua's Simplest FFmpeg Demos](https://leixiaohua1020.github.io/#ffmpeg-development-examples)
+  + [Migration notes for major bump on 2021-04-27](https://trac.ffmpeg.org/wiki/Bump59)
+
+## Miscellaneous
+
+  + General command line usage:
+    + [Solutions to some errors and messages](https://trac.ffmpeg.org/wiki/Errors)
+    + [Creating multiple outputs](https://trac.ffmpeg.org/wiki/Creating%20multiple%20outputs) from the same input
+    + [How to concatenate, join, or merge media files](https://trac.ffmpeg.org/wiki/Concatenate)
+    + [How to use -map option](https://trac.ffmpeg.org/wiki/Map) to select exactly which streams to process
+    + [Seeking](https://trac.ffmpeg.org/wiki/Seeking) to split a file or select a segment
+    + [framemd5 Intro and HowTo](https://trac.ffmpeg.org/wiki/framemd5%20Intro%20and%20HowTo) for using per-frame checksums
+    + [FFprobe Tips](https://trac.ffmpeg.org/wiki/FFprobeTips) for getting frame rate, frame size, duration, etc.
+    + [How to check if Fast Start is enabled for playback](https://trac.ffmpeg.org/wiki/HowToCheckIfFaststartIsEnabledForPlayback) using the -v trace option
+    + [Understanding -itsoffset option](https://trac.ffmpeg.org/wiki/UnderstandingItsoffset)
+  + Effects:
+    + [How to speed up / slow down a video](https://trac.ffmpeg.org/wiki/How%20to%20speed%20up%20/%20slow%20down%20a%20video) time lapse, etc.
+  + Video:
+    + [Changing the frame rate](https://trac.ffmpeg.org/wiki/ChangingFrameRate)
+    + [Limiting the output bitrate](https://trac.ffmpeg.org/wiki/Limiting%20the%20output%20bitrate)
+    + [Chroma Subsampling](https://trac.ffmpeg.org/wiki/Chroma%20Subsampling)
+    + [Colorspace support in FFmpeg](https://trac.ffmpeg.org/wiki/colorspace)
+    + [Debugging Macroblocks and Motion Vectors](https://trac.ffmpeg.org/wiki/Debug/MacroblocksAndMotionVectors)
+    + [Why was the ffmpeg -sameq option removed? What to use instead?](https://ffmpeg.org/faq.html#Why-was-the-ffmpeg-_002dsameq-option-removed_003f-What-to-use-instead_003f)
+    + [Viterbi Algorithm](https://trac.ffmpeg.org/wiki/ViterbiAlgorithm)
+  + Audio:
+    + [Audio Types](https://trac.ffmpeg.org/wiki/audio%20types) – List of the different types of raw audio
+    + [FFmpeg and the SoX Resampler](https://trac.ffmpeg.org/wiki/FFmpeg%20and%20the%20SoX%20Resampler) – High quality audio resampling
+  + Working with other tools:
+    + [How to encode with FFmpeg from Adobe Premiere Pro](https://trac.ffmpeg.org/wiki/Encode/PremierePro)
+    + [Using FFmpeg from PHP scripts](https://trac.ffmpeg.org/wiki/PHP)
+  + Other:
+    + [How to ask good questions on ffmpeg-user mailing list](https://trac.ffmpeg.org/wiki/MailingListEtiquette)
+    + [Articles for Creation](https://trac.ffmpeg.org/wiki/ArticlesForCreation) – A simple idea/reminder list for new community contributed wiki articles
+    + [Downstreams](https://trac.ffmpeg.org/wiki/Downstreams) – A list of downstream software products that distribute FFmpeg, including versions and end-of-life dates
+    + [Projects](https://trac.ffmpeg.org/wiki/Projects) – A list of free projects and programs known to incorporate work from FFmpeg.
+
+## Wiki Page Index
+
+For a complete list of all local wiki pages, see [TitleIndex](https://trac.ffmpeg.org/wiki/TitleIndex).
+
+## Trac Documentation
+
+Trac is what FFmpeg uses for tracking bugs
+
+  + [TracGuide](https://trac.ffmpeg.org/wiki/TracGuide) -- Built-in Documentation
+  + [​The Trac project](https://trac.edgewall.org/) -- Trac Open Source Project
+  + [​Trac FAQ](https://trac.edgewall.org/wiki/TracFaq) -- Frequently Asked Questions
+  + [TracSupport](https://trac.ffmpeg.org/wiki/TracSupport) -- Trac Support
+
+## License
+
+The materials within the Community Contributed Documentation section of the FFmpeg Wiki are released under the [​Creative Commons Attribution-ShareAlike 3.0 License](https://creativecommons.org/licenses/by-sa/3.0/). This allows anyone to share, adapt, and build upon this work, even for commercial purposes, as long as the same or compatible license is used and that credit is properly attributed to the author(s). Credit should be attributed to "Contributors to the FFmpeg Community Documentation Wiki".
+
+
+# 我补充一些资料链接
+
+[An ffmpeg and SDL Tutorial by Stephen Dranger](​http://dranger.com/ffmpeg/​http://dranger.com/ffmpeg/) - A tutorial on how to write a video player based on FFmpeg
+
+[MultimediaWiki by Multimedia Mike](https://wiki.multimedia.cx/index.php/Main_Page) - Technical details about video and audio
+
+[FFmpeg Metadata](https://wiki.multimedia.cx/index.php/FFmpeg_Metadata) - documents all of the metadata keys that FFmpeg honors, depending on the format being encoded.
+
+## books
+
+  + [An Introduction to FFmpeg (free PDF)](http://www.astro-electronic.de/FFmpeg_Book.pdf) - Resolve, Timelapse and Fulldome Video Production, Special Effects, Color Grading, Streaming, Audio Processing, Canon 6D, Canon 5D-MK4, Panasonic LUMIX GH5S, Kodak PIXPRO SP360 4K, Ricoh Theta V, Synthesizers, Image Processing and Astronomy Software by Michael Koch
+
+
+***
 # 基于ffmpeg的软件参数查看
 
 ## 根据进程名查找命令参数
@@ -5,7 +296,7 @@
 wmic process where caption="ffmpeg.exe" get caption,commandline /value
 ```
 ## 根据所有命令行参数进行筛选
-可以用于formatfactory、ShanaEncoder等
+可以用于formatfactory、ShanaEncoder等，cmd要用管理员权限打开哦
 ```
 wmic process get caption,commandline /value | findstr "ffmpeg"
 wmic process get caption,commandline /value | findstr ".mp4"
@@ -28,6 +319,17 @@ ffmpeg -version
 ```
 ffmpeg -hide_banner
 ```
+
+## 
+```
+ffmpeg -h 
+ffmpeg -h long
+ffmpeg -h full
+```
+```
+$ffmpeg -hide_banner -h full | less
+```
+
 ## 查看codecs(解码器)
 ```
 ffmpeg -hide_banner -codecs
@@ -38,10 +340,16 @@ ffmpeg -hide_banner -codecs | grep nvenc    (bash)
 ffmpeg -hide_banner -codecs | findstr nvenc (cmd)
 ffmpeg -hide_banner -codecs | sls nvenc     (power shell 的 sls 命令相当于 linux 的 grep 命令)
 ```
+```
+ffmpeg -hide_banner -codecs | findstr h264
+ffmpeg -hide_banner -codecs | findstr hevc
+ffmpeg -hide_banner -codecs | findstr av1
+```
 
 ## 查看硬件加速方式
 ```
 ffmpeg -hide_banner -hwaccels
+ffmpeg -hide_banner -init_hw_device list
 ```
 
 ## 查看支持的解码器
@@ -49,12 +357,17 @@ ffmpeg -hide_banner -hwaccels
 ffmpeg -hide_banner -decoders
 ffmpeg -hide_banner -decoders | findstr h264
 ffmpeg -hide_banner -decoders | findstr hevc
+ffmpeg -hide_banner -decoders | findstr av1
+ffmpeg -hide_banner -decoders | findstr cuvid
+ffmpeg -hide_banner -decoders | findstr qsv
 ```
 
 ## 查看支持的编码器
 ```
 ffmpeg -hide_banner -encoders
+ffmpeg -hide_banner -encoders | findstr h264
 ffmpeg -hide_banner -encoders | findstr hevc
+ffmpeg -hide_banner -encoders | findstr av1
 ffmpeg -hide_banner -encoders | findstr qsv
 ffmpeg -hide_banner -encoders | findstr nvenc
 ffmpeg -hide_banner -encoders | findstr amf
@@ -175,6 +488,7 @@ libx265 AVOptions:
   -a53cc             <boolean>    E..V....... Use A53 Closed Captions (if available) (default true)
   -x265-params       <dictionary> E..V....... set the x265 configuration using a :-separated list of key=value parameters
 ```
+<https://trac.ffmpeg.org/wiki/Encode/H.265>
 
 ## 查看libx264编码器选项
 ```
@@ -408,6 +722,215 @@ h264_qsv AVOptions:
      default         0            .D.V.......
      on              1            .D.V.......
      off             2            .D.V.......
+```
+
+## 查看h264_qsv编码器选项
+```
+ffmpeg -hide_banner -h encoder=h264_qsv
+Encoder h264_qsv [H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (Intel Quick Sync Video acceleration)]:
+    General capabilities: delay hybrid
+    Threading capabilities: none
+    Supported hardware devices: qsv qsv qsv
+    Supported pixel formats: nv12 qsv
+h264_qsv encoder AVOptions:
+  -async_depth       <int>        E..V....... Maximum processing parallelism (from 1 to INT_MAX) (default 4)
+  -preset            <int>        E..V....... (from 0 to 7) (default 0)
+     veryfast        7            E..V.......
+     faster          6            E..V.......
+     fast            5            E..V.......
+     medium          4            E..V.......
+     slow            3            E..V.......
+     slower          2            E..V.......
+     veryslow        1            E..V.......
+  -forced_idr        <boolean>    E..V....... Forcing I frames as IDR frames (default false)
+  -low_power         <boolean>    E..V....... enable low power mode(experimental: many limitations by mfx version, BRC modes, etc.) (default auto)
+  -rdo               <int>        E..V....... Enable rate distortion optimization (from -1 to 1) (default -1)
+  -max_frame_size    <int>        E..V....... Maximum encoded frame size in bytes (from -1 to INT_MAX) (default -1)
+  -max_frame_size_i  <int>        E..V....... Maximum encoded I frame size in bytes (from -1 to INT_MAX) (default -1)
+  -max_frame_size_p  <int>        E..V....... Maximum encoded P frame size in bytes (from -1 to INT_MAX) (default -1)
+  -max_slice_size    <int>        E..V....... Maximum encoded slice size in bytes (from -1 to INT_MAX) (default -1)
+  -bitrate_limit     <int>        E..V....... Toggle bitrate limitations (from -1 to 1) (default -1)
+  -mbbrc             <int>        E..V....... MB level bitrate control (from -1 to 1) (default -1)
+  -extbrc            <int>        E..V....... Extended bitrate control (from -1 to 1) (default -1)
+  -adaptive_i        <int>        E..V....... Adaptive I-frame placement (from -1 to 1) (default -1)
+  -adaptive_b        <int>        E..V....... Adaptive B-frame placement (from -1 to 1) (default -1)
+  -p_strategy        <int>        E..V....... Enable P-pyramid: 0-default 1-simple 2-pyramid(bf need to be set to 0). (from 0 to 2) (default 0)
+  -b_strategy        <int>        E..V....... Strategy to choose between I/P/B-frames (from -1 to 1) (default -1)
+  -dblk_idc          <int>        E..V....... This option disable deblocking. It has value in range 0~2. (from 0 to 2) (default 0)
+  -low_delay_brc     <boolean>    E..V....... Allow to strictly obey avg frame size (default auto)
+  -max_qp_i          <int>        E..V....... Maximum video quantizer scale for I frame (from -1 to 51) (default -1)
+  -min_qp_i          <int>        E..V....... Minimum video quantizer scale for I frame (from -1 to 51) (default -1)
+  -max_qp_p          <int>        E..V....... Maximum video quantizer scale for P frame (from -1 to 51) (default -1)
+  -min_qp_p          <int>        E..V....... Minimum video quantizer scale for P frame (from -1 to 51) (default -1)
+  -max_qp_b          <int>        E..V....... Maximum video quantizer scale for B frame (from -1 to 51) (default -1)
+  -min_qp_b          <int>        E..V....... Minimum video quantizer scale for B frame (from -1 to 51) (default -1)
+  -scenario          <int>        E..V....... A hint to encoder about the scenario for the encoding session (from 0 to 8) (default unknown)
+     unknown         0            E..V.......
+     displayremoting 1            E..V.......
+     videoconference 2            E..V.......
+     archive         3            E..V.......
+     livestreaming   4            E..V.......
+     cameracapture   5            E..V.......
+     videosurveillance 6            E..V.......
+     gamestreaming   7            E..V.......
+     remotegaming    8            E..V.......
+  -avbr_accuracy     <int>        E..V....... Accuracy of the AVBR ratecontrol (unit of tenth of percent) (from 0 to 65535) (default 0)
+  -avbr_convergence  <int>        E..V....... Convergence of the AVBR ratecontrol (unit of 100 frames) (from 0 to 65535) (default 0)
+  -skip_frame        <int>        E..V....... Allow frame skipping (from 0 to 3) (default no_skip)
+     no_skip         0            E..V....... Frame skipping is disabled
+     insert_dummy    1            E..V....... Encoder inserts into bitstream frame where all macroblocks are encoded as skipped
+     insert_nothing  2            E..V....... Encoder inserts nothing into bitstream
+     brc_only        3            E..V....... skip_frame metadata indicates the number of missed frames before the current frame
+  -dual_gfx          <int>        E..V....... Prefer processing on both iGfx and dGfx simultaneously (from 0 to 2) (default off)
+     off             0            E..V....... Disable HyperEncode mode
+     on              1            E..V....... Enable HyperEncode mode and return error if incompatible parameters during initialization
+     adaptive        2            E..V....... Enable HyperEncode mode or fallback to single GPU if incompatible parameters during initialization
+  -cavlc             <boolean>    E..V....... Enable CAVLC (default false)
+  -vcm               <boolean>    E..V....... Use the video conferencing mode ratecontrol (default false)
+  -idr_interval      <int>        E..V....... Distance (in I-frames) between IDR frames (from 0 to INT_MAX) (default 0)
+  -pic_timing_sei    <boolean>    E..V....... Insert picture timing SEI with pic_struct_syntax element (default true)
+  -single_sei_nal_unit <int>        E..V....... Put all the SEI messages into one NALU (from -1 to 1) (default -1)
+  -max_dec_frame_buffering <int>        E..V....... Maximum number of frames buffered in the DPB (from 0 to 65535) (default 0)
+  -look_ahead        <boolean>    E..V....... Use VBR algorithm with look ahead (default false)
+  -look_ahead_depth  <int>        E..V....... Depth of look ahead in number frames (from 0 to 100) (default 0)
+  -look_ahead_downsampling <int>        E..V....... Downscaling factor for the frames saved for the lookahead analysis (from 0 to 3) (default unknown)
+     unknown         0            E..V.......
+     auto            0            E..V.......
+     off             1            E..V.......
+     2x              2            E..V.......
+     4x              3            E..V.......
+  -int_ref_type      <int>        E..V....... Intra refresh type. B frames should be set to 0. (from -1 to 65535) (default -1)
+     none            0            E..V.......
+     vertical        1            E..V.......
+     horizontal      2            E..V.......
+     slice           3            E..V.......
+  -int_ref_cycle_size <int>        E..V....... Number of frames in the intra refresh cycle (from -1 to 65535) (default -1)
+  -int_ref_qp_delta  <int>        E..V....... QP difference for the refresh MBs (from -32768 to 32767) (default -32768)
+  -recovery_point_sei <int>        E..V....... Insert recovery point SEI messages (from -1 to 1) (default -1)
+  -int_ref_cycle_dist <int>        E..V....... Distance between the beginnings of the intra-refresh cycles in frames (from -1 to 32767) (default -1)
+  -profile           <int>        E..V....... (from 0 to INT_MAX) (default unknown)
+     unknown         0            E..V.......
+     baseline        66           E..V.......
+     main            77           E..V.......
+     high            100          E..V.......
+  -a53cc             <boolean>    E..V....... Use A53 Closed Captions (if available) (default true)
+  -aud               <boolean>    E..V....... Insert the Access Unit Delimiter NAL (default false)
+  -repeat_pps        <boolean>    E..V....... repeat pps for every frame (default false)
+```
+
+## 查看hevc_vaapi编码器选项
+```
+$ ffmpeg -hide_banner -h encoder=hevc_vaapi
+Encoder hevc_vaapi [H.265/HEVC (VAAPI)]:
+    General capabilities: dr1 delay hardware
+    Threading capabilities: none
+    Supported hardware devices: vaapi
+    Supported pixel formats: vaapi
+h265_vaapi AVOptions:
+  -idr_interval      <int>        E..V....... Distance (in I-frames) between key frames (from 0 to INT_MAX) (default 0)
+  -b_depth           <int>        E..V....... Maximum B-frame reference depth (from 1 to INT_MAX) (default 1)
+  -async_depth       <int>        E..V....... Maximum processing parallelism. Increase this to improve single channel performance. (from 1 to 64) (default 2)
+  -low_power         <boolean>    E..V....... Use low-power encoding mode (only available on some platforms; may not support all encoding features) (default false)
+  -max_frame_size    <int>        E..V....... Maximum frame size (in bytes) (from 0 to INT_MAX) (default 0)
+  -rc_mode           <int>        E..V....... Set rate control mode (from 0 to 6) (default auto)
+     auto            0            E..V....... Choose mode automatically based on other parameters
+     CQP             1            E..V....... Constant-quality
+     CBR             2            E..V....... Constant-bitrate
+     VBR             3            E..V....... Variable-bitrate
+     ICQ             4            E..V....... Intelligent constant-quality
+     QVBR            5            E..V....... Quality-defined variable-bitrate
+     AVBR            6            E..V....... Average variable-bitrate
+  -blbrc             <boolean>    E..V....... Block level based bitrate control (default false)
+  -qp                <int>        E..V....... Constant QP (for P-frames; scaled by qfactor/qoffset for I/B) (from 0 to 52) (default 0)
+  -aud               <boolean>    E..V....... Include AUD (default false)
+  -profile           <int>        E..V....... Set profile (general_profile_idc) (from -99 to 255) (default -99)
+     main            1            E..V.......
+     main10          2            E..V.......
+     rext            4            E..V.......
+  -tier              <int>        E..V....... Set tier (general_tier_flag) (from 0 to 1) (default main)
+     main            0            E..V.......
+     high            1            E..V.......
+  -level             <int>        E..V....... Set level (general_level_idc) (from -99 to 255) (default -99)
+     1               30           E..V.......
+     2               60           E..V.......
+     2.1             63           E..V.......
+     3               90           E..V.......
+     3.1             93           E..V.......
+     4               120          E..V.......
+     4.1             123          E..V.......
+     5               150          E..V.......
+     5.1             153          E..V.......
+     5.2             156          E..V.......
+     6               180          E..V.......
+     6.1             183          E..V.......
+     6.2             186          E..V.......
+  -sei               <flags>      E..V....... Set SEI to include (default hdr+a53_cc)
+     hdr                          E..V....... Include HDR metadata for mastering display colour volume and content light level information
+     a53_cc                       E..V....... Include A/53 caption data
+  -tiles             <image_size> E..V....... Tile columns x rows
+```
+
+## 查看h264_vaapi编码器选项
+```
+$ ffmpeg -hide_banner -h encoder=h264_vaapi
+Encoder h264_vaapi [H.264/AVC (VAAPI)]:
+    General capabilities: dr1 delay hardware
+    Threading capabilities: none
+    Supported hardware devices: vaapi
+    Supported pixel formats: vaapi
+h264_vaapi AVOptions:
+  -idr_interval      <int>        E..V....... Distance (in I-frames) between key frames (from 0 to INT_MAX) (default 0)
+  -b_depth           <int>        E..V....... Maximum B-frame reference depth (from 1 to INT_MAX) (default 1)
+  -async_depth       <int>        E..V....... Maximum processing parallelism. Increase this to improve single channel performance. (from 1 to 64) (default 2)
+  -low_power         <boolean>    E..V....... Use low-power encoding mode (only available on some platforms; may not support all encoding features) (default false)
+  -max_frame_size    <int>        E..V....... Maximum frame size (in bytes) (from 0 to INT_MAX) (default 0)
+  -rc_mode           <int>        E..V....... Set rate control mode (from 0 to 6) (default auto)
+     auto            0            E..V....... Choose mode automatically based on other parameters
+     CQP             1            E..V....... Constant-quality
+     CBR             2            E..V....... Constant-bitrate
+     VBR             3            E..V....... Variable-bitrate
+     ICQ             4            E..V....... Intelligent constant-quality
+     QVBR            5            E..V....... Quality-defined variable-bitrate
+     AVBR            6            E..V....... Average variable-bitrate
+  -blbrc             <boolean>    E..V....... Block level based bitrate control (default false)
+  -qp                <int>        E..V....... Constant QP (for P-frames; scaled by qfactor/qoffset for I/B) (from 0 to 52) (default 0)
+  -quality           <int>        E..V....... Set encode quality (trades off against speed, higher is faster) (from -1 to INT_MAX) (default -1)
+  -coder             <int>        E..V....... Entropy coder type (from 0 to 1) (default cabac)
+     cavlc           0            E..V.......
+     cabac           1            E..V.......
+     vlc             0            E..V.......
+     ac              1            E..V.......
+  -aud               <boolean>    E..V....... Include AUD (default false)
+  -sei               <flags>      E..V....... Set SEI to include (default identifier+timing+recovery_point+a53_cc)
+     identifier                   E..V....... Include encoder version identifier
+     timing                       E..V....... Include timing parameters (buffering_period and pic_timing)
+     recovery_point               E..V....... Include recovery points where appropriate
+     a53_cc                       E..V....... Include A/53 caption data
+  -profile           <int>        E..V....... Set profile (profile_idc and constraint_set*_flag) (from -99 to 65535) (default -99)
+     constrained_baseline 578          E..V.......
+     main            77           E..V.......
+     high            100          E..V.......
+     high10          110          E..V.......
+  -level             <int>        E..V....... Set level (level_idc) (from -99 to 255) (default -99)
+     1               10           E..V.......
+     1.1             11           E..V.......
+     1.2             12           E..V.......
+     1.3             13           E..V.......
+     2               20           E..V.......
+     2.1             21           E..V.......
+     2.2             22           E..V.......
+     3               30           E..V.......
+     3.1             31           E..V.......
+     3.2             32           E..V.......
+     4               40           E..V.......
+     4.1             41           E..V.......
+     4.2             42           E..V.......
+     5               50           E..V.......
+     5.1             51           E..V.......
+     5.2             52           E..V.......
+     6               60           E..V.......
+     6.1             61           E..V.......
+     6.2             62           E..V.......
 ```
 
 # formatfactory调用ffmpeg参数确定过程
@@ -862,21 +1385,6 @@ ffmpeg -hide_banner -h full | findstr "\-map"
 过滤器(Filter)：在多媒体处理中，filter的意思是被编码到输出文件之前用来修改输入文件内容的一个软件工具。如：视频翻转，旋转，缩放等。
 ```
 
-## 选择媒体流
-一些多媒体容器比如AVI，mkv，mp4等，可以包含不同种类的多个流，如何从容器中抽取各种流呢？
-
-语法：
-```
--map file_number:stream_type[:stream_number]
-```
-
-一些特别流符号的说明：后面“##选择媒体流##”
-```
-1、-map 0 选择第一个文件的所有流
-2、-map i:v 从文件序号i(index)中获取所有视频流， -map i:a 获取所有音频流，-map i:s 获取所有字幕流等等。
-3、特殊参数-an,-vn,-sn分别排除所有的音频，视频，字幕流。
-```
-
 ## 常用capabilities查询
 ```
 可用的bit流过滤器 ：ffmpeg -hide_banner -bsfs         参考  ffmpeg -hide_banner -h | findstr "\-bsfs"
@@ -959,6 +1467,14 @@ cat intermediate1.mpg intermediate2.mpg > intermediate_all.mpg
 ffmpeg -i intermediate_all.mpg -qscale:v 2 output.avi
 ```
 
+合并2个视频：
+```
+ffmpeg -i input1.mp4 -c copy -bsf:v h264_mp4toannexb -f mpegts intermediate1.ts
+ffmpeg -i input2.mp4 -c copy -bsf:v h264_mp4toannexb -f mpegts intermediate2.ts
+ffmpeg -i "concat:intermediate1.ts|intermediate2.ts" -c copy -bsf:a aac_adtstoasc output.mp4
+```
+
+
 ## 合并连接复数的AVI影片档之范例
 在此范例中须一度暂时将AVI档转换成MPEG-1档(MPEG-1, MPEG-2 PSDV格式亦可连接)
 ```
@@ -978,7 +1494,7 @@ ffmpeg -i inputfile_all.mpg -sameq outputfile.avi
 
 ## 查看视频格式信息
 ```
-ffprobe input.avi
+ffprobe -hide_banner input.avi
 ```
 ## 查看视频有多少帧
 注意不是所有格式都可以用这种方法，这需要container支持, 比如mp4。
@@ -1002,11 +1518,28 @@ def get_video_duration(filename):
     return ret
 ```
 
-## 将视频video.avi 和音频 audio.mp3 合并成output.avi
+## 视频文件和音频文件合并
+将视频video.avi 和音频 audio.mp3 合并成output.avi
 ```
 ffmpeg -i video.avi -vcodec copy -an video2.avi
 ffmpeg -i video2.avi -i audio.mp3 -vcodec copy -acodec copy output.avi
 ```
+
+### 视频本身有声音的情况
+```
+ffmpeg -i input_video.mp4 -i input_audio.mp3 -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 output.mp4
+```
+最后时长是音频或视频的时长的最大值。
+
+-map的意思是，使用第一个输入源的视频，第二个输入源的音频
+
+
+### 视频本身没声音的情况
+```
+ffmpeg -i video.mp4 -i audio.mp3 -c:v copy -c:a aac output.mp4
+```
+如果合并希望视频或音频哪个先结束，就完成合并，则加一个参数-shortest
+
 
 ## 从视频里提取视频或图片
 
@@ -1061,12 +1594,20 @@ ffmpeg -i input.mkv -filter:v “setpts=0.5*PTS” output.mkv
 ```
 
 ## 设置帧率
-```
 用 -r 参数设置帧率
-ffmpeg –i input –r fps output
-用fps filter设置帧率
-ffmpeg -i clip.mpg -vf fps=fps=25 clip.webm
 ```
+ffmpeg –i input –r fps output
+```
+
+用fps filter设置帧率
+```
+ffmpeg -i clip.mpg -vf fps=fps=25 clip.webm
+ffmpeg -i <input> -filter:v fps=30 <output>
+```
+ref
+
+<https://trac.ffmpeg.org/wiki/ChangingFrameRate>
+
 ### 设置帧率为29.97fps
 ```
 ffmpeg -i input.avi -r 29.97 output.mpg
@@ -1075,6 +1616,25 @@ ffmpeg -i input.avi -r 30000/1001 output.mpg
 ==
 ffmpeg -i input.avi -r netsc output.mpg
 ```
+
+### 设置帧率模式
+-vsync deprecated, use -fps_mode
+```
+-fps_mode auto  		== -fps_mode -1 	# Chooses between cfr and vfr depending on muxer capabilities. This is the default method.
+-fps_mode passthrough	== -fps_mode 0 		# Each frame is passed with its timestamp from the demuxer to the muxer.
+-fps_mode cfr 			== -fps_mode 1 		# Frames will be duplicated and dropped to achieve exactly the requested constant frame rate.
+-fps_mode vfr 			== -fps_mode 2 		# Frames are passed through with their timestamp or dropped so as to prevent 2 frames from having the same timestamp.
+```
+一般用默认的auto或者显式指定cfr。
+
+-fps_mode可以使用stream_specifier, 例如
+```
+-fps_mode:0:v applies the video from the first input file. 
+-fps_mode:1:v applies the second input file... 
+-fps_mode:0:v:0 applies the first video stream of the first input file 
+-fps_mode:0:v:1 applies the second video stream of the first input file...
+```
+
 
 ## 设置码率 –b 参数
 ```
@@ -1173,6 +1733,11 @@ ffmpeg -i input.mp4 -strict -2 -vf crop=1080:1080:0:420 out.mp4
 
 视频缩放和裁剪是可以同时进行的，如下命令则为将视频缩小至 853×480，然后裁剪保留横向中间部分：
 ffmpeg -i input.mp4 -strict -2 -vf scale=853:480,crop=480:480:186:0 out.mp4
+```
+
+例如，把一个1080p的横屏视频，截取为一个宽高为576x1024的竖屏视频
+```
+ffmpeg -i input.mp4 -filter:v "crop=576:1024:0:0" cut_out.mp4
 ```
 
 
@@ -1274,7 +1839,7 @@ ffplay -f lavfi -i testsrc -vf unsharp=13:13:-2
 
 所有的参数都是可选，默认值都是0
 
-举例
+举例 添加logo
 ```
 – Logo在左上角
 
@@ -1422,6 +1987,20 @@ ffmpeg -i input.flv -f image2 -vf fps=fps=1/20 out%d.png
 多张截图合并到一个文件里（2x3） ?每隔一千帧(秒数=1000/fps25)即40s截一张图
 
 ffmpeg? -i jidu.mp4 -frames 3 -vf “select=not(mod(n,1000)),scale=320:240,tile=2x3” out.png
+```
+```
+比如，一个视频，我想提取一些帧，存为图片，咋办？
+ffmpeg -i input.mp4 -r 1 -q:v 2 -f image2 pic-%03d.jpeg
+-r 表示每一秒几帧
+-q:v表示存储jpeg的图像质量，一般2是高质量。
+如此，ffmpeg会把input.mp4，每隔一秒，存一张图片下来。假设有60s，那会有60张。
+
+60张？什么？这么多？不要不要。。。。。不要咋办？？
+可以设置开始的时间，和你想要截取的时间呀。
+ffmpeg -i input.mp4 -ss 00:00:20 -t 10 -r 1 -q:v 2 -f image2 pic-%03d.jpeg
+-ss 表示开始时间
+-t表示共要多少时间。
+如此，ffmpeg会从input.mp4的第20s时间开始，往下10s，即20~30s这10秒钟之间，每隔1s就抓一帧，总共会抓10帧。
 ```
 
 ## 马赛克视频
@@ -1573,32 +2152,33 @@ F3: [b]作为hflip过滤器的输入，vflip过滤器水平翻转视频并输出
 F4: 用overlay过滤器把 [2]覆盖到[1]的旁边.1];[b]hflip[2];[1][2]overlay=w
 ```
 
-## 选择媒体流
+## 使用 -map 选项选择媒体流 stream
 一些多媒体容器比如AVI，mkv，mp4等，可以包含不同种类的多个流，如何从容器中抽取各种流呢？
 
-语法：`-map file_number:stream_type[:stream_number]`
+bottom specifier 语法：`-map file_number:stream_type[:stream_number]`
+top specifier 语法：`-map file_number:stream_number`
 
 特别流符号：
 ```
 1、-map 0 选择第一个文件的所有流
 2、-map i:v 从文件序号i(index)中获取所有视频流， -map i:a 获取所有音频流，-map i:s 获取所有字幕流等等。
-3、特殊参数-an,-vn,-sn分别排除所有的音频，视频，字幕流。
+3、特殊参数-an,-vn,-sn分别排除所有的音频，视频，字幕流。-0:v:0, -0:v这样的也是用于
 ```
-eg.
+### eg.
 ```
-file1 streams   specifier
-1st video       0:v:0
-2nd video       0:v:1
-1st audio       0:a:0
-2nd audio       0:a:1
-1st subtitle    0:s:0
-2nd subtitle    0:s:1
-3rd subtitle    0:s:2
+file1 streams   bottom specifier	top specifier
+1st video       0:v:0				0:0
+2nd video       0:v:1				0:1
+1st audio       0:a:0				0:2
+2nd audio       0:a:1				0:3
+1st subtitle    0:s:0				0:4
+2nd subtitle    0:s:1				0:5
+3rd subtitle    0:s:2				0:6
 
-file2 streams   specifier
-1st video       1:v:0
-1st audio       1:a:0
-1st subtitle    1:s:0
+file2 streams   bottom specifier	top specifier
+1st video       1:v:0				1:0
+1st audio       1:a:0				1:1
+1st subtitle    1:s:0				1:2
 
 a) all stream from both files
 -map 0 -map 1
@@ -1615,9 +2195,262 @@ d) all streams except 1st video and 2nd audio in file1
 e) 1st video from a.mov, audio from b.mov 1st subtitle from c.mov
 ffmpeg -i a.mov -i b.mov -i c.mov -map 0:v:0 -map 1:a:0 -map 2:s:0 clip.mov
 ```
-ref
 
-<http%3A//ffmpeg.org/documentation.html>
+```
+stream_type[:additional_stream_specifier]
+stream_type is one of following: ’v’ or ’V’ for video, ’a’ for audio, ’s’ for subtitle, ’d’ for data, and ’t’ for attachments. 
+’v’ matches all video streams, ’V’ only matches video streams which are not attached pictures, video thumbnails or cover arts. 
+
+If additional_stream_specifier is used, then it matches streams which both have this type and match the additional_stream_specifier. 
+Otherwise, it matches all streams of the specified type.
+
+```
+
+### eg.
+如果有一个文件有如下几个stream
+```
+Input #0, matroska,webm, from 'input.mkv':
+  Duration: 01:39:44.02, start: 0.000000, bitrate: 5793 kb/s
+    Stream #0:0(eng): Video: h264 (High), yuv420p, 1920x800, 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc (default)
+    Stream #0:1(ger): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s (default)
+    Stream #0:2(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s
+    Stream #0:3(ger): Subtitle: text (default)
+
+```
+我们想要：
+
+将视频流复制
+
+将德语音频流编码为MP3（128kbps）和AAC（96kbps）（在输出中创建两个音频流）
+
+将英语音频流删除
+
+将字幕流复制
+
+可以用以下的ffmpeg命令来完成：
+```
+ffmpeg -i input.mkv \
+    -map 0:0 -map 0:1 -map 0:1 -map 0:3 \
+    -c:v copy \
+    -c:a:0 libmp3lame -b:a:0 128k \
+    -c:a:1 libfaac -b:a:1 96k \
+    -c:s copy \
+    output.mkv
+```
+注意一下参数里没有“-map 0:2”，并且“-map 0:1”被写了两次。
+
+使用“-map 0:0 -map 0:1 -map 0:1 -map 0:3”，我们告诉ffmpeg选择/映射指定的输入流按相应顺序输出。
+
+一个map对应一组输入和输出，一般情况下有几个map就有几个输出stream （反例例如-map 1:a?，将允许map是可选的。如果map不匹配任何流，则map将被忽略而不是失败。请注意，如果使用无效，映射仍然会失败input_file_index；例如，如果map引用不存在的输入。）
+
+因此，我们的输出将具有以下流：
+```
+Output #0, matroska, to 'output.mkv':
+    Stream #0:0(eng): Video ...
+    Stream #0:1(ger): Audio ...
+    Stream #0:2(ger): Audio ...
+    Stream #0:3(ger): Subtitle ...
+```
+在我们选择好在输出中包含哪些流之后，使用“-map”选项，我们为输出中的每个流指定相应的编解码器。
+
+视频和字幕流已经被复制，德语的音频流被编码成了两个新的音频流，MP3和AAC。
+
+我们使用“-c:a:0”来指定输出的第一路音频流编解码器（codec），且用“-c:a:1”来指定输出的第二路音频流编解码器（codec）。
+
+注意，“a:0”指的是输出的第一路音频流（本例中为0:1）,“a:1”指的是输出的第二路音频流（也映射到输入流0:1），等。
+
+结果将会是：
+```
+Output #0, matroska, to 'output.mkv':
+    Stream #0:0(eng): Video ...
+    Stream #0:1(ger): Audio ...
+    Stream #0:2(ger): Audio ...
+    Stream #0:3(ger): Subtitle ...
+Stream mapping:
+  Stream #0:0 -> #0:0 (copy)
+  Stream #0:1 -> #0:1 (dca -> libmp3lame)
+  Stream #0:2 -> #0:2 (dca -> libfaac)
+  Stream #0:3 -> #0:3 (copy)
+```
+
+如果说我们想要倒序排列输入流，比如类似这样的输出：
+```
+    Stream #0:0(ger): Subtitle: text (default)
+    Stream #0:1(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s
+    Stream #0:2(ger): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s (default)
+    Stream #0:3(eng): Video: h264 (High), yuv420p, 1920x800, 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc (default)
+```
+可以使用下面的命令行来完成：
+```
+ffmpeg -i input.mkv -map 0:3 -map 0:2 -map 0:1 -map 0:0 -c copy output.mkv
+```
+
+如果我们想从同一个输入文件中仅提取音频流，那么对这个文件我们可以这样做(更通用一些是用"-map 0:a","-map 0:v"等)：
+```
+ffmpeg -i input.mkv -map 0:1 -map 0:2 -c copy output.mkv
+```
+
+我们想重新编码视频流，但复制所有其他流（如音频、字幕、附件等），可以使用下面的命令行：
+```
+ffmpeg -i input.mkv -map 0 -c copy -c:v mpeg2video output.mkv
+```
+这将会告诉ffmpeg：
+
+读取输入文件“'input.mkv'”
+
+选择要处理的所有输入流（第一个input＝0）（使用“-map 0”）
+
+标记所有流被复制到输出（使用“-c copy”）
+
+标记要重新编码的视频流（使用“-c:v mpeg2video”）
+
+写入输出文件到“output.mkv”
+
+
+
+你可以使用"-map"命令来创建多路文件输出，比如：
+```
+ffmpeg -i input.mkv -map 0:1 -map 0:2 audios_only.mkv -map 0:0 video_only.mkv
+```
+默认是将“最高质量视频”和“最高质量音频”映射到每个输出文件（基本上为每个输出重复使用），更多请参考<http://trac.ffmpeg.org/wiki/Creating%20multiple%20outputs>
+
+你可以使用一个滤镜（filtergraph）做为map参数来控制输出：
+```
+ffmpeg -i INPUT -filter_complex "[0] scale=100x100[smaller_sized]"  -map "[smaller_sized]" out.mp4
+ffmpeg -i INPUT -filter_complex "[0:0] scale=100x100[smaller_sized]"  -map "[smaller_sized]" out.mp4
+```
+在这个例子中，过滤后的视频被命名[v]，过滤后的音频被命名为[a]：
+```
+ffmpeg -i input.mp4 -i logo.png -i audio.mp3 -filter_complex "[0]scale=1280:-1[bg];[bg][1]overlay[v];[2:a]volume=-3dB[a]" -map "[v]" -map "[a]" output.mp4
+```
+
+MPEG流的选择：
+
+最棘手的部分是从MPEG TS流选择时它可能会有多个流/通道，如果你正在接收“实时数据”（live data）,仅仅指定索引可能是不行的，因为索引可以在运行时有所变化，所以：
+
+`ffmpeg -i INPUT -map 0:6 OUTPUT # 每次运行产生的结果可能都不一样，请不要这样使用!`
+
+假设您的文件是MPEG，您可以运行“ffmpeg -i INPUT”（不指定输出）来查看它包含的程序ID和流ID，比如这个示例（对其进行分析，以帮助“确保”它接收到其中的所有流，可能并不总是需要的）。
+```
+$ ffmpeg -probesize 50M -analyzeduration 50M -i INPUT
+...
+Input #0, mpegts, from 'INPUT':
+  Duration: N/A, start: 22159.226833, bitrate: N/A
+  Program 1344
+    Metadata:
+      service_name    : 7 Digital
+      service_provider: Seven Network
+    Stream #0:0[0x401]: Video: mpeg2video (Main) ([2][0][0][0] / 0x0002), yuv420p(tv), 720x576 [SAR 64:45 DAR 16:9], max. 14950 kb/s, 25 fps, 25 tbr, 90k tbn, 50 tbc
+    Stream #0:1[0x402](eng): Audio: mp2 ([3][0][0][0] / 0x0003), 48000 Hz, stereo, s16p, 256 kb/s
+  Program 1346
+    Metadata:
+      service_name    : 7TWO
+      service_provider: Seven Network
+    Stream #0:3[0x406]: Unknown: none ([5][0][0][0] / 0x0005)
+    Stream #0:6[0x421]: Video: mpeg2video (Main) ([2][0][0][0] / 0x0002), yuv420p(tv), 720x576 [SAR 64:45 DAR 16:9], max. 14950 kb/s, 25 fps, 25 tbr, 90k tbn, 50 tbc
+    Stream #0:7[0x422](eng): Audio: mp2 ([3][0][0][0] / 0x0003), 48000 Hz, stereo, s16p, 192 kb/s
+    Stream #0:8[0x424](eng): Subtitle: dvb_teletext ([6][0][0][0] / 0x0006), 492x250
+    Stream #0:4[0x499]: Unknown: none ([11][0][0][0] / 0x000B)
+```
+可以通过程序ID指定所需的流：
+```
+ffmpeg -i INPUT -map 0:p:1344 OUTPUT # 从程序1344中输入两个输入，在本例子中是通道“7 digital”
+```
+或指定子流：
+```
+ffmpeg -i INPUT -map i:0x401 OUTPUT # 从找到的任何地方用PID（MPEG Packet ID [stream identifier]）0x401拉入单个输入流，在本例中，它是“7 digital”中的视频流
+```
+
+包括“全部”输入到输出。默认行为是只复制一个音频和一个视频通道。如果你想复制“所有”频道，请使用“-map 0”：
+```
+ffmpeg -i input -map 0 output.mp4 # 从一个输入重新编码所有视频和音频通道 
+ffmpeg -i input -map 0 -c copy output.mp4 # 将所有视频和音频通道从一个输入复制到输出，而不是仅一个视频
+
+ffmpeg -i input0 -i input1 -map 0 -c copy output0.mp4 -map 1 -c copy output1.mp4 # 不编码
+
+ffmpeg -i input0.mkv -i input1.mp4 -i input2.wav -map 0 -map 1 -map 2 output.mkv # 编码
+ffmpeg -i input.mkv -map 0:v video.mp4 -map 0:a:1 audio_1.mp3 -map 0:a:3 audio_3.wav
+
+ffmpeg -i input.mp4 -map 0:v output.mp4 # 仅视频流
+
+ffmpeg -i input.mp4 -map 0:a output.mp4 # 仅音频流
+
+ffmpeg -i input.mkv -map 0:v:4 output.mp4 # 选择第 5 个视频流
+
+ffmpeg -i video.mp4 -i audio.m4a -map 0:v -map 1:a output.mp4 # 来自不同文件的视频和音频
+
+ffmpeg -i input.mp4 -map 0 -map -0:a output.mp4 #  除音频外的所有内容
+
+ffmpeg -i input.mp4 -map 0:v -map 0:a -c copy output.mp4 # 重新排序流, 在这个例子中，输入文件的音频为流#0和视频为流#1（这可能但不寻常）, 重新定位输出视频为流#0和音频为流#1
+```
+
+特定语言
+```
+ffmpeg -i input.mkv -map 0:v -map 0:m:language:spa output.mp4 # 包括所有视频和所有带有西班牙语元数据的流
+```
+见ISO名单639-1码为3个字母的语言名称。
+
+<https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes>
+
+
+可选映射
+
+如果流不存在， 添加尾随问号 ( ?)-map将忽略映射。
+
+要映射视频和音频流并在不存在音频流时忽略音频映射：
+```
+ffmpeg -i input.webm -map 0:v -map 0:a? output.mkv
+```
+如果改为使用-map 0:a，并且没有音频流，ffmpeg则将失败并显示Stream map '0:a' matches no streams. To ignore this, add a trailing '?' to the map..
+
+
+### 查询文件包含的stream
+
+ffprobe -hide_banner [inputfile]
+```
+ffprobe -hide_banner "E:\ssstwitter.com_1706861380736.mp4"
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'E:\ssstwitter.com_1706861380736.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 1
+    compatible_brands: isomiso4
+    creation_time   : 2023-12-23T01:53:24.000000Z
+  Duration: 00:05:48.77, start: 0.000000, bitrate: 691 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt470bg/smpte170m, progressive), 1280x720, 559 kb/s, 24 fps, 24 tbr, 90k tbn (default)
+      Metadata:
+        creation_time   : 2023-11-21T15:19:02.000000Z
+        handler_name    : Vireo Eyes v2.9.1
+        vendor_id       : [0][0][0][0]
+        encoder         : AVC Coding
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 128 kb/s (default)
+      Metadata:
+        creation_time   : 2023-11-21T15:19:02.000000Z
+        handler_name    : Vireo Ears v2.9.1
+        vendor_id       : [0][0][0][0]
+```
+
+
+### ref
+
+<https://ffmpeg.org/documentation.html>
+
+<https://ffmpeg.org/ffmpeg-all.html#Stream-specifiers>
+
+ffmpeg Documentation
+<https://ffmpeg.org/ffmpeg.html#Advanced-options>
+
+ffmpeg Documentation
+<https://ffmpeg.org/ffmpeg.html#Stream-copy>
+
+ffmpeg Documentation
+<https://ffmpeg.org/ffmpeg.html#Stream-selection>
+
+ffmpeg Documentation
+<https://ffmpeg.org/ffmpeg.html#Automatic-stream-selection>
+
+Map – FFmpeg
+<https://trac.ffmpeg.org/wiki/Map>
+
 
 
 ## profile preset tune 配置 模板 调优
@@ -1841,3 +2674,66 @@ ffmpeg -i input.mp4 -c:a copy -vn out-no-video.aac
 
 ffmpeg -hide_banner -i input.flv -c:v copy -c:a copy output.mp4
 ```
+
+
+# strict 选项
+
+aac  是ffmpeg自制的AAC编码器，处在实验阶段，需要开启"-strict experimental"参数。The -strict experimental (or -strict -2) switch is now no longer needed in ffmpeg since 5th Dec 2015
+```
+strict integer (decoding/encoding,audio,video)
+
+"-strict": "-2" corresponds to "experimental", "0" for "normal", "2" for "very", etc. 
+
+-strict -2  == -strict experimental	: allow non standardized experimental things
+-strict -1  == -strict unofficial	: allow unofficial extensions
+-strict 0   == -strict normal
+-strict 1   == -strict strict		: strictly conform to all the things in the spec no matter what consequences
+-strict 2   == -strict very			: strictly conform to a older more strict version of the spec or reference software
+```
+
+ref
+
+<https://trac.ffmpeg.org/wiki/Encode/AAC>
+
+<https://ffmpeg.org/ffmpeg-codecs.html>
+
+
+
+# FFmpeg Metadata
+
+Basic Usage
+```
+ffmpeg -i inputfile -metadata title="Movie Title" -metadata author="Made by Me" -metadata comment="An exercise in metadata" -metadata year="2010" outputfile.mp4
+```
+for example, for setting the title in the output file:
+```
+ffmpeg -i in.avi -metadata title="my title" out.flv
+```
+To set the language of the first audio stream:
+```
+ffmpeg -i INPUT -metadata:s:a:0 language=eng OUTPUT
+```
+to copy metadata from the first stream of the input file to global metadata of the output file:
+```
+ffmpeg -i in.ogg -map_metadata 0:s:0 out.mp3
+```
+To do the reverse, i.e. copy global metadata to all audio streams:
+```
+ffmpeg -i in.mkv -map_metadata:s:a 0:g out.mkv
+```
+To attach a picture to an mp3 file select both the audio and the picture stream with map:
+```
+ffmpeg -i input.mp3 -i cover.png -c copy -map 0 -map 1
+-metadata:s:v title="Album cover" -metadata:s:v comment="Cover (Front)" out.mp3
+```
+
+ref
+
+<https://wiki.multimedia.cx/index.php/FFmpeg_Metadata>
+
+<https://ffmpeg.org/ffmpeg-all.html>
+
+<https://ffmpeg.org/ffmpeg.html>
+
+
+

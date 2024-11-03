@@ -5,6 +5,7 @@
 SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 
+export LIBVA_DRIVER_NAME=iHD
 
 # see ABS(Advanced Bash Shell) $9.1 内部变量(内置变量, 如：PS1，PATH，UID，HOSTNAME，$$，BASHPID，PPID，$?，HISTSIZE)
 # echo $0           # 脚本本身的名字(命令本身,包括路径) This is similar to argv[0] in C
@@ -532,8 +533,8 @@ fi
 
 echo "ABS_NAME: ${ABS_NAME}"
 RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
-# RUN_COM="${RUN_COM} -hwaccel qsv -hwaccel_output_format qsv -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -c:v hevc_qsv -profile:v main -preset veryfast -b:v $TARGET_BITRATE -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+# RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format vaapi -i \"${ABS_NAME}\""
+RUN_COM="${RUN_COM} -c:v h264_vaapi -profile:v main -b:v $TARGET_BITRATE -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"

@@ -11,4 +11,4 @@ if [%1] neq [] (
 )
 echo SRC_FILE=%SRC_FILE%
 
-for /f "delims=" %%i in (%SRC_FILE%) do ffmpeg_copy_to_mp4 "%%i"
+for /f "delims=" %%i in (%SRC_FILE%) do ffmpeg_copy_to_mp4.bat "%%i"
