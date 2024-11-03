@@ -289,6 +289,28 @@ The materials within the Community Contributed Documentation section of the FFmp
 
 
 ***
+# 不同 shell 的换行符
+## bash
+```
+echo hello \
+world \
+123
+```
+
+## PowerShell
+```
+echo hello `
+world `
+123
+```
+
+## CMD
+```
+echo hello ^
+world ^
+123
+```
+
 # 基于ffmpeg的软件参数查看
 
 ## 根据进程名查找命令参数
@@ -303,9 +325,15 @@ wmic process get caption,commandline /value | findstr ".mp4"
 ```
 
 ## 查看命令所在位置
+### CMD
 ```
 where ffmpeg
 C:\Program Files\ffmpeg\bin\ffmpeg.exe
+```
+### BASH
+```
+$ which ffmpeg
+/mingw64/bin/ffmpeg
 ```
 
 # ffmpeg基础命令
@@ -320,12 +348,13 @@ ffmpeg -version
 ffmpeg -hide_banner
 ```
 
-## 
+## help 信息
 ```
 ffmpeg -h 
 ffmpeg -h long
 ffmpeg -h full
 ```
+### bash 管道
 ```
 $ffmpeg -hide_banner -h full | less
 ```
@@ -340,6 +369,7 @@ ffmpeg -hide_banner -codecs | grep nvenc    (bash)
 ffmpeg -hide_banner -codecs | findstr nvenc (cmd)
 ffmpeg -hide_banner -codecs | sls nvenc     (power shell 的 sls 命令相当于 linux 的 grep 命令)
 ```
+以 cmd 为例
 ```
 ffmpeg -hide_banner -codecs | findstr h264
 ffmpeg -hide_banner -codecs | findstr hevc
@@ -2737,3 +2767,607 @@ ref
 
 
 
+# colorspace，pixel-depth 互相转换
+
+* 从普通h264格式转为10-bit
+
+  * hevc_nvenc 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v main10 -preset p4 -tune:v hq -rc cbr ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output1.mp4"
+
+
+ffprobe -hide_banner "E:\output1.mp4"
+```
+  * hevc_qsv 编码器
+```
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -profile:v main10 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output2.mp4"
+
+ffprobe -hide_banner "E:\output2.mp4"
+```
+
+  * libx265 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -profile:v main10 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p10le ^
+-color_range tv -colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output3.mp4"
+
+ffprobe -hide_banner "E:\output3.mp4"
+```
+
+* 从普通h264格式转为12-bit
+
+  * libx265 编码器
+```
+andy@LAPTOP-MECHREVO MINGW64 ~
+$ x265 -V -D12
+x265 [info]: HEVC encoder version 3.5+1-f0c1022b6
+x265 [info]: build info [Windows][GCC 14.1.0][64 bit] 12bit
+x265 [info]: using cpu capabilities: MMX2 SSE2Fast LZCNT SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output4.mp4"
+
+ffprobe -hide_banner "E:\output4.mp4"
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -profile:v main12 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output5.mp4"
+
+ffprobe -hide_banner "E:\output5.mp4"
+same as E:\output4.mp4
+```
+  * hevc_qsv 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output6.mp4"
+
+ffprobe -hide_banner "E:\output6.mp4"
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -profile:v rext -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output7.mp4"
+
+
+ffprobe -hide_banner "E:\output7.mp4"
+```
+
+  * hevc_nvenc 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v rext -preset p4 -tune:v hq -rc cbr ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output8.mp4"
+
+实际上替换成了p016le格式
+
+ffprobe -hide_banner "E:\output8.mp4"
+探测还是yuv420p10le，奇怪
+```
+
+* 从普通h264格式转为16-bit
+
+  * libx265 编码器
+  
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v libx265 -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv444p ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output9.mp4"
+
+ffprobe -hide_banner "E:\output9.mp4"
+```
+  * hevc_qsv 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_qsv -preset veryfast ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv444p ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output10.mp4"
+
+ffprobe -hide_banner "E:\output10.mp4"
+```
+
+* 10-bit转8-bit
+  * libx265 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v libx265 -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output11.mp4"
+
+ffprobe -hide_banner "E:\output11.mp4"
+```
+变成 yuv420p(tv, bt709, progressive)
+
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v libx265 -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output12.mp4"
+
+ffprobe -hide_banner "E:\output12.mp4"
+```
+变成 yuv420p(tv, bt2020nc/bt2020/arib-std-b67, progressive)
+
+  * hevc_nvenc 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output13.mp4"
+
+ffprobe -hide_banner "E:\output13.mp4"
+```
+  * hevc_qsv 编码器
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output14.mp4"
+
+ffprobe -hide_banner "E:\output14.mp4"
+```
+
+实际上，如果不知道输入文件的 pixel格式, 解码硬件加速就不大能用上了。
+
+* 如果知道输入文件的 pixel格式，硬件解码+硬件编码的研究，这里只记录成功的
+
+```
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel dxva2 ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output15.mp4"
+
+ffprobe -hide_banner "E:\output15.mp4"
+
+ok, 4.22x
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output16.mp4"
+
+
+ffprobe -hide_banner "E:\output16.mp4"
+
+ok, 4.64x
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda -hwaccel_output_format yuv420p10le -init_hw_device cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+NG, 4.17x，色彩完全不对
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device qsv=hw,child_device_type=d3d11va ^
+-hwaccel qsv ^
+-hwaccel_device qsv ^
+-filter_hw_device hw ^
+-hwaccel_output_format qsv ^
+...
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device cuda ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-filter_hw_device cuda ^
+-hwaccel_output_format cuda ^
+...
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 1 ^
+-hwaccel d3d11va ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output17.mp4"
+
+ffprobe -hide_banner "E:\output17.mp4"
+OK, 5.35x
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device 0 ^
+-hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output18.mp4"
+
+ffprobe -hide_banner "E:\output18.mp4"
+
+OK,4.31x
+
+
+
+
+ffmpeg -hwaccel qsv -c:v hevc_qsv -load_plugin hevc_hw -i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" -vf hwdownload,format=p010 -pix_fmt p010le output.yuv
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device qsv ^
+-hwaccel qsv ^
+-c:v hevc_qsv ^
+-load_plugin hevc_hw ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=p010 ^
+-pix_fmt p010le ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output19.mp4"
+
+ffprobe -hide_banner "E:\output19.mp4"
+
+NG, not good, 无法看了
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel_device qsv ^
+-hwaccel qsv ^
+-hwaccel_output_format qsv ^
+-c:v hevc_qsv ^
+-load_plugin hevc_hw ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-vf hwdownload,format=p010 ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output20.mp4"
+
+ffprobe -hide_banner "E:\output20.mp4"
+
+NG, not good, 长宽对换了
+
+
+
+
+ffmpeg -init_hw_device qsv=hw -filter_hw_device hw -f rawvideo -pix_fmt yuv420p -s:v 1920x1080 -i input.yuv -vf hwupload=extra_hw_frames=64,format=qsv -c:v h264_qsv -b:v 5M output.mp4
+
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format cuda ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-filter_hw_device cuda0 ^
+-vf hwupload=extra_hw_frames=64,format=cuda,hwdownload,format=p010le ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output23.mp4"
+
+ffprobe -hide_banner "E:\output23.mp4"
+
+NG, not good, 长宽对换了
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format p010le ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output24.mp4"
+
+ffprobe -hide_banner "E:\output24.mp4"
+
+OK， 11.2x
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
+-hwaccel_device cuda ^
+-init_hw_device cuda ^
+-hwaccel_output_format p010le ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output25.mp4"
+
+
+ffprobe -hide_banner "E:\output25.mp4"
+OK，5.23x
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device qsv=hw,child_device_type=d3d11va ^
+-hwaccel qsv ^
+-hwaccel_device qsv ^
+-filter_hw_device hw ^
+-hwaccel_output_format p010le ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output26.mp4"
+
+ffprobe -hide_banner "E:\output26.mp4"
+OK,4x
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-init_hw_device qsv=hw,child_device_type=d3d11va ^
+-hwaccel qsv ^
+-hwaccel_device qsv ^
+-filter_hw_device hw ^
+-hwaccel_output_format p010le ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output27.mp4"
+
+ffprobe -hide_banner "E:\output27.mp4"
+OK,4.59x
+
+
+```
