@@ -3071,6 +3071,24 @@ ffmpeg ^
 "E:\output14.mp4"
 
 ffprobe -hide_banner "E:\output14.mp4"
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel qsv ^
+-hwaccel_output_format auto ^
+-i "D:\BaiduNetdiskDownload\sample_video\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_qsv -profile:v main -preset veryfast ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"D:\output14.mp4"
 ```
 
 ### hevc_vaapi 编码器
