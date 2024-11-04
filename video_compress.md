@@ -2830,6 +2830,26 @@ ffmpeg ^
 
 ffprobe -hide_banner "E:\output3.mp4"
 ```
+  * hevc_vaapi 编码器
+```
+export LIBVA_DRIVER_NAME=iHD
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel vaapi \
+-hwaccel_output_format vaapi \
+-vaapi_device /dev/dri/renderD128 \
+-i "/home/andreas/Downloads/tmp/sample_video/h264_yuv420p(progressive)_1280x720.mp4" \
+-vf 'scale_vaapi=format=p010' \
+-c:v hevc_vaapi \
+-b:v 1359878 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 \
+-rtbufsize 120m -max_muxing_queue_size 1024 \
+-n "output.mp4"
+```
 
 * 从普通h264格式转为12-bit
 
@@ -3052,6 +3072,92 @@ ffmpeg ^
 
 ffprobe -hide_banner "E:\output14.mp4"
 ```
+
+  * hevc_vaapi 编码器
+
+```
+export LIBVA_DRIVER_NAME=iHD
+
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel vaapi \
+-i "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" \
+-vf "format=nv12,hwupload" -c:v hevc_vaapi -vaapi_device /dev/dri/renderD128 output.mp4
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel vaapi \
+-hwaccel_output_format p010 \
+-vaapi_device /dev/dri/renderD128 \
+-i "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" \
+-vf 'format=nv12,hwupload' \
+-c:v hevc_vaapi \
+-b:v 1359878 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 \
+-rtbufsize 120m -max_muxing_queue_size 1024 \
+-n "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080-compressed.mp4"
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel auto \
+-vaapi_device /dev/dri/renderD128 \
+-i "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" \
+-vf 'format=nv12,hwupload' \
+-c:v hevc_vaapi \
+-b:v 1359878 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 \
+-rtbufsize 120m -max_muxing_queue_size 1024 \
+-n "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080-compressed.mp4"
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel auto \
+-vaapi_device /dev/dri/renderD128 \
+-i "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" \
+-vf 'format=nv12,hwupload' \
+-c:v hevc_vaapi \
+-b:v 1359878 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 \
+-rtbufsize 120m -max_muxing_queue_size 1024 \
+-n "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080-compressed.mp4"
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel vaapi \
+-hwaccel_output_format auto \
+-vaapi_device /dev/dri/renderD128 \
+-i "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" \
+-vf 'format=nv12,hwupload' \
+-c:v hevc_vaapi \
+-b:v 1359878 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 \
+-rtbufsize 120m -max_muxing_queue_size 1024 \
+-n "/home/andreas/Downloads/tmp/sample_video/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080-compressed.mp4"
+
+
+
+```
+
 
 实际上，如果不知道输入文件的 pixel格式, 解码硬件加速就不大能用上了。
 
