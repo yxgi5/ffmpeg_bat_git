@@ -2769,9 +2769,9 @@ ref
 
 # colorspace，pixel-depth 互相转换
 
-* 从普通h264格式转为10-bit
+## 从普通h264格式转为10-bit
 
-  * hevc_nvenc 编码器
+### hevc_nvenc 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -2791,7 +2791,7 @@ ffmpeg ^
 
 ffprobe -hide_banner "E:\output1.mp4"
 ```
-  * hevc_qsv 编码器
+### hevc_qsv 编码器
 ```
 
 ffmpeg ^
@@ -2812,7 +2812,7 @@ ffmpeg ^
 ffprobe -hide_banner "E:\output2.mp4"
 ```
 
-  * libx265 编码器
+### libx265 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -2830,7 +2830,7 @@ ffmpeg ^
 
 ffprobe -hide_banner "E:\output3.mp4"
 ```
-  * hevc_vaapi 编码器
+### hevc_vaapi 编码器
 ```
 export LIBVA_DRIVER_NAME=iHD
 
@@ -2851,9 +2851,9 @@ ffmpeg \
 -n "output.mp4"
 ```
 
-* 从普通h264格式转为12-bit
+## 从普通h264格式转为12-bit
 
-  * libx265 编码器
+### libx265 编码器
 ```
 andy@LAPTOP-MECHREVO MINGW64 ~
 $ x265 -V -D12
@@ -2893,7 +2893,7 @@ ffmpeg ^
 ffprobe -hide_banner "E:\output5.mp4"
 same as E:\output4.mp4
 ```
-  * hevc_qsv 编码器
+### hevc_qsv 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -2931,7 +2931,7 @@ ffmpeg ^
 ffprobe -hide_banner "E:\output7.mp4"
 ```
 
-  * hevc_nvenc 编码器
+### hevc_nvenc 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -2953,9 +2953,9 @@ ffprobe -hide_banner "E:\output8.mp4"
 探测还是yuv420p10le，奇怪
 ```
 
-* 从普通h264格式转为16-bit
+## 从普通h264格式转为16-bit
 
-  * libx265 编码器
+### libx265 编码器
   
 ```
 ffmpeg ^
@@ -2973,7 +2973,7 @@ ffmpeg ^
 
 ffprobe -hide_banner "E:\output9.mp4"
 ```
-  * hevc_qsv 编码器
+### hevc_qsv 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -2991,8 +2991,8 @@ ffmpeg ^
 ffprobe -hide_banner "E:\output10.mp4"
 ```
 
-* 10-bit转8-bit
-  * libx265 编码器
+## 10-bit转8-bit
+### libx265 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -3032,7 +3032,7 @@ ffprobe -hide_banner "E:\output12.mp4"
 ```
 变成 yuv420p(tv, bt2020nc/bt2020/arib-std-b67, progressive)
 
-  * hevc_nvenc 编码器
+### hevc_nvenc 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -3052,7 +3052,7 @@ ffmpeg ^
 
 ffprobe -hide_banner "E:\output13.mp4"
 ```
-  * hevc_qsv 编码器
+### hevc_qsv 编码器
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -3073,7 +3073,7 @@ ffmpeg ^
 ffprobe -hide_banner "E:\output14.mp4"
 ```
 
-  * hevc_vaapi 编码器
+### hevc_vaapi 编码器
 
 ```
 export LIBVA_DRIVER_NAME=iHD
@@ -3161,8 +3161,8 @@ ffmpeg \
 
 实际上，如果不知道输入文件的 pixel格式, 解码硬件加速就不大能用上了。
 
-* 如果知道输入文件的 pixel格式，硬件解码+硬件编码的研究，这里只记录成功的
-
+## 硬件解码+硬件编码的研究
+如果知道输入文件的 pixel格式，可以更精确的加速编码转码。这里只记录成功的
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
