@@ -2476,3 +2476,559 @@ NG
 至少能把色彩空间模式归一化为nv12(bt709),即色彩深度和色彩空间转换
 最好能结合qsv和nvenc
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+E:\sample\h264_yuv420p(progressive)_1280x720.mp4
+E:\sample\h264_yuv420p(tv, bt709, progressive)_1920x1080.mov
+E:\sample\h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4
+E:\sample\h264_yuvj420p(pc, bt709, progressive)_1280x720.mp4
+E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1080x1920.mp4
+E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4
+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel vaapi \
+-hwaccel_output_format vaapi \
+-vaapi_device /dev/dri/renderD128 \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-vf 'format=nv12,hwupload' \
+-c:v hevc_vaapi \
+-b:v 1359878 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 \
+-rtbufsize 120m -max_muxing_queue_size 1024 \
+-n /cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-v verbose \
+-init_hw_device qsv:hw \
+-hwaccel qsv \
+-hwaccel_output_format qsv \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 2548951 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-init_hw_device qsv=hw -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-v verbose \
+-hwaccel qsv \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-v verbose \
+-init_hw_device qsv=hw -hwaccel qsv -hwaccel_device qsv -filter_hw_device hw -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device_type=d3d11va -hwaccel qsv -hwaccel_device qsv -filter_hw_device hw -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device_type=d3d11va -filter_hw_device hw -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-init_hw_device qsv=hw,child_device=0 -filter_hw_device hw \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-v verbose \
+-init_hw_device qsv:hw,child_device_type=d3d11va \
+-hwaccel qsv \
+-hwaccel_output_format d3d11 \
+-c:v h264_qsv \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 2548951 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel qsv -hwaccel_output_format qsv \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_qsv -profile:v main -preset veryfast \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v h264_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG+
+
+
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-hwaccel qsv -hwaccel_output_format qsv -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v h264_qsv -fps_mode cfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:a copy \
+-c:v av1_qsv \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -loglevel verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:a copy \
+-c:v copy \
+/cygdrive/e/output.mp4
+
+OK
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuvid -hwaccel_output_format cuda \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda -hwaccel_output_format cuda \
+-i "/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda -hwaccel_output_format cuda \
+-i "/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+OK
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuvid -hwaccel_output_format cuda \
+-i "/cygdrive/e/sample/h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/output.mp4'
+
+OK
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda -hwaccel_output_format cuda \
+-i "/cygdrive/e/sample/h264_yuv420p(tv, smpte170m, bt470bg, smpte170m, progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+'/cygdrive/e/output.mp4'
+
+OK
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel auto \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+OK
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda -hwaccel_output_format auto \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+OK
+
+
+ffmpeg \
+-hide_banner -threads 0 \
+-hwaccel cuda -hwaccel_device cuda -hwaccel_output_format auto -v verbose \
+-i '/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4' \
+-c:v:0 hevc_qsv -fps_mode vfr -profile:v main -preset veryfast \
+-b:v 559687 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda -hwaccel_output_format cuda \
+-i "/e/sample/h264_yuv420p(progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/e/output.mp4
+
+NG
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda -hwaccel_output_format auto \
+-i "/e/sample/h264_yuv420p(progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/e/output.mp4
+
+OK
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda \
+-i "/e/sample/h264_yuv420p(progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/e/output.mp4
+
+OK
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda \
+-i "/cygdrive/e/sample/h264_yuv420p(progressive)_1280x720.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 559687 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+OK
+
+
+ffmpeg ^
+-hide_banner -threads 0 -v verbose ^
+-hwaccel cuda -hwaccel_output_format cuda ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 559687 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output.mp4"
+
+NG
+
+ffmpeg ^
+-hide_banner -threads 0 -v verbose ^
+-hwaccel cuda -hwaccel_output_format auto ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 559687 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output.mp4"
+
+OK
+
+ffmpeg ^
+-hide_banner -threads 0 -v verbose ^
+-hwaccel cuda ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 559687 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output.mp4"
+
+OK
+
+
+ffmpeg \
+-hide_banner -threads 0 -v verbose \
+-hwaccel cuda \
+-i "/cygdrive/e/sample/hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" \
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 2548951 \
+-fps_mode cfr -r 30 \
+-pix_fmt yuv420p \
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 -sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 \
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+/cygdrive/e/output.mp4
+
+OK
+
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel cuda ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v rext -preset p4 -tune:v hq -rc cbr ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output8.mp4"
+
+OK
+

@@ -2947,6 +2947,23 @@ ffmpeg ^
 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
 "E:\output8.mp4"
 
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-hwaccel cuda ^
+-i "E:\sample\h264_yuv420p(progressive)_1280x720.mp4" ^
+-c:v hevc_nvenc -profile:v rext -preset p4 -tune:v hq -rc cbr ^
+-b:v 1359878 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p12le ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output8.mp4"
+
+
+
 实际上替换成了p016le格式
 
 ffprobe -hide_banner "E:\output8.mp4"
@@ -3038,6 +3055,24 @@ ffmpeg ^
 -hide_banner -threads 0 ^
 -v verbose ^
 -hwaccel auto ^
+-i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
+-b:v 2548951 ^
+-fps_mode cfr -r 30 ^
+-pix_fmt yuv420p ^
+-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 ^
+-g 250 -keyint_min 25 -sws_flags bicubic ^
+-ar 44100 -b:a 128k -c:a aac -ac 2 ^
+-map_metadata -1 ^
+-map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 ^
+"E:\output13.mp4"
+
+ffprobe -hide_banner "E:\output13.mp4"
+
+ffmpeg ^
+-hide_banner -threads 0 ^
+-v verbose ^
+-hwaccel cuda ^
 -i "E:\sample\hevc_yuv420p10le(tv, bt2020nc, bt2020, arib-std-b67, progressive)_1920x1080.mp4" ^
 -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr ^
 -b:v 2548951 ^
