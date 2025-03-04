@@ -1487,7 +1487,7 @@ $ cat mylist.txt
 file '/path/to/file1'
 file '/path/to/file2'
 file '/path/to/file3'
-$ ffmpeg -f concat -i mylist.txt -c copy output
+$ ffmpeg -f concat -safe 0 -i mylist.txt -c copy output
 ```
 更多时候，由于输入文件的多样性，需要转成中间格式再合成：
 ```
