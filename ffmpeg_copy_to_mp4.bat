@@ -121,7 +121,14 @@ for /L %%i in (1,1,2) do set "one=!one!0"
 
 set "fpA=%numA:.=%"
 set "fpB=%numB:.=%"
-set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA*one/fpB
+set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one
+
+set /a check=fpA*one
+if !check! lss 0 (
+    set /a fpA=fpA/10
+    set /a fpB=fpB/10
+)
+set /A div=fpA*one/fpB
 
 ::echo %numA% + %numB% = !add:~0,-%decimals%!.!add:~-%decimals%!
 ::echo %numA% - %numB% = !sub:~0,-%decimals%!.!sub:~-%decimals%!

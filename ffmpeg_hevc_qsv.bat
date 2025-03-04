@@ -454,6 +454,7 @@ set "percentage="
     ::echo tmp=%tmp%
     ::call :numOK "%tmp%" %SRC_BITRATE% percentage
     call :numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
+    
     echo percentage=%percentage%%%
 ::)
 
@@ -554,9 +555,32 @@ set /A one=1, decimalsP1=decimals+1
 ::for /L %%i in (1,1,%decimals%) do set "one=!one!0"
 for /L %%i in (1,1,2) do set "one=!one!0"
 
+::setlocal enabledelayedexpansion
+::set /a one=1
+::for /l %%i in (1,1,2) do (
+::    set "one=!one!0"
+::    echo !one!   REM 使用 ! 进行延迟扩展
+::)
+::endlocal
+
+:: == for(int i = 2; i <= 9 ; i += 1)
+
 set "fpA=%numA:.=%"
 set "fpB=%numB:.=%"
-set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA*one/fpB
+set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one
+
+set /a check=fpA*one
+if !check! lss 0 (
+    set /a fpA=fpA/10
+    set /a fpB=fpB/10
+)
+
+if !fpB! neq 0 (
+    set /A div=fpA*one/fpB
+) else (
+    echo fpB is 0, Divide by zero error.
+    exit /b 1
+)
 
 ::echo %numA% + %numB% = !add:~0,-%decimals%!.!add:~-%decimals%!
 ::echo %numA% - %numB% = !sub:~0,-%decimals%!.!sub:~-%decimals%!
