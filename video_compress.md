@@ -3530,3 +3530,8 @@ OK,4.59x
 
 
 ```
+
+# 复制字幕流
+```
+ffmpeg -hide_banner -threads 0 -v verbose -hwaccel auto -i "xxx.mkv" -c:s mov_text -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2548951 -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "xxx-compressed.mp4"
+```
