@@ -189,6 +189,9 @@ set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -
 %SRC_SIZE% > "size"
 set /p SRC_SIZE=<"size"
 del "size"
+if %SRC_SIZE% leq 0 (
+   for %%A in (%SRC_FILE%) do set SRC_SIZE=%%~zA
+)
 echo SRC_SIZE=%SRC_SIZE%
 
 set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
@@ -199,11 +202,12 @@ echo SRC_DURATION=%SRC_DURATION%
 
 
 ::set "SRC_BITRATE="
-set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x %SRC_FILE:&=^&%"
+::set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x %SRC_FILE:&=^&%"
+set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
 ::for /f "delims=" %%i in ('"%SRC_BITRATE%"') do set SRC_BITRATE=%%i
-%SRC_BITRATE% > "temp"
-set /p SRC_BITRATE=<"temp"
-del "temp"
+%SRC_BITRATE% > "bit_rate"
+set /p SRC_BITRATE=<"bit_rate"
+del "bit_rate"
 ::echo SRC_BITRATE0=%SRC_BITRATE%
 set /a SRC_BITRATE=%SRC_BITRATE%
 IF not %ERRORLEVEL% NEQ 0 ( 
@@ -454,12 +458,15 @@ set "percentage="
     ::echo tmp=%tmp%
     ::call :numOK "%tmp%" %SRC_BITRATE% percentage
     call :numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
+    
     echo percentage=%percentage%%%
 ::)
 
 if %percentage% geq 100 if [%1] neq [] (
-   echo bitrate too low, no need to compress
-   exit /b 4
+::   echo bitrate too low, no need to compress
+::   exit /b 4
+::   exit /b 0
+    set BIT=%SRC_BITRATE%
 )
 
 if %percentage% leq 0 if [%1] neq [] (

@@ -460,13 +460,15 @@ set "percentage="
     ::echo tmp=%tmp%
     ::call :numOK "%tmp%" %SRC_BITRATE% percentage
     call :numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
+    
     echo percentage=%percentage%%%
 ::)
 
 if %percentage% geq 100 if [%1] neq [] (
-   echo bitrate too low, no need to compress
+::   echo bitrate too low, no need to compress
 ::   exit /b 4
-   exit /b 0
+::   exit /b 0
+    set BIT=%SRC_BITRATE%
 )
 
 if %percentage% leq 0 if [%1] neq [] (
