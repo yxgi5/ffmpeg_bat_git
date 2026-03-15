@@ -3032,3 +3032,125 @@ ffmpeg ^
 
 OK
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# cuda
+
+## T1
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format cuda
+-i "" -vf "hwdownload, format=nv12"
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n
+""
+
+```
+OK 4.38x
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format cuda -i "D:\tmp\test_ffmpeg\V.mp4" -vf "hwdownload, format=nv12" -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed3.mp4"
+
+
+OK 4.41x
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format cuda -i "D:\tmp\test_ffmpeg\V.mp4" -vf "hwdownload, format=nv12" -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed5.mp4"
+
+OK 4.38x
+ffmpeg -hide_banner -threads 0 -hwaccel cuvid -hwaccel_output_format cuda -i "D:\tmp\test_ffmpeg\V.mp4" -vf "hwdownload, format=nv12" -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed6.mp4"
+```
+
+## T2
+ffmpeg -hide_banner -threads 0 -init_hw_device cuda=hw -filter_hw_device hw
+-i "" -vf "format=nv12,hwupload=extra_hw_frames=64"
+-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n
+""
+
+```
+OK 4.38x cpu解码？
+ffmpeg -hide_banner -init_hw_device cuda=hw -filter_hw_device hw -i "D:\tmp\test_ffmpeg\V.mp4" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -g 250 -keyint_min 25 -c:a aac -b:a 128k -ac 2 -map_metadata -1 -map_chapters -1 "D:\tmp\test_ffmpeg\V-compressed4.mp4"
+
+
+OK 4.39x cpu解码？
+ffmpeg -hide_banner -init_hw_device cuda=hw -filter_hw_device hw -i "D:\tmp\test_ffmpeg\V.mp4" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -c:a aac -b:a 128k -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed4.mp4"
+
+OK 4.39x
+ffmpeg -hide_banner -threads 0 -init_hw_device cuda=hw -filter_hw_device hw -i "D:\tmp\test_ffmpeg\V.mp4" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed4.mp4"
+```
+
+# qsv
+
+## T1
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv
+-i "" -vf "hwdownload, format=nv12"
+-c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n
+""
+
+```
+OK 1.58x
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\tmp\test_ffmpeg\V.mp4" -vf "hwdownload, format=nv12" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed1.mp4"
+
+OK 1.57x
+ffmpeg -hide_banner -threads 0 -hwaccel qsv -hwaccel_output_format qsv -i "D:\tmp\test_ffmpeg\V.mp4" -vf "hwdownload, format=nv12" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed1.mp4"
+```
+
+## T2
+
+ffmpeg -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw
+-i "" -vf "format=nv12,hwupload=extra_hw_frames=64"
+-c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n
+""
+
+```
+OK 2.11x
+ffmpeg -hide_banner -init_hw_device qsv=hw -filter_hw_device hw -i "D:\tmp\test_ffmpeg\V.mp4" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -c:a aac -b:a 128k -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n  "D:\tmp\test_ffmpeg\V-compressed2.mp4"
+
+OK 2.09x
+ffmpeg -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw -i "D:\tmp\test_ffmpeg\V.mp4" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed2.mp4"
+
+OK 2.13x
+ffmpeg -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw -i "D:\tmp\test_ffmpeg\V.mp4" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 7461411 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n "D:\tmp\test_ffmpeg\V-compressed2.mp4"
+```
+
+
+
+# ref
+```
+ffmpeg -init_hw_device qsv=hw \ -filter_hw_device hw \ -i input.mov \ -vf "vpp_qsv=format=nv12" \ -c:v h264_qsv -b:v 7461411 \ -c:a aac -b:a 128k \ out.mp4
+
+ffmpeg -hide_banner \ -hwaccel qsv \ -i "0142.mov" \ -vf "format=nv12,hwupload=extra_hw_frames=64" \ -c:v h264_qsv -b:v 7461411 \ -g 250 -keyint_min 25 \ -c:a aac -b:a 128k \ out.mp4
+
+ffmpeg -hwaccel qsv -c:v h264_qsv \ -i "0142.mov" \ -vf "hwdownload,format=nv12,hwupload=extra_hw_frames=64" \ -c:v h264_qsv -b:v 7461411 \ -g 250 -keyint_min 25 \ -c:a aac -b:a 128k \ out.mp4
+
+ffmpeg -hwaccel qsv \ -i input.mov \ -vf "format=nv12,hwupload=extra_hw_frames=64" \ -c:v h264_qsv -b:v 7M \ -g 250 \ -c:a aac -b:a 128k \ out.mp4
+
+ffmpeg -i input.mov \ -vf "format=nv12,hwupload" \ -c:v h264_qsv -b:v 7M \ -c:a aac -b:a 128k \ out.mp4
+
+ffmpeg -hide_banner -y ^ -i "input.mov" ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v h264_qsv ^ -b:v 7M ^ -maxrate 7M ^ -bufsize 14M ^ -look_ahead 1 ^ -g 250 ^ -c:a aac -b:a 128k ^ "out.mp4"
+
+ffmpeg -hide_banner -y ^ -i "input.mov" ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v h264_qsv ^ -global_quality 23 ^ -look_ahead 1 ^ -g 250 ^ -c:a aac -b:a 128k ^ "out.mp4"
+
+ffmpeg -hide_banner -y -filter_threads 0 ^ -i input.mov ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v h264_qsv ^ -global_quality 23 ^ -look_ahead 1 ^ -g 250 ^ -c:a aac -b:a 128k ^ out.mp4
+
+ffmpeg -hide_banner -y ^ -i input.mov ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v h264_qsv ^ -global_quality 23 ^ -look_ahead 1 ^ -refs 3 ^ -b_strategy 1 ^ -g 250 ^ -c:a aac -b:a 128k ^ out.mp4
+
+
+ffmpeg -hide_banner -y ^ -init_hw_device qsv=hw -filter_hw_device hw ^ -i "input.mkv" ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v hevc_qsv ^ -b:v 7461411 ^ -g 250 ^ -c:a aac -b:a 128k ^ "output.mp4"
+
+ffmpeg -hide_banner -y ^ -init_hw_device qsv=hw -filter_hw_device hw ^ -i input.mkv ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v hevc_qsv -global_quality 24 ^ -g 250 ^ -c:a aac -b:a 128k ^ output.mp4
+
+ffmpeg -hide_banner -y ^ -init_hw_device qsv=hw -filter_hw_device hw ^ -i input.mkv ^ -vf "format=nv12,hwupload=extra_hw_frames=64" ^ -c:v hevc_qsv ^ -global_quality 24 ^ -look_ahead 1 ^ -b_strategy 1 ^ -refs 3 ^ -g 250 ^ -c:a aac -b:a 128k ^ output.mp4
+
+```
+
+
