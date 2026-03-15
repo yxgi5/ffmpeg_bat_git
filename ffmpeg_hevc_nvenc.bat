@@ -465,7 +465,8 @@ set "percentage="
 
 if %percentage% geq 100 if [%1] neq [] (
    echo bitrate too low, no need to compress
-   exit /b 4
+::   exit /b 4
+   exit /b 0
 )
 
 if %percentage% leq 0 if [%1] neq [] (
