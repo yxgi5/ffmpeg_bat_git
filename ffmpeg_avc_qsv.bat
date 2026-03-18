@@ -461,6 +461,7 @@ set "percentage="
     ::echo tmp=%tmp%
     ::call :numOK "%tmp%" %SRC_BITRATE% percentage
     call :numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
+    
     echo percentage=%percentage%%%
 ::)
 
@@ -485,6 +486,7 @@ IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如1150k,不输入则保持�
 echo TARGET_BITRATE=%BIT%
 ::pause
 ::echo RUN_COM0:%RUN_COM%
+::if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v h264_qsv -fps_mode cfr -profile:v main -preset veryfast -b:v %BIT% -pix_fmt nv12 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v h264_qsv -profile:v main -preset veryfast -b:v %BIT% -fps_mode cfr -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 ::if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v h264_qsv -profile:v main -preset veryfast -b:v %BIT% -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
 ::if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v h264_qsv -profile:v main -preset veryfast -b:v %BIT% -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024"
