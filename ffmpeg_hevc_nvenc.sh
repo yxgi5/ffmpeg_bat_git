@@ -567,7 +567,8 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
 echo "ABS_NAME: ${ABS_NAME}"
 # RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -hwaccel cuvid -hwaccel_output_format cuda -i \"${ABS_NAME}\" -vf \"hwdownload, format=nv12\""
+# RUN_COM="${RUN_COM} -hwaccel cuvid -hwaccel_output_format cuda -i \"${ABS_NAME}\" -vf \"hwdownload, format=nv12\""
+RUN_COM="${RUN_COM} -init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda -i \"${ABS_NAME}\""
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     RUN_COM="$RUN_COM -r 30"
@@ -575,8 +576,9 @@ if [ "$SRC_FRAMERATE" -gt 31 ]; then
 fi
 # echo $RUN_COM
 
-RUN_COM="${RUN_COM} -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v $TARGET_BITRATE -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+#RUN_COM="${RUN_COM} -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v $TARGET_BITRATE -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 #RUN_COM="${RUN_COM} -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v $TARGET_BITRATE -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+RUN_COM="${RUN_COM} -c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"
