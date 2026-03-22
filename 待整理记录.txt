@@ -3182,5 +3182,23 @@ ffmpeg -hide_banner -hwaccel qsv -hwaccel_output_format qsv -init_hw_device qsv=
 
 
 
+有必要把
 
+ffmpeg -hide_banner -hwaccel cuda -hwaccel_output_format cuda -i "input.avi" -c:v hevc_nvenc -profile:v main -preset veryfast -b:v 2248806 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+写成
+
+ffmpeg -hide_banner -init_hw_device cuda=hw -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda -i "input.avi" -c:v hevc_nvenc -profile:v main -preset veryfast -b:v 2248806 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+吗?
+
+一般清理, 单GPU + 纯转码（无滤镜）时候没有必要
+
+除非
+
+多 GPU 比如 指定用第2块卡 (-init_hw_device cuda=hw:1)
+
+使用 CUDA 滤镜 (-vf scale_cuda=1920:1080)
+
+复杂 filter graph (-filter_complex "[0:v]scale_cuda=...,hwdownload,...")
 
