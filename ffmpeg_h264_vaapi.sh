@@ -125,14 +125,24 @@ function check_file_resolution() {
 }
 
 function check_file_size() {
-    local size=$(ffprobe -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null)
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36m$1 size检查出错！\033[0m"
-        exit 1
-    else
-        echo "$size"
-        return 0
+    local size
+
+    size=$(ffprobe -v error -hide_banner \
+        -show_entries format=size \
+        -of default=noprint_wrappers=1:nokey=1 \
+        "$1" 2>/dev/null)
+
+    if [ $? -ne 0 ] || [ -z "$size" ]; then
+        size=$(stat -c%s "$1" 2>/dev/null) # $(du -b "$1" 2>/dev/null | cut -f1)
     fi
+
+    if [ $? -ne 0 ] || [ -z "$size" ]; then
+        echo -e "\033[41;36m$1 size检查出错！\033[0m"
+        return 1
+    fi
+
+    echo "$size"
+    return 0
 }
 
 function check_file_duration() {
@@ -147,15 +157,33 @@ function check_file_duration() {
 }
 
 function check_file_bitrate() {
-    local bitrate=$(ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0:s=x "$1" 2>/dev/null)
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36m$1 bitrate检查出错！\033[0m"
-        exit 1
-    else
-        echo "$bitrate"
-        return 0
+    local file="$1"
+    local bitrate
+
+    bitrate=$(ffprobe -v error -select_streams v:0 \
+        -show_entries stream=bit_rate \
+        -of default=noprint_wrappers=1:nokey=1 \
+        "$file" 2>/dev/null)
+
+    # fallback: format bitrate
+    if [ -z "$bitrate" ] || ! [[ "$bitrate" =~ ^[0-9]+$ ]]; then
+        bitrate=$(ffprobe -v error \
+            -show_entries format=bit_rate \
+            -of default=noprint_wrappers=1:nokey=1 \
+            "$file" 2>/dev/null)
     fi
+
+    # 再次校验
+    if ! [[ "$bitrate" =~ ^[0-9]+$ ]]; then
+        echo 0
+        return 1
+    fi
+
+    echo "$bitrate"
+    return 0
 }
+
+
 
 # function name_output_file() {
 #     # local ABS_NAME="$(realpath "$*")"
@@ -244,9 +272,20 @@ SRC_DURATION=$(check_file_duration "$SRC_FILE")
 # echo $SRC_DURATION
 # echo $SRC_DURATION | awk '{print int($0)}'
 
-# SRC_BITRATE=$(check_file_bitrate "$SRC_FILE")
-TMP=$(( $SRC_SIZE * 8 ))
-SRC_BITRATE=$(( $TMP / $(echo $SRC_DURATION | awk '{print int($0)}') ))
+SRC_BITRATE=$(check_file_bitrate "$SRC_FILE")
+
+if ! [[ "$SRC_BITRATE" =~ ^[0-9]+$ ]] || [ "$SRC_BITRATE" -le 0 ]; then
+    TMP=$(( SRC_SIZE * 8 ))
+    DURATION_INT=$(printf "%.0f" "$SRC_DURATION")
+    
+    if [ "$DURATION_INT" -le 0 ]; then
+        echo "duration异常"
+        exit 1
+    fi
+
+    SRC_BITRATE=$(( $TMP / $(echo $SRC_DURATION | awk '{print int($0)}') ))
+fi
+
 echo "SRC_BITRATE: $SRC_BITRATE"
 
 if [[ ${SRC_PIX} -le 12288 ]]; then
@@ -459,8 +498,9 @@ echo "compress percentage: "$percentage"%"
 # pause
 if [[ ${percentage} -ge 100 ]]
 then
-   echo -e "\033[41;36msource bitrate too low, no need to compress\033[0m"
-   exit 3
+   # echo -e "\033[41;36msource bitrate too low, no need to compress\033[0m"
+   # exit 3
+   TARGET_BITRATE=${SRC_BITRATE}
 fi
 
 if [[ ${percentage} -le 0 ]]
@@ -529,7 +569,8 @@ echo "ABS_NAME: ${ABS_NAME}"
 # RUN_COM="${RUN_COM} -hwaccel auto -i \"${ABS_NAME}\""
 # RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format vaapi -i \"${ABS_NAME}\""
 # RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format vaapi_vld -i \"${ABS_NAME}\""
-RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format auto -vaapi_device /dev/dri/renderD128 -i \"${ABS_NAME}\""
+# RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format auto -vaapi_device /dev/dri/renderD128 -i \"${ABS_NAME}\""
+RUN_COM="${RUN_COM} -hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128 -i \"${ABS_NAME}\""
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     RUN_COM="$RUN_COM -r 30"
@@ -537,8 +578,9 @@ if [ "$SRC_FRAMERATE" -gt 31 ]; then
 fi
 # echo $RUN_COM
 
-
-RUN_COM="${RUN_COM} -vf 'format=nv12,hwupload' -c:v h264_vaapi -profile:v main -b:v $TARGET_BITRATE -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+# RUN_COM="${RUN_COM} -c:v h264_vaapi -profile:v main -b:v $TARGET_BITRATE -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+# RUN_COM="${RUN_COM} -vf 'format=nv12,hwupload' -c:v h264_vaapi -profile:v main -b:v $TARGET_BITRATE -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+RUN_COM="${RUN_COM} -c:v h264_vaapi -profile:v main -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"

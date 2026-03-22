@@ -48,8 +48,8 @@ set SRC_FILE="%SRC_FILE:"=%"
 echo SRC_FILE:%SRC_FILE%
 ::pause
 
-SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&% -vf "hwdownload, format=nv12""
-::SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&%"
+::SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&% -vf "hwdownload, format=nv12""
+SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&%"
 ::SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&% -vf "format=nv12,hwupload=extra_hw_frames=64""
 echo cccccccc
 echo RUN_COM0=%RUN_COM%
