@@ -3154,3 +3154,33 @@ ffmpeg -hide_banner -y ^ -init_hw_device qsv=hw -filter_hw_device hw ^ -i input.
 ```
 
 
+
+
+# 如果源视频是10-bit, 避免使用qsv等. 用libx265
+
+# 数据路径
+
+## 自动QSV: FFmpeg 自动创建 QSV 设备, 自动绑定 decoder / encoder, 多 GPU 时异常,有时 fallback 到 CPU
+```
+ffmpeg -hide_banner -hwaccel qsv -hwaccel_output_format qsv -i "input.avi" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2248806 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+```
+## 显式QSV: 手动创建 QSV 设备(-init_hw_device qsv=hw), 明确告诉 filter 用这个 GPU 设备(-filter_hw_device hw).  效率最好!
+```
+ffmpeg -hide_banner -hwaccel qsv -hwaccel_output_format qsv -init_hw_device qsv=hw -filter_hw_device hw -i "input.avi" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2248806 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+```
+## [CPU解码] → [系统内存] → [上传] → [QSV编码]
+```
+ffmpeg -hide_banner -init_hw_device qsv=hw -filter_hw_device hw -i "input.avi" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2248806 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+
+ffmpeg -hide_banner -init_hw_device qsv=hw -filter_hw_device hw -i "input.avi" -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2248806 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+```
+
+## GPU→CPU→GPU（双向）最复杂, 效率最低
+```
+ffmpeg -hide_banner -hwaccel qsv -hwaccel_output_format qsv -init_hw_device qsv=hw -filter_hw_device hw -i "input.avi" -vf "hwdownload, format=nv12" -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2248806 -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "output.mp4"
+```
+
+
+
+
+
