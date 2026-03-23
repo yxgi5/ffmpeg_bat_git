@@ -3264,7 +3264,7 @@ QSV（Intel）
 
 
 
-
+Designation | W | H | hevc-qsv | hevc-cpu | hevc-nvenc | avc-qsv | avc-cpu | avc-nvenc
 SQCIF	128	96	24	25	24	22	21	22
 QQVGA	160	120	24	25	24	22	21	22
 QCIF NTSC	176	120	24	25	24	22	21	22
@@ -3364,5 +3364,158 @@ DCI 8K	8192	4320	30	32	30	28	27	28
 8192x8192	8192	8192	32	34	32	30	29	30
 16K	15360	8640	32	34	32	30	29	30
 DCI 16K	16384	8640	32	34	32	30	29	30
+
+
+
+
+
+
+
+
+在Ultra 7 265K的集显和u2204系统及默认版本ffmpeg下测试
+
+```
+
+ffmpeg -init_hw_device qsv=hw:/dev/dri/renderD128 \
+-i test.mp4 \
+-c:v hevc_qsv \
+-global_quality 26 \
+-maxrate 5M \
+-bufsize 10M \
+-c:a copy \
+output_qsv.mp4
+
+
+ffmpeg -hide_banner \
+-hwaccel qsv \
+-i test.mp4 \
+-c:v hevc_qsv \
+-global_quality 26 \
+-look_ahead 1 \
+-preset medium \
+-c:a copy \
+output_qsv.mp4
+
+
+
+ffmpeg -hide_banner \
+-hwaccel qsv \
+-hwaccel_output_format qsv \
+-i test.mp4 \
+-c:v hevc_qsv \
+-global_quality 26 \
+-look_ahead 1 \
+-preset medium \
+-c:a copy \
+output_qsv.mp4
+
+
+ffmpeg -hide_banner \
+-vaapi_device /dev/dri/renderD128 \
+-i test.mp4 \
+-vf 'format=nv12,hwupload' \
+-c:v h264_vaapi -qp 23 \
+-c:a copy \
+output_vaapi.mp4
+
+
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i test.mp4 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-b:v 400k \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_qsv.mp4
+
+
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i test.mp4 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-global_quality 26 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_qsv.mp4
+
+
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i test.mp4 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-global_quality 28 \
+-maxrate 5M \
+-bufsize 10M \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_qsv.mp4
+
+## ng
+ffmpeg -hide_banner \
+-vaapi_device /dev/dri/renderD128 \
+-i test.mp4 \
+-vf 'format=nv12,hwupload' \
+-c:v hevc_vaapi -qp 26 \
+-c:a copy \
+output_vaapi.mp4
+
+#ng
+ffmpeg -hide_banner \
+-vaapi_device /dev/dri/renderD128 \
+-i test.mp4 \
+-vf 'scale=ceil(iw/2)*2:ceil(ih/2)*2,format=nv12,hwupload' \
+-c:v hevc_vaapi -qp 26 \
+-c:a copy \
+output_vaapi.mp4
+```
+
+
+
+
+
+
+
+相同的q
+-global_quality 30 \
+-maxrate 420753 \
+-bufsize 841506 \
+会导致文件变大
+
+
+
+那么如果要控制恒定质量, 那么就在下面范围就已经足够好
+NVENC: -cq 26~28 + maxrate限制
+QSV:   -global_quality 26~28
+x265:  -crf 28~30
+AVC
+NVENC: -cq 23~25
+QSV:   -global_quality 24~26
+x264:  -crf 23~25
+编码器偏移修正
+| 编码器        | 修正 |
+| ---------- | -- |
+| x265       | +2 |
+| NVENC HEVC | +0 |
+| QSV HEVC   | +0 |
+| x264       | -1 |
+| NVENC AVC  | 0  |
+| QSV AVC    | 0  |
+
+
+
+
+
+
+
+
 
 
