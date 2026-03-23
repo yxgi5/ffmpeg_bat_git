@@ -3517,5 +3517,58 @@ x264:  -crf 23~25
 
 
 
+测试 ultra 7 的 av1 编码
+
+使用 https://github.com/BtbN/FFmpeg-Builds 版本 N-117740-g7f51cf75c6-20241110 测试
+```
+
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i test.mp4 \
+-c:v av1_qsv \
+-profile:v main -preset veryfast \
+-b:v 400k \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_av1_qsv.mp4
+
+
+
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i test.mp4 \
+-c:v av1_qsv \
+-profile:v main -preset veryfast \
+-global_quality 30 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_av1_qsv.mp4
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
