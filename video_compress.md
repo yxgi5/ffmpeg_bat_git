@@ -2973,7 +2973,7 @@ ffprobe -hide_banner "E:\output8.mp4"
 ## 从普通h264格式转为16-bit
 
 ### libx265 编码器
-  
+
 ```
 ffmpeg ^
 -hide_banner -threads 0 ^
@@ -3535,3 +3535,336 @@ OK,4.59x
 ```
 ffmpeg -hide_banner -threads 0 -v verbose -hwaccel auto -i "xxx.mkv" -c:s mov_text -c:v hevc_qsv -profile:v main -preset veryfast -b:v 2548951 -fps_mode cfr -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 "xxx-compressed.mp4"
 ```
+
+
+
+
+
+
+
+
+
+
+# msys64-mingw64 可以使用bash脚本调用ffmpeg
+```
+D:\msys64\mingw64.exe
+
+cd `cygpath "D:\repos\ffmpeg_bat_git"`
+```
+
+
+# libx265 组
+
+## 固定bitrate
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-i input_4k25.mov \
+-r 25 \
+-c:v libx265 \
+-profile:v main -preset veryfast \
+-b:v 7461411 \
+-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 \
+-sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_libx265_cbr.mp4
+```
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-i input_1080p60.mov \
+-r 30 \
+-c:v libx265 \
+-profile:v main -preset veryfast \
+-b:v 2548951 \
+-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 \
+-sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_libx265_cbr.mp4
+```
+
+
+
+## global_quality 和 cq 指定质量对 libx265 无效
+
+实际上修改值没有效果，q在35左右, 也就是说crf默认23
+
+
+
+## crf 指定质量
+对 libx265 而言 crf 一般取18~28, 默认23. 范围0~51
+```
+CRF = 0：无损编码（理论上），文件极大，实际中极少使用。
+CRF = 18~23：被广泛认为是“视觉无损”到“高质量压缩”的理想区间。
+CRF = 24~28：适用于对存储敏感的场景，如流媒体或归档备份。
+CRF > 30：画质显著下降，仅适合极低带宽传输。
+```
+
+从bitrate平均来看, 我之前的比特率取值曲线基本和20对等, 那么用质量控制来适量减少数据量, 21对4k比较合适, 主要把静态画面的数据量冗余降下来.
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-i input_4k25.mov \
+-r 25 \
+-c:v libx265 \
+-profile:v main -preset veryfast \
+-crf 21 \
+-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 \
+-sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_libx265_crf.mp4
+```
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-i input_1080p60.mov \
+-r 30 \
+-c:v libx265 \
+-profile:v main -preset veryfast \
+-crf 23 \
+-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 \
+-sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_libx265_crf.mp4
+```
+
+
+
+## crf 指定质量且限制最大码率
+
+在crf基础上, 对码率再进行限制, 输出数据量至少可以限制在恒码率法的输出数据量以内
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-i input_4k25.mov \
+-r 25 \
+-c:v libx265 \
+-profile:v main -preset veryfast \
+-crf 21 \
+-maxrate 7461411 \
+-bufsize 14922822 \
+-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 \
+-sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_libx265_crfl.mp4
+```
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-i input_1080p60.mov \
+-r 30 \
+-c:v libx265 \
+-profile:v main -preset veryfast \
+-crf 22 \
+-maxrate 2548951 \
+-bufsize 5097902 \
+-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
+-g 250 -keyint_min 25 \
+-sws_flags bicubic \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_libx265_crfl.mp4
+```
+
+# qsv 组
+
+## 固定bitrate
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i input_4k25.mov \
+-r 25 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-b:v 7461411 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_qsv_cbr.mp4
+```
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i input_1080p60.mov \
+-r 30 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-b:v 2548951 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_qsv_cbr.mp4
+```
+
+
+
+
+
+## global_quality 指定质量
+
+qsv 不能同时存在 global_quality 和 maxrate
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i input_4k25.mov \
+-r 25 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-global_quality 22 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_qsv_gq.mp4
+```
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv \
+-i input_1080p60.mov \
+-r 30 \
+-c:v hevc_qsv \
+-profile:v main -preset veryfast \
+-global_quality 22 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_qsv_gq.mp4
+```
+
+
+
+## cq/crf 指定质量 对qsv无效
+
+
+# hevc_nvenc
+
+## 固定bitrate
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device cuda=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda \
+-i input_4k25.mov \
+-r 25 \
+-c:v hevc_nvenc \
+-profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 7461411 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_nvenc_cbr.mp4
+```
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device cuda=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda \
+-i input_1080p60.mov \
+-r 30 \
+-c:v hevc_nvenc \
+-profile:v main -preset p4 -tune:v hq -rc cbr \
+-b:v 2548951 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_nvenc_cbr.mp4
+```
+
+## global_quality / crf 指定质量 对 nvenc 无效
+
+## cq 指定质量
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device cuda=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda \
+-i input_4k25.mov \
+-r 25 \
+-c:v hevc_nvenc \
+-profile:v main -preset p4 -tune:v hq -rc vbr \
+-cq 28 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_nvenc_cq.mp4
+```
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device cuda=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda \
+-i input_1080p60.mov \
+-r 30 \
+-c:v hevc_nvenc \
+-profile:v main -preset p4 -tune:v hq -rc vbr \
+-cq 28 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_nvenc_cq.mp4
+```
+
+## cq 指定质量且限制最大码率
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device cuda=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda \
+-i input_4k25.mov \
+-r 25 \
+-c:v hevc_nvenc \
+-profile:v main -preset p4 -tune:v hq -rc vbr \
+-cq 28 \
+-maxrate 2548951 \
+-bufsize 5097902 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output_hevc_nvenc_cql.mp4
+```
+
+
+```
+ffmpeg -hide_banner -threads 0 -v verbose \
+-init_hw_device cuda=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda \
+-i input_1080p60.mov \
+-r 30 \
+-c:v hevc_nvenc \
+-profile:v main -preset p4 -tune:v hq -rc vbr \
+-cq 28 \
+-maxrate 2548951 \
+-bufsize 5097902 \
+-g 250 -keyint_min 25 \
+-ar 44100 -b:a 128k -c:a aac -ac 2 \
+-map_metadata -1 -map_chapters -1 \
+-strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 \
+output1_hevc_nvenc_cql.mp4
+```
+
+
+
+
+# 检查音视频属性
+```
+mediainfo "`cygpath "D:\xxx\xxx\xxx.mp4"`"
+```
+

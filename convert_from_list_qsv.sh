@@ -96,20 +96,54 @@ check_file_istext "${LIST_FILE}"
 #    #./ffmpeg_lib265.sh "${line}"
 #done < "${LIST_FILE}"
 
-for line in $(cat ${LIST_FILE})
-do
-    echo $line
-    ./ffmpeg_libx265.sh "${line}"
-    #./ffmpeg_hevc_qsv.sh "${line}"
-    #./ffmpeg_copy_to_mp4.sh "${line}"
-    #./ffmpeg_hevc_vaapi.sh "${line}"
-    #./ffmpeg_hevc_nvenc.sh "${line}"
+OS=$(uname -s)
 
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36mConvert failed！\033[0m"
-        exit 1
-    fi
-done
+case "$OS" in
+    Linux*)
+        echo "Linux"
+        for line in $(cat ${LIST_FILE})
+        do
+            echo $line
+            #./ffmpeg_libx265.sh "${line}"
+            ./ffmpeg_hevc_qsv.sh "${line}"
+            #./ffmpeg_copy_to_mp4.sh "${line}"
+            #./ffmpeg_hevc_vaapi.sh "${line}"
+            #./ffmpeg_hevc_nvenc.sh "${line}"
+
+            if [ "$?" -ne 0 ]; then
+                echo -e "\033[41;36mConvert failed！\033[0m"
+                exit 1
+            fi
+        done
+        ;;
+    CYGWIN*)
+        echo "Cygwin"
+        ;;
+    MSYS*)
+        echo "MSYS2"
+        ;;
+    MINGW*)
+        echo "MinGW"
+        for line in $(cat ${LIST_FILE})
+        do
+            #line=`cygpath "${line}"`
+            echo $line
+            #./ffmpeg_libx265.sh "${line}"
+            ./ffmpeg_hevc_qsv.sh "${line}"
+            #./ffmpeg_copy_to_mp4.sh "${line}"
+            #./ffmpeg_hevc_vaapi.sh "${line}"
+            #./ffmpeg_hevc_nvenc.sh "${line}"
+
+            if [ "$?" -ne 0 ]; then
+                echo -e "\033[41;36mConvert failed！\033[0m"
+                exit 1
+            fi
+        done
+        ;;
+    *)
+        echo "Unknown: $OS"
+        ;;
+esac
 
 # cat ${LIST_FILE} | while IFS= read -r line
 # do
