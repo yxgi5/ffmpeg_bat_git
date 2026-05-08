@@ -99,7 +99,7 @@ check_file_istext "${LIST_FILE}"
 for line in $(cat ${LIST_FILE})
 do
     echo $line
-    #./ffmpeg_libx265.sh "${line}"
+    ./ffmpeg_libx265.sh "${line}"
     #./ffmpeg_hevc_qsv.sh "${line}"
 
     if [ "$?" -ne 0 ]; then
