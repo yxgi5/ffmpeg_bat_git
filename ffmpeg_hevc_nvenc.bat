@@ -1,6 +1,13 @@
 @echo off
 chcp 65001
 
+rem ============================================================
+rem ffmpeg_hevc_nvenc.bat - HEVC NVENC 硬件加速压缩 (P1 重构版)
+rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址
+rem 码率查表: lib\bitrate_table_hevc.csv | 公共函数: lib\common.bat
+rem 注意: 本文件必须保持 CRLF 行尾
+rem ============================================================
+
 echo ============================================================
 echo 欢迎使用ffmpeg视频压缩批处理工具
 echo 您有两种使用方式:
@@ -21,7 +28,6 @@ SET "SRC_FILE="
 if [%1] neq [] (
     SET SRC_FILE=%1
 )
-rem cut string
 
 if not defined SRC_FILE (
     SET /P SRC_FILE=请输入待压缩视频地址:
@@ -39,20 +45,19 @@ echo SRC_FILE:%SRC_FILE%
 SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&%"
 echo RUN_COM0=%RUN_COM%
 
+rem 唯一临时文件: 替代固定名 temp/temp.txt/size/duration/bit_rate, 避免并行冲突
+set "FB_TMP=%TEMP%\ffmpeg_bat_%RANDOM%%RANDOM%.tmp"
+
 set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE:&=^&%"
-
-rem cmd 'cd'== linux 'pwd'
-
-%SRC_CODEC% > "temp"
-
-set /p SRC_CODEC=<"temp"
-del "temp"
+%SRC_CODEC% > "%FB_TMP%"
+set /p SRC_CODEC=<"%FB_TMP%"
+del "%FB_TMP%" 2>nul
 echo SRC_CODEC=%SRC_CODEC%
 
 set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate %SRC_FILE:&=^&%"
-%SRC_FRAMERATE% > "temp"
-set /p SRC_FRAMERATE=<"temp"
-del "temp"
+%SRC_FRAMERATE% > "%FB_TMP%"
+set /p SRC_FRAMERATE=<"%FB_TMP%"
+del "%FB_TMP%" 2>nul
 echo SRC_FRAMERATE=%SRC_FRAMERATE%
 set /a SRC_FRAMERATE=%SRC_FRAMERATE%
 
@@ -60,276 +65,72 @@ if %SRC_FRAMERATE% gtr 31 (
     SET RUN_COM=%RUN_COM% -r 30
     echo TURN DOWN TARGET FRAME RATE TO 30
 )
-if %SRC_FRAMERATE% gtr 31 echo RUN_COM1:%RUN_COM%
 
-set count=1
 set "SRC_RESOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
 
 set "SRC_W=0"
 set "SRC_H=0"
 setlocal EnableDelayedExpansion
 set "output_cnt=0"
-%SRC_RESOLUTION% >  "temp.txt"
-for /F "delims=" %%f in (temp.txt) do (
+%SRC_RESOLUTION% >  "%FB_TMP%"
+for /F "usebackq delims=" %%f in ("%FB_TMP%") do (
     set /a output_cnt+=1
     set "output[!output_cnt!]=%%f"
 )
-del "temp.txt"
+del "%FB_TMP%" 2>nul
 set SRC_W=!output[1]!
 set SRC_H=!output[2]!
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
 rem pass local var to global var
 endlocal & set SRC_W=%SRC_W% & set SRC_H=%SRC_H%
-echo SRC_W=%SRC_W%
-echo SRC_H=%SRC_H%
 set /a SRC_PIX=%SRC_W%*%SRC_H%
 echo SRC_PIX=%SRC_PIX%
 
 set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
-%SRC_SIZE% > "size"
-set /p SRC_SIZE=<"size"
-del "size"
+%SRC_SIZE% > "%FB_TMP%"
+set /p SRC_SIZE=<"%FB_TMP%"
+del "%FB_TMP%" 2>nul
 if %SRC_SIZE% leq 0 (
    for %%A in (%SRC_FILE%) do set SRC_SIZE=%%~zA
 )
 echo SRC_SIZE=%SRC_SIZE%
 
 set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
-%SRC_DURATION% > "duration"
-set /p SRC_DURATION=<"duration"
-del "duration"
+%SRC_DURATION% > "%FB_TMP%"
+set /p SRC_DURATION=<"%FB_TMP%"
+del "%FB_TMP%" 2>nul
 echo SRC_DURATION=%SRC_DURATION%
 
 set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
-%SRC_BITRATE% > "bit_rate"
-set /p SRC_BITRATE=<"bit_rate"
-del "bit_rate"
+%SRC_BITRATE% > "%FB_TMP%"
+set /p SRC_BITRATE=<"%FB_TMP%"
+del "%FB_TMP%" 2>nul
 set /a SRC_BITRATE=%SRC_BITRATE%
-IF not %ERRORLEVEL% NEQ 0 ( 
+IF not %ERRORLEVEL% NEQ 0 (
   if %SRC_BITRATE% == 0 (
-     call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+     call "%~dp0lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
   )
 ) else (
-    call :calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+    call "%~dp0lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
 )
 echo SRC_BITRATE=%SRC_BITRATE%
 
-if %SRC_PIX% leq 12288 (
-    set /a BIT=95892
-) else if %SRC_PIX% leq 19200 (
-    set /a BIT=135504
-) else if %SRC_PIX% leq 21120 (   rem Xmax*60%=2.58M
-    set /a BIT=145888
-) else if %SRC_PIX% leq 25344 (   rem Xmax*55%=2.58M
-    set /a BIT=168023
-) else if %SRC_PIX% leq 38400 (   rem Xmax*50%=2.58M
-    set /a BIT=231836
-) else if %SRC_PIX% leq 64000 (   rem Xmax*45%=2.58M
-    set /a BIT=344400
-) else if %SRC_PIX% leq 76800 (   rem 5M<br<5M, 45%
-    set /a BIT=396653
-) else if %SRC_PIX% leq 84480 (   rem 5M<br<7.5M, 45%
-    set /a BIT=427051
-) else if %SRC_PIX% leq 96000 (   rem 7.5M<br<10M, 40%
-    set /a BIT=471513
-) else if %SRC_PIX% leq 101376 (   rem 10M<br<12M, 35%
-    set /a BIT=491844
-) else if %SRC_PIX% leq 103680 (   rem 12M<br<16M, 30%
-    set /a BIT=500483
-) else if %SRC_PIX% leq 112320 (   rem 12M<br<16M, 30%
-    set /a BIT=532503
-) else if %SRC_PIX% leq 120000 (   rem 12M<br<16M, 30%
-    set /a BIT=560501
-) else if %SRC_PIX% leq 128000 (   rem 12M<br<16M, 30%
-    set /a BIT=589240
-) else if %SRC_PIX% leq 153600 (   rem 12M<br<16M, 30%
-    set /a BIT=678641
-) else if %SRC_PIX% leq 153600 (   rem 12M<br<16M, 30%
-    set /a BIT=678641
-) else if %SRC_PIX% leq 168960 (   rem 12M<br<16M, 30%
-    set /a BIT=730651
-) else if %SRC_PIX% leq 168960 (   rem 12M<br<16M, 30%
-    set /a BIT=730651
-) else if %SRC_PIX% leq 202752 (   rem 12M<br<16M, 30%
-    set /a BIT=841506
-) else if %SRC_PIX% leq 202752 (   rem 12M<br<16M, 30%
-    set /a BIT=841506
-) else if %SRC_PIX% leq 224000 (
-     set /a BIT=909058    
-) else if %SRC_PIX% leq 230400 (
-     set /a BIT=929118    
-) else if %SRC_PIX% leq 307200 (
-     set /a BIT=1161100    
-) else if %SRC_PIX% leq 337920 (
-     set /a BIT=1250085    
-) else if %SRC_PIX% leq 345600 (
-     set /a BIT=1272042    
-) else if %SRC_PIX% leq 368640 (
-     set /a BIT=1337264    
-) else if %SRC_PIX% leq 384000 (
-     set /a BIT=1380235    
-) else if %SRC_PIX% leq 405504 (
-     set /a BIT=1439750    
-) else if %SRC_PIX% leq 407040 (
-     set /a BIT=1443974    
-) else if %SRC_PIX% leq 409920 (
-     set /a BIT=1451883    
-) else if %SRC_PIX% leq 414720 (
-     set /a BIT=1465038    
-) else if %SRC_PIX% leq 460800 (
-     set /a BIT=1589646    
-) else if %SRC_PIX% leq 480000 (
-     set /a BIT=1640726    
-) else if %SRC_PIX% leq 518400 (
-     set /a BIT=1741534    
-) else if %SRC_PIX% leq 552960 (
-     set /a BIT=1830829    
-) else if %SRC_PIX% leq 589824 (
-     set /a BIT=1924703    
-) else if %SRC_PIX% leq 614400 (
-     set /a BIT=1986550    
-) else if %SRC_PIX% leq 614400 (
-     set /a BIT=1986550    
-) else if %SRC_PIX% leq 786432 (
-     set /a BIT=2405264    
-) else if %SRC_PIX% leq 912384 (
-     set /a BIT=2698662    
-) else if %SRC_PIX% leq 921600 (
-     set /a BIT=2719757    
-) else if %SRC_PIX% leq 983040 (
-     set /a BIT=2859210    
-) else if %SRC_PIX% leq 995328 (
-     set /a BIT=2886862    
-) else if %SRC_PIX% leq 1024000 (
-     set /a BIT=2951086    
-) else if %SRC_PIX% leq 1049088 (
-     set /a BIT=3006950    
-) else if %SRC_PIX% leq 1228800 (
-     set /a BIT=3398829    
-) else if %SRC_PIX% leq 1296000 (
-     set /a BIT=3541970    
-) else if %SRC_PIX% leq 1310720 (
-     set /a BIT=3573100    
-) else if %SRC_PIX% leq 1440000 (
-     set /a BIT=3843232    
-) else if %SRC_PIX% leq 1470000 (
-     set /a BIT=3905121    
-) else if %SRC_PIX% leq 1555200 (
-     set /a BIT=4079363    
-) else if %SRC_PIX% leq 1622016 (
-     set /a BIT=4214505    
-) else if %SRC_PIX% leq 1638400 (
-     set /a BIT=4247451    
-) else if %SRC_PIX% leq 1764000 (
-     set /a BIT=4497612    
-) else if %SRC_PIX% leq 1920000 (
-     set /a BIT=4802813    
-) else if %SRC_PIX% leq 2073600 (
-     set /a BIT=5097902    
-) else if %SRC_PIX% leq 2211840 (
-     set /a BIT=5359291    
-) else if %SRC_PIX% leq 2304000 (
-     set /a BIT=5531503    
-) else if %SRC_PIX% leq 2359296 (
-     set /a BIT=5634083    
-) else if %SRC_PIX% leq 2457600 (
-     set /a BIT=5815124    
-) else if %SRC_PIX% leq 2592000 (
-     set /a BIT=6060029    
-) else if %SRC_PIX% leq 2688000 (
-     set /a BIT=6233208    
-) else if %SRC_PIX% leq 2764800 (
-     set /a BIT=6370750    
-) else if %SRC_PIX% leq 3145728 (
-     set /a BIT=7040805    
-) else if %SRC_PIX% leq 3686400 (
-     set /a BIT=7961404    
-) else if %SRC_PIX% leq 3686400 (
-     set /a BIT=7961404    
-) else if %SRC_PIX% leq 4085760 (
-     set /a BIT=8621822    
-) else if %SRC_PIX% leq 4096000 (
-     set /a BIT=8638559    
-) else if %SRC_PIX% leq 4953600 (
-     set /a BIT=10009382    
-) else if %SRC_PIX% leq 5038848 (
-     set /a BIT=10142584    
-) else if %SRC_PIX% leq 5184000 (
-     set /a BIT=10368225    
-) else if %SRC_PIX% leq 5242880 (
-     set /a BIT=10459349    
-) else if %SRC_PIX% leq 5760000 (
-     set /a BIT=11250092    
-) else if %SRC_PIX% leq 5880000 (
-     set /a BIT=11431258    
-) else if %SRC_PIX% leq 6000000 (
-     set /a BIT=11611594    
-) else if %SRC_PIX% leq 6144000 (
-     set /a BIT=11826928    
-) else if %SRC_PIX% leq 6291456 (
-     set /a BIT=12046256    
-) else if %SRC_PIX% leq 6553600 (
-     set /a BIT=12433341    
-) else if %SRC_PIX% leq 7372800 (
-     set /a BIT=13621327    
-) else if %SRC_PIX% leq 7680000 (
-     set /a BIT=14059024    
-) else if %SRC_PIX% leq 8294400 (
-     set /a BIT=14922822    
-) else if %SRC_PIX% leq 8847360 (
-     set /a BIT=15687974    
-) else if %SRC_PIX% leq 9216000 (
-     set /a BIT=16192079    
-) else if %SRC_PIX% leq 11059200 (
-     set /a BIT=18648764    
-) else if %SRC_PIX% leq 12000000 (
-     set /a BIT=19866510    
-) else if %SRC_PIX% leq 12582912 (
-     set /a BIT=20610182    
-) else if %SRC_PIX% leq 14745600 (
-     set /a BIT=23305002    
-) else if %SRC_PIX% leq 16384000 (
-     set /a BIT=25287203    
-) else if %SRC_PIX% leq 20358144 (
-     set /a BIT=29920991    
-) else if %SRC_PIX% leq 20971520 (
-     set /a BIT=30617105    
-) else if %SRC_PIX% leq 26214400 (
-     set /a BIT=36395470    
-) else if %SRC_PIX% leq 30720000 (
-     set /a BIT=41154247    
-) else if %SRC_PIX% leq 33177600 (
-     set /a BIT=43682800    
-) else if %SRC_PIX% leq 35389440 (
-     set /a BIT=45922587    
-) else if %SRC_PIX% leq 36864000 (
-     set /a BIT=47398228    
-) else if %SRC_PIX% leq 44236800 (
-     set /a BIT=54589555    
-) else if %SRC_PIX% leq 67108864 (
-     set /a BIT=75394630    
-) else if %SRC_PIX% leq 132710400 (
-     set /a BIT=127870381    
-) else if %SRC_PIX% leq 141557760 (
-     set /a BIT=134426794    
-) else (   rem > 16M, 25%
-    echo "Manual handle it"
+rem ---------- 码率查表: lib\bitrate_table_hevc.csv (替代原 190 行 if-elif) ----------
+set "BIT="
+call "%~dp0lib\common.bat" lookup_bitrate %SRC_PIX% BIT bitrate_table_hevc.csv
+if not defined BIT (
+    echo SRC_PIX=%SRC_PIX% 超出码率表范围, Manual handle it
     exit /b 2
 )
-
-if not defined BIT (
-    exit /b 3
-)
-
 set /a BIT=%BIT% / 2
 set TARGET_BITRATE=%BIT%
 echo TARGET_BITRATE=%TARGET_BITRATE%
 set "percentage="
 
     set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
-    call :numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
-    
+    call "%~dp0lib\common.bat" numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
+
     echo percentage=%percentage%%%
 
 if %percentage% geq 100 if [%1] neq [] (
@@ -348,7 +149,7 @@ echo RUN_COM2:%RUN_COM%
 
 echo.
 echo SRC_FILE:%SRC_FILE%
-if defined SRC_FILE call :extract %SRC_FILE% TARGET_PATH TARGET_NAME
+if defined SRC_FILE call "%~dp0lib\common.bat" extract %SRC_FILE% TARGET_PATH TARGET_NAME
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
@@ -358,7 +159,7 @@ echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
 echo RUN_COM3:%RUN_COM%
-rem handler name with ) (   call set 
+rem handler name with ) (   call set
 IF not [%1] NEQ [] (
     echo executing 1
     SET RUN_COM=%RUN_COM% %TARGET_FILE%
@@ -382,66 +183,6 @@ echo TARGET_BITRATE=%TARGET_BITRATE%
 echo percentage=%percentage%
 echo TARGET_FILE:%TARGET_FILE%
 
-exit /b 0
-
-:numOK
-setlocal EnableDelayedExpansion
-set numA=%~1
-set numB=%~2
-
-set decimals=4
-set /A one=1, decimalsP1=decimals+1
-for /L %%i in (1,1,2) do set "one=!one!0"
-
-set "fpA=%numA:.=%"
-set "fpB=%numB:.=%"
-set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one
-
-set /a check=fpA*one
-if !check! lss 0 (
-    set /a fpA=fpA/10
-    set /a fpB=fpB/10
-)
-set /A div=fpA*one/fpB
-
-set /a ret = !div!
-endlocal & set /a %~3=%ret%
-exit /b 0
-
-:calc_bitrate_fromsize
-setlocal EnableDelayedExpansion
-set numA=%~1
-set numB=%~2
-
-set decimals=1
-set /A one=1, decimalsP1=decimals+1
-for /L %%i in (1,1,1) do set "one=!one!0"
-
-set "fpA=%numA:.=%"
-echo !fpA!
-set "fpB=%numB:~0%"
-echo !fpB!
-set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA/fpB
-
-echo %numA% / %numB% = !div!
-set /a ret = 8*!div!
-echo ret=%ret%
-endlocal & set /a %~3=%ret%
-exit /b 0
-
-:extract
-rem 获取到文件路径
-echo in extract()
-echo %~dp1
-set %~2="%~dp1"
-rem 获取到文件盘符
-echo %~d1
-rem 获取到文件名称
-echo "%~n1"
-rem 获取到文件后缀
-echo %~x1
-set %~3="%~n1-compressed.mp4"
-echo "%~n1-compressed.mp4"
 exit /b 0
 
 :NO_PATH_ERR
