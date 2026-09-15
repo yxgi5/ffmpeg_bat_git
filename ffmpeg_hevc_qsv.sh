@@ -514,7 +514,7 @@ if [ "$param_number" -eq 0 ]; then
     read TARGET_BITRATE_1
     # 检查变量是否为空
     if ! [[ -z ${TARGET_BITRATE_1} ]]; then
-        TARGET_BITRATE = "$TARGET_BITRATE_1"
+        TARGET_BITRATE="$TARGET_BITRATE_1"
 	fi
 fi
 echo "real TARGET_BITRATE = $TARGET_BITRATE"

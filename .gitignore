@@ -1,6 +1,31 @@
-**/*.mp4
-**/*.mov
-**/*.avi
-**/*.wmv
-**/*.flv
-**/*.rm*
+# ===== 视频/媒体文件（防止大文件误提交）=====
+*.mp4
+*.mov
+*.avi
+*.wmv
+*.flv
+*.rm*
+*.mkv
+*.ts
+*.m2ts
+*.webm
+
+# ===== 压缩包（二进制大文件不入库，如 heif-tool.7z）=====
+*.7z
+*.zip
+*.rar
+
+# ===== .bat 脚本产生的临时文件 =====
+temp
+temp.txt
+size
+duration
+bit_rate
+
+# ===== Office 临时文件 =====
+~$*
+*.tmp
+
+# ===== 系统文件 =====
+Thumbs.db
+desktop.ini
