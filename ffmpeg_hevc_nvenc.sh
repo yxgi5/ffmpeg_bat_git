@@ -122,8 +122,11 @@ echo "ABS_NAME: ${ABS_NAME}"
 echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
+# 说明: 本命令只使用 cuda 解码 + hevc_nvenc 编码, 不经过任何 QSV 滤镜/编码器,
+# 因此不带 -init_hw_device qsv=hw:0 (该残留参数在 cygwin ffmpeg 下会因
+# MFX 会话创建失败而直接报错, 且对 nvenc 流程毫无作用)
 CMD=(ffmpeg -hide_banner -threads 0 -v verbose)
-CMD+=(-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda)
+CMD+=(-hwaccel cuda -hwaccel_output_format cuda)
 CMD+=(-i "$ABS_NAME")
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
