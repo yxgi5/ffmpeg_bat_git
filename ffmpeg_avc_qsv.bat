@@ -101,7 +101,7 @@ set /a SRC_FRAMERATE=%SRC_FRAMERATE%
 
 if %SRC_FRAMERATE% gtr 31 (
     SET RUN_COM=%RUN_COM% -r 30
-    echo TEAR DOWN TARGET FRAME RATE TO 30
+    echo TURN DOWN TARGET FRAME RATE TO 30
     echo dddddddd
 )
 if %SRC_FRAMERATE% gtr 31 echo RUN_COM1:%RUN_COM%
@@ -475,7 +475,7 @@ if %percentage% geq 100 if [%1] neq [] (
 )
 
 if %percentage% leq 0 if [%1] neq [] (
-   echo bitrate unnomal, please check
+   echo bitrate abnormal, please check
    exit /b 5
 )
 

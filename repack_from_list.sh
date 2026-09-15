@@ -57,7 +57,7 @@ function check_file_exists() {
     fi
 }
 
-function check_file_istext() {
+function check_file_is_text() {
     # 使用file命令检查文件类型
     local file_type=$(file --mime "$1")
     
@@ -86,7 +86,7 @@ if [ "$?" -ne 0 ]; then
 fi
 echo "LIST_FILE = ${LIST_FILE}"
 
-check_file_istext "${LIST_FILE}"
+check_file_is_text "${LIST_FILE}"
 
 
 

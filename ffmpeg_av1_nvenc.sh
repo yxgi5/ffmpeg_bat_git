@@ -525,8 +525,8 @@ fi
 
 if [[ ${percentage} -le 0 ]]
 then
-   echo "bitrate unnomal, please check"
-   echo -e "\033[41;36mbitrate unnomal, please check\033[0m"
+   echo "bitrate abnormal, please check"
+   echo -e "\033[41;36mbitrate abnormal, please check\033[0m"
    exit 4
 fi
 
