@@ -146,13 +146,17 @@ function check_file_bitrate() {
 # 数据文件 lib/bitrate_table.csv, 格式: max_pixels,bitrate (按阈值升序)
 # 查到输出码率并返回 0; 超出表范围或文件缺失输出空并返回 2
 function lookup_bitrate() {
+    # 用法: lookup_bitrate <像素总数> [csv文件名]
+    #   csv 文件名可选, 默认 bitrate_table.csv(HEVC power-law 模型);
+    #   AV1 等更高效率编码传入 bitrate_table_av1.csv(HEVC 表按分辨率档位打折)
     local pixels="$1"
+    local csv_name="${2:-bitrate_table.csv}"
     local csv_file result
 
-    csv_file="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/bitrate_table.csv"
+    csv_file="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/${csv_name}"
 
     if [ ! -f "$csv_file" ]; then
-        echo -e "\033[41;36mbitrate_table.csv not found: $csv_file\033[0m" >&2
+        echo -e "\033[41;36m${csv_name} not found: $csv_file\033[0m" >&2
         return 2
     fi
 
