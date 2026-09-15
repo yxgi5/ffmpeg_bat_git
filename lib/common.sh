@@ -171,3 +171,21 @@ function lookup_bitrate() {
     echo "$result"
     return 0
 }
+
+# 对清单文件逐行执行指定脚本 (P1 重构新增)
+# 用法: run_list <清单文件> <目标脚本路径>
+# 说明: 用 while read 替代旧的 for line in $(cat ...) 写法, 兼容含空格的文件名; 空行跳过; 任一行失败立即退出
+function run_list() {
+    local list_file="$1"
+    local script="$2"
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
+        [ -z "$line" ] && continue
+        echo "$line"
+        bash "$script" "$line"
+        if [ $? -ne 0 ]; then
+            echo -e "\033[41;36mConvert failed！\033[0m"
+            exit 1
+        fi
+    done < "$list_file"
+}
