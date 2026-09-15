@@ -251,14 +251,14 @@ RUN_COM="ffmpeg -hide_banner -threads 0 -v verbose"
 
 # 使用ffprobe获取视频的分辨率信息
 # RESOLUTION=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv="p=0" "$VIDEO_PATH")
-SRC_ROSOLUTION=$(check_file_resolution "$SRC_FILE")
-# echo $SRC_ROSOLUTION
-# SRC_W=$(echo $SRC_ROSOLUTION | cut -d ',' -f 1)
-# SRC_H=$(echo $SRC_ROSOLUTION | cut -d ',' -f 2)
+SRC_RESOLUTION=$(check_file_resolution "$SRC_FILE")
+# echo $SRC_RESOLUTION
+# SRC_W=$(echo $SRC_RESOLUTION | cut -d ',' -f 1)
+# SRC_H=$(echo $SRC_RESOLUTION | cut -d ',' -f 2)
 # echo "SRC_W: $SRC_W"
 # echo "SRC_H: $SRC_H"
-SRC_W=$(echo $SRC_ROSOLUTION | cut -d ' ' -f 1)
-SRC_H=$(echo $SRC_ROSOLUTION | cut -d ' ' -f 2)
+SRC_W=$(echo $SRC_RESOLUTION | cut -d ' ' -f 1)
+SRC_H=$(echo $SRC_RESOLUTION | cut -d ' ' -f 2)
 echo "SRC_W: "$SRC_W
 echo "SRC_H: "$SRC_H
 

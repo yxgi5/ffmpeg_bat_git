@@ -104,17 +104,17 @@ if %SRC_FRAMERATE% gtr 31 echo RUN_COM1:%RUN_COM%
 ::pause
 
 set count=1
-::set "SRC_ROSOLUTION="
-set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
+::set "SRC_RESOLUTION="
+set "SRC_RESOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
 
-::for /f "delims=" %%i in ('"%SRC_ROSOLUTION%"') do (
+::for /f "delims=" %%i in ('"%SRC_RESOLUTION%"') do (
 ::set VAR=%%i
 ::)
 ::echo %VAR%
 ::pause
 
 ::set count=1
-::for /f "tokens=* usebackq" %%i in ('"%SRC_ROSOLUTION%"') do (
+::for /f "tokens=* usebackq" %%i in ('"%SRC_RESOLUTION%"') do (
 ::set VAR!count!=%%i
 ::set /a count=!count!+1
 ::)
@@ -139,7 +139,7 @@ set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_w
 ::pause
 
 ::set count=1
-::for /f "delims=" %%i in ('"%SRC_ROSOLUTION%"') do (
+::for /f "delims=" %%i in ('"%SRC_RESOLUTION%"') do (
 ::set VAR%count%=%%i
 ::set /a count=%count%+1
 ::)
@@ -148,7 +148,7 @@ set "SRC_ROSOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_w
 ::pause
 
 ::set count=1
-::for /f "tokens=* usebackq" %%i in ('"%SRC_ROSOLUTION%"') do (
+::for /f "tokens=* usebackq" %%i in ('"%SRC_RESOLUTION%"') do (
 ::set "VAR!count!=%%i"
 ::set /a count+=1
 ::)
@@ -160,7 +160,7 @@ set "SRC_W=0"
 set "SRC_H=0"
 setlocal EnableDelayedExpansion
 set "output_cnt=0"
-%SRC_ROSOLUTION% >  "temp.txt"
+%SRC_RESOLUTION% >  "temp.txt"
 for /F "delims=" %%f in (temp.txt) do (
     set /a output_cnt+=1
     set "output[!output_cnt!]=%%f"

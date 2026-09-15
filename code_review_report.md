@@ -28,25 +28,26 @@
 
 这是最突出的问题。一个包含 **94 个 elif 分支**的码率查找表（从 `SRC_PIX leq 12288` 到 `leq 141557760`），被完整复制粘贴到以下文件中：
 
-| 文件 | 行数 |
-|------|------|
-| `ffmpeg_hevc_nvenc.sh` | 607 |
-| `ffmpeg_hevc_nvenc_cygwin.sh` | 607 |
-| `ffmpeg_libx265.sh` | 604 |
-| `ffmpeg_hevc_qsv.sh` | ~607 |
-| `ffmpeg_av1_nvenc.sh` | 628 |
-| `ffmpeg_av1_qsv.sh` | 628 |
-| `ffmpeg_avc_qsv.sh` | 607 |
-| `ffmpeg_h264_vaapi.sh` | 609 |
-| `ffmpeg_hevc_vaapi.sh` | 608 |
-| `ffmpeg_hevc_nvenc.bat` | 641 |
-| `ffmpeg_hevc_qsv.bat` | 659 |
-| `ffmpeg_avc_qsv.bat` | 643 |
-| `ffmpeg_libx265.bat` | 634 |
+| 文件                            | 行数   |
+| ----------------------------- | ---- |
+| `ffmpeg_hevc_nvenc.sh`        | 607  |
+| `ffmpeg_hevc_nvenc_cygwin.sh` | 607  |
+| `ffmpeg_libx265.sh`           | 604  |
+| `ffmpeg_hevc_qsv.sh`          | ~607 |
+| `ffmpeg_av1_nvenc.sh`         | 628  |
+| `ffmpeg_av1_qsv.sh`           | 628  |
+| `ffmpeg_avc_qsv.sh`           | 607  |
+| `ffmpeg_h264_vaapi.sh`        | 609  |
+| `ffmpeg_hevc_vaapi.sh`        | 608  |
+| `ffmpeg_hevc_nvenc.bat`       | 641  |
+| `ffmpeg_hevc_qsv.bat`         | 659  |
+| `ffmpeg_avc_qsv.bat`          | 643  |
+| `ffmpeg_libx265.bat`          | 634  |
 
 此外，辅助函数（`check_param_number`、`check_file_exists`、`check_file_isvideo`、`check_file_codec`、`check_file_framerate`、`check_file_resolution`、`check_file_size`、`check_file_duration`、`check_file_bitrate`）也完整复制在每个 .sh 文件中。
 
 **特别荒谬的例子：**
+
 - `ffmpeg_hevc_nvenc.sh` 与 `ffmpeg_hevc_nvenc_cygwin.sh` 仅 **1 行不同**（hwaccel 参数），其余 606 行完全一致
 - `ffmpeg_hevc_nvenc.sh` 与 `ffmpeg_libx265.sh` 约 90% 代码相同，仅编码器选择和部分参数不同
 
@@ -68,6 +69,7 @@ eval "${RUN_COM}"
 如果文件名包含反引号、`$()`、分号等 shell 元字符，`eval` 会执行注入代码。虽然文件名通常由用户自己提供，但这仍是不安全的模式。
 
 **正确做法：** 使用数组构建命令参数，直接执行：
+
 ```bash
 ffmpeg_args=(ffmpeg -hide_banner -threads 0 -v verbose -i "$ABS_FILE" ...)
 "${ffmpeg_args[@]}"
@@ -84,13 +86,14 @@ ffmpeg_args=(ffmpeg -hide_banner -threads 0 -v verbose -i "$ABS_FILE" ...)
 set /p SRC_CODEC=<"temp"
 del "temp"
 
-%SRC_ROSOLUTION% >  "temp.txt"
+%SRC_RESOLUTION% >  "temp.txt"
 %SRC_SIZE% > "size"
 %SRC_DURATION% > "duration"
 %SRC_BITRATE% > "bit_rate"
 ```
 
 这些可预测的文件名存在以下风险：
+
 - 并发执行多个实例时互相覆盖
 - 恶意用户可预先创建同名符号链接指向敏感文件
 - 脚本异常退出时残留垃圾文件
@@ -103,14 +106,14 @@ del "temp"
 
 仓库中 **没有 .gitignore 文件**。工作目录中存在大量不应纳入版本控制的大文件：
 
-| 文件 | 大小 |
-|------|------|
-| `input_4k25.mov` | 1.96 GB |
-| `input_1080p60.mov` | 269 MB |
-| `input_1080p60-compressed.mp4` | 27 MB |
-| `input_4k25-compressed.mp4` | 424 MB |
-| `output_hevc_libx265_cbr.mp4` | 642 MB |
-| 其他 output_*.mp4 | ~100 MB 各 |
+| 文件                             | 大小        |
+| ------------------------------ | --------- |
+| `input_4k25.mov`               | 1.96 GB   |
+| `input_1080p60.mov`            | 269 MB    |
+| `input_1080p60-compressed.mp4` | 27 MB     |
+| `input_4k25-compressed.mp4`    | 424 MB    |
+| `output_hevc_libx265_cbr.mp4`  | 642 MB    |
+| 其他 output_*.mp4                | ~100 MB 各 |
 
 虽然这些大文件目前未被 git 跟踪，但没有任何机制防止误操作。`heif-tool.7z`（2.7 MB 二进制压缩包）已被提交到 git 仓库中。
 
@@ -121,16 +124,19 @@ del "temp"
 ### 3.1 IFS 设置错误导致带空格文件名处理失败
 
 所有 .sh 脚本开头设置：
+
 ```bash
 IFS=$(echo -en "\n\b")
 ```
 
 然后在批量处理中使用：
+
 ```bash
 for line in $(cat ${LIST_FILE})
 ```
 
 这设置 IFS 为换行符和退格符，但 `$(cat ...)` 未加引号仍会进行分词。正确处理带空格文件名的方式应该用 `while read` 循环（代码中已有注释掉的版本）：
+
 ```bash
 while IFS= read -r line; do
     ./ffmpeg_xxx.sh "$line"
@@ -140,10 +146,11 @@ done < "$LIST_FILE"
 ### 3.2 变量未加引号
 
 大量地方使用未加引号的变量扩展：
+
 ```bash
 echo $line              # 应为 echo "$line"
 echo $SRC_FRAMERATE     # 应为 echo "$SRC_FRAMERATE"
-echo $SRC_ROSOLUTION    # 应为 echo "$SRC_ROSOLUTION"
+echo $SRC_RESOLUTION    # 应为 echo "$SRC_RESOLUTION"
 for line in $(cat ${LIST_FILE})  # 应为 "$LIST_FILE"
 ```
 
@@ -171,6 +178,7 @@ TARGET_BITRATE = "$TARGET_BITRATE_1"    # 错误！等号两边有空格
 ```
 
 Bash 中变量赋值 **不能有空格**，这行实际上会报错 `command not found: TARGET_BITRATE`。正确写法：
+
 ```bash
 TARGET_BITRATE="$TARGET_BITRATE_1"
 ```
@@ -180,6 +188,7 @@ TARGET_BITRATE="$TARGET_BITRATE_1"
 ### 3.5 硬编码路径
 
 .bat 文件硬编码 ffmpeg 路径：
+
 ```bat
 set FFPROBE_PATH=C:\Program Files\ffmpeg\bin\ffprobe.exe
 set FFMPEG_PATH=C:\Program Files\ffmpeg\bin\ffmpeg.exe
@@ -206,12 +215,11 @@ set FFMPEG_PATH=C:\Program Files\ffmpeg\bin\ffmpeg.exe
 
 ### 4.1 拼写错误（已传播到所有文件）
 
-| 错误 | 正确 | 出现位置 |
-|------|------|----------|
-| `SRC_ROSOLUTION` | `SRC_RESOLUTION` | 所有 .sh 和 .bat 文件 |
-| `check_file_istext` | `check_file_is_text` | convert_from_list_*.sh |
-| `unnomal` | `abnormal` | 多处错误提示 |
-| `TEAR DOWN` | `GEAR DOWN` / `TURN DOWN` | .bat 文件 |
+| 错误                  | 正确                        | 出现位置                   |
+| ------------------- | ------------------------- | ---------------------- |
+| `check_file_istext` | `check_file_is_text`      | convert_from_list_*.sh |
+| `unnomal`           | `abnormal`                | 多处错误提示                 |
+| `TEAR DOWN`         | `GEAR DOWN` / `TURN DOWN` | .bat 文件                |
 
 ### 4.2 Git 提交信息无意义
 
@@ -253,6 +261,7 @@ ffmpeg_bat_git/
 ```
 
 **统一编码脚本设计：**
+
 ```bash
 #!/bin/bash
 # 用法: ./ffmpeg_encode.sh --encoder nvenc|qsv|vaapi|libx265 [文件名]
@@ -330,13 +339,12 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 
 ### 5.6 修复已知 Bug
 
-| Bug | 修复 |
-|-----|------|
-| `TARGET_BITRATE = "$..."` 空格 | 改为 `TARGET_BITRATE="$..."` |
-| `for line in $(cat...)` | 改为 `while IFS= read -r line` |
-| `echo $line` 未加引号 | 改为 `echo "$line"` |
-| .bat 重复分支 | 删除重复的 `leq` 条件 |
-| `SRC_ROSOLUTION` 拼写 | 全局替换为 `SRC_RESOLUTION` |
+| Bug                          | 修复                           |
+| ---------------------------- | ---------------------------- |
+| `TARGET_BITRATE = "$..."` 空格 | 改为 `TARGET_BITRATE="$..."`   |
+| `for line in $(cat...)`      | 改为 `while IFS= read -r line` |
+| `echo $line` 未加引号            | 改为 `echo "$line"`            |
+| .bat 重复分支                    | 删除重复的 `leq` 条件               |
 
 ### 5.7 提取公共函数到 source 文件
 
@@ -350,16 +358,16 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 
 ## 六、量化评估
 
-| 维度 | 评分 (1-10) | 说明 |
-|------|:-----------:|------|
-| 功能完整性 | 7 | 覆盖了多种编码器和硬件加速，基本功能可用 |
-| 代码可读性 | 4 | 大量死代码、调试标记、中英混杂注释 |
-| 可维护性 | 2 | 94 分支查表复制 11 份，任何修改都需同步多处 |
-| 健壮性 | 3 | 空格文件名处理失败，eval 注入风险，临时文件竞争 |
-| 安全性 | 3 | eval 拼接、固定临时文件名、无 .gitignore |
-| 代码复用 | 1 | 几乎零复用，完全靠复制粘贴 |
-| 版本控制 | 3 | 无 .gitignore，提交信息无意义，二进制入库 |
-| 文档 | 5 | 有 readme 但简略，video_compress.md 较详细 |
+| 维度    | 评分 (1-10) | 说明                                 |
+| ----- |:---------:| ---------------------------------- |
+| 功能完整性 | 7         | 覆盖了多种编码器和硬件加速，基本功能可用               |
+| 代码可读性 | 4         | 大量死代码、调试标记、中英混杂注释                  |
+| 可维护性  | 2         | 94 分支查表复制 11 份，任何修改都需同步多处          |
+| 健壮性   | 3         | 空格文件名处理失败，eval 注入风险，临时文件竞争         |
+| 安全性   | 3         | eval 拼接、固定临时文件名、无 .gitignore       |
+| 代码复用  | 1         | 几乎零复用，完全靠复制粘贴                      |
+| 版本控制  | 3         | 无 .gitignore，提交信息无意义，二进制入库         |
+| 文档    | 5         | 有 readme 但简略，video_compress.md 较详细 |
 
 **综合评分：3.5 / 10**
 
@@ -367,16 +375,16 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 
 ## 七、优先级排序的改进路线图
 
-| 优先级 | 改进项 | 预期收益 |
-|:------:|--------|----------|
-| P0 | 添加 .gitignore | 防止大文件误入库 |
-| P0 | 修复 `TARGET_BITRATE =` 语法错误 | 交互输入码率功能恢复 |
-| P1 | 提取公共函数到 lib/common.sh | 减少 ~60% 重复代码 |
-| P1 | 码率查找表改为 CSV 数据驱动 | 94 分支→1 个函数，修改码率只需改 CSV |
-| P1 | 合并 nvenc/nvenc_cygwin/libx265 为统一脚本 | 11 个文件→1 个脚本+参数 |
-| P2 | 消除 eval，改用数组 | 安全性提升 |
-| P2 | 修复变量引号和文件名空格处理 | 健壮性提升 |
-| P2 | .bat 临时文件改用 for /f | 消除竞争风险 |
-| P3 | 清理死代码和调试标记 | 可读性提升 |
-| P3 | 修正拼写错误 | 专业性提升 |
-| P3 | 规范 git commit message | 可追溯性提升 |
+| 优先级 | 改进项                                 | 预期收益                    |
+|:---:| ----------------------------------- | ----------------------- |
+| P0  | 添加 .gitignore                       | 防止大文件误入库                |
+| P0  | 修复 `TARGET_BITRATE =` 语法错误          | 交互输入码率功能恢复              |
+| P1  | 提取公共函数到 lib/common.sh               | 减少 ~60% 重复代码            |
+| P1  | 码率查找表改为 CSV 数据驱动                    | 94 分支→1 个函数，修改码率只需改 CSV |
+| P1  | 合并 nvenc/nvenc_cygwin/libx265 为统一脚本 | 11 个文件→1 个脚本+参数         |
+| P2  | 消除 eval，改用数组                        | 安全性提升                   |
+| P2  | 修复变量引号和文件名空格处理                      | 健壮性提升                   |
+| P2  | .bat 临时文件改用 for /f                  | 消除竞争风险                  |
+| P3  | 清理死代码和调试标记                          | 可读性提升                   |
+| P3  | 修正拼写错误                              | 专业性提升                   |
+| P3  | 规范 git commit message               | 可追溯性提升                  |
