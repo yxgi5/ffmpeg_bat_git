@@ -14,6 +14,7 @@
 | ✅ 已解决 | P0: .gitignore 添加（压缩包规则因保留 heif-tool.7z 而移除） | 20ade32 + 8492be2 |
 | ✅ 已解决 | P0: `TARGET_BITRATE =` 赋值语法错误（9 个 .sh） | 20ade32 |
 | ✅ 已解决 | P3: 拼写错误修正（unnomal/TEAR DOWN；ROSOLUTION 由作者提前修复） | d22ea30 / 82a75ff |
+| ✅ 已解决 | P3: 清理死代码和调试标记（23 个文件 -2183 行：ABS 注释块、注释掉的旧命令、:: 注释、调试 echo） | 本提交 |
 | ✅ 已解决 | .bat CRLF 行尾被 sed 破坏 → unix2dos 恢复 + .gitattributes `*.bat -text` 防复发 | d22ea30 |
 | 🔲 待办 | P1: 提取公共函数到 lib/common.sh | — |
 | 🔲 待办 | P1: 码率查找表改为 CSV 数据驱动 | — |
@@ -401,6 +402,6 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 | P2  | 消除 eval，改用数组                        | 安全性提升                   | 🔲 |
 | P2  | 修复变量引号和文件名空格处理                      | 健壮性提升                   | 🔲 |
 | P2  | .bat 临时文件改用 for /f                  | 消除竞争风险                  | 🔲 |
-| P3  | 清理死代码和调试标记                          | 可读性提升                   | 🔲 |
+| P3  | 清理死代码和调试标记                          | 可读性提升                   | ✅ |
 | P3  | 修正拼写错误                              | 专业性提升                   | ✅ |
 | P3  | 规范 git commit message               | 可追溯性提升                  | ✅ |
