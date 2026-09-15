@@ -3,8 +3,7 @@
 # 用法: ./ffmpeg_libx264.sh [视频文件]
 #   不带参数: 交互输入文件路径和输出码率
 #   带参数  : 文件路径, 码率/输出文件名自动决定
-# 码率查表与 libx265 共用 bitrate_table.csv (HEVC power-law 模型);
-# 若后续为 AVC 单独拟合码率模型, 建议新增 avc 专用 CSV 而非复用
+# 码率查表使用 bitrate_table_avc.csv (AVC 专用模型, 源自 bitrate_calc.xlsx output 页 H 列)
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
@@ -78,8 +77,8 @@ fi
 
 echo "SRC_BITRATE: $SRC_BITRATE"
 
-# ---------- 码率查表 (bitrate_table.csv) ----------
-BIT=$(lookup_bitrate "$SRC_PIX")
+# ---------- 码率查表 (bitrate_table_avc.csv, AVC 专用模型) ----------
+BIT=$(lookup_bitrate "$SRC_PIX" "bitrate_table_avc.csv")
 if [ $? -ne 0 ] || [ -z "$BIT" ]; then
     echo -e "\033[41;36mManual handle it!\033[0m"
     exit 2

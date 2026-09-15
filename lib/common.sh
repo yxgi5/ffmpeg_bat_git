@@ -143,14 +143,17 @@ function check_file_bitrate() {
 }
 
 # 码率查表: 按像素总数返回目标码率(bps)
-# 数据文件 lib/bitrate_table.csv, 格式: max_pixels,bitrate (按阈值升序)
+# 数据文件 lib/ 下, 格式: max_pixels,bitrate (按阈值升序):
+#   bitrate_table_hevc.csv  HEVC power-law 模型 (源自 bitrate_calc.xlsx output 页 G 列, 去重后 94 项)
+#   bitrate_table_avc.csv   AVC  模型 (源自同页 H 列 H7~H105)
+#   bitrate_table_av1.csv   AV1  模型 (HEVC 表按分辨率档位打折)
 # 查到输出码率并返回 0; 超出表范围或文件缺失输出空并返回 2
 function lookup_bitrate() {
     # 用法: lookup_bitrate <像素总数> [csv文件名]
-    #   csv 文件名可选, 默认 bitrate_table.csv(HEVC power-law 模型);
-    #   AV1 等更高效率编码传入 bitrate_table_av1.csv(HEVC 表按分辨率档位打折)
+    #   csv 文件名可选, 默认 bitrate_table_hevc.csv;
+    #   AVC 编码传入 bitrate_table_avc.csv, AV1 编码传入 bitrate_table_av1.csv
     local pixels="$1"
-    local csv_name="${2:-bitrate_table.csv}"
+    local csv_name="${2:-bitrate_table_hevc.csv}"
     local csv_file result
 
     csv_file="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/${csv_name}"
