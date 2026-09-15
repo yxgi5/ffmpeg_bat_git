@@ -23,6 +23,7 @@
 | ✅ 已解决 | P2+: 新建 libx264 保底脚本、AVC 专用码率表（bitrate_calc.xlsx H 列）、av1_nvenc 的 qsv 残留初始化清除 | 443764b + 6335025 + 8b77873 |
 | ✅ 已解决 | 新增环境×硬件能力矩阵文档（三机器五环境，已验证/未验证/未编入状态） | 4db4577 + b210379 |
 | 🔲 待办 | P2: .bat 临时文件改用 for /f（.bat 家族整体重构，放最后） | — |
+| ✅ 已解决 | P2: .bat 家族重构 — 新建 lib/common.bat（dispatch + lookup_bitrate 读 CSV + 公共子程序），4 个编码 bat 450→191 行，固定临时文件改 %TEMP% 唯一名，avc_qsv.bat 修正为 AVC 码率表（旧版误用 HEVC 表）。**沙箱无法运行 cmd.exe，静态验证通过，待用户手动冒烟** | 57c418f |
 | 🔲 待办 | Linux（A 机）/ Ultra 265K（C 机）平台实测项，见 environment_matrix.md 待验证清单 | — |
 
 **验证状态**：全部 14 个 .sh 重构完毕，eval 与 if-elif 查表在 .sh 中清零；试点+推广脚本在 Cygwin / MSYS2 mingw64 / 原生 gyan 三套 ffmpeg 下端到端验证通过（Cygwin 的 QSV 与 libx264/libx265 为构建限制，见矩阵文档）。
