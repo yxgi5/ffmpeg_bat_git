@@ -578,7 +578,8 @@ fi
 
 # RUN_COM="${RUN_COM} -c:v h264_qsv -profile:v main -preset veryfast -b:v $TARGET_BITRATE -fps_mode cfr -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 # RUN_COM="${RUN_COM} -c:v h264_qsv -profile:v main -preset veryfast -b:v $TARGET_BITRATE -fps_mode cfr -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
-RUN_COM="${RUN_COM} -c:v h264_qsv -profile:v main -preset veryfast -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+# RUN_COM="${RUN_COM} -c:v h264_qsv -profile:v main -preset veryfast -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map_metadata -1 -map_chapters -1 -strict -2 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
+RUN_COM="${RUN_COM} -c:v h264_qsv -profile:v main -preset veryfast -b:v $TARGET_BITRATE -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:v -map 0:a -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024 -n \"${TARGET_FILE}\""
 echo "RUN_COM: ${RUN_COM}"
 
 # RUN_COM=${RUN_COM}' -i '\"${ABS_NAME}\"
