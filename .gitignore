@@ -10,11 +10,6 @@
 *.m2ts
 *.webm
 
-# ===== 压缩包（二进制大文件不入库，如 heif-tool.7z）=====
-*.7z
-*.zip
-*.rar
-
 # ===== .bat 脚本产生的临时文件 =====
 temp
 temp.txt
