@@ -1,9 +1,10 @@
 #!/bin/bash
-# ffmpeg_libx265.sh - HEVC libx265 软件编码压缩脚本 (P1 重构版)
-# 用法: ./ffmpeg_libx265.sh [视频文件]
+# ffmpeg_libx264.sh - AVC libx264 软件编码压缩脚本 (新建, 与 libx265 版同构)
+# 用法: ./ffmpeg_libx264.sh [视频文件]
 #   不带参数: 交互输入文件路径和输出码率
 #   带参数  : 文件路径, 码率/输出文件名自动决定
-# 行为与重构前保持一致: 码率查表(CSV), 目标码率=查表值/2, 源码率过低则沿用源码率
+# 码率查表与 libx265 共用 bitrate_table.csv (HEVC power-law 模型);
+# 若后续为 AVC 单独拟合码率模型, 建议新增 avc 专用 CSV 而非复用
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
@@ -132,8 +133,8 @@ if [ "$SRC_FRAMERATE" -gt 31 ]; then
     echo "DOWN TARGET FRAME RATE TO 30"
 fi
 
-CMD+=(-c:v libx265 -profile:v main -preset fast -b:v "$TARGET_BITRATE")
-CMD+=(-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709)
+CMD+=(-c:v libx264 -profile:v high -preset fast -b:v "$TARGET_BITRATE")
+CMD+=(-pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709)
 CMD+=(-g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2)
 CMD+=(-map 0:v -map 0:a -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0)
 CMD+=(-rtbufsize 120m -max_muxing_queue_size 1024 -n "$TARGET_FILE")
