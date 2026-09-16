@@ -24,3 +24,8 @@ bit_rate
 # ===== 系统文件 =====
 Thumbs.db
 desktop.ini
+
+# ===== 测试套件（test/）的运行产物（套件脚本本身要提交）=====
+test/bat/smoke_logs/
+test/bat/chars_logs/
+test/sh/logs/

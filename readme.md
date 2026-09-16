@@ -21,7 +21,13 @@ opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Window
 bitrate_calc.xlsx          码率曲线拟合原始表
 code_review_report.md      多轮代码评审与冒烟记录
 environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待验证清单
+test/README.md             测试套件说明（.bat 族 / .sh 族两套冒烟套件的用法）
+test/bat/smoke_*.bat       Windows 侧冒烟套件（回归 + 元字符矩阵 + 合并运行器）
+test/sh/smoke_sh.sh        Linux 侧冒烟套件（可直接在当前仓库根下运行）
 ```
+
+> 测试套件随仓库分发，运行日志与产物已由 `.gitignore` 排除。
+> 套件自己定位仓库根（从脚本位置向上两级），**克隆到任意路径都能跑**。
 
 ## 码率怎么来的
 
@@ -101,8 +107,9 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 
 ## 验证状态
 
-- **`.bat` 家族**：仓库外探针 `smoke_all.bat` 一键串跑 **T1–T15** 回归套件 + 元字符矩阵，最近一轮从 **cp936 窗口**启动全绿（4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测 2/2、banner/debug 卫生检查、A 18+1SKIP / C 3/3 / B 6/6）。**2026-09-16 补了两个 AV1 入口**：`ffmpeg_av1_nvenc.bat`（探针 **T14**）与 `ffmpeg_av1_qsv.bat`（探针 **T15**——会先用 1 帧 lavfi 试编一次探硬件，**没有 AV1 QSV 硬编的机器记 `[SKIP]` 而非 FAIL**）。两者均以同族骨架派生、静态自检与骨架**同结果**；**均待对应机器上实跑补证**（NVENC 需 Ada+ 独显，QSV 需 Arrow Lake+ 核显）
-- **`.sh` 家族**：仓库外套件 `smoke_all.sh` 18 用例断言，**PASS=18 / FAIL=0**；15 个入口脚本已在 Ubuntu 22.04 全量实测；**同一套件亦在 A / C 两机的双 ffmpeg 构建下各跑两轮，均 PASS=22/22**
+- **`.bat` 家族**：仓库内套件 **`test/bat/smoke_all.bat`**（双击即跑）串跑 **T1–T15** 回归套件 + 元字符矩阵；最近一轮 2026-09-16（B 机 Win11 + RTX 4080）**T1–T14 全 PASS、T15 SKIP、banner/debug 卫生检查 PASS**（含 4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测、A 18+1SKIP / C 3/3 / B 6/6）。**2026-09-16 补的两个 AV1 入口**均以同族骨架派生、静态自检与骨架同结果：`ffmpeg_av1_nvenc.bat`（**T14 已在 B 机实跑通过**，`TARGET_BITRATE=1656818` 且产物 `v=av1`）与 `ffmpeg_av1_qsv.bat`（**T15 先探测硬件再断言**，核显无 AV1 编码即记 `[SKIP]` 而非 FAIL；**待 Arrow Lake+ 核显的 Windows 机器补证**）
+- **`.sh` 家族**：仓库内套件 **`test/sh/smoke_sh.sh`**（22 用例断言，`bash test/sh/smoke_sh.sh all`）——15 个入口脚本已在 Ubuntu 22.04 全量实测；A / C 两机在双 ffmpeg 构建下各跑两轮均 **PASS=22/22**，套件入库后又按仓库内路径在两机各复跑一轮，同样 **PASS=22/22**（顺带验证「套件自定位仓库根」在任意克隆路径下成立）
+- 两套套件的用法、环境开关与逐项覆盖范围见 **`test/README.md`**
 - 详细矩阵与逐条记录见 `environment_matrix.md`，各轮缺陷的定位与修法见 `code_review_report.md`
 
 ## 硬件加速速查
