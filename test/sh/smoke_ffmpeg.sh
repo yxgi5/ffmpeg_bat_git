@@ -356,6 +356,13 @@ mklist() {   # mklist <dir> <listfile> <eol:lf|crlf> <bom:0|1> <names...>
 if part_in list; then
 head1 "part list: T9/T11/T12 mirror the .bat harness, T21-T23 are sh-only extensions"
 
+# convert_from_list_qsv.sh needs QSV AVC hardware. Probe ONCE for the whole
+# part: on a box without QSV (e.g. the Raspberry Pi test box) the three list
+# cases used to fail rc=1 -- "hardware absent" reported as a repo defect
+# (found on D-box, 2026-09-16). Same policy as the gate_arg parity cases.
+if can_run ffmpeg_avc_qsv.sh; then LISTGATE=1; else LISTGATE=0; fi
+
+if [ "$LISTGATE" -eq 1 ]; then
 # T9: 2-entry list, cwd = repo (the .bat T9 writes a CRLF list via cmd echo)
 d="$W/cases/T9_list"; mkdir -p "$d"
 mklist "$d" "$d/list.txt" lf 0 "ep1.mkv" "ep 2.mkv"
@@ -367,7 +374,12 @@ n=0; for f in "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4"; do [ -f "$f" ] &
 OUT="$d/ep1-compressed.mp4"
 if [ "$RC" -eq 0 ] && [ "$n" -eq 2 ]; then PASS=$((PASS+1)); say "[PASS] T9 convert_from_list_qsv 2-entry list, cwd=repo  (outputs=$n/2)"
 else FAIL=$((FAIL+1)); say "[FAIL] T9 convert_from_list_qsv 2-entry list, cwd=repo  outputs=$n/2 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
+else
+skipcase T9 convert_from_list_qsv "QSV AVC not runnable here (probe log: $LOG/probe_ffmpeg_avc_qsv.log)"
+fi
 
+
+if [ "$LISTGATE" -eq 1 ]; then
 # T11: UTF-8 (non-ASCII) names in a list (the .bat harness T11 uses a stale
 # fixture and SKIPs when it is missing; here the names are made on the fly)
 d="$W/cases/T11_list_utf8"; mkdir -p "$d"
@@ -379,7 +391,12 @@ RC=$?
 n=0; for f in "$d/${UTF8_1}-compressed.mp4" "$d/${UTF8_2}-compressed.mp4"; do [ -f "$f" ] && n=$((n+1)); done
 if [ "$RC" -eq 0 ] && [ "$n" -eq 2 ]; then PASS=$((PASS+1)); say "[PASS] T11 list mode utf8 names  (outputs=$n/2)"
 else FAIL=$((FAIL+1)); say "[FAIL] T11 list mode utf8 names  outputs=$n/2 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
+else
+skipcase T11 convert_from_list_qsv "QSV AVC not runnable here (probe log: $LOG/probe_ffmpeg_avc_qsv.log)"
+fi
 
+
+if [ "$LISTGATE" -eq 1 ]; then
 # T12: list mode with NO argument, cwd elsewhere -> default list.txt in cwd
 d="$W/cases/T12_list_nocwd"; mkdir -p "$d"
 mklist "$d" "$d/list.txt" lf 0 "ep1.mkv" "ep 2.mkv"
@@ -390,6 +407,10 @@ RC=$?
 n=0; for f in "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4"; do [ -f "$f" ] && n=$((n+1)); done
 if [ "$RC" -eq 0 ] && [ "$n" -eq 2 ]; then PASS=$((PASS+1)); say "[PASS] T12 list mode, no arg, cwd elsewhere  (outputs=$n/2)"
 else FAIL=$((FAIL+1)); say "[FAIL] T12 list mode, no arg, cwd elsewhere  outputs=$n/2 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
+else
+skipcase T12 convert_from_list_qsv "QSV AVC not runnable here (probe log: $LOG/probe_ffmpeg_avc_qsv.log)"
+fi
+
 
 # T21 (sh-only): Notepad-style CRLF + UTF-8 BOM list must still parse
 d="$W/cases/T21_list_crlf_bom"; mkdir -p "$d"

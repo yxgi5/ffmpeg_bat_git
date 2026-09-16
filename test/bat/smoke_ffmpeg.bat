@@ -236,8 +236,13 @@ echo        probe rc=%AV1PRC%, see T15_av1_qsv_probe.txt >> "%SUM%"
 :T15DONE
 
 :LISTONLY
-rem ============ T9: list mode, cwd = repo, two entries incl. a space ======
+rem T9/T11/T12 run convert_from_list_qsv.bat, which needs QSV AVC hardware.
+rem Gate ONCE for all three: without QSV they would be reported as repo
+rem failures -- hardware absence, not a defect (exposed by the Pi box).
 chcp %CP0% >nul
+call :gate ffmpeg_avc_qsv
+if defined GATED call :skipcase T9-T12 convert_from_list_qsv
+if defined GATED goto LISTDONE
 > "%WORK%\list.txt" (
     echo %WORK%\list_a.mp4
     echo %WORK%\list b.mp4
@@ -276,6 +281,7 @@ popd
 call :countout CNT12
 echo [TEST] T12 list mode, no arg, cwd elsewhere : %CNT12% of 2 outputs, rc=%RC12% >> "%SUM%"
 
+:LISTDONE
 rem ============ global: no log may contain the banner parse error ========
 set "BAD=0"
 for %%f in ("%LOGDIR%\*.log") do (
