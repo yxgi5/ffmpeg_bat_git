@@ -52,13 +52,14 @@ function check_file_is_text() {
 }
 
 # 检查文件是否为视频(含 video 流), 否则退出
+# 退出码 3 = 无视频流, 与 .bat 侧 check_isvideo 调用点(exit /b 3)数值一致
 function check_file_isvideo() {
     file_type=$(ffprobe -v error -hide_banner -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | tr -d '\r')
     if [[ $file_type == *"video"* ]]; then
         return 0
     else
         echo -e "\033[41;36m$1 不是视频文件!\033[0m"
-        exit 1
+        exit 3
     fi
 }
 

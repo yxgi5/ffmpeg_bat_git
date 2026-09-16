@@ -115,10 +115,11 @@ if [ "$percentage" -ge 100 ]; then
     TARGET_BITRATE=$SRC_BITRATE
 fi
 
+# 码率异常: 退出码 5, 与 .bat 侧(exit /b 5)数值一致
 if [ "$percentage" -le 0 ]; then
     echo "bitrate abnormal, please check"
     echo -e "\033[41;36mbitrate abnormal, please check\033[0m"
-    exit 4
+    exit 5
 fi
 
 # ---------- 交互模式可覆盖码率 ----------
