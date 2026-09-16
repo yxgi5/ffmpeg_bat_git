@@ -186,6 +186,9 @@ rem 下面两个判定不限于交互模式: arg(拖放/命令行)模式同样�
 rem (原写法多了 if "%~1"=="" 前置, 使低码率源在 arg 模式下被重编码放大)
 if %percentage% geq 100 (
     set BIT=%SRC_BITRATE%
+    rem keep the summary honest: TARGET_BITRATE must report the bitrate
+    rem actually encoded at, not the stale table value (T17 asserts on it)
+    set TARGET_BITRATE=%SRC_BITRATE%
 )
 
 if %percentage% leq 0 (

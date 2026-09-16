@@ -81,7 +81,7 @@ set "CP0="
 for /f "delims=" %%l in ('chcp') do set "CP0=%%l"
 set "CP0=%CP0:*: =%"
 
-echo ==== ffmpeg_bat smoke harness v6 ==== > "%SUM%"
+echo ==== ffmpeg_bat smoke harness v8 ==== > "%SUM%"
 echo date      : %DATE% %TIME% >> "%SUM%"
 echo repo      : %REPO% >> "%SUM%"
 echo startCP   : %CP0% >> "%SUM%"
