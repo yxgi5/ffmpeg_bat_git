@@ -371,6 +371,16 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 | MSYS2 MINGW64      | `/c/...`          | 8.1                  |   **CRLF（必须剥）**   |   ❌   |    ✅   |
 | git-bash           | `/c/...`          | 无（用原生）               |   **CRLF（必须剥）**   |   ❌   |    ✅   |
 
+**两条跨环境硬约束（踩过坑，写脚本/探针时必守）**
+
+* **MSYS 只改写「命令参数」里的路径，不改写「作为值传入」的路径**（2026-09-16 实测）：把相对路径
+  交给入口，入口内部规范化后会变成 `/c/Users/...` POSIX 形式 —— 而**原生 `ffmpeg.exe` 打不开
+  POSIX 路径**（报 `Error opening input`，且文件明明存在，极易误判成"入口坏了"）。
+  → 跨环境脚本与清单文件一律用 **`C:/...` mixed 形式**（`cygpath -m` 产生）最稳。
+* **可用性探针的片源不得小于 160 宽**：`hevc_nvenc` / `av1_nvenc` 在 128×128 下
+  `InitializeEncoder failed: invalid argument`，160×120 起正常（QSV 无此限制）。
+  探针用 128×128 会让**有 N 卡**的机器把硬件用例误记成 SKIP，静默丢覆盖。本仓库统一用 320×240。
+
 ---
 
 ## 待验证清单（按优先级）
@@ -394,3 +404,29 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 17. ~~**`av1_qsv.bat` 的对称缺口**~~ ✅ **已补（2026-09-16 晚）**：新增 `ffmpeg_av1_qsv.bat`（以 `ffmpeg_hevc_qsv.bat` 为骨架，diff 仅 5 处：标题/头部注释、两处码率表引用、`lookup_bitrate` 实参、编码器段；参数与 `ffmpeg_av1_qsv.sh` 对齐 = `-c:v av1_qsv -profile:v main -preset fast`），静态自检（`check_bat_static` / `audit_set_forms2` / `mini_cmd_scan`）与骨架**同结果**、守卫区仍 ASCII-only、CRLF 保持。探针新增 **T15** 用例（1080p 期望 `TARGET_BITRATE=1656818`，与 C 机 `.sh` 实测同值）：因 AV1 QSV 取决于硬件，**T15 先用 1 帧 lavfi 试编探测能力，失败则记 `[SKIP]` 而非 FAIL**（探针日志 `smoke_logs\T15_av1_qsv_probe.txt`）→ 在无 AV1 QSV 硬编的机器上跑探针不会变红。**实测（2026-09-16 晚，B 机双击探针 v6）：T15 按预期记 `[SKIP]`**（`Current codec type is unsupported` / rc=-40，该机 Raptor Lake 核显确无 AV1 编码器），**其余 T1–T14 不受影响，banner 与 debug 卫生检查均 `[PASS]`**；**C 机 Win11 侧实跑待补**（用户当前无该环境）
 
 18. **测试套件已入库（2026-09-16 晚）**：`.bat` 族与 `.sh` 族冒烟套件此前放在会话工作区（仓库外），现迁入仓库 `test/bat/`（`smoke_ffmpeg_bat.bat` v6 / `smoke_special_chars.bat` / `smoke_all.bat`）与 `test/sh/`（`smoke_sh.sh`），并**统一改为自定位仓库根**（脚本位置上两级）→ 克隆到任意路径都能跑；`.bat` 运行日志目录（`test/bat/smoke_logs/`、`test/bat/chars_logs/`）已进 `.gitignore`。迁移后已在 **A 机 / C 机** 各按仓库内路径复跑一轮 `.sh` 套件：**均 PASS=22/22**，自定位逻辑验证通过。用法与环境开关见 `test/README.md`
+
+19. **三层测试体系落地 + 三处硬件/环境层定论（2026-09-16 晚，B 机）**
+    * **① NVENC 有最小尺寸门槛（本轮最重要的环境事实）**：`hevc_nvenc` / `av1_nvenc` 在 **128×128** 下报
+      `InitializeEncoder failed: invalid argument` 直接失败，**160×120 起正常**；**QSV 无此限制**。
+      这条本身与仓库无关，但它**曾经伪装成"本机没有 N 卡"**：冒烟套件用 128×128 做可用性探针，
+      探针失败 → 硬件用例被记 `SKIP` → `T2 hevc_nvenc` / `T14 av1_nvenc` / `T20 hevc_nvenc_cygwin`
+      三条在**有硬件**的机器上长期静默不测（该机 `nvidia-smi` 恰又坏，见 ③，两个假象互相加固）。
+      定位方式是把深测（同一入口 320×240 真跑成功、写出 90 帧）与冒烟（同入口 SKIP）交叉比对。
+      **修复**：两族探针夹具统一 320×240 → 同一次全量运行 `PASS=19/SKIP=7` ⟶ **`PASS=22/SKIP=4`**。
+      **教训：可用性探针的输入规格本身就是覆盖率的隐性上限，必须可辩护。**
+    * **② bat 探针补上对等的硬件门控**：`test/bat/smoke_ffmpeg_bat.bat` v8 新增 `:gate` / `:skipcase`
+      子程序，与 sh 侧 `gate_arg` 语义一致 —— 先用 320×240 小片试编一次，失败则记 `SKIP` +
+      `hardware absence, not a repo defect`，而不是 FAIL。门控落在 T1/T2/T3/T7/T14（五个依赖硬件的用例）。
+      此前无硬件的机器跑 bat 套件必然冒出无意义 FAIL，是**跨机器噪声源**。
+    * **③ 快查的 `NO-DEVICE` 是假阴性**：本机 `nvidia-smi` 以 255 退出并报 `Failed to initialize NVML`
+      （打到 stdout），快查据此把两个 `*_nvenc` 标成 `NO-DEVICE`；而 `--probe` 深测同一入口是
+      `PROBE-OK rc=0`。**判据修正**：`NO-DEVICE` 只表示"说不清、值得深测"，不是判决。
+    * **④ MSYS 只改写「命令参数」里的路径，不改写「作为值传入」的路径**（新坑）：深测的 list 族全部
+      rc=1 `Error opening input`。日志显示入口把相对名 `clip.mp4` 规范化成了 `/c/Users/.../clip.mp4`
+      （POSIX 形式），而**原生 `ffmpeg.exe` 打不开 POSIX 路径** —— 文件确实存在、路径确实被改写坏了。
+      修复：① 深测前用 `cygpath -m "$W"` 把工作目录规范成 `C:/...`；② 清单改用**绝对路径**，不再写相对名。
+      与既有的「MSYS2/git-bash 下 ffmpeg 输出是 CRLF」并列，属同族环境陷阱（见表 4）。
+    * **⑤ 新增两套工具**（均已入库，见 `test/README.md`）：`test/lint/`（13 项静态 + 7 项对等检查，
+      带双向自校准 selftest）与 `test/{sh,bat}/check_env.*`（环境能力报告，默认快查 + 深测）。
+      能力报告的价值正是把 ①②③ 这类"硬件在但测不到 / 硬件不在却报错"的模糊态显式化：
+      `OK / NO-ENCODER / NO-DEVICE / N/A-OS / UNKNOWN / PROBE-OK / PROBE-FAIL / NO-ENTRY`。

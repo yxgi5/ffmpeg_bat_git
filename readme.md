@@ -21,10 +21,25 @@ opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Window
 bitrate_calc.xlsx          码率曲线拟合原始表
 code_review_report.md      多轮代码评审与冒烟记录
 environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待验证清单
-test/README.md             测试套件说明（.bat 族 / .sh 族两套冒烟套件的用法）
-test/bat/smoke_*.bat       Windows 侧冒烟套件（回归 + 元字符矩阵 + 合并运行器）
-test/sh/smoke_sh.sh        Linux 侧冒烟套件（可直接在当前仓库根下运行）
+test/README.md             测试体系说明（三层：静态检查 / 冒烟套件 / 能力报告）
+test/lint/lint.py          静态 + 跨族对等检查器（零依赖，1 秒内跑完）
+test/lint/selftest.py      检查器自身的回归测试（recall + precision 双向验证）
+test/sh/smoke_sh.sh        Linux 侧冒烟套件（T1–T25，与 .bat 套件同 T 编号）
+test/bat/smoke_*.bat       Windows 侧冒烟套件（T1–T17 回归 + 元字符矩阵 + 合并运行器）
+test/sh/check_env.sh       Linux 侧能力报告（快查 / --probe 深测）
+test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` 深测）
 ```
+
+## 测试体系（三层，各管一件事）
+
+| 层 | 命令 | 回答的问题 | 耗时 |
+|----|------|-----------|------|
+| ① 静态 + 对等检查 | `python3 test/lint/lint.py` | 代码有没有结构性问题？两族对等吗？ | < 1 秒 |
+| ② 冒烟套件 | `bash test/sh/smoke_sh.sh` / 双击 `test\bat\smoke_all.bat` | 真实编码跑通了吗？断言对不对？ | 数分钟 |
+| ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` / 双击 `test\bat\check_env.bat` | **这台机器**能用哪些入口？ | 秒级 / 数十秒 |
+
+建议顺序：先 ① 后 ② —— 静态检查 1 秒就能抓出行尾/括号/标签/引号/编码问题，不必等几分钟的冒烟跑完才发现。
+逐项检查清单、T 编号对照表、SKIP 策略、两族对等矩阵与历史踩坑记录见 **`test/README.md`**。
 
 > 测试套件随仓库分发，运行日志与产物已由 `.gitignore` 排除。
 > 套件自己定位仓库根（从脚本位置向上两级），**克隆到任意路径都能跑**。
@@ -50,6 +65,7 @@ test/sh/smoke_sh.sh        Linux 侧冒烟套件（可直接在当前仓库根�
 | `ffmpeg_hevc_nvenc.bat` | HEVC NVENC | NVIDIA 显卡（cuvid 全硬解链路） |
 | `ffmpeg_av1_nvenc.bat` | AV1 NVENC | NVIDIA **Ada 及以后**（RTX 40 系起） |
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
+| `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出 |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
@@ -74,6 +90,7 @@ test/sh/smoke_sh.sh        Linux 侧冒烟套件（可直接在当前仓库根�
 ./ffmpeg_hevc_qsv.sh                    # 不带参数: 交互输入路径 (可再输入码率覆盖默认)
 ./ffmpeg_avc_qsv.sh  "/dss/xxx/xxx.mov" # 带参数: 码率与输出名自动决定
 ./ffmpeg_libx265.sh  xxx.mov
+./ffmpeg_libx264.sh  xxx.mov
 
 ./convert_from_list_qsv.sh              # 不带参数默认 list.txt
 ./convert_from_list_qsv.sh list0.txt
@@ -107,9 +124,31 @@ test/sh/smoke_sh.sh        Linux 侧冒烟套件（可直接在当前仓库根�
 
 ## 验证状态
 
-- **`.bat` 家族**：仓库内套件 **`test/bat/smoke_all.bat`**（双击即跑）串跑 **T1–T15** 回归套件 + 元字符矩阵；最近一轮 2026-09-16（B 机 Win11 + RTX 4080）**T1–T14 全 PASS、T15 SKIP、banner/debug 卫生检查 PASS**（含 4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测、A 18+1SKIP / C 3/3 / B 6/6）。**2026-09-16 补的两个 AV1 入口**均以同族骨架派生、静态自检与骨架同结果：`ffmpeg_av1_nvenc.bat`（**T14 已在 B 机实跑通过**，`TARGET_BITRATE=1656818` 且产物 `v=av1`）与 `ffmpeg_av1_qsv.bat`（**T15 先探测硬件再断言**，核显无 AV1 编码即记 `[SKIP]` 而非 FAIL；**待 Arrow Lake+ 核显的 Windows 机器补证**）
-- **`.sh` 家族**：仓库内套件 **`test/sh/smoke_sh.sh`**（22 用例断言，`bash test/sh/smoke_sh.sh all`）——15 个入口脚本已在 Ubuntu 22.04 全量实测；A / C 两机在双 ffmpeg 构建下各跑两轮均 **PASS=22/22**，套件入库后又按仓库内路径在两机各复跑一轮，同样 **PASS=22/22**（顺带验证「套件自定位仓库根」在任意克隆路径下成立）
-- 两套套件的用法、环境开关与逐项覆盖范围见 **`test/README.md`**
+测试体系分三层，先用 1 秒的静态检查过滤低层次问题，再跑数分钟的冒烟套件：
+
+| 层 | 命令 | 本机最近一轮（2026-09-16，Win11 + MSYS2 + RTX） |
+|----|------|--------------------------------------------|
+| ① 静态 + 对等 | `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 7 WARN`，退出码 0 |
+| ① 检查器自测 | `python3 test/lint/selftest.py` | `13 cases / 0 FAIL` |
+| ② sh 冒烟 | `bash test/sh/smoke_sh.sh all` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
+| ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
+
+- **`.sh` 家族**：`test/sh/smoke_sh.sh` 共 **T1–T25**，与 `.bat` 套件**同 T 编号、同夹具、同期望码率**。
+  2026-09-16 本机全量 **PASS=22 FAIL=0 SKIP=4**；A / C 两机（Ubuntu 22.04）此前各轮均为全 PASS。
+  本轮修掉一个**假 SKIP**：可用性探针夹具原用 128×128，而 NVENC 拒绝初始化这么小的编码器，
+  导致本机明明有可用 NVENC，`T2`/`T14`/`T20` 却一直被记 SKIP；改用 320×240 后三条恢复为真实 PASS
+  （`T14` 断言 `codec=av1`）。SKIP 现仅剩 VAAPI 两条（Windows 无 DRM 设备）、cp65001（无对应物）、
+  AV1 QSV（需 Arrow Lake+ 核显）。
+- **`.bat` 家族**：`test/bat/smoke_all.bat`（双击即跑）串跑 T1–T17 回归 + 元字符矩阵。
+  硬件相关用例（T1/T2/T3/T7/T14）本轮起也改为**先探测后断言**，与 `.sh` 侧策略一致：
+  本机跑不起来记 `[SKIP]` 并留下 `gate_<入口>.log`，而不是记 FAIL —— 让「缺硬件」不再伪装成「仓库有缺陷」。
+  `ffmpeg_av1_nvenc.bat`（T14）与 `ffmpeg_libx264.bat`（T16）为本轮新增/补齐入口；
+  T15（`ffmpeg_av1_qsv.bat`）在无 AV1 核显的机器上记 SKIP，**待 Arrow Lake+ 的 Windows 机器补证**。
+- **架构/对等结论**：两族共享 **12 个编码入口**；`.sh` 独有的 3 个（`h264_vaapi`/`hevc_vaapi`/
+  `hevc_nvenc_cygwin`）分别对应 Linux 内核 API 与 Cygwin 专用链路，`.bat` 侧无编码入口缺口
+  （`opencmd.bat` 只是开 UTF-8 窗口的辅助脚本）。退出码契约已跨族统一为
+  `0 成功 / 1 参数与文件错误 / 2 查表越界 / 3 无视频流 / 5 码率异常`。
+- 逐项检查清单、T 编号对照表、SKIP 策略、对等矩阵与踩坑记录见 **`test/README.md`**
 - 详细矩阵与逐条记录见 `environment_matrix.md`，各轮缺陷的定位与修法见 `code_review_report.md`
 
 ## 硬件加速速查
