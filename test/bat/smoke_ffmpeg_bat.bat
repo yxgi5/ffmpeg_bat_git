@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg_bat.bat (v6)   *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg_bat.bat (v7)   *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -10,6 +10,27 @@ rem   C) fresh process     -> console already UTF-8 (opencmd.bat style)
 rem Every run captures stdout+stderr into smoke_logs\*.log, and a verdict
 rem table is written to smoke_logs\summary.txt
 rem
+rem v8 changes vs v7:
+rem   - hardware-dependent cases (T1/T2/T3/T7/T14) now PROBE the entry on a
+rem     small clip first and report SKIP when this box cannot initialise the
+rem     encoder, exactly like the .sh twin does. Without this, a box with no
+rem     Intel/NVIDIA hardware produced FAIL lines that say nothing at all
+rem     about the repo. Each probe writes gate_<entry>.log next to the
+rem     other logs.
+rem   - the probe clip is 320x240: NVENC refuses to initialise an encoder
+rem     below a minimum size, so a 128x128 probe turned a WORKING GPU into a
+rem     silent SKIP (measured 2026-09-16: 128x128 fails for hevc_nvenc and
+rem     av1_nvenc, 160x120 and above succeed).
+rem v7 changes vs v6:
+rem   - :judge now ASSERTS the output codec (ffprobe sidecar) instead of
+rem     only writing it, and accepts "LT:<n>" as an expected-bitrate
+rem     relation (assert that the computed bitrate is BELOW n).
+rem   - T16: ffmpeg_libx264.bat (soft AVC, no hardware needed).
+rem   - T17: low-bitrate source -> the computed bitrate must be clamped to
+rem     the source bitrate (arg mode too). Regression for the arg-mode
+rem     clamp bug fixed on 2026-09-16.
+rem   - T13 runs on ffmpeg_libx264.bat so the exit-code contract is also
+rem     testable on a box without Intel/NVIDIA hardware.
 rem v6 changes vs v5:
 rem   - T15: ffmpeg_av1_qsv.bat (AV1 QSV). AV1 hardware encoding only exists
 rem     on Arrow Lake or newer iGPUs, so the test PROBES the hardware first
@@ -36,7 +57,8 @@ rem Location: <repo>\test\bat\  (the repo root is derived from this
 rem         file's own path, two levels up)
 rem
 rem Usage:  smoke_ffmpeg_bat.bat [repo_path] [LIST]
-rem         (no 2nd arg = full run incl. T13/T14/T15;  LIST = list tests only)
+rem         (no 2nd arg = full run incl. T13/T14/T15/T16/T17;
+rem          LIST = list tests only)
 rem         default repo_path = two levels up from this .bat
 rem ============================================================
 setlocal EnableExtensions
@@ -81,6 +103,7 @@ del /q "%WORK%\smoke input 1080p60.mp4" >nul 2>&1
 del /q "%WORK%\smoke mov input 1080p60.mov" >nul 2>&1
 del /q "%WORK%\smoke silent 1080p60.mp4" >nul 2>&1
 del /q "%WORK%\smoke audio only.m4a" >nul 2>&1
+del /q "%WORK%\smoke lowbitrate 1080p30.mp4" >nul 2>&1
 del /q "%WORK%\list_a.mp4" >nul 2>&1
 del /q "%WORK%\list b.mp4" >nul 2>&1
 set "VOPT=-hide_banner -loglevel error -f lavfi -i testsrc2=size=1920x1080:rate=60 -f lavfi -i sine=frequency=440:sample_rate=44100"
@@ -96,33 +119,64 @@ set "L1=%WORK%\list_a.mp4"
 "%FF%" -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=44100 -t 1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 128k -y "%L1%"
 set "L2=%WORK%\list b.mp4"
 "%FF%" -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=44100 -t 1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 128k -y "%L2%"
+rem low-bitrate source for T17: 400k, well below table(1080p AVC)/2 = 3836249
+set "LOWBR=%WORK%\smoke lowbitrate 1080p30.mp4"
+"%FF%" -hide_banner -loglevel error -f lavfi -i testsrc2=size=1920x1080:rate=30 -f lavfi -i sine=frequency=440:sample_rate=44100 -t 2 -c:v libx264 -preset ultrafast -b:v 400k -pix_fmt yuv420p -c:a aac -b:a 128k -shortest -y "%LOWBR%"
 echo probe mp4 : %IN%  [audio+video] >> "%SUM%"
 echo probe mov : %INMOV%  [audio+video] >> "%SUM%"
 echo probe mute: %QUIET%  [video only, for -map 0:a? regression] >> "%SUM%"
 echo probe audio: "%AONLY%"  [audio only, for check_isvideo regression] >> "%SUM%"
+echo probe lowbr: "%LOWBR%"  [1080p30 400k, for the bitrate clamp] >> "%SUM%"
 echo. >> "%SUM%"
 echo ---- verdicts ---- >> "%SUM%"
 
 if defined ONLY goto LISTONLY
 
+rem ---- probe clip for the hardware gates, see :gate below ----------------
+rem 320x240 on purpose: NVENC refuses to initialise below a minimum size, and
+rem a probe clip that is itself too small would silently hide real coverage.
+set "GATECLIP=%WORK%\gate_clip.mp4"
+if not exist "%GATECLIP%" "%FF%" -hide_banner -loglevel error -f lavfi -i testsrc2=size=320x240:rate=30 -f lavfi -i sine=frequency=440:sample_rate=44100 -t 1 -c:v libx264 -preset ultrafast -b:v 200k -pix_fmt yuv420p -c:a aac -b:a 64k -shortest -y "%GATECLIP%"
+
 rem ============ usage A: file argument (drag and drop equivalent) ============
 chcp %CP0% >nul
-call :runA ffmpeg_avc_qsv    "%IN%" T1_avc_qsv_A      3836249 S A
+call :gate ffmpeg_avc_qsv
+if not defined GATED call :runA ffmpeg_avc_qsv    "%IN%" T1_avc_qsv_A      3836249 S A h264
+if defined GATED call :skipcase T1 ffmpeg_avc_qsv
 chcp %CP0% >nul
-call :runA ffmpeg_hevc_nvenc "%IN%" T2_hevc_nvenc_A   2548951 S A
+call :gate ffmpeg_hevc_nvenc
+if not defined GATED call :runA ffmpeg_hevc_nvenc "%IN%" T2_hevc_nvenc_A   2548951 S A hevc
+if defined GATED call :skipcase T2 ffmpeg_hevc_nvenc
 chcp %CP0% >nul
-call :runA ffmpeg_hevc_qsv   "%IN%" T3_hevc_qsv_A     2548951 S A
+call :gate ffmpeg_hevc_qsv
+if not defined GATED call :runA ffmpeg_hevc_qsv   "%IN%" T3_hevc_qsv_A     2548951 S A hevc
+if defined GATED call :skipcase T3 ffmpeg_hevc_qsv
 chcp %CP0% >nul
-call :runA ffmpeg_libx265    "%IN%" T4_libx265_A      2548951 S A
+call :runA ffmpeg_libx265    "%IN%" T4_libx265_A      2548951 S A hevc
 chcp %CP0% >nul
 rem T14: ffmpeg_av1_nvenc.bat (added 2026-09-16). Needs an Ada+ GPU (RTX 40 series or
 rem newer); 1080p AV1 table entry = 1656818. Verdict artefacts: log must show
 rem TARGET_BITRATE=1656818 and the ffprobe sidecar must show codec_name=av1.
-call :runA ffmpeg_av1_nvenc  "%IN%" T14_av1_nvenc_A  1656818 S A
+call :gate ffmpeg_av1_nvenc
+if not defined GATED call :runA ffmpeg_av1_nvenc  "%IN%" T14_av1_nvenc_A  1656818 S A av1
+if defined GATED call :skipcase T14 ffmpeg_av1_nvenc
+
+rem ============ T16: ffmpeg_libx264.bat (added 2026-09-16) ============
+rem Soft AVC fallback: no hardware needed, so it runs on every box.
+rem 1080p AVC table / 2 = 3836249 - the same value the .sh twin asserts.
+chcp %CP0% >nul
+call :runA ffmpeg_libx264   "%IN%" T16_libx264_A    3836249 S A h264
+
+rem ============ T17: low-bitrate source (clamp regression) ============
+rem A 400k source must keep its own bitrate instead of being re-encoded up
+rem to the table value. The source bitrate is whatever the encoder produced,
+rem so the check is a relation ("LT:3836249"), not an exact number.
+chcp %CP0% >nul
+call :runA ffmpeg_libx264 "%LOWBR%" T17_libx264_lowbr LT:3836249 S A h264
 
 rem ============ T5: copy_to_mp4 (mov -> mp4, no bitrate table) ============
 chcp %CP0% >nul
-call :runA ffmpeg_copy_to_mp4 "%INMOV%" T5_copy_to_mp4_A 0 C A
+call :runA ffmpeg_copy_to_mp4 "%INMOV%" T5_copy_to_mp4_A 0 C A h264
 
 rem ============ usage B: double click + typed path (stdin fed) ============
 chcp %CP0% >nul
@@ -130,18 +184,22 @@ call :runB ffmpeg_avc_qsv "%IN%" T6_avc_qsv_B 3836249 B
 
 rem ============ usage C: console already UTF-8, FRESH cmd process ============
 chcp 65001 >nul
-call :runA ffmpeg_hevc_nvenc "%IN%" T7_hevc_nvenc_C 2548951 S C F
+call :gate ffmpeg_hevc_nvenc
+if not defined GATED call :runA ffmpeg_hevc_nvenc "%IN%" T7_hevc_nvenc_C 2548951 S C hevc F
+if defined GATED call :skipcase T7 ffmpeg_hevc_nvenc
 
 rem ============ T10: silent input (regression for -map 0:a?) ============
 chcp %CP0% >nul
-call :runA ffmpeg_avc_qsv "%QUIET%" T10_avc_qsv_silent 3836249 S A-silent
+call :runA ffmpeg_avc_qsv "%QUIET%" T10_avc_qsv_silent 3836249 S A-silent h264
 
 rem ============ T13: non-video input must be rejected before ffmpeg =====
 chcp %CP0% >nul
 set "T13LOG=%LOGDIR%\T13_nonvideo_A.log"
 set "T13OUT=%WORK%\smoke audio only-compressed.mp4"
 del /q "%T13OUT%" >nul 2>&1
-call "%REPO%\ffmpeg_avc_qsv.bat" "%AONLY%" < nul > "%T13LOG%" 2>&1
+rem soft-encode entry on purpose: the guard lives in lib\common.bat and is
+rem shared by every entry, so T13 stays runnable without any hardware.
+call "%REPO%\ffmpeg_libx264.bat" "%AONLY%" < nul > "%T13LOG%" 2>&1
 set "RC13=%errorlevel%"
 set "V13=PASS"
 set "N13="
@@ -170,7 +228,7 @@ if not "%AV1PRC%"=="0" goto T15SKIP
 if not exist "%AV1P%" goto T15SKIP
 del /q "%AV1P%" >nul 2>&1
 chcp %CP0% >nul
-call :runA ffmpeg_av1_qsv "%IN%" T15_av1_qsv_A 1656818 S A
+call :runA ffmpeg_av1_qsv "%IN%" T15_av1_qsv_A 1656818 S A av1
 goto T15DONE
 :T15SKIP
 echo [SKIP] T15 ffmpeg_av1_qsv: no AV1 QSV hardware encoder on this box >> "%SUM%"
@@ -255,8 +313,41 @@ pause
 exit /b 0
 
 rem ============================================================
-rem :runA <batname> <input> <logname> <expected TARGET_BITRATE or 0 or INFO>
-rem       <outmode S or C> <modelabel> [F = run in a fresh cmd process]
+rem :gate <bat base name>
+rem   Probe the ENTRY itself on the shared gate clip and set GATED when this
+rem   initialise it. The caller then reports SKIP instead of FAIL - the same
+rem   policy as :gate_arg in test/sh/smoke_sh.sh, so the two suites agree on
+rem   what "this machine cannot run it" means.
+rem   The probe runs the real entry (not a hand written ffmpeg line) so it
+rem   exercises the same device init path the real case uses.
+rem ============================================================
+:gate
+set "GATED="
+set "GB=%~1"
+set "GD=%WORK%\gate_%GB%"
+if not exist "%GD%" mkdir "%GD%" >nul 2>&1
+copy /y "%GATECLIP%" "%GD%\clip.mp4" >nul 2>&1
+del /q "%GD%\clip-compressed.mp4" >nul 2>&1
+pushd "%GD%"
+call "%REPO%\%GB%.bat" "clip.mp4" < nul > "%LOGDIR%\gate_%GB%.log" 2>&1
+set "GRC=%errorlevel%"
+popd
+if not "%GRC%"=="0" set "GATED=1"
+exit /b 0
+
+rem ============================================================
+rem :skipcase <T-id> <bat base name>
+rem ============================================================
+:skipcase
+echo [SKIP] %~1 %~2.bat: this box cannot initialise the encoder here >> "%SUM%"
+echo        probe log gate_%~2.log - hardware absence, not a repo defect >> "%SUM%"
+exit /b 0
+
+rem ============================================================
+rem :runA <batname> <input> <logname>
+rem       <expected TARGET_BITRATE: n | LT:n | 0 | INFO>
+rem       <outmode S or C> <modelabel> [expCODEC | empty | INFO]
+rem       [F = run in a fresh cmd process]
 rem ============================================================
 :runA
 set "NAM=%~1"
@@ -265,7 +356,8 @@ set "LOGN=%~3"
 set "EXP=%~4"
 set "OM=%~5"
 set "MDL=%~6"
-set "FRESH=%~7"
+set "EXPCODEC=%~7"
+set "FRESH=%~8"
 set "LOG=%LOGDIR%\%LOGN%.log"
 if /I "%OM%"=="C" (
     for %%X in ("%INP%") do set "OUT=%%~dpnX.mp4"
@@ -279,7 +371,7 @@ if defined FRESH (
     call "%REPO%\%NAM%.bat" "%INP%" < nul > "%LOG%" 2>&1
 )
 set "RC=%errorlevel%"
-call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%"
+call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" %EXPCODEC%
 exit /b 0
 
 rem ============================================================
@@ -298,7 +390,7 @@ for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
 del /q "%OUT%" >nul 2>&1
 ( echo %~2 & echo. & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
 set "RC=%errorlevel%"
-call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%"
+call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
 exit /b 0
 
 rem ============================================================
@@ -311,7 +403,13 @@ set "%~1=%CN%"
 exit /b 0
 
 rem ============================================================
-rem :judge <batname> <modelabel> <expTB or 0 or INFO> <outfile> <rc> <logfile>
+rem :judge <batname> <modelabel>
+rem        <expTB: n | LT:n | 0 | INFO> <outfile> <rc> <logfile>
+rem        [expCODEC | empty | INFO]
+rem   Assertions: rc==0, output exists, log hygiene (banner parse error /
+rem   bitrate abnormal / not found / ERRORLEVEL:-), the printed TARGET_BITRATE
+rem   (exact, or LT:n = strictly below n), and the output codec taken from the
+rem   ffprobe sidecar. 0/INFO skip only the bitrate check.
 rem ============================================================
 :judge
 set "NAM=%~1"
@@ -320,6 +418,7 @@ set "EXP=%~3"
 set "OUT=%~4"
 set "RC=%~5"
 set "LOG=%~6"
+set "EXPCODEC=%~7"
 set "V=PASS"
 set "NT="
 set "INF=0"
@@ -335,15 +434,32 @@ findstr /i /c:"ERRORLEVEL:-" "%LOG%" >nul 2>&1
 if not errorlevel 1 ( set "V=FAIL" & set "NT=%NT% ffmpegError;" )
 set "TB="
 for /f "tokens=1,2 delims==" %%a in ('findstr /b /c:"TARGET_BITRATE=" "%LOG%"') do set "TB=%%b"
-if "%INF%"=="1" goto JG_NOASSERT
-if not "%EXP%"=="0" if not "%TB%"=="%EXP%" ( set "V=FAIL" & set "NT=%NT% targetBitrate=%TB% expected=%EXP%;" )
-if not exist "%OUT%" ( set "V=FAIL" & set "NT=%NT% noOutputFile;" )
+rem ---- ffprobe sidecar FIRST: the codec assertion below needs it ----
+set "PROBEFILE=%LOGDIR%\%NAM%_%MDL%_probe.txt"
+if exist "%PROBEFILE%" del /q "%PROBEFILE%" >nul 2>&1
+if exist "%OUT%" "%FP%" -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 "%OUT%" > "%PROBEFILE%" 2>&1
+set "GOTC="
+if exist "%PROBEFILE%" for /f "tokens=2 delims==" %%c in ('findstr /b /c:"codec_name=" "%PROBEFILE%"') do set "GOTC=%%c"
+if "%INF%"=="1" goto JG_CODEC
+if "%EXP%"=="" goto JG_CODEC
+if "%EXP%"=="0" goto JG_CODEC
+if /I "%EXP:~0,3%"=="LT:" goto JG_LT
+if not "%TB%"=="%EXP%" ( set "V=FAIL" & set "NT=%NT% targetBitrate=%TB% expected=%EXP%;" )
+goto JG_CODEC
+:JG_LT
+if not defined TB ( set "V=FAIL" & set "NT=%NT% targetBitrateMissing;" & goto JG_CODEC )
+if %TB% lss %EXP:~3% goto JG_CODEC
+set "V=FAIL" & set "NT=%NT% targetNotLt=%EXP:~3%(got=%TB%);"
+:JG_CODEC
+if "%EXPCODEC%"=="" goto JG_NOASSERT
+if /I "%EXPCODEC%"=="INFO" goto JG_NOASSERT
+if not "%GOTC%"=="%EXPCODEC%" ( set "V=FAIL" & set "NT=%NT% codec=%GOTC% expected=%EXPCODEC%;" )
 :JG_NOASSERT
+if not exist "%OUT%" ( set "V=FAIL" & set "NT=%NT% noOutputFile;" )
 if not "%RC%"=="0" ( set "V=FAIL" & set "NT=%NT% exitCode=%RC%;" )
-echo [%V%] %NAM% %MDL% rc=%RC% target=%TB% >> "%SUM%"
+echo [%V%] %NAM% %MDL% rc=%RC% target=%TB% codec=%GOTC% >> "%SUM%"
 echo        out exists: %OUT% >> "%SUM%"
 if not "%NT%"=="" echo        why: %NT% >> "%SUM%"
-if exist "%OUT%" "%FP%" -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 "%OUT%" > "%LOGDIR%\%NAM%_%MDL%_probe.txt" 2>&1
 exit /b 0
 
 :NO_REPO
