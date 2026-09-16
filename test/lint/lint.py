@@ -1091,9 +1091,11 @@ def check_exit_contract(inv):
 
 
 # ---------------------------------------------------------------- P07
-PARAM_WHITELIST = {
-    ("libx265", "preset"): "known divergence: .sh uses fast, .bat uses veryfast",
-}
+# Kept empty on purpose: an entry belongs here ONLY while a fix is pending.
+# The libx265 preset was unified to `fast` on BOTH families (2026-09-16, user
+# call: prefer `fast`). Re-adding an entry silences P07 again -- do it
+# consciously and document the reason.
+PARAM_WHITELIST = {}
 
 
 def check_encoder_params(inv):

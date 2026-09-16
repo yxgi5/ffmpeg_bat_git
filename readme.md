@@ -128,7 +128,7 @@ test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` �
 
 | 层 | 命令 | 本机最近一轮（2026-09-16，Win11 + MSYS2 + RTX） |
 |----|------|--------------------------------------------|
-| ① 静态 + 对等 | `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 7 WARN`，退出码 0 |
+| ① 静态 + 对等 | `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 6 WARN`，退出码 0 |
 | ① 检查器自测 | `python3 test/lint/selftest.py` | `13 cases / 0 FAIL` |
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |

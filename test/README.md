@@ -340,8 +340,11 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 | 项 | sh | bat | 说明 |
 |----|----|-----|------|
-| `libx265` preset | `fast` | `veryfast` | 软编速度/质量权衡不同，属有意保留 |
 | 硬件用例缺硬件时 | SKIP（探测） | SKIP（探测） | 已于 2026-09-16 统一 |
+
+`libx265` preset 曾在白名单里（sh=`fast` / bat=`veryfast`），2026-09-16 按用户约定
+「参数分歧一般取 `fast`」统一为两侧 `fast`，并从白名单移除 —— 现在它受 P07 硬检查。
+白名单应保持为空：只有「修复待办」才允许进，且必须写明原因。
 | 低码率 clamp 生效范围 | 全部模式 | 全部模式 | 原 `.bat` 只在交互模式生效，2026-09-16 修复 |
 
 ---
@@ -354,7 +357,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 | 命令 | 结果 |
 |------|------|
-| `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 7 WARN`，退出码 0 |
+| `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 6 WARN`，退出码 0 |
 | `python3 test/lint/selftest.py` | `13 cases / 0 FAIL` |
 | `bash test/sh/smoke_ffmpeg.sh all` | `PASS=22 FAIL=0 SKIP=4`，harness `rc=0` |
 | `bash test/sh/check_env.sh` | 快查：`OK 5 / 不可用 6 / 待深测 4` |
@@ -380,8 +383,10 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 7 条 WARN 全部是**数据观察**而非代码缺陷：
 
 * `bitrate_table_avc.csv` 第 17/19/21/39/67 行是与前一行完全相同的重复行（值相同、不可达）；
-* `bitrate_table_av1.csv` 第 51 行码率小幅回落（2973216 → 2923448，-1.7%）；
-* `libx265` preset：sh=`fast` / bat=`veryfast`（白名单内的有意差异）。
+* `bitrate_table_av1.csv` 第 51 行码率小幅回落（2973216 → 2923448，-1.7%）。
+
+（原第 3 条 `libx265` preset 白名单 WARN 已随参数统一而消失；参数分歧的处理约定：
+一般取 `fast`，改前需用户确认。）
 
 SKIP 的 4 条：T8 / T19（VAAPI —— 本机是 Windows，无 Linux DRM 设备）、
 T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（AV1 QSV 需要 Arrow Lake+ 核显）。
