@@ -24,7 +24,8 @@
 | ✅ 已解决 | 新增环境×硬件能力矩阵文档（三机器五环境，已验证/未验证/未编入状态） | 4db4577 + b210379 |
 | 🔲 待办 | P2: .bat 临时文件改用 for /f（.bat 家族整体重构，放最后） | — |
 | ✅ 已解决 | P2: .bat 家族重构 — 新建 lib/common.bat（dispatch + lookup_bitrate 读 CSV + 公共子程序），4 个编码 bat 450→191 行，固定临时文件改 %TEMP% 唯一名，avc_qsv.bat 修正为 AVC 码率表（旧版误用 HEVC 表）。**沙箱无法运行 cmd.exe，静态验证通过，待用户手动冒烟** | 57c418f |
-| ✅ 已解决 | 冒烟反馈修复: common.bat lookup_bitrate 比较方向写反（`max_pixels leq pixels` 应为 `pixels leq max_pixels`），导致永远命中表第 1 行 → TARGET_BITRATE 异常小 → percentage=0 → "bitrate abnormal"。修复后与 .sh 语义一致（向上取档），1080p60 实测预期: AVC TARGET=3836249 (21%) / HEVC TARGET=2548951 (14%)。banner 处 `'�使用方式:'` 报错为 cmd 65001 代码页已知解析 bug，原版即有、纯观感，决定保持 UTF-8 现状 | (本次) |
+| ✅ 已解决 | 冒烟反馈修复: common.bat lookup_bitrate 比较方向写反（`max_pixels leq pixels` 应为 `pixels leq max_pixels`），导致永远命中表第 1 行 → TARGET_BITRATE 异常小 → percentage=0 → "bitrate abnormal"。修复后与 .sh 语义一致（向上取档），1080p60 实测预期: AVC TARGET=3836249 (21%) / HEVC TARGET=2548951 (14%)。banner 处 `'�使用方式:'` 报错为 cmd 65001 代码页已知解析 bug，原版即有、纯观感，决定保持 UTF-8 现状 | dfd998a |
+| ✅ 已解决 | cp65001 解析漂移治本（保持 UTF-8 前提下）: 5 个含中文的 bat（4 编码器 + copy_to_mp4）头部加 ASCII 守卫块——先 chcp 65001 再以 `cmd /c call "%~f0" __cp65001 %*` 子进程重启自身，使整个文件自进程启动起就在 UTF-8 控制台下解析，消除文件中途切换代码页的重读漂移；守卫内 `shift` 剥离标记，参数流转与退出码（exit /b %errorlevel%）不变。5 个纯 ASCII bat（convert_from_list×3 / opencmd / repack）无解析风险，不动（其 chcp 供 for /f 读 UTF-8 list.txt，保留）。**依据: cmd 用打开文件时的代码页解析 .bat，文件中途 chcp 对解析自身不可靠（SO/掘金实测互证）；cp936 方案因 list.txt 为 UTF-8 且 GBK 表示力不足被否决** | (本次) |
 | 🔲 待办 | Linux（A 机）/ Ultra 265K（C 机）平台实测项，见 environment_matrix.md 待验证清单 | — |
 
 **验证状态**：全部 14 个 .sh 重构完毕，eval 与 if-elif 查表在 .sh 中清零；试点+推广脚本在 Cygwin / MSYS2 mingw64 / 原生 gyan 三套 ffmpeg 下端到端验证通过（Cygwin 的 QSV 与 libx264/libx265 为构建限制，见矩阵文档）。

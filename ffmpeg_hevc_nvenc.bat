@@ -1,5 +1,21 @@
 @echo off
-chcp 65001
+rem ============================================================
+rem cp65001 relaunch guard (ASCII only - do NOT add non-ASCII here)
+rem cmd.exe parses a .bat with the codepage active when the file was
+rem opened; an in-file chcp 65001 can misalign the parser on UTF-8
+rem lines (known cmd bug: a split line fragment is executed as a
+rem command). We chcp first, then restart ourselves as a child
+rem process, so the whole file is parsed under a UTF-8 console
+rem from byte 0. See code_review_report.md for details.
+if /I "%~1"=="__cp65001" (
+    shift
+    goto main
+)
+chcp 65001 >nul
+cmd /c call "%~f0" __cp65001 %*
+exit /b %errorlevel%
+
+:main
 
 rem ============================================================
 rem ffmpeg_hevc_nvenc.bat - HEVC NVENC 硬件加速压缩 (P1 重构版)
