@@ -137,4 +137,4 @@
 2. **C 机 Ultra 7 265K**：Win11 下 QSV AV1（mingw64 8.1 或原生）+ Linux 下 master-gpl 的 QSV/VAAPI/AV1
 3. **A 机 i7-9700T**：Win11 QSV（UHD 630）+ Ubuntu VAAPI；确认软编保底走 mingw64/Linux
 4. **Linux 双 ffmpeg 来源验证**：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
-5. **.bat 路线**：cmd/PowerShell 下重构（重构版脚本目前只有 .sh）
+5. ~~**.bat 路线**~~ ✅ 已完成（2026-09-16：57c418f 重构 + 26ccf0e cp65001 守卫 + 8e5c631 find_ffmpeg 去硬编码路径，待本机 cmd/拖放/opencmd 三用法冒烟）
