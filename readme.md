@@ -18,7 +18,7 @@ ffmpeg_*.bat | .sh         单个文件转换入口
 convert_from_list_*.bat|sh 按清单批量转换
 repack_from_list.bat | .sh 按清单批量无损转封装
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
-bitrate_calc.xlsx          码率曲线拟合原始表
+archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
 code_review_report.md      多轮代码评审与冒烟记录
 environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待验证清单
 test/README.md             测试体系说明（三层：静态检查 / 冒烟套件 / 能力报告）
@@ -46,7 +46,7 @@ test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` �
 
 ## 码率怎么来的
 
-码率表是「像素总数 → 参考码率」的分档表，曲线拟合见 `bitrate_calc.xlsx`。
+码率表是「像素总数 → 参考码率」的分档表，曲线拟合的原始数据见 `archive/bitrate_calc.xlsx`。
 实际目标码率 = **查表值 ÷ 2**（中等质量）；**若源码率本身已低于该值，则沿用源码率**，避免低码率源被重编码放大。
 
 ## Windows 用法
