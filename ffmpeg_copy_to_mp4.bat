@@ -51,8 +51,8 @@ set "RUN_COM="%FFMPEG_PATH%" -hide_banner"
 
 SET "SRC_FILE="
 
-if [%1] neq [] (
-    SET SRC_FILE=%1
+if not "%~1"=="" (
+    set "SRC_FILE=%~1"
 )
 
 if not defined SRC_FILE (
@@ -81,7 +81,7 @@ if /I "%SUFFIX%" == ".mp4" (
 rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
 call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
-SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&% -c:v copy -c:a copy"
+SET "RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy"
 echo RUN_COM0=%RUN_COM%
 
 echo.
@@ -90,23 +90,26 @@ if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract_mp4 %SRC_FILE% TARGE
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
-IF not [%1] NEQ [] SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹):
-IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
+IF "%~1"=="" SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹):
+if not defined TARGET_FILE set "TARGET_FILE=output.mp4"
+rem 统一给输出路径补引号: 用户手输的可能不带引号, 而不带引号的路径
+rem 一旦含 空格/&/( ) 就会被 RUN_COM 的展开拆开
+if defined TARGET_FILE set "TARGET_FILE="%TARGET_FILE:"=%""
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
 rem handler name with ) (   call set
-IF not [%1] NEQ [] (
+IF "%~1"=="" (
     echo executing 1
-    SET RUN_COM=%RUN_COM% %TARGET_FILE%
+    set "RUN_COM=%RUN_COM% %TARGET_FILE%"
 ) else (
     echo executing 2
-    SET RUN_COM=%RUN_COM% -n %TARGET_FILE%
+    set "RUN_COM=%RUN_COM% -n %TARGET_FILE%"
 )
 
 echo RUN_COM2:%RUN_COM%
 echo.
-call %RUN_COM%
+%RUN_COM%
 
 echo ERRORLEVEL:%ERRORLEVEL%
 echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完整性

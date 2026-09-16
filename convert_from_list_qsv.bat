@@ -1,5 +1,7 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal DisableDelayedExpansion
+rem 本脚本不需要延迟展开: 一旦开启, for 变量 %%i 里的感叹号会被成对吃掉,
+rem 片名 Tora! Tora! Tora!.mp4 这类条目会变成残缺路径
 chcp 65001
 
 SET "SRC_FILE="

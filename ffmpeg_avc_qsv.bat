@@ -51,8 +51,8 @@ set "RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -fil
 
 SET "SRC_FILE="
 
-if [%1] neq [] (
-    SET SRC_FILE=%1
+if not "%~1"=="" (
+    set "SRC_FILE=%~1"
 )
 
 if not defined SRC_FILE (
@@ -71,19 +71,19 @@ echo SRC_FILE:%SRC_FILE%
 rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
 call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
-SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&%"
+SET "RUN_COM=%RUN_COM% -i %SRC_FILE%"
 echo RUN_COM0=%RUN_COM%
 
 rem 唯一临时文件: 替代固定名 temp/temp.txt/size/duration/bit_rate, 避免并行冲突
 set "FB_TMP=%TEMP%\ffmpeg_bat_%RANDOM%%RANDOM%.tmp"
 
-set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE:&=^&%"
+set "SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE%"
 %SRC_CODEC% > "%FB_TMP%"
 set /p SRC_CODEC=<"%FB_TMP%"
 del "%FB_TMP%" 2>nul
 echo SRC_CODEC=%SRC_CODEC%
 
-set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate %SRC_FILE:&=^&%"
+set "SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate %SRC_FILE%"
 %SRC_FRAMERATE% > "%FB_TMP%"
 set /p SRC_FRAMERATE=<"%FB_TMP%"
 del "%FB_TMP%" 2>nul
@@ -91,17 +91,19 @@ echo SRC_FRAMERATE=%SRC_FRAMERATE%
 set /a SRC_FRAMERATE=%SRC_FRAMERATE%
 
 if %SRC_FRAMERATE% gtr 31 (
-    SET RUN_COM=%RUN_COM% -r 30
+    set "RUN_COM=%RUN_COM% -r 30"
     echo TURN DOWN TARGET FRAME RATE TO 30
 )
 
-set "SRC_RESOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
+set "SRC_RESOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%"
 
+rem SRC_RESOLUTION 的执行刻意放在 delayed 块外: 块内 %VAR% 的展开结果
+rem 还要再过一遍延迟展开扫描, 片名里的感叹号会被成对吃掉从而丢失字符
+%SRC_RESOLUTION% >  "%FB_TMP%"
 set "SRC_W=0"
 set "SRC_H=0"
 setlocal EnableDelayedExpansion
 set "output_cnt=0"
-%SRC_RESOLUTION% >  "%FB_TMP%"
 for /F "usebackq delims=" %%f in ("%FB_TMP%") do (
     set /a output_cnt+=1
     set "output[!output_cnt!]=%%f"
@@ -116,7 +118,7 @@ endlocal & set SRC_W=%SRC_W% & set SRC_H=%SRC_H%
 set /a SRC_PIX=%SRC_W%*%SRC_H%
 echo SRC_PIX=%SRC_PIX%
 
-set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
+set "SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%"
 %SRC_SIZE% > "%FB_TMP%"
 set /p SRC_SIZE=<"%FB_TMP%"
 del "%FB_TMP%" 2>nul
@@ -125,13 +127,13 @@ if %SRC_SIZE% leq 0 (
 )
 echo SRC_SIZE=%SRC_SIZE%
 
-set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
+set "SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%"
 %SRC_DURATION% > "%FB_TMP%"
 set /p SRC_DURATION=<"%FB_TMP%"
 del "%FB_TMP%" 2>nul
 echo SRC_DURATION=%SRC_DURATION%
 
-set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 %SRC_FILE:&=^&%"
+set "SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%"
 %SRC_BITRATE% > "%FB_TMP%"
 set /p SRC_BITRATE=<"%FB_TMP%"
 del "%FB_TMP%" 2>nul
@@ -162,18 +164,18 @@ set "percentage="
 
     echo percentage=%percentage%%%
 
-if %percentage% geq 100 if [%1] neq [] (
+if %percentage% geq 100 if "%~1"=="" (
     set BIT=%SRC_BITRATE%
 )
 
-if %percentage% leq 0 if [%1] neq [] (
+if %percentage% leq 0 if "%~1"=="" (
    echo bitrate abnormal, please check
    exit /b 5
 )
 
-IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
+IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
 echo TARGET_BITRATE=%BIT%
-if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v h264_qsv -profile:v main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
+if defined BIT set "RUN_COM=%RUN_COM% -c:v h264_qsv -profile:v main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 echo RUN_COM2:%RUN_COM%
 
 echo.
@@ -182,24 +184,27 @@ if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract %SRC_FILE% TARGET_PA
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
-IF not [%1] NEQ [] SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
-IF NOT DEFINED TARGET_FILE SET TARGET_FILE=output.mp4
+IF "%~1"=="" SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
+if not defined TARGET_FILE set "TARGET_FILE=output.mp4"
+rem 统一给输出路径补引号: 用户手输的可能不带引号, 而不带引号的路径
+rem 一旦含 空格/&/( ) 就会被 RUN_COM 的展开拆开
+if defined TARGET_FILE set "TARGET_FILE="%TARGET_FILE:"=%""
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
 echo RUN_COM3:%RUN_COM%
 rem handler name with ) (   call set
-IF not [%1] NEQ [] (
+IF "%~1"=="" (
     echo executing 1
-    SET RUN_COM=%RUN_COM% %TARGET_FILE%
+    set "RUN_COM=%RUN_COM% %TARGET_FILE%"
 ) else (
     echo executing 2
-    SET RUN_COM=%RUN_COM% -n %TARGET_FILE%
+    set "RUN_COM=%RUN_COM% -n %TARGET_FILE%"
 )
 
 echo RUN_COM4:%RUN_COM%
 echo.
-call %RUN_COM%
+%RUN_COM%
 
 echo ERRORLEVEL:%ERRORLEVEL%
 echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完整性
