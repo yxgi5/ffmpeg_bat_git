@@ -34,6 +34,23 @@ function check_file_exists() {
     fi
 }
 
+# 检查清单文件是否为纯文本, 否则退出
+# 原各 list 脚本各自内联定义此函数, P1 重构时漏搬进公共库(调用点悬空), 此处统一补回
+# 优先用 file --mime; 无 file 命令的环境(git-bash 常见)退化为 NUL 字节探测
+function check_file_is_text() {
+    local ft total bytes
+    if check_command file; then
+        ft=$(file --mime "$1" 2>/dev/null)
+        [[ $ft == *text* ]] && return 0
+    else
+        total=$(wc -c < "$1")
+        bytes=$(LC_ALL=C tr -d '\0' < "$1" | wc -c)
+        [ "$bytes" -eq "$total" ] && return 0
+    fi
+    echo -e "\033[41;36mNot a plain text file!\033[0m"
+    exit 1
+}
+
 # 检查文件是否为视频(含 video 流), 否则退出
 function check_file_isvideo() {
     file_type=$(ffprobe -v error -hide_banner -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | tr -d '\r')
@@ -178,11 +195,17 @@ function lookup_bitrate() {
 # 对清单文件逐行执行指定脚本 (P1 重构新增)
 # 用法: run_list <清单文件> <目标脚本路径>
 # 说明: 用 while read 替代旧的 for line in $(cat ...) 写法, 兼容含空格的文件名; 空行跳过; 任一行失败立即退出
+#       兼容 Windows 记事本清单: 去行尾 CR(CRLF) 与首行 BOM, 否则 \r 会被当成文件名的一部分
 function run_list() {
     local list_file="$1"
     local script="$2"
-    local line
+    local line first=1
     while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        if [ "$first" -eq 1 ]; then
+            line="${line#$'\xEF\xBB\xBF'}"
+            first=0
+        fi
         [ -z "$line" ] && continue
         echo "$line"
         bash "$script" "$line"
