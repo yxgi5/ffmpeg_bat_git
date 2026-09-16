@@ -1,8 +1,31 @@
 @echo off
+rem ============================================================
+rem cp65001 relaunch guard (ASCII only - do NOT add non-ASCII here)
+rem cmd.exe reads a .bat with the codepage of the process that reads
+rem it; an in-file chcp can misalign that reader, and the split line
+rem fragment is then executed as a command (garbled banner line). So:
+rem switch the console to UTF-8 and restart ourselves in a FRESH cmd
+rem process, which reads this whole file from byte 0 under UTF-8.
+rem Do NOT use a marker ARGUMENT + SHIFT here: SHIFT overwrites %0 as
+rem well (documented), so every path derived from the script directory
+rem would then resolve against the marker instead of this script. An
+rem environment variable keeps %0 and all arguments untouched.
+rem SETLOCAL first: the marker must stay inside THIS invocation.
+rem Without it the marker leaks into the CALLER environment, so a
+rem caller that uses CALL or a second run in the same cmd session
+rem skips the guard and the garbled banner line comes back. The
+rem child cmd /c below still inherits it.
+setlocal
+if defined FB_UTF8_GUARD goto main
+set "FB_UTF8_GUARD=1"
+chcp 65001 >nul
+cmd /c call "%~f0" %*
+exit /b %errorlevel%
+
+:main
 setlocal DisableDelayedExpansion
 rem 本脚本不需要延迟展开: 一旦开启, for 变量 %%i 里的感叹号会被成对吃掉,
 rem 片名 Tora! Tora! Tora!.mp4 这类条目会变成残缺路径
-chcp 65001
 
 SET "SRC_FILE="
 
