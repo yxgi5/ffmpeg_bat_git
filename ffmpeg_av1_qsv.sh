@@ -12,7 +12,10 @@ OS=$(uname -s)
 
 case "$OS" in
     Linux*)
-        export PATH=/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin:$PATH
+        # 发行版 ffmpeg 常缺 av1 硬编编码器, 若存在新版构建则前置 PATH (软偏好, 不存在则回退发行版)
+        if [ -d /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin ]; then
+            export PATH=/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin:$PATH
+        fi
         ;;
     CYGWIN*)
         ;;
