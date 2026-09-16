@@ -11,6 +11,12 @@ rem well (documented), so every path derived from the script directory
 rem would then resolve against the marker instead of this script. An
 rem environment variable keeps %0 and all arguments untouched.
 rem SELF_DIR is captured first and used for every sub-call below.
+rem SETLOCAL first: the marker must stay inside THIS invocation.
+rem Without it the marker leaks into the CALLER environment, so a
+rem caller that uses CALL (convert_from_list_*.bat) or a second run
+rem in the same cmd session skips the guard and the garbled banner
+rem line comes back. The child cmd /c below still inherits it.
+setlocal
 set "SELF_DIR=%~dp0"
 if defined FB_UTF8_GUARD goto main
 set "FB_UTF8_GUARD=1"
@@ -164,7 +170,7 @@ if %percentage% leq 0 if [%1] neq [] (
 
 IF not [%1] NEQ [] SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
 echo TARGET_BITRATE=%BIT%
-if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v hevc_qsv -profile:v main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:v -map 0:a -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
+if defined BIT set "RUN_COM=%RUN_COM:&=^&% -c:v hevc_qsv -profile:v main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 echo RUN_COM2:%RUN_COM%
 
 echo.

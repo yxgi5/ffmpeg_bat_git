@@ -152,7 +152,7 @@ fi
 
 CMD+=(-c:v av1_qsv -profile:v main -preset fast -b:v "$TARGET_BITRATE")
 CMD+=(-g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2)
-CMD+=(-map 0:v -map 0:a -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0)
+CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0)
 CMD+=(-rtbufsize 120m -max_muxing_queue_size 1024 -n "$TARGET_FILE")
 
 printf 'RUN_COM:'

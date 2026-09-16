@@ -102,8 +102,10 @@
 > B 机是矩阵验证最充分的一台：NVENC（含 AV1）三环境通、QSV 双环境通（Cygwin 豁免）、软编双环境通。  
 > **cmd/PowerShell 行的 ✅ 指二进制本身**（ffmpeg.exe 直接调用已验证）；`.bat` 行的 🟡 = 重构后尚待完整冒烟。
 >
-> **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash/PowerShell 两条路均被安全策略拦截），改用一次性探针 `smoke_ffmpeg_bat.bat`（放仓库外，一次双击即跑完：4 编码器 + copy_to_mp4 + 交互输入 + 新进程 UTF-8 + list 模式，日志落 `smoke_logs\`）。
-> 第一轮结果：**936 控制台（双击/拖放默认起点）下 5 个含中文 bat 全部在 banner 后立即报 `The system cannot find the path specified.` + `找不到 ffmpeg.exe`** → 定位为守卫 `shift` 连 `%0` 一起移位致 `%~dp0` 失效（详见 code_review_report.md，已修 4ffd990）；同一轮确认 **936→子进程重启路径下 banner 中文完全正常**（原先的 `'�使用方式:'` 报错消失），AVC/HEVC 码率查表值正确（`TARGET_BITRATE` = 3836249 / 2548951，percentage 10~15%）。修复后需重跑探针复核，通过后本行改 ✅。
+> **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash/PowerShell 两条路均被安全策略拦截），改用一次性探针 `smoke_ffmpeg_bat.bat`（放仓库外，一次双击即跑完：4 编码器 + copy_to_mp4 + 交互输入 + 新进程 UTF-8 + 静音输入 + list 模式，日志落 `smoke_logs\`）。
+> 第一轮结果：**936 控制台（双击/拖放默认起点）下 5 个含中文 bat 全部在 banner 后立即报 `The system cannot find the path specified.` + `找不到 ffmpeg.exe`** → 定位为守卫 `shift` 连 `%0` 一起移位致 `%~dp0` 失效（详见 code_review_report.md，已修 4ffd990）；同一轮确认 **936→子进程重启路径下 banner 中文完全正常**（原先的 `'�使用方式:'` 报错消失），AVC/HEVC 码率查表值正确（`TARGET_BITRATE` = 3836249 / 2548951，percentage 10~15%）。
+> 第二轮结果（v2 探针）：守卫回归已消除、查表值正确、`copy_to_mp4` 通过；但暴露 **① 守卫标记 `FB_UTF8_GUARD` 泄漏到调用者环境**（`call` 链或同会话第二次运行即跳过守卫 → 936 解析下 banner 报错复现）**② `-map 0:a` 缺 `?`**（静音输入整条失败 errorlevel -22）**③ list 驱动 bat 缺 `call` + 清单路径未 `usebackq` 引号化 + 编码器裸名调用**。三类均已修（守卫首行 `setlocal` / 18 处改 `-map 0:a?` / 4 个 list bat 改 `usebackq`+`call`+`%~dp0` 锚定）。
+> 探针 v3 已同步：素材每轮强制重生成（v2 复用旧无音轨片源导致 T1–T4 假 FAIL）、T10 静音测试升为断言、新增全局 banner 检查行。**待第三轮双击复核，全绿后本行改 ✅。**
 
 ### 机器 C：Ultra 7 265K（Arrow Lake 核显，AV1 验证平台，待引入）
 
@@ -141,5 +143,5 @@
 3. **A 机 i7-9700T**：Win11 QSV（UHD 630）+ Ubuntu VAAPI；确认软编保底走 mingw64/Linux
 4. **Linux 双 ffmpeg 来源验证**：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
 5. ~~**.bat 路线**~~ ✅ 已完成（2026-09-16：57c418f 重构 + 26ccf0e cp65001 守卫 + 8e5c631 find_ffmpeg 去硬编码路径 + 4ffd990 守卫改环境变量标记并修 `shift` 吃掉 `%0` 的回归）
-6. **`.bat` 三用法冒烟复核（阻塞项）**：跑 `smoke_ffmpeg_bat.bat`（仓库外，双击即用），重点看 936 路径下 T1–T4/T6 是否由 FAIL 转 PASS、banner 中文是否干净、`TARGET_BITRATE` 是否 3836249/2548951；顺带取证 list 模式的 `call` 缺失（T9/T11）与无音轨输入（T10）
+6. **`.bat` 三用法冒烟复核（阻塞项，第三轮）**：跑 `smoke_ffmpeg_bat.bat` v3（仓库外，双击即用），期望 936 路径下 T1–T4/T6 **全 PASS**、banner 中文干净、全局 banner 检查行为 `[PASS]`；T9/T11 list 模式各出 **2/2** 产物；T10 静音输入 PASS（验证 `-map 0:a?`）
 7. **`.bat` 真实拖放/双击**：探针只能模拟代码页起点，真·Explorer 拖放与新窗口 banner 观感需人工扫一眼；含中文文件名的拖放同样值得顺手验一次

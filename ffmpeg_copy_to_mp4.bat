@@ -11,6 +11,12 @@ rem well (documented), so every path derived from the script directory
 rem would then resolve against the marker instead of this script. An
 rem environment variable keeps %0 and all arguments untouched.
 rem SELF_DIR is captured first and used for every sub-call below.
+rem SETLOCAL first: the marker must stay inside THIS invocation.
+rem Without it the marker leaks into the CALLER environment, so a
+rem caller that uses CALL (convert_from_list_*.bat) or a second run
+rem in the same cmd session skips the guard and the garbled banner
+rem line comes back. The child cmd /c below still inherits it.
+setlocal
 set "SELF_DIR=%~dp0"
 if defined FB_UTF8_GUARD goto main
 set "FB_UTF8_GUARD=1"
