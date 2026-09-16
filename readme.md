@@ -40,7 +40,9 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 | --- | --- | --- |
 | `ffmpeg_avc_qsv.bat` | H.264 QSV | Intel 核显 |
 | `ffmpeg_hevc_qsv.bat` | HEVC QSV | Intel 核显 |
+| `ffmpeg_av1_qsv.bat` | AV1 QSV | **Arrow Lake 及更新的 Intel 核显** + 较新的 ffmpeg 构建（老构建没编入 `av1_qsv`） |
 | `ffmpeg_hevc_nvenc.bat` | HEVC NVENC | NVIDIA 显卡（cuvid 全硬解链路） |
+| `ffmpeg_av1_nvenc.bat` | AV1 NVENC | NVIDIA **Ada 及以后**（RTX 40 系起） |
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出 |
 
@@ -99,7 +101,7 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 
 ## 验证状态
 
-- **`.bat` 家族**：仓库外探针 `smoke_all.bat` 一键串跑 T1–T13 回归套件 + 元字符矩阵，最近一轮从 **cp936 窗口**启动全绿（4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测 2/2、banner/debug 卫生检查、A 18+1SKIP / C 3/3 / B 6/6）。**`ffmpeg_av1_nvenc.bat` 为 2026-09-16 新增**（补 AV1 NVENC 入口，AV1 码率表本就受 `lib/common.bat` 支持），静态自检与 `ffmpeg_hevc_nvenc.bat` 同结果，**B 机 Windows 侧的实跑验证待补**（探针 T14）
+- **`.bat` 家族**：仓库外探针 `smoke_all.bat` 一键串跑 **T1–T15** 回归套件 + 元字符矩阵，最近一轮从 **cp936 窗口**启动全绿（4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测 2/2、banner/debug 卫生检查、A 18+1SKIP / C 3/3 / B 6/6）。**2026-09-16 补了两个 AV1 入口**：`ffmpeg_av1_nvenc.bat`（探针 **T14**）与 `ffmpeg_av1_qsv.bat`（探针 **T15**——会先用 1 帧 lavfi 试编一次探硬件，**没有 AV1 QSV 硬编的机器记 `[SKIP]` 而非 FAIL**）。两者均以同族骨架派生、静态自检与骨架**同结果**；**均待对应机器上实跑补证**（NVENC 需 Ada+ 独显，QSV 需 Arrow Lake+ 核显）
 - **`.sh` 家族**：仓库外套件 `smoke_all.sh` 18 用例断言，**PASS=18 / FAIL=0**；15 个入口脚本已在 Ubuntu 22.04 全量实测；**同一套件亦在 A / C 两机的双 ffmpeg 构建下各跑两轮，均 PASS=22/22**
 - 详细矩阵与逐条记录见 `environment_matrix.md`，各轮缺陷的定位与修法见 `code_review_report.md`
 
