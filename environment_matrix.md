@@ -36,7 +36,7 @@
 | NVENC AV1 编码              |             ➖             |        ✅ 已验证（本会话：三构建冒烟 + cuda 解码→AV1 真实转码全通过）        |            ➖           |
 | QSV h264/hevc 编码          |     ✅ 已验证（2026-09-16 A 机 Ubuntu 22.04）     |        ✅ 已验证（本会话，核显 UHD）       |    ✅ 已验证（2026-09-16 Linux 双构建）     |
 | QSV AV1 编码                |     ❌ Gen9.5 无 AV1 编码     |    ❌ Raptor Lake 核显无 AV1 编码    | ✅ 已验证（2026-09-16 Linux master 构建，1080p/4K） |
-| VAAPI h264/hevc 编码（Linux） | ✅ 已验证（2026-09-16 A 机 Ubuntu 22.04：**h264/hevc 双通，4.4.2 亦可**） |         🟡 核显由 iHD 驱动支持        | ✅ h264 双构建；hevc 仅 master（4.4.2 ⛔） |
+| VAAPI h264/hevc 编码（Linux） | ✅ 已验证（2026-09-16 A 机 Ubuntu 22.04：**h264/hevc 双通，4.4.2 亦可**） |         🟡 核显由 iHD 驱动支持        | ✅ h264 全构建；hevc 需 5.1.2+/master（**4.4.x 全系 ⛔**，两轮实测） |
 | AV1 硬解                    |             ❌             |     🟡 4080L + 核显均支持 AV1 解码    |    ✅ 已验证（QSV av1_qsv / VAAPI 解码）    |
 
 > 注：B 机 RTX 4080 Laptop 的 av1_nvenc 已于 2026-09-15 实测通过（三构建冒烟 + cuda 解码→AV1 Main 720p60 CBR 真实转码），AV1 硬编流水线在本机即可铺开。
@@ -255,6 +255,8 @@ h264 侧虽有 `VAEntrypointEncSliceLP`，但 `-low_power 1` 报 `Driver does no
 **探测方法学（两条教训，供后续复核沿用）**：
 1. **`ffmpeg -h encoder=<名>` 判断编码器是否存在会误判**：对不存在的编码器它**同样返回 rc=0**，只在 stdout 打印 `Codec 'x' is not recognized by FFmpeg.`。首轮勘察据此得出「4.4.2 拥有全部编码器」的**错误**表格，用对照名 `definitely_not_a_codec` 校准后才纠正 → 正确做法是 **grep `not recognized`**，或直接跑一次该编码器。
 2. **解码是否真走硬件不能用耗时判定，要看日志**：master 有 `Selecting decoder '<编码器>'` + 滤镜 `pixfmt:qsv|vaapi`；**4.4.2 不打印 `Selecting decoder` 这一行**（FFmpeg 5.x 才有），VAAPI 侧看 `pix_fmt: vaapi_vld`，QSV 回退时 `pixfmt:` 就等于源格式。
+3. **日志里第一个 `Lavf` 不是运行中的二进制**（第二轮在 C 机踩到）：`Input #0 … Metadata: encoder: Lavf…` 记的是**写这个素材的那个 ffmpeg**。要判断「这次实际用的是哪套构建」，得取 `Output #0` 的 `encoder : Lavc<版本>`（或全局输出元数据的**最后一个** `Lavf`）。第一版指纹全部读到 58.76.100，其实是夹具的输入元数据在误导。
+4. **命令行选项位置既是功能也是陷阱**：`-vaapi_device` 是全局选项（放 `-i` 前），而 `-vf` 必须放 `-i` **之后** —— 放到前面会得到 `Option vf cannot be applied to input`，rc=1，看起来像"功能不可用"。两轮探针各踩一次（先是 `-c:v` 在 `-i` 前，后是 `-vf` 在 `-i` 前），**凡"编码器/滤镜不可用"的结论都必须先确认命令行本身合法**。
 
 **⑥ 结论（在 ⑤ 之上增补）**：
 1. `/opt` 到货后 A 机具备**双构建能力**，但**默认不生效**（PATH 未含 `/opt`）；仅 3 个软偏好脚本自动升级 → 想让整机走 master 需自行把 `/opt/.../bin` 前置到 `PATH`。
@@ -316,6 +318,45 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 
 **⑤ sh 族全覆盖补测与冒烟套件沉淀（2026-09-16 第二轮，merge 后）**：① `convert_from_list_cuda.sh` 补测——Linux 分发打印 `Linux` → 清单条目完整读取 → 调 hevc_nvenc 预期失败 `Convert failed！` 传播 rc=1（同时复证 run_list stdin 修复）；② `ffmpeg_hevc_nvenc_cygwin.sh` 发现无执行位（git 100644，与 libx264 同款）→ 已 `chmod +x`（全仓复核：15 个入口脚本均 755，`lib/common.sh` 作为被 `source` 的库保持 644 合理），修复后直跑：`-hwaccel cuvid` + `hwdownload` 命令构建正确 → `CUDA_ERROR_NO_DEVICE` 预期失败 rc=1；③ 探针整合沉淀为仓库外一键套件 `../ffmpeg_bat_git_smoke/smoke_all.sh`（自生成素材 + 18 用例断言 + PASS/FAIL 汇总，与 smoke_all.bat 对称），实测 **PASS=18 FAIL=0**（含 merge 后两轮复跑）。至此 sh 族 **15/15 入口全部本机实测**并留有断言记录。
 
+**⑥ 复查轮：SSH 远程复跑 + 归因收口（2026-09-16 下午）**
+
+**方式**：由 AI 经 paramiko 直连本机（`100.127.43.115`，Tailscale），`git pull` 到 `b038814` 后在仓库外上传**与 A 机同一套件**复跑两轮。工作区 `list*.txt`（用户真实片单）与仓库文件**未做任何改动**，试验残留已清理。
+
+**环境核对（与首轮一致）**：`andy-zirui` / 内核 6.8.0-138 / Ultra 7 265K（20 核）/ 62 GiB；核显 `8086:7d67`，`/dev/dri/renderD128`，用户 `andy` 在 `render`+`video` 组（**无需 sudo**）；iHD 25.2.4 + libva 2.22.0 + libvpl2 2.15.0 + libmfx1 23.2.2 + libmfx-gen1 25.2.4；**PATH 不含 `/opt`**（`which ffmpeg` = `/usr/bin/ffmpeg`）。
+
+**脚本层双跑（与 A 机同协议）**：
+
+| 轮次 | PATH | 结果 | 实际用到的构建（`encoder : Lavc` 指纹） |
+| --- | --- | --- | --- |
+| 1 | 原样（distro 优先） | **PASS=22 FAIL=0** | 除 3 个软偏好入口外全为 `Lavc58.134.100`；`av1_qsv` / `hevc_vaapi` = `Lavc61.24.100`（软偏好生效） |
+| 2 | `/opt/.../bin` 前置 | **PASS=22 FAIL=0** | 全部 `Lavc61.24.100` |
+
+`</dev/null` 回归两轮 `outputs=5/5`；门禁 3/3；CRLF+BOM 清单通过；1080p60 降帧分支三个入口（hevc_qsv / avc_qsv / av1_qsv）均正确降到 30fps 且查表正确。
+
+**查表跨机器一致性**（1080p 夹具）：AVC `3836249`、HEVC `2548951`、**AV1 `1656818`** —— 与 B 机 Windows 侧 `.bat` 探针的 T1/T2 期望值完全相同，三张表在 `.sh`/`.bat` 与三平台间一致；`ffmpeg_h264_vaapi` 亦为 `3836249`，**首轮修掉的「h264_vaapi 误用 HEVC 表」在本轮复测中保持正确**。
+
+**与 A 机的核心差异（唯一一处）**：`ffmpeg_av1_qsv.sh` 在 C 机 **rc=0 且产物 `v=av1`**（Arrow Lake 有 AV1 硬件编码器），A 机为干净失败（Gen9.5 无 AV1 编码器）→ 套件里该用例的期望值已参数化（`EXPECT_AV1_QSV=ok|fail`）。
+
+**归因收口：`hevc_vaapi` 在 4.4.x 全系失效（非 Ubuntu 打包问题）**
+
+`/opt/ffmpeg` 下另有 gyan 静态包（4.4.3 / 5.1.2 的 `.tar.xz`）与 BtbN 7.0.2 static，解出后得到四个可对比构建：
+
+| 构建 | 版本 | av1_qsv | av1_vaapi | hevc_vaapi | svtav1 | h264_vaapi | hevc_vaapi |
+| --- | --- | :---: | :---: | :---: | :---: | --- | --- |
+| Ubuntu 发行版 | 4.4.2+esm16 | ❌ | ❌ | ✅ 有 | ❌ | ✅ rc=0 | ⛔ rc=1 `Encode failed: -5` |
+| gyan 静态 | n4.4.3（2022-12-31） | ❌ | ❌ | ✅ 有 | ✅ | ✅ rc=0 | ⛔ rc=1 **同一错误** |
+| gyan 静态 | n5.1.2（2022-12-31） | ❌ | ❌ | ✅ 有 | ✅ | ✅ rc=0 | **✅ rc=0** |
+| gyan master-gpl | N-117740（2024-11-10） | ✅ | ✅ | ✅ 有 | ✅ | ✅ rc=0 | ✅ rc=0 |
+
+→ **`hevc_vaapi` 的失败是 FFmpeg 4.4.x 的 VAAPI HEVC 编码老路径在 Arrow Lake 上的问题，与 Ubuntu 打包/编译选项无关**（换一个打包者的 4.4.3 复现同一错误），**5.1 起修复**；结合 A 机（Gen9.5）同一 4.4.2 却成功，完整表述为 **4.4.x 的 `hevc_vaapi` 可用性取决于核显代际**。
+附带两条：① 两个 gyan 静态包**都自带 `libsvtav1`**（Ubuntu 4.4.2 没有）→ 「4.4.2 无 svtav1」属**打包差异**而非版本能力；② 它们用旧 libmfx API 对接新 VPL 运行时会**直接段错误**（`Error setting child device handle: -17` + core dumped），在 libvpl2 2.15.0 下**不能用于 QSV**。BtbN `7.0.2-static` 则是**纯软编构建**（av1_qsv / hevc_vaapi / h264_vaapi / svtav1 全无）。
+
+**`low_power=1` 三构建一致失败**：`No usable encoding entrypoint found for profile VAProfileHEVCMain (17)`（Arrow Lake 的 iHD 对该 profile 只暴露 `VAEntrypointEncSlice`，无 `EncSliceLP`）→ 与 A 机同因，**脚本不应使用 `low_power=1`**（当前未使用）。
+
+**QSV 硬解（与 A 机机制统一）**：`-hwaccel qsv` 在 4.4.2 上 rc=0 但 `pixfmt:yuv420p`（**静默软解**），显式 `-hwaccel_device hw` 才报 `Device setup failed for decoder`；master 上 `pixfmt:qsv` + `Selecting decoder 'h264_qsv'|'hevc_qsv'`（真硬解）。→ 首轮记录的 C 机「QSV 硬解 ⛔」与 A 机「静默软解」是**同一现象的两种观测**，已在两机统一表述。
+
+**本轮定位到的两个探测陷阱**（已并入上文「探测方法学」3/4 条）：`Lavf` 指纹取错（输入元数据 ≠ 运行中的二进制）、`-vaapi_device`/`-vf` 的选项位置。
+
 ---
 
 ## 表 4：环境约束速查（写脚本时用）
@@ -334,9 +375,9 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 ## 待验证清单（按优先级）
 
 1. ~~**本机 av1_nvenc 实测**~~ ✅ 已完成（2026-09-15：三构建冒烟 + 真实转码全通过）
-2. ~~**C 机 Linux（Ubuntu 22.04）**：master-gpl 的 QSV/VAAPI/AV1 + 原生 4.4.2 功能边界~~ ✅ 已完成（2026-09-16，见「机器 C：Ubuntu 22.04 实测记录」；含 run_list stdin 泄漏缺陷修复、sh 族 15/15 全覆盖补测与 `smoke_all.sh` 套件沉淀〔PASS=18/18〕）；**C 机 Win11 下 QSV AV1（mingw64 8.1 或原生）仍待验证**；原描述： Linux 下 master-gpl 的 QSV/VAAPI/AV1
+2. ~~**C 机 Linux（Ubuntu 22.04）**：master-gpl 的 QSV/VAAPI/AV1 + 原生 4.4.2 功能边界~~ ✅ 已完成（2026-09-16 两轮：首轮整合表 + **下午 SSH 远程复跑**，见「机器 C：Ubuntu 22.04 实测记录」；含 run_list stdin 泄漏缺陷修复、sh 族 15/15 全覆盖、`smoke_all.sh` 套件沉淀〔PASS=18/18〕、**复查轮双构建各 PASS=22/22** 与 `hevc_vaapi` 归因收口）；**C 机 Win11 下 QSV AV1（mingw64 8.1 或原生）仍待验证**；原描述： Linux 下 master-gpl 的 QSV/VAAPI/AV1
 3. ~~**A 机 i7-9700T**：Ubuntu VAAPI~~ ✅ **已完成（2026-09-16，PASS=22/22）**，见「机器 A：Ubuntu 22.04 实测记录」；**同日下午 `/opt` master-gpl 到货后又做了双构建复跑（2026-09-16，PASS=22/22，见 ⑥）**；**仅剩 A 机 Win11 的 QSV（UHD 630）待验证**；软编保底已确认走 Linux（`libx264`/`libx265` 打包内可用，无需 mingw64）
-4. ~~**Linux 双 ffmpeg 来源验证**~~ ✅ C 机已完成（2026-09-16）：原生 4.4.2 边界 = 无 av1_qsv/无 svtav1/QSV 硬解不可用/hevc_vaapi 不可用（h264_vaapi 可用），master-gpl = QSV/VAAPI 含 AV1 全家桶；**A 机 Ubuntu 已复测两轮（2026-09-16）：发行版 4.4.2 同样「无 av1_qsv、无 svtav1」，但 hevc_vaapi 可用（与 C 机不同，见机器 A 记录）；第二轮双构建（/opt master-gpl 到货）再证 ① 4.4.2 的「QSV 硬解 ⛔」实为静默软解、② master 上 QSV 硬解真启用、③ A 机新增 libsvtav1 软编 AV1 可用、④ 两套构建下脚本族均 22/22**。原描述：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
+4. ~~**Linux 双 ffmpeg 来源验证**~~ ✅ C 机已完成（2026-09-16 两轮）：原生 4.4.2 边界 = 无 av1_qsv/无 svtav1/QSV 硬解不可用（实为**静默软解**）/hevc_vaapi 不可用（h264_vaapi 可用），master-gpl = QSV/VAAPI 含 AV1 全家桶；**A 机 Ubuntu 已复测两轮（2026-09-16）：发行版 4.4.2 同样「无 av1_qsv、无 svtav1」，但 hevc_vaapi 可用（与 C 机不同，见机器 A 记录）；第二轮双构建（/opt master-gpl 到货）再证 ① 4.4.2 的「QSV 硬解 ⛔」实为静默软解、② master 上 QSV 硬解真启用、③ A 机新增 libsvtav1 软编 AV1 可用、④ 两套构建下脚本族均 22/22**；**此外 C 机复查轮已用 gyan 4.4.3 / 5.1.2 静态包完成第三方交叉验证：`hevc_vaapi` 在 4.4.x 全系失效、5.1.2 起恢复，且 svtav1 属打包差异**。原描述：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
 5. ~~**.bat 路线**~~ ✅ 已完成（2026-09-16：57c418f 重构 + 26ccf0e cp65001 守卫 + 8e5c631 find_ffmpeg 去硬编码路径 + 4ffd990 守卫改环境变量标记并修 `shift` 吃掉 `%0` 的回归）
 6. ~~**`.bat` list 模式复核（阻塞项，第四轮）**~~ ✅ 已完成（2026-09-16：T9 / T11 / T12 各 2/2 rc=0 + banner 检查 `[PASS]`，见上）
 7. **`.bat` 真实拖放/双击**：探针只能模拟代码页起点，真·Explorer 拖放与新窗口 banner 观感需人工扫一眼；含中文文件名的拖放同样值得顺手验一次
@@ -347,3 +388,6 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 12. ~~**待决（C 机 Linux 轮发现）**~~ ✅ 已完成（2026-09-16 同轮处置：① `ffmpeg_h264_vaapi.sh` 改传 `bitrate_table_avc.csv`（ref 720p 1359878→2040182）；② `ffmpeg_libx264.sh` 补执行位 `chmod +x`；③ `ffmpeg_hevc_vaapi.sh` 仿 av1_qsv 加 /opt 软偏好（实测走 master 产物 Lavf61.9.100，无 /opt 回退 4.4.2 仍⛔）；三项均端到端复测 rc=0）。原描述：C 机 Linux 轮发现三项：① 查表表不符 ② 无执行位 ③ 4.4.2 iHD 兼容
 13. **Linux list 模式（`run_list`）**：本轮 `</dev/null` 修复为跨机器通用（所有 Linux ffmpeg 都会从 stdin 吃 1 字节），~~**A 机（i7-9700T Ubuntu）首次上机时需一并复跑 list 用例**~~ ✅ **已于 2026-09-16 复跑：5 条目清单全部产出（`outputs=5/5`），且 3 条目含空格的 CRLF+BOM 清单亦通过 —— `</dev/null` 修复跨机器成立**；`.bat` 侧无需改动
 14. ~~**A 机 `/opt/ffmpeg` master-gpl（2026-09-16 下午到货）**~~ ✅ 已完成：双构建各跑一遍套件**均 PASS=22/22**，并据本轮证据定论 **4.4.2 的 QSV 硬解=静默软解**（`-hwaccel qsv` 不报错但 `pixfmt` 仍是源格式；显式 `-hwaccel_device hw` 才 `Device setup failed`），AV1 在 Gen9.5 仍不可用（master 里 `av1_qsv`/`av1_vaapi` 打不开编码器），**`libsvtav1` 为 A 机新增可用软编 AV1**；另沉淀两条探测方法学教训（`-h encoder=<名>` 对未知编码器**也返回 rc=0** → 必须 grep `not recognized`；解码是否真硬解**看 `pixfmt`/`Selecting decoder` 而非耗时**）。**遗留观察项（非缺陷，暂不改）**：4.4.2 下 QSV 脚本实为「软解+硬编」，若日后希望"要么真硬解、要么显式告警"，可在 QSV 脚本里加一条 hwaccel 生效判定
+15. ~~**C 机 Linux 复查轮**~~ ✅ 已完成（2026-09-16 下午，SSH 远程）：同一套件双构建各 **PASS=22/22**；`ffmpeg_av1_qsv.sh` 在 C 机**真产出 AV1**（A 机为预期失败，已把套件期望值参数化）；1080p 查表值与 B 机 `.bat` 探针一致（AVC `3836249` / HEVC `2548951` / AV1 `1656818`）；**`hevc_vaapi` 归因收口**——用 `/opt` 里的 gyan 4.4.3 复现同一错误、gyan 5.1.2 与 master 成功，判定为 **FFmpeg 4.4.x 老路径在 Arrow Lake 上的缺陷、与 Ubuntu 打包无关**；QSV 硬解「静默软解」机制与 A 机统一；新增两条探测陷阱入档（`Lavf` 指纹取错、`-vf` 置于 `-i` 前）
+16. **新增 `ffmpeg_av1_nvenc.bat`（本轮）待 B 机 Windows 侧实测**：`.bat` 家族此前只有 AVC-QSV / HEVC-QSV / HEVC-NVENC / libx265 / copy_to_mp4 五个入口，**唯独缺 AV1 NVENC**（而 `lib/common.bat` 的 `lookup_bitrate` 早已把 `bitrate_table_av1.csv` 列为受支持表、`.sh` 侧也已有实测通过的 `ffmpeg_av1_nvenc.sh`）→ 已补该 `.bat`（以 `ffmpeg_hevc_nvenc.bat` 为骨架，仅改编码器段/码率表/标题，静态自检与 `hevc_nvenc.bat` 同结果）。**尚需在 B 机跑一次探针**（T14 用例，期望 `TARGET_BITRATE=1656818`、产物 `v=av1`），因沙箱无法调用 `cmd.exe`
+17. **`av1_qsv.bat` 的对称缺口（待定，本轮未做）**：C 机 Win11 原生/ mingw64 侧若有 AV1 硬件编码器，`.bat` 家族同理缺 `av1_qsv` 入口；待 C 机 Win11 行验证后再决定是否需要

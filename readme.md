@@ -75,7 +75,7 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 平台差异（实测见 `environment_matrix.md`）：
 
 - **Cygwin**：ffmpeg 的 QSV 会话初始化失败，且未编入 libx265 → 请用 `convert_from_list_cuda.sh` 或改在 MSYS2 / Linux 下跑
-- **发行版自带 ffmpeg 偏旧**：对 Arrow Lake 等新核显的 `hevc_vaapi` / AV1 支持不全；`av1_qsv.sh`、`hevc_vaapi.sh`、`av1_nvenc.sh` 对 `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin` 有**软偏好**（存在即前置 PATH，不存在则回退发行版）。**装了这个目录不会改变整机默认**（`which ffmpeg` 仍是 `/usr/bin/ffmpeg`），只有上面 3 个脚本会切到它
+- **发行版自带 ffmpeg 偏旧**：`hevc_vaapi` 在 **4.4.x 全系对 Arrow Lake 核显失效**（4.4.2 与另一个打包者的 4.4.3 报同一错误，**5.1.2 起恢复**；Gen9.5 等老核显的 4.4.2 反而可用 —— 取决于核显代际），AV1 硬编同样要新构建；`av1_qsv.sh`、`hevc_vaapi.sh`、`av1_nvenc.sh` 对 `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin` 有**软偏好**（存在即前置 PATH，不存在则回退发行版）。**装了这个目录不会改变整机默认**（`which ffmpeg` 仍是 `/usr/bin/ffmpeg`），只有上面 3 个脚本会切到它
 - **Linux 的 QSV 硬解只在 master 构建上生效**：发行版 ffmpeg（如 4.4.2）遇到 `-hwaccel qsv` 会**静默回退软解**（不报错，但滤镜像素格式仍是源格式），实际是「软解+硬编」；显式要求硬件设备才报 `Device setup failed for decoder`。想要名实相符的全硬解链路，请把 `/opt/ffmpeg/.../bin` 前置到 `PATH`
 - 清单兼容 CRLF 与 UTF-8 BOM（记事本直接存即可）
 
@@ -99,8 +99,8 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 
 ## 验证状态
 
-- **`.bat` 家族**：仓库外探针 `smoke_all.bat` 一键串跑 T1–T13 回归套件 + 元字符矩阵，最近一轮从 **cp936 窗口**启动全绿（4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测 2/2、banner/debug 卫生检查、A 18+1SKIP / C 3/3 / B 6/6）
-- **`.sh` 家族**：仓库外套件 `smoke_all.sh` 18 用例断言，**PASS=18 / FAIL=0**；15 个入口脚本已在 Ubuntu 22.04 全量实测
+- **`.bat` 家族**：仓库外探针 `smoke_all.bat` 一键串跑 T1–T13 回归套件 + 元字符矩阵，最近一轮从 **cp936 窗口**启动全绿（4 编码器 × 三种用法、静音输入、纯音频拦截 rc=3、list 三测 2/2、banner/debug 卫生检查、A 18+1SKIP / C 3/3 / B 6/6）。**`ffmpeg_av1_nvenc.bat` 为 2026-09-16 新增**（补 AV1 NVENC 入口，AV1 码率表本就受 `lib/common.bat` 支持），静态自检与 `ffmpeg_hevc_nvenc.bat` 同结果，**B 机 Windows 侧的实跑验证待补**（探针 T14）
+- **`.sh` 家族**：仓库外套件 `smoke_all.sh` 18 用例断言，**PASS=18 / FAIL=0**；15 个入口脚本已在 Ubuntu 22.04 全量实测；**同一套件亦在 A / C 两机的双 ffmpeg 构建下各跑两轮，均 PASS=22/22**
 - 详细矩阵与逐条记录见 `environment_matrix.md`，各轮缺陷的定位与修法见 `code_review_report.md`
 
 ## 硬件加速速查
