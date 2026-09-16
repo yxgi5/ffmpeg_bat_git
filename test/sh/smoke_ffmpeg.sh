@@ -218,8 +218,16 @@ skipcase() {   # skipcase <tid> <name> <note>
 can_run() {
     local script="$1"; shift
     local d="$W/probe/$(basename "$script" .sh)"
-    mkdir -p "$d"; cp -f "$TINY" "$d/clip.mp4"
-    bash "$REPO/$script" "$d/clip.mp4" "$@" > "$LOG/probe_$(basename "$script" .sh).log" 2>&1
+    # fresh dir every call: a leftover clip-compressed.mp4 makes the entry's
+    # ffmpeg -n refuse to run ("already exists. Exiting."), which then reads
+    # as "hardware absent" -- observed as T6/T10 wrongly SKIPping on box A
+    # right after T1's probe had succeeded.
+    rm -rf "$d"; mkdir -p "$d"; cp -f "$TINY" "$d/clip.mp4"
+    # < /dev/null: ffmpeg consumes whatever stdin it inherits. Inside the
+    # gate_arg heredoc loop that stdin IS the remaining spec lines -- box A
+    # ate "T3|f" from the next line, so the loop then tried
+    # `bash .../2548951` and mangled the SKIP ("fmpeg_hevc_qsv.sh 2548951").
+    bash "$REPO/$script" "$d/clip.mp4" "$@" < /dev/null > "$LOG/probe_$(basename "$script" .sh).log" 2>&1
     [ $? -eq 0 ] && [ -f "$d/clip-compressed.mp4" ]
 }
 
@@ -230,7 +238,9 @@ run_arg() {
     mkdir -p "$d"; cp -f "${7:-$IN}" "$d/clip.mp4"
     LOGF="$LOG/${tid}_${name}.log"; OUT="$d/clip-compressed.mp4"
     rm -f "$OUT"
-    bash "$REPO/$script" "$d/clip.mp4" > "$LOGF" 2>&1
+    # < /dev/null for the same reason as can_run: gate_arg calls run_arg from
+    # inside the heredoc loop, so an unredirected ffmpeg would eat spec lines.
+    bash "$REPO/$script" "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
     RC=$?
     judge "$tid" "$name" "$3" "$4" "$5" "$6"
 }
