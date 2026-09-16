@@ -454,4 +454,6 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 | P3  | 修正拼写错误                              | 专业性提升                   | ✅ |
 | P3  | 规范 git commit message               | 可追溯性提升                  | ✅ |
 
+| 🔲 → ✅ | **6g: 4 个 list 驱动 bat 补 cp65001 守卫**（用户在 cp936 cmd 窗口直跑 `convert_from_list_cuda.bat` 实测触发：文件中途裸 `chcp 65001` 使当前进程的批处理读取器错位，之后 `call` 进来的编码器 bat 含中文的行被吞行首、注释碎片被当命令执行、编码器自身守卫也失效）。修法与编码器同款：ASCII 守卫块 + 环境变量标记 + 重启子进程；全仓从此不存在任何文件中途 chcp。此前「多轮实测稳定」是入口控制台恰好 65001 的运气。|
+
 **遗留事项**：.bat 家族重构与 T1–T13 冒烟已完成；第六轮 6b 的 `set` 写法修正已由探针 v6b 复核通过（A 18 PASS + 1 SKIP / C 3/3 / B 6/6 / D SKIP / Z1 PASS，**D 的 SKIP 机制已由 Z2d/Z2e/Z2f/Z2g/D1 四路判别定论：`chcp 65001` 吃掉文件重定向 stdin（管道与控制台不受影响，真实用法零影响）**）；**随后又跑了 T1–T13 回归套件，全绿**（2026-09-16，新增的 `smoke_all.bat` 一键串跑两层）：4 编码器 × 三种用法共 8 项 **PASS**（含 mode B 交互输入 / mode C 全新 UTF-8 控制台）、`copy_to_mp4` PASS、静音输入 PASS、**T13 纯音频输入被 `check_isvideo` 拦下 rc=3 PASS**、T9/T11/T12 list 三测各 2/2、全局 banner 与 debug 卫生检查双双 PASS。这正好补上矩阵探针未覆盖的面（`hevc_nvenc`/`hevc_qsv`/`libx265`、另 3 个 list bat、banner/debug/`check_isvideo` 断言）—— 6b 对核心路径的改动**未引入回归**）；Linux（A 机）与 Ultra 265K（C 机）平台实测（见 environment_matrix.md）；README/使用说明。
