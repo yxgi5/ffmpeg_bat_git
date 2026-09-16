@@ -43,7 +43,7 @@
 >
 > 注：C 机 Linux 侧的整表实测已于 2026-09-16 完成（两套 ffmpeg 来源 × QSV/VAAPI/软编/硬解 + 全部 .sh 入口与 list 模式），详见下文「机器 C：Ubuntu 22.04 实测记录」；C 机 Win11 行仍为待验证。
 >
-> 注：**A 机 Linux 侧实测亦已于 2026-09-16 完成**（Ubuntu 22.04 + 发行版 4.4.2 单构建，全部 .sh 入口 × 三种用法 + list 全套，PASS=22/22），详见下文「机器 A：Ubuntu 22.04 实测记录」；A 机 Win11 行仍为待验证。
+> 注：**A 机 Linux 侧实测亦已于 2026-09-16 完成两轮**——第一轮发行版 4.4.2 单构建（全部 .sh 入口 × 三种用法 + list 全套，PASS=22/22）；**第二轮（同日下午）/opt master-gpl 到货后双构建复跑，仍 PASS=22/22**，并据此定位了「4.4.2 的 QSV 硬解是**静默回退软解**」这一此前只知其然的行为。详见下文「机器 A：Ubuntu 22.04 实测记录」；A 机 Win11 行仍为待验证。
 
 ---
 
@@ -88,12 +88,12 @@
 | Win11        | cmd / PowerShell | 原生安装（待定版本）              |  ➖  |   ➖   |  🟡 |   ❌   | ❌ 无后端 |     🟡    |        🟡       |    ➖    |  🟡  |
 | Win11        | Cygwin64         | Cygwin 自带 7.1.1         |  ➖  |   ➖   |  ⛔  |   ❌   |   🚫  |     🚫    |        🟡       |    🟡   |   ➖  |
 | Win11        | MSYS2 MINGW64    | mingw64 8.1             |  ➖  |   ➖   |  🟡 |   ❌   |   ❌   |     🟡    |        🟡       |    🟡   |   ➖  |
-| Ubuntu 22.04 | bash             | 原生 4.4.2                |  ➖  |   ➖   |  ✅ |   ❌   |   ✅  |     ✅    | ❌ 仅 libaom(无 svtav1) | ✅ 22/22 端到端 |   ➖  |
-| Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  ➖  |   ➖   |  ➖  |   ➖   |  ➖  |    ➖    |        ➖       | ⬜ **该机未安装** |   ➖  |
+| Ubuntu 22.04 | bash             | 原生 4.4.2                |  ➖  |   ➖   |  ✅ |   ❌   | ⛔ 编 ✅/硬解静默软解 |     ✅    | ❌ 仅 libaom(无 svtav1) | ✅ 22/22 端到端 |   ➖  |
+| Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  ➖  |   ➖   |  ✅ |   ❌（Gen9.5 无 AV1 编码）  |   ✅  |    ✅    |  ✅ svtav1/aom  | ✅ 22/22 端到端 |   ➖  |
 
 > A 机主打 QSV + VAAPI + 软编保底；NVENC 列整体不适用。A 机 Win11 下 QSV 未验证——注意 A 机若用 Cygwin 一样会踩 QSV 失败和软编缺失两个坑。
 >
-> **A 机 Ubuntu 实测修正（2026-09-16）**：① 发行版 4.4.2 **已含 `libx264`/`libx265`**，故「软编保底必须走 mingw64」对 Linux 侧不成立，**Linux 侧自足**（Win 侧仍未验证）；② QSV/VAAPI 编码在 4.4.2 上都 ✅，但 **QSV 硬解 ⛔**（`Device setup failed for decoder`，与 C 机 4.4.2 一致）；③ `/opt/ffmpeg` 在本机**未安装**，故 master-gpl 行对 A 机不适用；④ AV1 编解码在 Gen9.5 上**均不可用**（硬件本身不支持 AV1）；⑤ VAAPI 硬解虽通但 **1.69s 慢于软解 0.66s**，不建议。
+> **A 机 Ubuntu 实测修正（2026-09-16）**：① 发行版 4.4.2 **已含 `libx264`/`libx265`**，故「软编保底必须走 mingw64」对 Linux 侧不成立，**Linux 侧自足**（Win 侧仍未验证）；② QSV/VAAPI 编码在 4.4.2 上都 ✅，但 **QSV 硬解在 4.4.2 上不可用**（`-hwaccel qsv` **静默回退软解**、显式 `-hwaccel_device hw` 才报 `Device setup failed for decoder`，与 C 机一致）；③ **`/opt/ffmpeg` 已于 2026-09-16 下午安装**（master-gpl `N-117740`，与 C 机同一构建），双构建复跑 PASS=22/22，详见下文 ⑥；④ AV1 编解码在 Gen9.5 上**均不可用**（硬件本身不支持 AV1，master 构建里 `av1_qsv`/`av1_vaapi` 存在但打开编码器即失败）；⑤ VAAPI 硬解虽通但 **1.69s 慢于软解 0.66s**，不建议。
 
 ### 机器 B：i9-13900HX + RTX 4080 Laptop（本机，当前开发机）
 
@@ -134,11 +134,11 @@
 
 ---
 
-## 机器 A：Ubuntu 22.04 实测记录（2026-09-16）
+## 机器 A：Ubuntu 22.04 实测记录（2026-09-16，两轮：单构建 → 双构建）
 
 **硬件/系统**：i7-9700T（8 核，CoffeeLake-S）+ **UHD Graphics 630**（Gen9.5，`00:02.0`）；Ubuntu 22.04.1 LTS，内核 6.8.0-136；内存 62 GiB；无独立显卡。
-**iHD 驱动**：`intel-media-va-driver-non-free 25.2.4-1146~22.04`，libva 2.22.0 —— **与 C 机同版本**。
-**ffmpeg 来源**：仅 `/usr/bin/ffmpeg` **4.4.2-0ubuntu0.22.04.1+esm16**（ESM 通道）。**本机无 `/opt/ffmpeg`（master-gpl 未安装）**，故本表为**单构建**结论。
+**iHD 驱动**：`intel-media-va-driver-non-free 25.2.4-1146~22.04`，libva 2.22.0 —— **与 C 机同版本**；VPL/MFX 栈 `libmfx1 23.2.2` + `libmfx-gen1 25.2.4` + `libvpl2 2.15.0` + `libmfx-tools`（**2026-04-01 即已装**，早于本轮，非本轮新增）。
+**ffmpeg 来源**：`/usr/bin/ffmpeg` **4.4.2-0ubuntu0.22.04.1+esm16**（ESM 通道）；**`/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/` 已于 2026-09-16 下午到货**（`N-117740-g7f51cf75c6-20241110`）→ 故本记录含**单构建（第一轮）**与**双构建（第二轮，见 ⑥）**两部分。
 **设备**：`/dev/dri/renderD128` 存在，用户 `andy` 属 `render`/`video` 组，**无需 sudo**。
 
 ### ① 功能边界（发行版 4.4.2，与 C 机同版本对照）
@@ -152,7 +152,7 @@
 | libx264 / libx265 | ✅ / ✅ | ✅ / ✅ | **A 机软编保底无需 mingw64** |
 | svtav1 | ❌ 未编入 | ❌ 未编入 | 仅 libaom |
 | VAAPI 硬解 | ✅（`Reinit context to 544x720, pix_fmt: vaapi_vld`） | ✅ | 一致 |
-| QSV 硬解 | ⛔ `Device setup failed for decoder` | ⛔（native）/ ✅（master） | 一致：**4.4.2 的 QSV 硬解在 Linux 不可用** |
+| QSV 硬解 | ⛔ 4.4.2 **静默回退软解**；显式 `-hwaccel_device hw` → `Device setup failed for decoder` | ⛔（native）/ ✅（master） | 一致：**4.4.2 的 QSV 硬解在 Linux 不可用**；机制见 ⑥ |
 | av1 硬解 | ❌（Gen9.5 无 AV1 解码） | ✅ | **C 机独有**（Arrow Lake 支持 AV1 解码） |
 
 ### ② `hevc_vaapi` 差异定位（重要修正）
@@ -213,9 +213,54 @@ h264 侧虽有 `VAEntrypointEncSliceLP`，但 `-low_power 1` 报 `Driver does no
 
 1. **A 机是 VAAPI 的可用平台**：`h264_vaapi` 与 `hevc_vaapi` 在**发行版 4.4.2 上开箱可用**，无需 master 构建 —— 与 C 机相反。
 2. **软编保底无需 mingw64**：`libx264`/`libx265` 打包内即有，A 机 Linux 侧自足。
-3. **QSV 编码可用、QSV 硬解不可用**（4.4.2 打包缺陷，与 C 机一致）；AV1 编解码在 Gen9.5 **均不可用**（硬件本身不支持）。
+3. **QSV 编码可用、QSV 硬解不可用**（4.4.2 打包缺陷，与 C 机一致；**机制已于 ⑥ 定论：`-hwaccel qsv` 静默回退软解**，装 `/opt` master 后硬解才真正启用）；AV1 编解码在 Gen9.5 **均不可用**（硬件本身不支持）。
 4. **list 模式（含 CRLF/BOM 容错与 `</dev/null`）在 A 机全部通过**，跨机器修复确认。
-5. **待验证仅剩 A 机 Win11 的 QSV（UHD 630）**。
+5. **待验证仅剩 A 机 Win11 的 QSV（UHD 630）**；Linux 侧已升级为**双构建 22/22**（⑥）。
+
+### ⑥ 第二轮：`/opt/ffmpeg` master-gpl 到货后的双构建实测（2026-09-16 下午）
+
+**新增来源**：`/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/{ffmpeg,ffprobe,ffplay}` = **`N-117740-g7f51cf75c6-20241110`**（`--enable-libvpl --enable-vaapi --enable-libsvtav1 --enable-libx264 --enable-libx265`）—— **与 C 机同一个 gyan master-gpl 包**。
+
+**PATH 语义（重要）**：`which ffmpeg` 仍是 `/usr/bin/ffmpeg` —— **装 `/opt` 不改变主机级默认**；只有带软偏好的 3 个脚本（`ffmpeg_av1_qsv.sh` / `ffmpeg_hevc_vaapi.sh` / `ffmpeg_av1_nvenc.sh`）会自行前置 `/opt`。构建指纹（`Lavc` 版本）：4.4.2 = `Lavc58.134.100`，master = `Lavc61.24.100`。
+→ 脚本在 A 机的**实际走向**因此变化：`hevc_vaapi` 自动改用 master（仍 ✅）；`av1_qsv` 由「`Unknown encoder 'av1_qsv'`」变成「编码器存在但打开失败」；`av1_nvenc` 无 N 卡仍失败。
+
+**编码器可用性**（grep 校准法 + 对照名，见本节"探测方法学"）：
+
+| 编码器 | 4.4.2 | master | 备注 |
+| --- | :---: | :---: | --- |
+| h264_vaapi / hevc_vaapi | ✅ / ✅ | ✅ / ✅ | 4.4.2 侧 `hevc_vaapi` 在 Gen9.5 可用（见 ②） |
+| av1_vaapi | ❌ 未编入 | ⚠️ 有但不可用 | 编码时 `-22 Invalid argument`（Gen9.5 无 AV1 编码器） |
+| h264_qsv / hevc_qsv | ✅ / ✅ | ✅ / ✅ | |
+| av1_qsv | ❌ 未编入 | ⚠️ 有但不可用 | 同上；错误 `Error while opening encoder`（脚本侧 rc≠0，干净失败） |
+| hevc_nvenc / av1_nvenc | ❌ / ❌ | ✅ / ✅ | 二进制有，无 N 卡 → `CUDA_ERROR_NO_DEVICE`（预期失败） |
+| libx264 / libx265 | ✅ / ✅ | ✅ / ✅ | Linux 侧自足 |
+| **libsvtav1** | ❌ 未编入 | **✅** | **A 机新增的软编 AV1 选项**（720p 3s 实测 0.77s） |
+| libaom-av1 | ✅ | ✅ | |
+
+**编码实测（720p30 3s testsrc2；pin 值仅供相对比较）**：hevc_vaapi 0.65s→0.45s；h264_vaapi 0.32→0.18；hevc_qsv 0.63→0.67；h264_qsv 0.24→0.23；libx264 0.45→0.41；libx265 0.94→1.10（distro→master）。`low_power=1` **两构建都不通**，但报错层级不同：4.4.2 是预检 `No usable encoding entrypoint found for profile VAProfileHEVCMain`，master 是任务级 `-22 Invalid argument` → **结论不变：脚本不应使用 `low_power=1`**。
+
+**解码实测 —— 4.4.2 的 QSV 硬解是「静默回退」（本轮定论）**：4 种源格式（H.264 full-range 544x720 / H.264 1080p / HEVC 1080p / HEVC 4K）× 3 种写法，4.4.2 一侧**全部 rc=0，但滤镜图像素格式仍是源格式**（`pixfmt:yuvj420p` / `pixfmt:yuv420p`）= **软解**；一旦显式加 `-hwaccel_device hw` 就 `Device setup failed for decoder`（rc=1）。master 一侧同一批用例**全部** `Selecting decoder 'h264_qsv' | 'hevc_qsv'` + `pixfmt:qsv` = **真硬解**。
+> 这同时解释了第一轮 ④ 表里「QSV 硬解 0.67s（但脚本路径下 `Device setup failed`）」的表面矛盾：**0.67s 那次是静默软解的耗时**。
+> 副产物：**发行版 4.4.2 上的 QSV 脚本并非"全硬解链路"** —— 脚本带的 `-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv` 在 4.4.2 上被静默忽略，实际是「软解 + 硬编」；出片正确（套件 22/22），只是 CPU 侧没省下来。**master 上才是名实相符的全硬解**。
+
+**脚本层（双跑，均 PASS=22 / FAIL=0）**：
+
+| 轮次 | PATH | 结果 | 实际用到的构建 |
+| --- | --- | --- | --- |
+| 1 | 原样（distro 优先） | **PASS=22 FAIL=0** | 带软偏好的 3 个入口（`hevc_vaapi`/`av1_qsv`/`av1_nvenc`）走 master；其余走 4.4.2（指纹 `Lavc58.134.100`，`hevc_vaapi` 为 `Lavc61.24.100` 实测确认） |
+| 2 | `/opt/.../bin` 前置 | **PASS=22 FAIL=0** | 全部走 master（`Lavc61.24.100`） |
+
+两轮 `real TARGET_BITRATE` 完全一致（503912 / 719875 / 777968，交互覆盖 `900k`）；`</dev/null` 回归两轮均 `outputs=5/5`；门禁 3/3；CRLF+BOM 清单通过。
+
+**探测方法学（两条教训，供后续复核沿用）**：
+1. **`ffmpeg -h encoder=<名>` 判断编码器是否存在会误判**：对不存在的编码器它**同样返回 rc=0**，只在 stdout 打印 `Codec 'x' is not recognized by FFmpeg.`。首轮勘察据此得出「4.4.2 拥有全部编码器」的**错误**表格，用对照名 `definitely_not_a_codec` 校准后才纠正 → 正确做法是 **grep `not recognized`**，或直接跑一次该编码器。
+2. **解码是否真走硬件不能用耗时判定，要看日志**：master 有 `Selecting decoder '<编码器>'` + 滤镜 `pixfmt:qsv|vaapi`；**4.4.2 不打印 `Selecting decoder` 这一行**（FFmpeg 5.x 才有），VAAPI 侧看 `pix_fmt: vaapi_vld`，QSV 回退时 `pixfmt:` 就等于源格式。
+
+**⑥ 结论（在 ⑤ 之上增补）**：
+1. `/opt` 到货后 A 机具备**双构建能力**，但**默认不生效**（PATH 未含 `/opt`）；仅 3 个软偏好脚本自动升级 → 想让整机走 master 需自行把 `/opt/.../bin` 前置到 `PATH`。
+2. **QSV 硬解在 A 机只有 master 能用**；4.4.2 是**静默软解**（不报错，极易误判成"已硬解"）。
+3. **AV1 依旧不可用**（Gen9.5 硬件无 AV1 编解码）：master 里 `av1_qsv`/`av1_vaapi` 的"存在"只体现为打开编码器失败；`libsvtav1` 是唯一可用 AV1 路径（软编）。
+4. **双构建 22/22** 说明脚本族对两套 ffmpeg 都兼容，**无需按机器改脚本**。
 
 ### 机器 C：Ubuntu 22.04 实测记录（2026-09-16）
 
@@ -277,7 +322,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 
 | 环境                 | 路径风格              | 自带 ffmpeg            |   行尾输出(CR 剥除必要性)  | VAAPI |   QSV  |
 | ------------------ | ----------------- | -------------------- | :---------------: | :---: | :----: |
-| linux bash         | `/home/...`       | 4.4.2 或 /opt/ master | LF（不剥也安全，但保留剥除无害） | ✅ C 机实测可用 | ✅ C 机实测可用 |
+| linux bash         | `/home/...`       | 4.4.2 或 /opt/ master | LF（不剥也安全，但保留剥除无害） | ✅ C 机实测可用 | ✅ C 机实测可用（**硬解须 master**；4.4.2 是静默软解，见 ⑥） |
 | Windows cmd        | `C:\...`          | 依赖系统安装               |    —（.bat 无此问题）   |   ❌   |   🟡   |
 | Windows PowerShell | `C:\...`          | 同上                   |         —         |   ❌   |   🟡   |
 | Cygwin64           | `/cygdrive/c/...` | 7.1.1（功能残缺）          |         LF        |   🚫  |    ⛔   |
@@ -290,8 +335,8 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 
 1. ~~**本机 av1_nvenc 实测**~~ ✅ 已完成（2026-09-15：三构建冒烟 + 真实转码全通过）
 2. ~~**C 机 Linux（Ubuntu 22.04）**：master-gpl 的 QSV/VAAPI/AV1 + 原生 4.4.2 功能边界~~ ✅ 已完成（2026-09-16，见「机器 C：Ubuntu 22.04 实测记录」；含 run_list stdin 泄漏缺陷修复、sh 族 15/15 全覆盖补测与 `smoke_all.sh` 套件沉淀〔PASS=18/18〕）；**C 机 Win11 下 QSV AV1（mingw64 8.1 或原生）仍待验证**；原描述： Linux 下 master-gpl 的 QSV/VAAPI/AV1
-3. ~~**A 机 i7-9700T**：Ubuntu VAAPI~~ ✅ **已完成（2026-09-16，PASS=22/22）**，见「机器 A：Ubuntu 22.04 实测记录」；**仅剩 A 机 Win11 的 QSV（UHD 630）待验证**；软编保底已确认走 Linux（`libx264`/`libx265` 打包内可用，无需 mingw64）
-4. ~~**Linux 双 ffmpeg 来源验证**~~ ✅ C 机已完成（2026-09-16）：原生 4.4.2 边界 = 无 av1_qsv/无 svtav1/QSV 硬解不可用/hevc_vaapi 不可用（h264_vaapi 可用），master-gpl = QSV/VAAPI 含 AV1 全家桶；**A 机 Ubuntu 已复测（2026-09-16）：发行版 4.4.2 同样「无 av1_qsv、无 svtav1」，但 hevc_vaapi 可用（与 C 机不同，见机器 A 记录）**。原描述：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
+3. ~~**A 机 i7-9700T**：Ubuntu VAAPI~~ ✅ **已完成（2026-09-16，PASS=22/22）**，见「机器 A：Ubuntu 22.04 实测记录」；**同日下午 `/opt` master-gpl 到货后又做了双构建复跑（2026-09-16，PASS=22/22，见 ⑥）**；**仅剩 A 机 Win11 的 QSV（UHD 630）待验证**；软编保底已确认走 Linux（`libx264`/`libx265` 打包内可用，无需 mingw64）
+4. ~~**Linux 双 ffmpeg 来源验证**~~ ✅ C 机已完成（2026-09-16）：原生 4.4.2 边界 = 无 av1_qsv/无 svtav1/QSV 硬解不可用/hevc_vaapi 不可用（h264_vaapi 可用），master-gpl = QSV/VAAPI 含 AV1 全家桶；**A 机 Ubuntu 已复测两轮（2026-09-16）：发行版 4.4.2 同样「无 av1_qsv、无 svtav1」，但 hevc_vaapi 可用（与 C 机不同，见机器 A 记录）；第二轮双构建（/opt master-gpl 到货）再证 ① 4.4.2 的「QSV 硬解 ⛔」实为静默软解、② master 上 QSV 硬解真启用、③ A 机新增 libsvtav1 软编 AV1 可用、④ 两套构建下脚本族均 22/22**。原描述：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
 5. ~~**.bat 路线**~~ ✅ 已完成（2026-09-16：57c418f 重构 + 26ccf0e cp65001 守卫 + 8e5c631 find_ffmpeg 去硬编码路径 + 4ffd990 守卫改环境变量标记并修 `shift` 吃掉 `%0` 的回归）
 6. ~~**`.bat` list 模式复核（阻塞项，第四轮）**~~ ✅ 已完成（2026-09-16：T9 / T11 / T12 各 2/2 rc=0 + banner 检查 `[PASS]`，见上）
 7. **`.bat` 真实拖放/双击**：探针只能模拟代码页起点，真·Explorer 拖放与新窗口 banner 观感需人工扫一眼；含中文文件名的拖放同样值得顺手验一次
@@ -301,3 +346,4 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 11. **`&` 文件名** → 第六轮 6a 的结论**已在 6b 更正**：`^&` 不是缺陷而是原版对"包装写法"的补偿；真正病根是 `set "VAR=值"` 包装写法 + 值内含引号，已全量改非包装写法（5 文件 57 行），并保留 6a 中 `%1` 裸展开、`call %RUN_COM%` 二次解析、list bat 延迟展开、编码器延迟块内含路径等**确实有效**的修复；**已由 v6b 探针实测通过**（A 18 PASS + 1 SKIP / C 3/3 / B 6/6 / D SKIP / Z1 PASS，见上）；**T1–T13 套件回归已跑并全绿**（6b 触及核心路径，见上）；D 段 SKIP 机制已定论 = `chcp 65001` 吃掉文件重定向 stdin（管道/控制台不受影响，真实用法零影响，见上）
 12. ~~**待决（C 机 Linux 轮发现）**~~ ✅ 已完成（2026-09-16 同轮处置：① `ffmpeg_h264_vaapi.sh` 改传 `bitrate_table_avc.csv`（ref 720p 1359878→2040182）；② `ffmpeg_libx264.sh` 补执行位 `chmod +x`；③ `ffmpeg_hevc_vaapi.sh` 仿 av1_qsv 加 /opt 软偏好（实测走 master 产物 Lavf61.9.100，无 /opt 回退 4.4.2 仍⛔）；三项均端到端复测 rc=0）。原描述：C 机 Linux 轮发现三项：① 查表表不符 ② 无执行位 ③ 4.4.2 iHD 兼容
 13. **Linux list 模式（`run_list`）**：本轮 `</dev/null` 修复为跨机器通用（所有 Linux ffmpeg 都会从 stdin 吃 1 字节），~~**A 机（i7-9700T Ubuntu）首次上机时需一并复跑 list 用例**~~ ✅ **已于 2026-09-16 复跑：5 条目清单全部产出（`outputs=5/5`），且 3 条目含空格的 CRLF+BOM 清单亦通过 —— `</dev/null` 修复跨机器成立**；`.bat` 侧无需改动
+14. ~~**A 机 `/opt/ffmpeg` master-gpl（2026-09-16 下午到货）**~~ ✅ 已完成：双构建各跑一遍套件**均 PASS=22/22**，并据本轮证据定论 **4.4.2 的 QSV 硬解=静默软解**（`-hwaccel qsv` 不报错但 `pixfmt` 仍是源格式；显式 `-hwaccel_device hw` 才 `Device setup failed`），AV1 在 Gen9.5 仍不可用（master 里 `av1_qsv`/`av1_vaapi` 打不开编码器），**`libsvtav1` 为 A 机新增可用软编 AV1**；另沉淀两条探测方法学教训（`-h encoder=<名>` 对未知编码器**也返回 rc=0** → 必须 grep `not recognized`；解码是否真硬解**看 `pixfmt`/`Selecting decoder` 而非耗时**）。**遗留观察项（非缺陷，暂不改）**：4.4.2 下 QSV 脚本实为「软解+硬编」，若日后希望"要么真硬解、要么显式告警"，可在 QSV 脚本里加一条 hwaccel 生效判定

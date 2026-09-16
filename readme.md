@@ -75,7 +75,8 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 平台差异（实测见 `environment_matrix.md`）：
 
 - **Cygwin**：ffmpeg 的 QSV 会话初始化失败，且未编入 libx265 → 请用 `convert_from_list_cuda.sh` 或改在 MSYS2 / Linux 下跑
-- **发行版自带 ffmpeg 偏旧**：对 Arrow Lake 等新核显的 `hevc_vaapi` / AV1 支持不全；`av1_qsv.sh`、`hevc_vaapi.sh` 对 `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin` 有**软偏好**（存在即前置 PATH，不存在则回退发行版）
+- **发行版自带 ffmpeg 偏旧**：对 Arrow Lake 等新核显的 `hevc_vaapi` / AV1 支持不全；`av1_qsv.sh`、`hevc_vaapi.sh`、`av1_nvenc.sh` 对 `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin` 有**软偏好**（存在即前置 PATH，不存在则回退发行版）。**装了这个目录不会改变整机默认**（`which ffmpeg` 仍是 `/usr/bin/ffmpeg`），只有上面 3 个脚本会切到它
+- **Linux 的 QSV 硬解只在 master 构建上生效**：发行版 ffmpeg（如 4.4.2）遇到 `-hwaccel qsv` 会**静默回退软解**（不报错，但滤镜像素格式仍是源格式），实际是「软解+硬编」；显式要求硬件设备才报 `Device setup failed for decoder`。想要名实相符的全硬解链路，请把 `/opt/ffmpeg/.../bin` 前置到 `PATH`
 - 清单兼容 CRLF 与 UTF-8 BOM（记事本直接存即可）
 
 ## ffmpeg 依赖怎么找
