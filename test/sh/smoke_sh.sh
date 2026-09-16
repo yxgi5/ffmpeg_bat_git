@@ -1,228 +1,466 @@
 #!/bin/bash
-# smoke_sh.sh - sh-family smoke harness (machine-parameterized)
-# Location: <repo>/test/sh/  (the repo root is derived from this script's path,
-# two levels up, so a clone anywhere works). ASCII only, LF.
-# Origin: written on A machine (i7-9700T / UHD630 / Ubuntu 22.04, distro 4.4.2
-# + /opt master-gpl); re-run on C machine (Ultra 7 265K / Arrow Lake).
+# ============================================================
+# smoke_sh.sh (v2) - sh-family smoke harness
 #
-# Usage: bash smoke_sh.sh [part]        part = all|arg|stdin|list|guard|stdinleak
+#   PARITY NOTE: this harness is the 1:1 twin of
+#   test/bat/smoke_ffmpeg_bat.bat. Cases that exist in both
+#   families share the same T-id, the same 1080p60 fixture and
+#   the same expected TARGET_BITRATE, so a T-number difference
+#   between the two families is a real cross-family divergence.
+#   sh-only cases are T8 / T18 / T19 / T20 / T21 / T22 / T23 /
+#   T24 / T25 (see test/README.md for the full table).
+#
+#   Location: <repo>/test/sh/  - the repo root is derived from
+#   this script's own path (two levels up), so a clone anywhere
+#   works. ASCII only, LF.
+#
+# Usage:  bash test/sh/smoke_sh.sh [part]
+#         part = all (default) | parity | list | guard
 #
 # Env knobs:
 #   REPO=<path>          repo root; default = two levels up from this script
 #   WORK=<dir>           scratch dir; default = ${TMPDIR:-/tmp}/ffmpeg_bat_smoke_sh
-#   FIXTURE=<path>       source clip. Auto-generated with lavfi when absent
-#                        (the repo media fixtures are untracked, so a fresh
-#                        clone/box has none).
-#   EXPECT_AV1_QSV=ok|fail
-#                        "fail" (default) = Gen9.5-class iGPU: no AV1 encoder.
-#                        "ok"  = C machine: Arrow Lake hardware AV1 + /opt master-gpl,
-#                        and ffmpeg_av1_qsv.sh prepends /opt by itself.
+#   WIPE=0               keep the scratch dir (post-mortem); default 1 = wipe first
+#   FIXTURE=<path>       source clip; auto-generated with lavfi when absent
+#   EXPECT_AV1_QSV=auto|ok|fail|skip
+#                        auto (default) = probe the hardware with a 1-frame
+#                        clip first: unprobeable entries are reported as SKIP,
+#                        never FAIL. ok/fail = assert it, skip = never run.
+#
+# Exit code: 0 = all cases passed (SKIP is not a failure)
+#            1 = at least one FAIL
+#            2 = setup error (repo / ffmpeg / ffprobe / fixture generation)
+# ============================================================
+set -u
+
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${REPO:-$(cd "$SELF_DIR/../.." && pwd)}"
 W="${WORK:-${TMPDIR:-/tmp}/ffmpeg_bat_smoke_sh}"
-CASES="$W/cases"
 LOG="$W/logs"
 SUM="$W/summary.txt"
 PART="${1:-all}"
+EXPECT_AV1_QSV="${EXPECT_AV1_QSV:-auto}"
+WIPE="${WIPE:-1}"
+
+FF="$(command -v ffmpeg || true)"
+FP="$(command -v ffprobe || true)"
+
+# ---------- setup guards (exit 2 = setup error, not a test failure) ----------
+if [ ! -f "$REPO/lib/common.sh" ]; then
+    echo "FATAL: repo not found at $REPO (expected $REPO/lib/common.sh)" >&2
+    exit 2
+fi
+if [ -z "$FF" ] || [ -z "$FP" ]; then
+    echo "FATAL: ffmpeg/ffprobe not on PATH" >&2
+    exit 2
+fi
+[ "$WIPE" = "1" ] && rm -rf "$W"
+mkdir -p "$W" "$W/tiny" "$W/cases" "$W/probe" "$LOG"
+
+PASS=0; FAIL=0; SKIPN=0; RC=0; TB=""; HYG=""
 FIXTURE="${FIXTURE:-$W/fixture.mp4}"
-EXPECT_AV1_QSV="${EXPECT_AV1_QSV:-fail}"
 
-rm -rf "$W"
-mkdir -p "$CASES" "$LOG"
-: > "$SUM"
-
-PASS=0; FAIL=0; SKIP=0
-
-# ---- fixture: 720p30 5s H.264 + AAC, made by whatever ffmpeg is first on PATH ----
-if [ ! -f "$FIXTURE" ]; then
-  echo "fixture absent -> generating $FIXTURE"
-  ffmpeg -y -hide_banner -loglevel error \
-    -f lavfi -i "testsrc2=size=1280x720:rate=30" \
-    -f lavfi -i "sine=frequency=440:sample_rate=44100" \
-    -t 5 -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
-    -c:a aac -b:a 128k -shortest "$FIXTURE" || { echo "FIXTURE GENERATION FAILED"; exit 9; }
-fi
-echo "fixture: $FIXTURE ($(stat -c %s "$FIXTURE") bytes)"
-echo "av1_qsv expectation on this box: $EXPECT_AV1_QSV"
-
-say()  { echo "$@" | tee -a "$SUM"; }
+say()   { echo "$@" | tee -a "$SUM"; }
 head1() { say ""; say "==== $* ===="; }
+part_in() { [ "$PART" = "all" ] || [ "$PART" = "$1" ]; }
 
-# probe_vout <file> -> "codec/audio" summary, or NOFILE
-probe_vout() {
-  [ -f "$1" ] || { echo "NOFILE"; return; }
-  local v a
-  v=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null)
-  a=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null)
-  echo "v=${v:-none} a=${a:-none}"
+# ---------- metadata header (same spirit as the .bat summary) ----------
+{
+    echo "==== ffmpeg_bat_git sh smoke harness v2 ===="
+    echo "date    : $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "host    : $(hostname 2>/dev/null) ($(uname -srm))"
+    echo "repo    : $REPO"
+    echo "ffmpeg  : $("$FF" -hide_banner -version | head -1)"
+    echo "which   : ffmpeg=$FF ffprobe=$FP"
+    echo "shell   : $BASH_VERSION"
+    echo "av1_qsv : $EXPECT_AV1_QSV   (auto = probe hardware, SKIP when absent)"
+    echo
+} > "$SUM"
+
+# ---------- fixtures ----------
+# 1080p60 2s at ~18 Mbps: bitrate high enough that the table value always
+# wins the "source bitrate lower than table" clamp, so TARGET_BITRATE can be
+# asserted as an exact number - identical to what the .bat harness expects.
+mk_fixture() {
+    local out="$1" size="$2" rate="$3" secs="$4" br="$5" audio="$6"
+    local vopt=(-hide_banner -loglevel error -f lavfi -i "testsrc2=size=${size}:rate=${rate}")
+    if [ "$audio" = "1" ]; then
+        vopt+=(-f lavfi -i "sine=frequency=440:sample_rate=44100")
+    fi
+    vopt+=(-t "$secs" -c:v libx264 -preset ultrafast -b:v "$br" -pix_fmt yuv420p)
+    [ "$audio" = "1" ] && vopt+=(-c:a aac -b:a 128k -shortest)
+    "$FF" "${vopt[@]}" -y "$out" || return 1
+    return 0
 }
 
-# judge <name> <want:ok|fail> <expect_note> <outfile...>
-judge() {
-  local name="$1" want="$2" note="$3"; shift 3
-  local got f
-  if [ "$RC" -ne 0 ]; then
-    got="fail"
-  else
-    got="ok"
+mkdir -p "$W"
+if [ ! -f "$FIXTURE" ]; then
+    echo "fixture absent -> generating $FIXTURE (1080p60 2s ~18 Mbps)"
+    mk_fixture "$FIXTURE" 1920x1080 60 2 18M 1 || { echo "FATAL: fixture generation failed" >&2; exit 2; }
+fi
+IN="$FIXTURE"
+INMOV="$W/smoke mov input 1080p60.mov"
+QUIET="$W/smoke silent 1080p60.mp4"
+AONLY="$W/smoke audio only.m4a"
+LOW="$W/smoke lowbitrate 1080p30.mp4"
+TINY="$W/tiny/tiny.mp4"
+
+[ -f "$QUIET" ] || mk_fixture "$QUIET" 1920x1080 60 2 18M 0 || { echo "FATAL: silent fixture failed" >&2; exit 2; }
+[ -f "$INMOV" ] || mk_fixture "$INMOV" 1920x1080 60 1 18M 1 || { echo "FATAL: mov fixture failed" >&2; exit 2; }
+[ -f "$AONLY" ] || "$FF" -hide_banner -loglevel error -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 2 -c:a aac -b:a 128k -y "$AONLY" || { echo "FATAL: audio fixture failed" >&2; exit 2; }
+# low-bitrate source: 400k < table(1080p AVC)/2 = 3836249 -> the documented
+# "keep the source bitrate" clamp must fire in ARG mode too (T17).
+[ -f "$LOW" ] || mk_fixture "$LOW" 1920x1080 30 2 400k 1 || { echo "FATAL: low-bitrate fixture failed" >&2; exit 2; }
+# tiny clip for availability probing (T15/T19 style hardware gates)
+# NOTE: 320x240, NOT 128x128. NVENC refuses to initialise an encoder below a
+# minimum size ("InitializeEncoder failed: invalid argument"), so a 128x128 probe
+# clip made the gate report SKIP on boxes whose GPU works perfectly well --
+# measured 2026-09-16 on the RTX box: 128x128 fails for hevc_nvenc AND av1_nvenc,
+# 160x120 and above succeed. QSV accepts any of them, but one probe clip is used
+# for both families, and the probe must never be the reason a box looks
+# unsupported.
+[ -f "$TINY" ] || mk_fixture "$TINY" 320x240 30 1 200k 1 || { echo "FATAL: tiny fixture failed" >&2; exit 2; }
+
+say "probe mp4  : $IN   [1080p60, audio+video]"
+say "probe mov  : $INMOV   [audio+video]"
+say "probe mute : $QUIET   [video only, -map 0:a? regression]"
+say "probe audio: $AONLY   [audio only, non-video guard]"
+say "probe low  : $LOW   [400k source -> clamp regression]"
+say "probe tiny : $TINY   [hardware availability probe]"
+# UTF-8 file names for T11, built from byte escapes so this file stays ASCII-only:
+# "ep1"/"ep2 space" written with CJK ideographs.
+UTF8_1="$(printf '\xE7\xAC\xAC\xE4\xB8\x80\xE9\x9B\x86')"
+UTF8_2="$(printf '\xE7\xAC\xAC\xE4\xBA\x8C\xE9\x9B\x86 \xE7\xA9\xBA\xE6\xA0\xBC')"
+say ""
+say "---- verdicts ----"
+
+# ---------- helpers ----------
+probe_codec() {   # probe_codec <file> -> codec_name or NOFILE
+    [ -f "$1" ] || { echo "NOFILE"; return; }
+    local c
+    c=$("$FP" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null | tr -d '\r')
+    echo "${c:-none}"
+}
+
+probe_sidecar() {  # probe_sidecar <file> <out.txt>
+    [ -f "$1" ] || return 0
+    "$FP" -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate \
+        -of default=noprint_wrappers=1 "$1" > "$2" 2>&1
+}
+
+tb_of() {   # last TARGET_BITRATE value printed in a log
+    grep -aoE 'TARGET_BITRATE *[=:] *[0-9]+k?' "$1" 2>/dev/null | tail -1 | sed -E 's/.*[=:] *//'
+}
+
+check_hygiene() {  # check_hygiene <log> -> sets HYG to ";"-joined findings
+    local f="$1" hits=""
+    grep -aq "is not recognized" "$f" && hits="$hits bannerParseErr;"
+    grep -aq "bitrate abnormal" "$f" && hits="$hits bitrateAbnormal;"
+    grep -aq "command not found" "$f" && hits="$hits commandNotFound;"
+    grep -aqE "^bash: line|syntax error" "$f" && hits="$hits shellSyntaxErr;"
+    HYG="$hits"
+}
+
+judge() {   # judge <tid> <name> <want:ok|fail> <expTARGET> <expCODEC> <note>
+    # expTARGET: exact number | LT:<n> | INFO | 0 | "" (=assert nothing)
+    # expCODEC : exact codec_name | INFO | "" (=assert nothing)
+    local tid="$1" name="$2" want="$3" expt="$4" expc="$5" note="$6"
+    local got="ok" why="" CODEC="none" tbn=""
+
+    [ "$RC" -ne 0 ] && got="fail"
+    if [ "$got" = "ok" ] && [ ! -f "$OUT" ]; then got="ok-no-output"; fi
+
+    TB="$(tb_of "$LOGF")"
+    if [ "$got" = "ok" ]; then
+        check_hygiene "$LOGF"; why="$HYG"
+        tbn="${TB%k}"
+        case "$expt" in
+            ""|0|INFO) ;;
+            LT:*) if [ -n "$tbn" ] && [ "$tbn" -lt "${expt#LT:}" ]; then :; else why="$why targetNotLt${expt#LT:}(got=${TB:-none});"; fi ;;
+            *)    if [ "$TB" = "$expt" ]; then :; else why="$why targetBitrate=${TB:-none} expected=$expt;"; fi ;;
+        esac
+        CODEC="$(probe_codec "$OUT")"
+        case "$expc" in
+            ""|INFO) ;;
+            *) if [ "$CODEC" = "$expc" ]; then :; else why="$why codec=$CODEC expected=$expc;"; fi ;;
+        esac
+        probe_sidecar "$OUT" "$LOG/${tid}_${name}_probe.txt"
+    fi
+
+    if [ "$got" = "$want" ] && [ -z "$why" ]; then
+        PASS=$((PASS+1))
+        say "[PASS] $tid $name rc=$RC target=${TB:-none} codec=$CODEC  ($note)"
+        [ "$want" = "fail" ] && say "       (expected failure; log kept at $LOG/${tid}_${name}.log)"
+    else
+        FAIL=$((FAIL+1))
+        say "[FAIL] $tid $name rc=$RC want=$want got=$got target=${TB:-none} codec=$CODEC"
+        say "       note: $note"
+        [ -n "$why" ] && say "       why : $why"
+        say "       log : $LOGF"
+        sed 's/^/       | /' "$LOGF" | tail -8 >> "$SUM"
+    fi
+}
+
+skipcase() {   # skipcase <tid> <name> <note>
+    SKIPN=$((SKIPN+1))
+    say "[SKIP] $1 $2  ($3)"
+}
+
+# can_run <script> <extra args...> : run the entry against the tiny clip.
+# Used to gate hardware-dependent entries so a box without the hardware
+# reports SKIP instead of FAIL (same policy as T15 in the .bat harness).
+can_run() {
+    local script="$1"; shift
+    local d="$W/probe/$(basename "$script" .sh)"
+    mkdir -p "$d"; cp -f "$TINY" "$d/clip.mp4"
+    bash "$REPO/$script" "$d/clip.mp4" "$@" > "$LOG/probe_$(basename "$script" .sh).log" 2>&1
+    [ $? -eq 0 ] && [ -f "$d/clip-compressed.mp4" ]
+}
+
+# run_arg <tid> <script> <want> <expTARGET> <expCODEC> <note> [input file]
+run_arg() {
+    local tid="$1" script="$2" name="${2%.sh}"
+    local d="$W/cases/${tid}_${name}"
+    mkdir -p "$d"; cp -f "${7:-$IN}" "$d/clip.mp4"
+    LOGF="$LOG/${tid}_${name}.log"; OUT="$d/clip-compressed.mp4"
+    rm -f "$OUT"
+    bash "$REPO/$script" "$d/clip.mp4" > "$LOGF" 2>&1
+    RC=$?
+    judge "$tid" "$name" "$3" "$4" "$5" "$6"
+}
+
+# gate_arg <tid> <script> <expTARGET> <expCODEC> <note>
+# Hardware-dependent entries: probe the box with the tiny clip first and
+# report SKIP when this machine cannot run the encoder at all, so the suite
+# stays green (and honest) on boxes without that hardware.
+gate_arg() {
+    local tid="$1" script="$2" expt="$3" expc="$4" note="$5"
+    if can_run "$script"; then
+        run_arg "$tid" "$script" ok "$expt" "$expc" "$note (hardware probe passed)"
+    else
+        skipcase "$tid" "${script%.sh}" "not runnable here: $note (probe log: $LOG/probe_$(basename "$script" .sh).log)"
+    fi
+}
+
+# ============================================================
+# part: parity  (T-ids shared with smoke_ffmpeg_bat.bat)
+# ============================================================
+if part_in parity; then
+head1 "part parity: 1080p60 fixture, arg mode (same T-ids as the .bat harness)"
+
+# --- software paths: asserted unconditionally (no hardware involved) ---
+run_arg T4  ffmpeg_libx265.sh ok 2548951 hevc "arg: soft HEVC"
+run_arg T16 ffmpeg_libx264.sh ok 3836249 h264 "arg: soft AVC (bat twin added 2026-09-16)"
+# T17: 400k source vs table(1080p AVC)/2 = 3836249 -> the documented clamp
+# ("keep the source bitrate") must fire in ARG mode, not only interactively.
+run_arg T17 ffmpeg_libx264.sh ok LT:3836249 h264 "arg: low-bitrate source keeps source bitrate" "$LOW"
+say "       | $(grep -a 'real TARGET_BITRATE\|percentage' "$LOG/T17_libx264.log" | tr '\n' ' ')"
+
+# --- hardware paths: probe first, SKIP when this box cannot run the encoder ---
+# format: tid|script|expTARGET|expCODEC|note
+while IFS='|' read -r tid script expt expc note; do
+    [ -z "$tid" ] && continue
+    gate_arg "$tid" "$script" "$expt" "$expc" "$note"
+done <<'SPECS'
+T1|ffmpeg_avc_qsv.sh|3836249|h264|QSV AVC
+T3|ffmpeg_hevc_qsv.sh|2548951|hevc|QSV HEVC
+T8|ffmpeg_h264_vaapi.sh|3836249|h264|VAAPI AVC (Linux-only entry: VAAPI is a Linux kernel API)
+T19|ffmpeg_hevc_vaapi.sh|2548951|hevc|VAAPI HEVC
+T2|ffmpeg_hevc_nvenc.sh|2548951|hevc|NVENC HEVC
+T14|ffmpeg_av1_nvenc.sh|1656818|av1|AV1 NVENC (needs Ada or newer)
+T20|ffmpeg_hevc_nvenc_cygwin.sh|2548951|hevc|Cygwin variant (cuvid + hwdownload)
+SPECS
+
+# AV1 QSV: keep the explicit override knob (auto = probe, see the header)
+if [ "$EXPECT_AV1_QSV" = "skip" ]; then
+    skipcase T15 ffmpeg_av1_qsv.sh "EXPECT_AV1_QSV=skip"
+elif [ "$EXPECT_AV1_QSV" = "ok" ] || [ "$EXPECT_AV1_QSV" = "fail" ]; then
+    run_arg T15 ffmpeg_av1_qsv.sh "$EXPECT_AV1_QSV" 1656818 av1 "arg: AV1 QSV (forced by EXPECT_AV1_QSV)"
+else
+    gate_arg T15 ffmpeg_av1_qsv.sh 1656818 av1 "AV1 QSV (needs Arrow Lake or newer iGPU)"
+fi
+
+# T5: copy_to_mp4 remux, no bitrate table; output keeps the source name
+d="$W/cases/T5_copy_to_mp4"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mkv"
+LOGF="$LOG/T5_copy_to_mp4.log"; OUT="$d/remux_me.mp4"; rm -f "$OUT"
+bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/remux_me.mkv" > "$LOGF" 2>&1
+RC=$?
+judge T5 copy_to_mp4 ok INFO h264 "arg: remux mov -> mp4, no re-encode"
+
+# T6: interactive mode, path via stdin, no bitrate override (src = QSV AVC)
+if can_run ffmpeg_avc_qsv.sh; then
+    d="$W/cases/T6_avc_qsv_stdin"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+    LOGF="$LOG/T6_avc_qsv_stdin.log"; OUT="$d/clip-compressed.mp4"; rm -f "$OUT"
+    printf '%s\n\n' "$d/clip.mp4" | bash "$REPO/ffmpeg_avc_qsv.sh" > "$LOGF" 2>&1
+    RC=$?
+    judge T6 avc_qsv_stdin ok 3836249 h264 "stdin: path then blank (keeps computed bitrate)"
+else
+    skipcase T6 avc_qsv_stdin "QSV AVC not runnable here (probe log: $LOG/probe_ffmpeg_avc_qsv.log)"
+fi
+
+# T7: the .bat harness has a "usage C" case (fresh cmd process already in
+# UTF-8 / cp65001 guard). There is no console-codepage concept on Linux.
+skipcase T7 cp65001_guard "no analogue: the cp65001 guard is a Windows console feature"
+
+# T10: silent input (-map 0:a? regression)
+if can_run ffmpeg_avc_qsv.sh; then
+    d="$W/cases/T10_avc_qsv_silent"; mkdir -p "$d"; cp -f "$QUIET" "$d/clip.mp4"
+    LOGF="$LOG/T10_avc_qsv_silent.log"; OUT="$d/clip-compressed.mp4"; rm -f "$OUT"
+    bash "$REPO/ffmpeg_avc_qsv.sh" "$d/clip.mp4" > "$LOGF" 2>&1
+    RC=$?
+    judge T10 avc_qsv_silent ok 3836249 h264 "arg: video-only source (-map 0:a? regression)"
+else
+    skipcase T10 avc_qsv_silent "QSV AVC not runnable here (probe log: $LOG/probe_ffmpeg_avc_qsv.log)"
+fi
+
+# T18 (sh-only): interactive bitrate override. The .bat side asks for a raw
+# ffmpeg value at that point, so there is no equivalent assertion there.
+d="$W/cases/T18_libx264_stdin_br"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+LOGF="$LOG/T18_libx264_stdin_br.log"; OUT="$d/clip-compressed.mp4"; rm -f "$OUT"
+printf '%s\n900k\n' "$d/clip.mp4" | bash "$REPO/ffmpeg_libx264.sh" > "$LOGF" 2>&1
+RC=$?
+judge T18 libx264_stdin_br ok 900k h264 "stdin: path + bitrate override 900k"
+fi
+
+# ============================================================
+# part: list
+# ============================================================
+mklist() {   # mklist <dir> <listfile> <eol:lf|crlf> <bom:0|1> <names...>
+    local d="$1" lf="$2" eol="$3" bom="$4"; shift 4
+    : > "$lf"
+    [ "$bom" = "1" ] && printf '\xEF\xBB\xBF' >> "$lf"
+    local f
     for f in "$@"; do
-      [ -f "$f" ] || got="ok-no-output"
+        cp -f "$IN" "$d/$f"
+        if [ "$eol" = "crlf" ]; then printf '%s\r\n' "$d/$f" >> "$lf"
+        else printf '%s\n' "$d/$f" >> "$lf"; fi
     done
-  fi
-  local mark
-  if [ "$got" = "$want" ]; then
-    mark="PASS"; PASS=$((PASS+1))
-  else
-    mark="FAIL"; FAIL=$((FAIL+1))
-  fi
-  local extra=""
-  if [ $# -gt 0 ]; then extra=" | out: $(probe_vout "$1")"; fi
-  say "[$mark] $name  rc=$RC want=$want got=$got$extra  ($note)"
-  if [ "$mark" = "FAIL" ]; then
-    sed 's/^/        | /' "$LOG/$name.log" | tail -6 >> "$SUM"
-  fi
 }
 
-# newdir <name> -> path with clip.mp4 inside
-newdir() {
-  local d="$CASES/$1"
-  mkdir -p "$d"
-  cp -f "$FIXTURE" "$d/clip.mp4"
-  echo "$d"
-}
+if part_in list; then
+head1 "part list: T9/T11/T12 mirror the .bat harness, T21-T23 are sh-only extensions"
 
-# ---------- part 1: arg mode ----------
-if [ "$PART" = "all" ] || [ "$PART" = "arg" ]; then
-head1 "part 1: arg mode (single file, path as \$1)"
-for spec in "ffmpeg_h264_vaapi.sh:ok:VAAPI AVC" \
-            "ffmpeg_hevc_vaapi.sh:ok:VAAPI HEVC" \
-            "ffmpeg_libx264.sh:ok:soft AVC" \
-            "ffmpeg_libx265.sh:ok:soft HEVC" \
-            "ffmpeg_avc_qsv.sh:ok:QSV AVC" \
-            "ffmpeg_hevc_qsv.sh:ok:QSV HEVC" \
-            "ffmpeg_av1_qsv.sh:$EXPECT_AV1_QSV:AV1 HW encoder availability is box-dependent (want=$EXPECT_AV1_QSV)" \
-            "ffmpeg_hevc_nvenc.sh:fail:no NVIDIA GPU" \
-            "ffmpeg_av1_nvenc.sh:fail:no NVIDIA GPU" \
-            "ffmpeg_hevc_nvenc_cygwin.sh:fail:Cygwin-only entry" ; do
-  s="${spec%%:*}"; rest="${spec#*:}"; want="${rest%%:*}"; note="${rest#*:}"
-  n="${s%.sh}"
-  d=$(newdir "$n")
-  bash "$REPO/$s" "$d/clip.mp4" > "$LOG/$n.log" 2>&1
-  RC=$?
-  judge "$n" "$want" "$note" "$d/clip-compressed.mp4"
-done
-
-# copy_to_mp4: removes the suffix-free name -> clip.mp4 collides with the source,
-# so use a differently named source inside its own dir.
-d=$(newdir "copy_to_mp4_arg")
-mv "$d/clip.mp4" "$d/remux_me.mkv"
-bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/remux_me.mkv" > "$LOG/copy_to_mp4_arg.log" 2>&1
+# T9: 2-entry list, cwd = repo (the .bat T9 writes a CRLF list via cmd echo)
+d="$W/cases/T9_list"; mkdir -p "$d"
+mklist "$d" "$d/list.txt" lf 0 "ep1.mkv" "ep 2.mkv"
+LOGF="$LOG/T9_convert_from_list.log"
+rm -f "$d"/*-compressed.mp4
+( cd "$REPO" && bash "$REPO/convert_from_list_qsv.sh" "$d/list.txt" ) > "$LOGF" 2>&1
 RC=$?
-judge "copy_to_mp4_arg" "ok" "remux, no re-encode" "$d/remux_me.mp4"
-fi
+n=0; for f in "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4"; do [ -f "$f" ] && n=$((n+1)); done
+OUT="$d/ep1-compressed.mp4"
+if [ "$RC" -eq 0 ] && [ "$n" -eq 2 ]; then PASS=$((PASS+1)); say "[PASS] T9 convert_from_list_qsv 2-entry list, cwd=repo  (outputs=$n/2)"
+else FAIL=$((FAIL+1)); say "[FAIL] T9 convert_from_list_qsv 2-entry list, cwd=repo  outputs=$n/2 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
 
-# ---------- part 2: interactive mode (stdin) ----------
-if [ "$PART" = "all" ] || [ "$PART" = "stdin" ]; then
-head1 "part 2: interactive mode (no args, path via stdin)"
-d=$(newdir "h264_vaapi_stdin")
-printf '%s\n\n' "$d/clip.mp4" | bash "$REPO/ffmpeg_h264_vaapi.sh" > "$LOG/h264_vaapi_stdin.log" 2>&1
+# T11: UTF-8 (non-ASCII) names in a list (the .bat harness T11 uses a stale
+# fixture and SKIPs when it is missing; here the names are made on the fly)
+d="$W/cases/T11_list_utf8"; mkdir -p "$d"
+mklist "$d" "$d/list_utf8.txt" lf 0 "${UTF8_1}.mkv" "${UTF8_2}.mkv"
+LOGF="$LOG/T11_convert_from_list_utf8.log"
+rm -f "$d"/*-compressed.mp4
+bash "$REPO/convert_from_list_qsv.sh" "$d/list_utf8.txt" > "$LOGF" 2>&1
 RC=$?
-judge "h264_vaapi_stdin" "ok" "interactive: path + default bitrate" "$d/clip-compressed.mp4"
+n=0; for f in "$d/${UTF8_1}-compressed.mp4" "$d/${UTF8_2}-compressed.mp4"; do [ -f "$f" ] && n=$((n+1)); done
+if [ "$RC" -eq 0 ] && [ "$n" -eq 2 ]; then PASS=$((PASS+1)); say "[PASS] T11 list mode utf8 names  (outputs=$n/2)"
+else FAIL=$((FAIL+1)); say "[FAIL] T11 list mode utf8 names  outputs=$n/2 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
 
-# interactive with an explicit bitrate override
-d=$(newdir "libx264_stdin_br")
-printf '%s\n900k\n' "$d/clip.mp4" | bash "$REPO/ffmpeg_libx264.sh" > "$LOG/libx264_stdin_br.log" 2>&1
+# T12: list mode with NO argument, cwd elsewhere -> default list.txt in cwd
+d="$W/cases/T12_list_nocwd"; mkdir -p "$d"
+mklist "$d" "$d/list.txt" lf 0 "ep1.mkv" "ep 2.mkv"
+LOGF="$LOG/T12_convert_from_list_nocwd.log"
+rm -f "$d"/*-compressed.mp4
+( cd "$d" && bash "$REPO/convert_from_list_qsv.sh" ) > "$LOGF" 2>&1
 RC=$?
-judge "libx264_stdin_br" "ok" "interactive: path + bitrate override 900k" "$d/clip-compressed.mp4"
-grep -a "real TARGET_BITRATE" "$LOG/libx264_stdin_br.log" | tail -1 | sed 's/^/        | /' >> "$SUM"
-fi
+n=0; for f in "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4"; do [ -f "$f" ] && n=$((n+1)); done
+if [ "$RC" -eq 0 ] && [ "$n" -eq 2 ]; then PASS=$((PASS+1)); say "[PASS] T12 list mode, no arg, cwd elsewhere  (outputs=$n/2)"
+else FAIL=$((FAIL+1)); say "[FAIL] T12 list mode, no arg, cwd elsewhere  outputs=$n/2 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
 
-# ---------- part 3: list mode (the </dev/null fix) ----------
-if [ "$PART" = "all" ] || [ "$PART" = "list" ]; then
-head1 "part 3: list mode (3 entries incl. a name with a space)"
-
-mklist() {   # mklist <dir> <listfile> <eol:lf|crlf> <bom:0|1>
-  local d="$1" lf="$2" eol="$3" bom="$4" f
-  : > "$lf"
-  [ "$bom" = "1" ] && printf '\xEF\xBB\xBF' >> "$lf"
-  for f in "ep1.mkv" "ep 2.mkv" "ep3.mkv"; do
-    cp -f "$FIXTURE" "$d/$f"
-    if [ "$eol" = "crlf" ]; then printf '%s\r\n' "$d/$f" >> "$lf"
-    else printf '%s\n' "$d/$f" >> "$lf"; fi
-  done
-}
-
-for spec in "convert_from_list_libx265.sh:ok:list -> libx265" \
-            "convert_from_list_qsv.sh:ok:list -> hevc_qsv" \
-            "convert_from_list_cuda.sh:fail:list -> nvenc, no NVIDIA GPU" ; do
-  s="${spec%%:*}"; rest="${spec#*:}"; want="${rest%%:*}"; note="${rest#*:}"
-  n="${s%.sh}"
-  d="$CASES/$n"; mkdir -p "$d"
-  mklist "$d" "$d/list_lf.txt" lf 0
-  bash "$REPO/$s" "$d/list_lf.txt" > "$LOG/$n.log" 2>&1
-  RC=$?
-  judge "$n" "$want" "$note" "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4" "$d/ep3-compressed.mp4"
-done
-
-# repack_from_list writes <name>.mp4 (no -compressed suffix)
-d="$CASES/repack_from_list"; mkdir -p "$d"
-mklist "$d" "$d/list_lf.txt" lf 0
-bash "$REPO/repack_from_list.sh" "$d/list_lf.txt" > "$LOG/repack_from_list.log" 2>&1
+# T21 (sh-only): Notepad-style CRLF + UTF-8 BOM list must still parse
+d="$W/cases/T21_list_crlf_bom"; mkdir -p "$d"
+mklist "$d" "$d/list_crlf.txt" crlf 1 "ep1.mkv" "ep 2.mkv" "ep3.mkv"
+LOGF="$LOG/T21_list_crlf_bom.log"
+rm -f "$d"/*-compressed.mp4
+bash "$REPO/convert_from_list_libx265.sh" "$d/list_crlf.txt" > "$LOGF" 2>&1
 RC=$?
-judge "repack_from_list" "ok" "list -> remux" "$d/ep1.mp4" "$d/ep 2.mp4" "$d/ep3.mp4"
+n=0; for f in "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4" "$d/ep3-compressed.mp4"; do [ -f "$f" ] && n=$((n+1)); done
+if [ "$RC" -eq 0 ] && [ "$n" -eq 3 ]; then PASS=$((PASS+1)); say "[PASS] T21 CRLF + UTF-8 BOM list  (outputs=$n/3)"
+else FAIL=$((FAIL+1)); say "[FAIL] T21 CRLF + UTF-8 BOM list  outputs=$n/3 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
 
-head1 "part 3b: CRLF + BOM list (Notepad-style) - run_list tolerance"
-d="$CASES/convert_from_list_libx265_crlf"; mkdir -p "$d"
-mklist "$d" "$d/list_crlf.txt" crlf 1
-bash "$REPO/convert_from_list_libx265.sh" "$d/list_crlf.txt" > "$LOG/list_crlf_bom.log" 2>&1
-RC=$?
-judge "list_crlf_bom" "ok" "CRLF + UTF-8 BOM must still parse" "$d/ep1-compressed.mp4" "$d/ep 2-compressed.mp4" "$d/ep3-compressed.mp4"
-fi
-
-# ---------- part 4: guard rails ----------
-if [ "$PART" = "all" ] || [ "$PART" = "guard" ]; then
-head1 "part 4: guard rails"
-d="$CASES/guard_nonvideo"; mkdir -p "$d"
-echo "this is not a video" > "$d/notes.txt"
-bash "$REPO/ffmpeg_h264_vaapi.sh" "$d/notes.txt" > "$LOG/guard_nonvideo.log" 2>&1
-RC=$?
-judge "guard_nonvideo" "fail" "non-video input rejected before ffmpeg"
-
-d="$CASES/guard_missing"; mkdir -p "$d"
-bash "$REPO/ffmpeg_h264_vaapi.sh" "$d/does_not_exist.mp4" > "$LOG/guard_missing.log" 2>&1
-RC=$?
-judge "guard_missing" "fail" "missing input rejected"
-rc_on=$(grep -c "Convert failed" "$LOG/guard_nonvideo.log")
-say "        | (non-video log: 'Convert failed' x$rc_on)"
-
-d="$CASES/guard_badlist"; mkdir -p "$d"
-printf '%s\n' "$d/nope.mp4" > "$d/badlist.txt"
-bash "$REPO/convert_from_list_libx265.sh" "$d/badlist.txt" > "$LOG/guard_badlist.log" 2>&1
-RC=$?
-judge "guard_badlist" "fail" "list entry missing -> abort at that entry"
-fi
-
-# ---------- part 5: </dev/null regression, isolated ----------
-if [ "$PART" = "all" ] || [ "$PART" = "stdinleak" ]; then
-head1 "part 5: run_list stdin isolation (the </dev/null fix)"
-say "  3-entry list, entry #2/#3 would lose their first char if ffmpeg ate stdin."
-d="$CASES/stdinleak"; mkdir -p "$d"
+# T22 (sh-only): 5-entry list -> stdin isolation (the </dev/null fix).
+# Without </dev/null, Linux ffmpeg eats 1 byte from the shared fd and entries
+# #2..#5 lose their first character.
+d="$W/cases/T22_stdinleak"; mkdir -p "$d"
 : > "$d/list.txt"
-for i in 1 2 3 4 5; do
-  cp -f "$FIXTURE" "$d/e${i}.mkv"
-  printf '%s\n' "$d/e${i}.mkv" >> "$d/list.txt"
-done
-bash "$REPO/convert_from_list_libx265.sh" "$d/list.txt" > "$LOG/stdinleak.log" 2>&1
+for i in 1 2 3 4 5; do cp -f "$IN" "$d/e${i}.mkv"; printf '%s\n' "$d/e${i}.mkv" >> "$d/list.txt"; done
+LOGF="$LOG/T22_stdinleak.log"
+bash "$REPO/convert_from_list_libx265.sh" "$d/list.txt" > "$LOGF" 2>&1
 RC=$?
-n=0
-for i in 1 2 3 4 5; do [ -f "$d/e${i}-compressed.mp4" ] && n=$((n+1)); done
-say "[$([ "$RC" -eq 0 ] && [ "$n" -eq 5 ] && echo PASS || echo FAIL)] stdinleak  5-entry list rc=$RC outputs=$n/5"
-[ "$RC" -eq 0 ] && [ "$n" -eq 5 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
-grep -a "file not exists\|No such file" "$LOG/stdinleak.log" | head -2 | sed 's/^/        | /' >> "$SUM"
+n=0; for i in 1 2 3 4 5; do [ -f "$d/e${i}-compressed.mp4" ] && n=$((n+1)); done
+if [ "$RC" -eq 0 ] && [ "$n" -eq 5 ]; then PASS=$((PASS+1)); say "[PASS] T22 stdin isolation (</dev/null)  5-entry list, outputs=$n/5"
+else FAIL=$((FAIL+1)); say "[FAIL] T22 stdin isolation (</dev/null)  5-entry list, outputs=$n/5 rc=$RC"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"; fi
 fi
 
+# ============================================================
+# part: guard
+# ============================================================
+if part_in guard; then
+head1 "part guard: input validation and the exit-code contract"
+
+# T13: audio-only input must be REJECTED before ffmpeg, exit code 3
+# (soft-encode entry on purpose: the guard lives in lib/common.sh and is
+#  shared by every entry, so this stays runnable without any hardware)
+d="$W/cases/T13_nonvideo"; mkdir -p "$d"
+LOGF="$LOG/T13_nonvideo.log"; OUT="$d/never.mp4"
+bash "$REPO/ffmpeg_libx264.sh" "$AONLY" > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -eq 3 ] && [ ! -f "$AONLY-compressed.mp4" ]; then
+    PASS=$((PASS+1)); say "[PASS] T13 non-video input rejected before ffmpeg rc=3 (exit-code contract)"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T13 non-video input rejected rc=$RC want=3"; sed 's/^/       | /' "$LOGF" | tail -6 >> "$SUM"
+fi
+rm -f "$AONLY-compressed.mp4"
+
+# T24 (sh-only): missing input file -> non-zero, no output
+d="$W/cases/T24_missing"; mkdir -p "$d"
+LOGF="$LOG/T24_missing.log"
+bash "$REPO/ffmpeg_avc_qsv.sh" "$d/does_not_exist.mp4" > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T24 missing input rejected rc=$RC"
+else FAIL=$((FAIL+1)); say "[FAIL] T24 missing input rc=$RC want non-zero"; fi
+
+# T25 (sh-only): a non-text list file must be rejected
+d="$W/cases/T25_badlist"; mkdir -p "$d"
+printf '\x00\x01\x02binary' > "$d/blob.bin"
+LOGF="$LOG/T25_badlist.log"
+bash "$REPO/convert_from_list_qsv.sh" "$d/blob.bin" > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T25 non-text list file rejected rc=$RC"
+else FAIL=$((FAIL+1)); say "[FAIL] T25 non-text list file rc=$RC want non-zero"; fi
+
+# T23 (sh-only): a missing list entry aborts the run at that entry
+d="$W/cases/T23_list_abort"; mkdir -p "$d"
+printf '%s\n' "$d/nope.mp4" > "$d/badlist.txt"
+LOGF="$LOG/T23_list_abort.log"
+bash "$REPO/convert_from_list_qsv.sh" "$d/badlist.txt" > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T23 missing list entry aborts run rc=$RC"
+else FAIL=$((FAIL+1)); say "[FAIL] T23 missing list entry rc=$RC want non-zero"; fi
+
+# ---- global hygiene: no log may carry the banner parse error or a shell error ----
+BADN=0
+for f in "$LOG"/*.log; do
+    [ -f "$f" ] || continue
+    if grep -aq "is not recognized" "$f"; then say "[FAIL] banner parse error in $(basename "$f")"; BADN=$((BADN+1)); fi
+done
+if [ "$BADN" -eq 0 ]; then PASS=$((PASS+1)); say "[PASS] banner check: no 'is not recognized' in any log"
+else FAIL=$((FAIL+1)); fi
+fi
+
+# ---------- summary + exit code ----------
 say ""
 say "============================================================"
-say "sh-family smoke:  PASS=$PASS  FAIL=$FAIL  (ffmpeg: $(ffmpeg -hide_banner -version | head -1 | awk '{print $3}'))"
+say "sh smoke v2: PASS=$PASS  FAIL=$FAIL  SKIP=$SKIPN   ffmpeg=$("$FF" -hide_banner -version | head -1 | awk '{print $3}')"
 say "logs: $LOG"
 say "============================================================"
+if [ "$FAIL" -gt 0 ]; then exit 1; fi
+exit 0
