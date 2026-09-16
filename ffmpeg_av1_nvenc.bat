@@ -28,7 +28,7 @@ exit /b %errorlevel%
 
 rem ============================================================
 rem ffmpeg_av1_nvenc.bat - AV1 NVENC 硬件加速压缩 (P1 重构版)
-rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址
+rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址
 rem 需要 Ada 及以后的 N 卡(RTX 40 系起)才支持 AV1 硬编; 与 ffmpeg_av1_nvenc.sh 行为对齐
 rem 码率查表: lib\bitrate_table_av1.csv | 公共函数: lib\common.bat
 rem ------------------------------------------------------------
@@ -166,7 +166,7 @@ IF not %ERRORLEVEL% NEQ 0 (
 )
 echo SRC_BITRATE=%SRC_BITRATE%
 
-rem ---------- 码率查表: lib\bitrate_table_hevc.csv (替代原 190 行 if-elif) ----------
+rem ---------- 码率查表: lib\bitrate_table_av1.csv (替代原 190 行 if-elif) ----------
 set "BIT="
 call "%SELF_DIR%lib\common.bat" lookup_bitrate %SRC_PIX% BIT bitrate_table_av1.csv
 if not defined BIT (
@@ -183,11 +183,13 @@ set "percentage="
 
     echo percentage=%percentage%%%
 
-if %percentage% geq 100 if "%~1"=="" (
+rem 下面两个判定不限于交互模式: arg(拖放/命令行)模式同样生效, 与 .sh 保持一致
+rem (原写法多了 if "%~1"=="" 前置, 使低码率源在 arg 模式下被重编码放大)
+if %percentage% geq 100 (
     set BIT=%SRC_BITRATE%
 )
 
-if %percentage% leq 0 if "%~1"=="" (
+if %percentage% leq 0 (
    echo bitrate abnormal, please check
    exit /b 5
 )

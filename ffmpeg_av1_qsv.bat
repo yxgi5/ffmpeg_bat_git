@@ -185,11 +185,13 @@ set "percentage="
 
     echo percentage=%percentage%%%
 
-if %percentage% geq 100 if "%~1"=="" (
+rem 下面两个判定不限于交互模式: arg(拖放/命令行)模式同样生效, 与 .sh 保持一致
+rem (原写法多了 if "%~1"=="" 前置, 使低码率源在 arg 模式下被重编码放大)
+if %percentage% geq 100 (
     set BIT=%SRC_BITRATE%
 )
 
-if %percentage% leq 0 if "%~1"=="" (
+if %percentage% leq 0 (
    echo bitrate abnormal, please check
    exit /b 5
 )
