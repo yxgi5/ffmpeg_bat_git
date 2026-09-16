@@ -78,8 +78,8 @@ fi
 
 echo "SRC_BITRATE: $SRC_BITRATE"
 
-# ---------- 码率查表 (bitrate_table_hevc.csv) ----------
-BIT=$(lookup_bitrate "$SRC_PIX")
+# ---------- 码率查表 (bitrate_table_avc.csv, AVC 专用模型) ----------
+BIT=$(lookup_bitrate "$SRC_PIX" "bitrate_table_avc.csv")
 if [ $? -ne 0 ] || [ -z "$BIT" ]; then
     echo -e "\033[41;36mManual handle it!\033[0m"
     exit 2

@@ -1,6 +1,6 @@
 # ffmpeg 编码环境×硬件 能力矩阵
 
-**更新日期:** 2026-09-15  
+**更新日期:** 2026-09-16  
 **维护说明:** 本矩阵随实测进度更新状态标记，每格状态必须有两类依据之一——本仓库会话实测记录，或 ffmpeg 构建清单（`-encoders`/`-hwaccels` 输出）。
 
 ## 状态图例
@@ -34,12 +34,14 @@
 | ------------------------- | :-----------------------: | :----------------------------: | :--------------------: |
 | NVENC h264/hevc 编码        |          ➖ 无 N 卡          |           ✅ 已验证（本会话）           |         ➖ 无 N 卡        |
 | NVENC AV1 编码              |             ➖             |        ✅ 已验证（本会话：三构建冒烟 + cuda 解码→AV1 真实转码全通过）        |            ➖           |
-| QSV h264/hevc 编码          |          🟡 硬件支持          |        ✅ 已验证（本会话，核显 UHD）       |         🟡 硬件支持        |
-| QSV AV1 编码                |     ❌ Gen9.5 无 AV1 编码     |    ❌ Raptor Lake 核显无 AV1 编码    | 🟡 **硬件支持，AV1 验证就在这台** |
-| VAAPI h264/hevc 编码（Linux） | 🟡 UHD630 由 iHD/i965 驱动支持 |         🟡 核显由 iHD 驱动支持        |   🟡 Xe 核显由 iHD 驱动支持   |
-| AV1 硬解                    |             ❌             |     🟡 4080L + 核显均支持 AV1 解码    |           🟡           |
+| QSV h264/hevc 编码          |          🟡 硬件支持          |        ✅ 已验证（本会话，核显 UHD）       |    ✅ 已验证（2026-09-16 Linux 双构建）     |
+| QSV AV1 编码                |     ❌ Gen9.5 无 AV1 编码     |    ❌ Raptor Lake 核显无 AV1 编码    | ✅ 已验证（2026-09-16 Linux master 构建，1080p/4K） |
+| VAAPI h264/hevc 编码（Linux） | 🟡 UHD630 由 iHD/i965 驱动支持 |         🟡 核显由 iHD 驱动支持        | ✅ h264 双构建；hevc 仅 master（4.4.2 ⛔） |
+| AV1 硬解                    |             ❌             |     🟡 4080L + 核显均支持 AV1 解码    |    ✅ 已验证（QSV av1_qsv / VAAPI 解码）    |
 
 > 注：B 机 RTX 4080 Laptop 的 av1_nvenc 已于 2026-09-15 实测通过（三构建冒烟 + cuda 解码→AV1 Main 720p60 CBR 真实转码），AV1 硬编流水线在本机即可铺开。
+>
+> 注：C 机 Linux 侧的整表实测已于 2026-09-16 完成（两套 ffmpeg 来源 × QSV/VAAPI/软编/硬解 + 全部 .sh 入口与 list 模式），详见下文「机器 C：Ubuntu 22.04 实测记录」；C 机 Win11 行仍为待验证。
 
 ---
 
@@ -121,12 +123,62 @@
 | Win11        | cmd / PowerShell | 原生安装                    |  ➖  |   ➖   |        🟡        |   🟡 **AV1 实测目标**  | ❌ 无后端 |     🟡    |  🟡  |   ➖  |  🟡  |
 | Win11        | Cygwin64         | Cygwin 自带               |  ➖  |   ➖   | ⛔ 预期同 7.1.1 构建限制 |   🚫 构建无 av1_qsv?  |   🚫  |     🚫    |  🟡  |  🟡  |   ➖  |
 | Win11        | MSYS2 MINGW64    | mingw64 8.1             |  ➖  |   ➖   |        🟡        |  🟡 8.1 有 av1_qsv  |   ❌   |     🟡    |  🟡  |  🟡  |   ➖  |
-| Ubuntu 22.04 | bash             | 原生 4.4.2                |  ➖  |   ➖   |        🟡        | 🟡 4.4 无 av1_qsv→❌ |   🟡  |     🟡    |  🟡  | ✅ 模式 |   ➖  |
-| Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  ➖  |   ➖   |        🟡        |   🟡 **AV1 实测目标**  |   🟡  |     🟡    |  🟡  | ✅ 模式 |   ➖  |
+| Ubuntu 22.04 | bash             | 原生 4.4.2                |  ➖  |   ➖   |  ✅ 已验证  |   ❌ 未编入  | ✅ h264 / ⛔ hevc |     ✅    | 🟡 仅 libaom | ✅ 已验证（hevc_vaapi 入口已加 /opt 软偏好） |   ➖  |
+| Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  ➖  |   ➖   |  ✅ 已验证  |   ✅ 已验证  |   ✅  |     ✅    | ✅ svtav1/aom | ✅ 已验证（7 入口全绿） |   ➖  |
 
-> C 机是 **QSV AV1 编码的唯一硬件平台**，且用户注记：新版 ffmpeg（master-gpl 静态构建）在 Linux 上 QSV 可能开箱即用（构建含 QSV，运行时需 intel-media 驱动 + oneVPL/libmfx runtime），**待实际平台验证**。原生 4.4.2 太老没有 av1_qsv，AV1 的 QSV 验证应直接用 master-gpl 构建。
+> C 机是 **QSV AV1 编码的唯一硬件平台**。**结论（2026-09-16 实测）**：master-gpl 构建下 QSV（含 AV1）/VAAPI（含 AV1）/软编/硬解**开箱即用，无需任何 mfx 会话调参**；原生 4.4.2 无 av1_qsv、无 svtav1、QSV 硬解不可用、hevc_vaapi 编码不可用（见下）。
 
+### 机器 C：Ubuntu 22.04 实测记录（2026-09-16）
 
+**平台**：Ubuntu 22.04.1 / 内核 6.8.0-138（i915 驱动，`/dev/dri/renderD128`）/ Core Ultra 7 265K（20 核）/ 核显 PCI 7d67；**无 NVIDIA 设备**。
+**驱动栈**：`intel-media-va-driver-non-free 25.2.4`（iHD）+ `libva 2.22.0` + `libvpl2 2.15.0` + `libmfx1 23.2.2` + `libmfx-gen1 25.2.4`。
+**ffmpeg 来源**：`/usr/bin/ffmpeg` 4.4.2（`--enable-libmfx`，无 svtav1）；`/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin`（N-117740-g7f51cf75c6-20241110，`libvpl/vaapi/svtav1`）。
+
+**环境坑（非仓库问题）**：`vainfo` 直接跑报 `vaGetDriverNames() failed`（libva 新枚举 API），需 `export LIBVA_DRIVER_NAME=iHD` 才正常；**ffmpeg 不需要该变量**（走旧 `vaGetDriverName`，实测无变量亦可初始化 iHD 并编/解码）。
+
+**① 底层编码矩阵（720p30 3s 素材；✅通过 / ❌失败 / ⛔构建含但不可用）**
+
+| 编码器 | native 4.4.2 | /opt master-gpl |
+| --- | :---: | :---: |
+| h264_qsv / hevc_qsv | ✅ / ✅ | ✅ / ✅ |
+| av1_qsv | ❌ 未编入 | ✅（1080p60、4K30 均通） |
+| h264_vaapi（全硬解链路） | ✅ | ✅ |
+| hevc_vaapi（全硬解链路） | ⛔ `Failed to end picture encode issue: 24` | ✅ |
+| av1_vaapi | ❌ 未编入 | ✅ |
+| libx264 / libx265 | ✅ / ✅ | ✅ / ✅ |
+| 软编 AV1 | ✅ libaom | ✅ libsvtav1 / libaom |
+
+**hevc_vaapi 失败定位**：iHD 25.2.4 对该核显只暴露 `VAProfileHEVCMain: VAEntrypointEncSlice`（无 EncSliceLP），故 `low_power=1` 先报 `No usable encoding entrypoint found`；默认 legacy 路径下 master 通过、4.4.2 报内部错误 24 → **属 4.4.2 与新版 iHD 的兼容问题，非硬件限制**（同机 master 全绿；h264_vaapi 在 4.4.2 正常，仅 HEVC legacy 路径受影响）。
+
+**② 硬解与速度（4K HEVC 10s/300 帧解码；括号内为帧率）**
+
+| 解码方式 | native 4.4.2 | /opt master-gpl |
+| --- | --- | --- |
+| 软解 | 0.96s（312fps） | 0.88s（339fps） |
+| QSV 硬解 | ⛔ `Device setup failed for decoder`（加 `-hwaccel_device hw`） | **0.72s（415fps）**，日志 `Selecting decoder 'hevc_qsv'` |
+| VAAPI 硬解 | 4.23s（70fps，**慢于软解，不建议**） | **0.79s（380fps）** |
+
+AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI 解码亦通。
+1080p60 5s（300 帧）编码耗时：native hevc_qsv 0.7s / master hevc_qsv 0.5s / master av1_qsv 0.7s / master hevc_vaapi 0.7s / master av1_vaapi 0.7s / native libx265 preset fast 2.6s / master libsvtav1 1.8s。
+
+**③ 脚本层（.sh 端到端，含 list 批量）**
+
+| 用例 | native 4.4.2 | /opt master-gpl（PATH 前置） |
+| --- | :---: | :---: |
+| ffmpeg_hevc_qsv.sh | ✅ 720p；1080p60 降帧分支 + 查表 2548951 正确 | ✅ |
+| ffmpeg_avc_qsv.sh | ✅（AVC 表 2040182） | ✅ |
+| ffmpeg_av1_qsv.sh | ✅（脚本自动前置 /opt，AV1 表 951915） | ✅ |
+| ffmpeg_hevc_vaapi.sh | ✅（已加 /opt 软偏好：有 /opt 即走 master，无则回退 4.4.2 仍⛔） | ✅ |
+| ffmpeg_h264_vaapi.sh | ✅（已改用 AVC 表，ref 720p = 2040182） | ✅ |
+| ffmpeg_libx265.sh / ffmpeg_libx264.sh | ✅ / ✅（已补执行位，可直接 `./` 调用） | ✅ / ✅ |
+| ffmpeg_copy_to_mp4.sh | ✅（已 mp4 后缀正确早退；mkv/mov → `<名>.mp4`） | ✅ |
+| ffmpeg_hevc_nvenc.sh / ffmpeg_av1_nvenc.sh | ❌ 预期失败（无 N 卡），rc=1 + `Convert failed！` | ❌ 同上 |
+| list（qsv / libx265 / repack） | ✅ CRLF+BOM+中文+空格清单逐条读全（见④） | ✅ 2/2 且硬解生效 |
+| 边界（纯音频 / 不存在 / 2 参数） | rc=1 + 中文提示（不是视频文件! / file not exists! / More than one parameter） | ✅ |
+
+**④ 本轮发现并修复的仓库缺陷（P1，Linux 专属）**：`lib/common.sh` 的 `run_list` 用 `done < "$list_file"` 供输入，子进程继承该 fd 后 **Linux 版 ffmpeg 会从 stdin 吃掉 1 字节**（键盘交互探测；ffprobe 不读、`-nostdin` 可避免；微测同循环内三者对照复现）→ 清单第 2 条起路径被啃掉开头字符 → `file not exists!` → `Convert failed！` 提前退出（修复前 qsv/repack 两测均 1/2 产物即退）。**修复**：`bash "$script" "$line" < /dev/null`；修复后 3 条清单全部正确读取、2/3 产物为 `-n` 拒写重复项（预期）。`.bat` 侧 `for /f` 天然无此问题——又一处 sh/bat 行为不一致。
+
+> **待决发现（三项已于同轮全部处置，2026-09-16）**：① `ffmpeg_h264_vaapi.sh` 查表漏改 → 已改传 `bitrate_table_avc.csv`（720p ref 1359878 → **2040182**，与 libx264 一致，实测 rc=0）；② `ffmpeg_libx264.sh` 无执行位（git 100644）→ 已 `chmod +x`（工作区 755）；③ `ffmpeg_hevc_vaapi.sh` 在 4.4.2 下命中 iHD 兼容问题 → 已仿 av1_qsv 加 /opt 软偏好，实测 rc=0 且产物 `encoder=Lavf61.9.100`（master 构建指纹，4.4.2 为 Lavf58.76.100）；无 /opt 环境仍回退 4.4.2 并⛔。
 
 ---
 
@@ -134,7 +186,7 @@
 
 | 环境                 | 路径风格              | 自带 ffmpeg            |   行尾输出(CR 剥除必要性)  | VAAPI |   QSV  |
 | ------------------ | ----------------- | -------------------- | :---------------: | :---: | :----: |
-| linux bash         | `/home/...`       | 4.4.2 或 /opt/ master | LF（不剥也安全，但保留剥除无害） | 🟡 可用 | 🟡 待验证 |
+| linux bash         | `/home/...`       | 4.4.2 或 /opt/ master | LF（不剥也安全，但保留剥除无害） | ✅ C 机实测可用 | ✅ C 机实测可用 |
 | Windows cmd        | `C:\...`          | 依赖系统安装               |    —（.bat 无此问题）   |   ❌   |   🟡   |
 | Windows PowerShell | `C:\...`          | 同上                   |         —         |   ❌   |   🟡   |
 | Cygwin64           | `/cygdrive/c/...` | 7.1.1（功能残缺）          |         LF        |   🚫  |    ⛔   |
@@ -146,9 +198,9 @@
 ## 待验证清单（按优先级）
 
 1. ~~**本机 av1_nvenc 实测**~~ ✅ 已完成（2026-09-15：三构建冒烟 + 真实转码全通过）
-2. **C 机 Ultra 7 265K**：Win11 下 QSV AV1（mingw64 8.1 或原生）+ Linux 下 master-gpl 的 QSV/VAAPI/AV1
+2. ~~**C 机 Linux（Ubuntu 22.04）**：master-gpl 的 QSV/VAAPI/AV1 + 原生 4.4.2 功能边界~~ ✅ 已完成（2026-09-16，见「机器 C：Ubuntu 22.04 实测记录」；含 run_list stdin 泄漏缺陷修复）；**C 机 Win11 下 QSV AV1（mingw64 8.1 或原生）仍待验证**；原描述： Linux 下 master-gpl 的 QSV/VAAPI/AV1
 3. **A 机 i7-9700T**：Win11 QSV（UHD 630）+ Ubuntu VAAPI；确认软编保底走 mingw64/Linux
-4. **Linux 双 ffmpeg 来源验证**：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
+4. ~~**Linux 双 ffmpeg 来源验证**~~ ✅ C 机已完成（2026-09-16）：原生 4.4.2 边界 = 无 av1_qsv/无 svtav1/QSV 硬解不可用/hevc_vaapi 不可用（h264_vaapi 可用），master-gpl = QSV/VAAPI 含 AV1 全家桶；A 机 Ubuntu 待复测。原描述：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
 5. ~~**.bat 路线**~~ ✅ 已完成（2026-09-16：57c418f 重构 + 26ccf0e cp65001 守卫 + 8e5c631 find_ffmpeg 去硬编码路径 + 4ffd990 守卫改环境变量标记并修 `shift` 吃掉 `%0` 的回归）
 6. ~~**`.bat` list 模式复核（阻塞项，第四轮）**~~ ✅ 已完成（2026-09-16：T9 / T11 / T12 各 2/2 rc=0 + banner 检查 `[PASS]`，见上）
 7. **`.bat` 真实拖放/双击**：探针只能模拟代码页起点，真·Explorer 拖放与新窗口 banner 观感需人工扫一眼；含中文文件名的拖放同样值得顺手验一次
@@ -156,3 +208,5 @@
 9. **清单文件编码边界**：`run_list` 已兼容 CRLF 与 UTF-8 BOM 清单（原 CRLF 会因 `\r` 混入路径导致第一项即 `file not exists!` 退出，而 .bat 侧 `for /f` 天然吞 CRLF → 属 sh/bat 行为不一致，已修）。**`.bat` 侧的 UTF-8 BOM 尚未实测**：`for /f` 读带 BOM 文件时首行可能带上 3 字节 BOM 前缀（记事本默认存 UTF-8 无 BOM 时不触发）；若日后的清单由其它工具导出，建议顺手验一次首行条目
 10. ~~**`.bat` 第五轮复核**~~ ✅ 已完成（2026-09-16：T1–T13 全部 PASS，T13 = audio-only 被提前拒绝 rc=3，banner/debug 双检查 `[PASS]`，见上）。原描述：本轮清理了 `lib/common.bat` 的 14 行遗留调试 echo 并新增 `:check_isvideo`，改动落在**共享库**上，建议跑一次**全量**探针（不带第 2 参数）；期望 T13 PASS（日志含 `check_isvideo`、不含 `matches no streams`、无产物、rc=3）、全局 hygiene 行 `[PASS]`，且 T1–T12 回归不变
 11. **`&` 文件名** → 第六轮 6a 的结论**已在 6b 更正**：`^&` 不是缺陷而是原版对"包装写法"的补偿；真正病根是 `set "VAR=值"` 包装写法 + 值内含引号，已全量改非包装写法（5 文件 57 行），并保留 6a 中 `%1` 裸展开、`call %RUN_COM%` 二次解析、list bat 延迟展开、编码器延迟块内含路径等**确实有效**的修复；**已由 v6b 探针实测通过**（A 18 PASS + 1 SKIP / C 3/3 / B 6/6 / D SKIP / Z1 PASS，见上）；**T1–T13 套件回归已跑并全绿**（6b 触及核心路径，见上）；D 段 SKIP 机制已定论 = `chcp 65001` 吃掉文件重定向 stdin（管道/控制台不受影响，真实用法零影响，见上）
+12. ~~**待决（C 机 Linux 轮发现）**~~ ✅ 已完成（2026-09-16 同轮处置：① `ffmpeg_h264_vaapi.sh` 改传 `bitrate_table_avc.csv`（ref 720p 1359878→2040182）；② `ffmpeg_libx264.sh` 补执行位 `chmod +x`；③ `ffmpeg_hevc_vaapi.sh` 仿 av1_qsv 加 /opt 软偏好（实测走 master 产物 Lavf61.9.100，无 /opt 回退 4.4.2 仍⛔）；三项均端到端复测 rc=0）。原描述：C 机 Linux 轮发现三项：① 查表表不符 ② 无执行位 ③ 4.4.2 iHD 兼容
+13. **Linux list 模式（`run_list`）**：本轮 `</dev/null` 修复为跨机器通用（所有 Linux ffmpeg 都会从 stdin 吃 1 字节），**A 机（i7-9700T Ubuntu）首次上机时需一并复跑 list 用例**；`.bat` 侧无需改动

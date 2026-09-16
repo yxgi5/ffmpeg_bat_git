@@ -7,6 +7,26 @@
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# 发行版 ffmpeg(4.4.2) 的 hevc_vaapi 与新版 iHD 驱动不兼容, Linux 下优先使用新版 ffmpeg
+OS=$(uname -s)
+
+case "$OS" in
+    Linux*)
+        # 发行版 4.4.2 实测报 "Failed to end picture encode issue: 24", 新版构建实测通过;
+        # 若存在新版构建则前置 PATH (软偏好, 不存在则回退发行版)
+        if [ -d /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin ]; then
+            export PATH=/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin:$PATH
+        fi
+        ;;
+    CYGWIN*)
+        ;;
+    MSYS*)
+        ;;
+    MINGW*)
+        ;;
+    *)
+        ;;
+esac
 # VAAPI 仅存在于 Linux (Intel 核显); iHD 驱动覆盖 Gen8+ 核显
 export LIBVA_DRIVER_NAME=iHD
 

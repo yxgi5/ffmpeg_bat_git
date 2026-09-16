@@ -196,6 +196,10 @@ function lookup_bitrate() {
 # 用法: run_list <清单文件> <目标脚本路径>
 # 说明: 用 while read 替代旧的 for line in $(cat ...) 写法, 兼容含空格的文件名; 空行跳过; 任一行失败立即退出
 #       兼容 Windows 记事本清单: 去行尾 CR(CRLF) 与首行 BOM, 否则 \r 会被当成文件名的一部分
+#       子进程 stdin 必须重定向到 /dev/null: 循环体以 "done < $list_file" 提供输入,
+#       子进程继承该 fd 后, Linux 版 ffmpeg 会从 stdin 读走 1 字节(键盘交互探测,
+#       实测 native 4.4.2 与 master-git 均有此行为, ffprobe 无), 结果是清单第 2 条
+#       起路径被吃掉开头字符 -> file not exists! 提前退出
 function run_list() {
     local list_file="$1"
     local script="$2"
@@ -208,7 +212,7 @@ function run_list() {
         fi
         [ -z "$line" ] && continue
         echo "$line"
-        bash "$script" "$line"
+        bash "$script" "$line" < /dev/null
         if [ $? -ne 0 ]; then
             echo -e "\033[41;36mConvert failed！\033[0m"
             exit 1
