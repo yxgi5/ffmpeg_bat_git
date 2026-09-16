@@ -3,12 +3,14 @@ rem ============================================================
 rem lib\common.bat - 公共子程序库 (P1 重构)
 rem 用法: call "%~dp0lib\common.bat" <函数名> [参数...]
 rem   函数的实际参数从 %2 开始 ( %1 为函数名)
+rem   find_ffmpeg: 四级回退定位 ffmpeg/ffprobe (FFMPEG_BIN > 仓库内 > PATH > 默认目录)
 rem   call 跨文件共享环境: 函数内 set 的变量(非 setlocal 内)对调用方可见
 rem 注意: 本文件必须保持 CRLF 行尾, 勿用会剥 CR 的编辑器保存
 rem ============================================================
 
 if "%~1"=="" exit /b 1
 if /I "%~1"=="lookup_bitrate"        goto lookup_bitrate
+if /I "%~1"=="find_ffmpeg"           goto find_ffmpeg
 if /I "%~1"=="numOK"                 goto numOK
 if /I "%~1"=="calc_bitrate_fromsize" goto calc_bitrate_fromsize
 if /I "%~1"=="extract"               goto extract
@@ -128,4 +130,28 @@ rem 获取到文件名称
 echo "%~n2"
 set %~4="%~n2.mp4"
 echo "%~n2.mp4"
+exit /b 0
+
+:find_ffmpeg
+rem 定位 ffmpeg/ffprobe 所在 bin 目录: call ... find_ffmpeg <输出变量名>
+rem 优先级: 环境变量 FFMPEG_BIN(指向bin目录) > 仓库内 ffmpeg\bin > PATH(where) > C:\Program Files\ffmpeg\bin
+rem 命中: 输出变量=bin目录(无尾部反斜杠), 返回 0; 未找到: 返回 1
+set "FF_OUT=%~2"
+if not defined FF_OUT exit /b 1
+set "FFBIN="
+if defined FFMPEG_BIN if exist "%FFMPEG_BIN%\ffmpeg.exe" set "FFBIN=%FFMPEG_BIN%"
+if not defined FFBIN if exist "%~dp0..\ffmpeg\bin\ffmpeg.exe" for %%I in ("%~dp0..\ffmpeg\bin") do set "FFBIN=%%~fI"
+if not defined FFBIN (
+    for /f "delims=" %%p in ('where ffmpeg.exe 2^>nul') do (
+        if not defined FFBIN for %%I in ("%%p") do set "FFBIN=%%~dpI"
+    )
+)
+if not defined FFBIN if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files\ffmpeg\bin"
+if not defined FFBIN (
+    echo [find_ffmpeg] 未找到 ffmpeg.exe: 请安装 ffmpeg 或设置环境变量 FFMPEG_BIN 指向其 bin 目录
+    set "%FF_OUT%="
+    exit /b 1
+)
+if "%FFBIN:~-1%"=="\" set "FFBIN=%FFBIN:~0,-1%"
+set "%FF_OUT%=%FFBIN%"
 exit /b 0

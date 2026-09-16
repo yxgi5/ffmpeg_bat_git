@@ -4,13 +4,17 @@ rem cp65001 relaunch guard (ASCII only - do NOT add non-ASCII here)
 rem cmd.exe parses a .bat with the codepage active when the file was
 rem opened; an in-file chcp 65001 can misalign the parser on UTF-8
 rem lines (known cmd bug: a split line fragment is executed as a
-rem command). We chcp first, then restart ourselves as a child
-rem process, so the whole file is parsed under a UTF-8 console
-rem from byte 0. See code_review_report.md for details.
+rem command). If the console is not already UTF-8, chcp first and
+rem restart ourselves as a child process, so the whole file is parsed
+rem under a UTF-8 console from byte 0. If it is already 65001 (e.g.
+rem via opencmd.bat), continue in-process with zero re-parsing.
 if /I "%~1"=="__cp65001" (
     shift
     goto main
 )
+set "CP="
+for /f "delims=" %%l in ('chcp') do set "CP=%%l"
+if "%CP:*: =%"=="65001" goto main
 chcp 65001 >nul
 cmd /c call "%~f0" __cp65001 %*
 exit /b %errorlevel%
@@ -33,9 +37,10 @@ echo.
 echo 由 andreas 编写
 echo ============================================================
 
-set FFPROBE_PATH=C:\Program Files\ffmpeg\bin\ffprobe.exe
-set FFMPEG_PATH=C:\Program Files\ffmpeg\bin\ffmpeg.exe
-if not defined FFMPEG_PATH goto NO_PATH_ERR
+call "%~dp0lib\common.bat" find_ffmpeg FF_BIN
+if errorlevel 1 goto NO_PATH_ERR
+set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
+set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set "RUN_COM="%FFMPEG_PATH%" -hide_banner"
 
@@ -101,6 +106,7 @@ echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完�
 exit /b 0
 
 :NO_PATH_ERR
-echo 找不到ffmpeg.exe,请检查文件目录
+echo 找不到 ffmpeg.exe: 请安装 ffmpeg(默认查找 C:\Program Files\ffmpeg\bin)
+echo 或设置环境变量 FFMPEG_BIN 指向其 bin 目录后重试
 pause
 exit /b 0
