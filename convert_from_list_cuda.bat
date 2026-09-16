@@ -4,12 +4,15 @@ chcp 65001
 
 SET "SRC_FILE="
 
-if [%1] neq [] (
-    SET SRC_FILE=%1
+rem %~1 (not %1) strips the surrounding quotes: keeping them made the
+rem quoted expansion below turned into a doubly quoted path, and cmd then
+rem looked for a file whose name literally contains quote characters.
+if not "%~1"=="" (
+    SET "SRC_FILE=%~1"
 ) else (
-    SET SRC_FILE=list.txt
+    SET "SRC_FILE=list.txt"
 )
-echo SRC_FILE=%SRC_FILE%
+echo SRC_FILE="%SRC_FILE%"
 
 rem NOTE: usebackq + quotes makes the list path a FILE, not a literal
 rem string; CALL is required or cmd never returns from the encoder and
