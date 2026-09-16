@@ -172,13 +172,15 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 | ffmpeg_h264_vaapi.sh | ✅（已改用 AVC 表，ref 720p = 2040182） | ✅ |
 | ffmpeg_libx265.sh / ffmpeg_libx264.sh | ✅ / ✅（已补执行位，可直接 `./` 调用） | ✅ / ✅ |
 | ffmpeg_copy_to_mp4.sh | ✅（已 mp4 后缀正确早退；mkv/mov → `<名>.mp4`） | ✅ |
-| ffmpeg_hevc_nvenc.sh / ffmpeg_av1_nvenc.sh | ❌ 预期失败（无 N 卡），rc=1 + `Convert failed！` | ❌ 同上 |
-| list（qsv / libx265 / repack） | ✅ CRLF+BOM+中文+空格清单逐条读全（见④） | ✅ 2/2 且硬解生效 |
+| ffmpeg_hevc_nvenc.sh / av1_nvenc.sh / hevc_nvenc_cygwin.sh | ❌ 预期失败（无 N 卡），rc=1 + `Convert failed！`；cygwin 版已补执行位，`-hwaccel cuvid`+`hwdownload` 命令构建正确 → `CUDA_ERROR_NO_DEVICE` | ❌ 同上 |
+| list（qsv / libx265 / repack / cuda） | ✅ CRLF+BOM+中文+空格清单逐条读全（见④）；cuda 版 Linux 分发 + 失败传播 rc=1（见⑤） | ✅ 2/2 且硬解生效 |
 | 边界（纯音频 / 不存在 / 2 参数） | rc=1 + 中文提示（不是视频文件! / file not exists! / More than one parameter） | ✅ |
 
 **④ 本轮发现并修复的仓库缺陷（P1，Linux 专属）**：`lib/common.sh` 的 `run_list` 用 `done < "$list_file"` 供输入，子进程继承该 fd 后 **Linux 版 ffmpeg 会从 stdin 吃掉 1 字节**（键盘交互探测；ffprobe 不读、`-nostdin` 可避免；微测同循环内三者对照复现）→ 清单第 2 条起路径被啃掉开头字符 → `file not exists!` → `Convert failed！` 提前退出（修复前 qsv/repack 两测均 1/2 产物即退）。**修复**：`bash "$script" "$line" < /dev/null`；修复后 3 条清单全部正确读取、2/3 产物为 `-n` 拒写重复项（预期）。`.bat` 侧 `for /f` 天然无此问题——又一处 sh/bat 行为不一致。
 
 > **待决发现（三项已于同轮全部处置，2026-09-16）**：① `ffmpeg_h264_vaapi.sh` 查表漏改 → 已改传 `bitrate_table_avc.csv`（720p ref 1359878 → **2040182**，与 libx264 一致，实测 rc=0）；② `ffmpeg_libx264.sh` 无执行位（git 100644）→ 已 `chmod +x`（工作区 755）；③ `ffmpeg_hevc_vaapi.sh` 在 4.4.2 下命中 iHD 兼容问题 → 已仿 av1_qsv 加 /opt 软偏好，实测 rc=0 且产物 `encoder=Lavf61.9.100`（master 构建指纹，4.4.2 为 Lavf58.76.100）；无 /opt 环境仍回退 4.4.2 并⛔。
+
+**⑤ sh 族全覆盖补测与冒烟套件沉淀（2026-09-16 第二轮，merge 后）**：① `convert_from_list_cuda.sh` 补测——Linux 分发打印 `Linux` → 清单条目完整读取 → 调 hevc_nvenc 预期失败 `Convert failed！` 传播 rc=1（同时复证 run_list stdin 修复）；② `ffmpeg_hevc_nvenc_cygwin.sh` 发现无执行位（git 100644，与 libx264 同款）→ 已 `chmod +x`（全仓复核：15 个入口脚本均 755，`lib/common.sh` 作为被 `source` 的库保持 644 合理），修复后直跑：`-hwaccel cuvid` + `hwdownload` 命令构建正确 → `CUDA_ERROR_NO_DEVICE` 预期失败 rc=1；③ 探针整合沉淀为仓库外一键套件 `../ffmpeg_bat_git_smoke/smoke_all.sh`（自生成素材 + 18 用例断言 + PASS/FAIL 汇总，与 smoke_all.bat 对称），实测 **PASS=18 FAIL=0**（含 merge 后两轮复跑）。至此 sh 族 **15/15 入口全部本机实测**并留有断言记录。
 
 ---
 
@@ -198,7 +200,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 ## 待验证清单（按优先级）
 
 1. ~~**本机 av1_nvenc 实测**~~ ✅ 已完成（2026-09-15：三构建冒烟 + 真实转码全通过）
-2. ~~**C 机 Linux（Ubuntu 22.04）**：master-gpl 的 QSV/VAAPI/AV1 + 原生 4.4.2 功能边界~~ ✅ 已完成（2026-09-16，见「机器 C：Ubuntu 22.04 实测记录」；含 run_list stdin 泄漏缺陷修复）；**C 机 Win11 下 QSV AV1（mingw64 8.1 或原生）仍待验证**；原描述： Linux 下 master-gpl 的 QSV/VAAPI/AV1
+2. ~~**C 机 Linux（Ubuntu 22.04）**：master-gpl 的 QSV/VAAPI/AV1 + 原生 4.4.2 功能边界~~ ✅ 已完成（2026-09-16，见「机器 C：Ubuntu 22.04 实测记录」；含 run_list stdin 泄漏缺陷修复、sh 族 15/15 全覆盖补测与 `smoke_all.sh` 套件沉淀〔PASS=18/18〕）；**C 机 Win11 下 QSV AV1（mingw64 8.1 或原生）仍待验证**；原描述： Linux 下 master-gpl 的 QSV/VAAPI/AV1
 3. **A 机 i7-9700T**：Win11 QSV（UHD 630）+ Ubuntu VAAPI；确认软编保底走 mingw64/Linux
 4. ~~**Linux 双 ffmpeg 来源验证**~~ ✅ C 机已完成（2026-09-16）：原生 4.4.2 边界 = 无 av1_qsv/无 svtav1/QSV 硬解不可用/hevc_vaapi 不可用（h264_vaapi 可用），master-gpl = QSV/VAAPI 含 AV1 全家桶；A 机 Ubuntu 待复测。原描述：原生 4.4.2 的功能边界（av1_nvenc/svtav1 是否在打包内）vs master-gpl 全家桶
 5. ~~**.bat 路线**~~ ✅ 已完成（2026-09-16：57c418f 重构 + 26ccf0e cp65001 守卫 + 8e5c631 find_ffmpeg 去硬编码路径 + 4ffd990 守卫改环境变量标记并修 `shift` 吃掉 `%0` 的回归）
