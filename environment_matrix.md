@@ -110,6 +110,7 @@
 > 探针已同步到 v4：素材每轮强制重生成（v2 复用旧无音轨片源导致 T1–T4 假 FAIL）、T10 静音测试升为断言、新增全局 banner 检查行、新增 `LIST` 子集参数与 T12（无参数 + cwd 在别处）。
 > 第四轮结果（v4 探针，只跑 `LIST` 子集）：**list 模式全绿** —— T9（cwd=仓库，含空格路径清单）2/2、T11（UTF-8 清单 + 中文文件名）2/2、T12（无参数 + cwd 在别处）2/2，均 rc=0，**全局 banner 检查 `[PASS]`**。T11 是"选 UTF-8 而非 cp936"这一设计决策的实证：`for /f` 读出的中文名完整无损地传给了 ffmpeg 并生成 `中文 测试-compressed.mp4`。T12 的 cwd 判定另被独立佐证：仓库内恰有一个旧的无意义 `list.txt`，若误读则必然 0 产物。
 > **`.bat` 侧至此主链路 + list 模式全部实测通过**（含双击/拖放/交互输入三种用法、936 起点、守卫重启路径与 UTF-8 新进程路径）。
+> **第五轮（v5 探针，待跑）**：本轮改动 = ① 清理 `lib/common.bat` 里 14 行遗留调试 echo（`in extract()` / `%~dp2` / `%~d2` / `"%~n2"` / `%~x2` / `"%~n2-compressed.mp4"` / `in extract_mp4()` / `"%~n2.mp4"` / `!fpA!` / `!fpB!` / `numA / numB` / `ret=`），这些是原版就带的、每次转码都刷屏；② 新增 `lib/common.bat :check_isvideo`，把 `.sh` 侧早就有的 `check_file_isvideo` 前置校验补到 `.bat` 侧，接线于 **4 编码器 + copy_to_mp4**（后者放在 `suffix is not mp4` 早退之后），失败 `exit /b 3`。探针同步 v5：新增 **T13**（audio-only 输入必须被提前拒绝：日志含 `check_isvideo`、**不含** `matches no streams`〔证明根本没走到 ffmpeg〕、无产物、rc=3）与**全局 hygiene 行**（任一日志含 `in extract` / `ret=` 即 FAIL）。因改动落在共享库上，**本轮建议跑全量（不带第 2 参数）**。
 
 ### 机器 C：Ultra 7 265K（Arrow Lake 核显，AV1 验证平台，待引入）
 
@@ -151,3 +152,5 @@
 7. **`.bat` 真实拖放/双击**：探针只能模拟代码页起点，真·Explorer 拖放与新窗口 banner 观感需人工扫一眼；含中文文件名的拖放同样值得顺手验一次
 8. **可选**：其余 3 个 list bat（convert_from_list_cuda / convert_from_list_libx265 / repack_from_list）与本轮修复的 convert_from_list_qsv 共享同一行 `for /f "usebackq …" do call "%~dp0…"` 代码，且其调用的编码器 bat 已各自单独实测；如需凑满 `.bat 10/10` 可再跑一次探针复核
 9. **清单文件编码边界**：`run_list` 已兼容 CRLF 与 UTF-8 BOM 清单（原 CRLF 会因 `\r` 混入路径导致第一项即 `file not exists!` 退出，而 .bat 侧 `for /f` 天然吞 CRLF → 属 sh/bat 行为不一致，已修）。**`.bat` 侧的 UTF-8 BOM 尚未实测**：`for /f` 读带 BOM 文件时首行可能带上 3 字节 BOM 前缀（记事本默认存 UTF-8 无 BOM 时不触发）；若日后的清单由其它工具导出，建议顺手验一次首行条目
+10. **`.bat` 第五轮复核（阻塞项）**：本轮清理了 `lib/common.bat` 的 14 行遗留调试 echo 并新增 `:check_isvideo`，改动落在**共享库**上，建议跑一次**全量**探针（不带第 2 参数）；期望 T13 PASS（日志含 `check_isvideo`、不含 `matches no streams`、无产物、rc=3）、全局 hygiene 行 `[PASS]`，且 T1–T12 回归不变
+11. **`&` 文件名待取证**：`%SRC_FILE:&=^&%` 中路径已被双引号包裹，而 cmd 的 `^` 在双引号内是**字面量** —— 含 `&` 的文件名（如 `Fast & Furious.mp4`）可能被送进一个字面含脱字符的路径。属原版即有、从未验证过的写法；需一轮带 `&` 文件名（+ 空格）的探针取证后才能定论，不宜先改

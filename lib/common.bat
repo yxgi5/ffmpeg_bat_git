@@ -4,6 +4,7 @@ rem lib\common.bat - 公共子程序库 (P1 重构)
 rem 用法: call "%~dp0lib\common.bat" <函数名> [参数...]
 rem   函数的实际参数从 %2 开始 ( %1 为函数名)
 rem   find_ffmpeg: 四级回退定位 ffmpeg/ffprobe (FFMPEG_BIN > 仓库内 > PATH > 默认目录)
+rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
 rem   call 跨文件共享环境: 函数内 set 的变量(非 setlocal 内)对调用方可见
 rem 注意: 本文件必须保持 CRLF 行尾, 勿用会剥 CR 的编辑器保存
 rem ============================================================
@@ -16,6 +17,7 @@ if /I "%~1"=="calc_bitrate_fromsize" goto calc_bitrate_fromsize
 if /I "%~1"=="extract"               goto extract
 if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
+if /I "%~1"=="check_isvideo"          goto check_isvideo
 echo 未知函数: %~1
 exit /b 1
 
@@ -86,14 +88,10 @@ set /A one=1, decimalsP1=decimals+1
 for /L %%i in (1,1,1) do set "one=!one!0"
 
 set "fpA=%numA:.=%"
-echo !fpA!
 set "fpB=%numB:~0%"
-echo !fpB!
 set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA/fpB
 
-echo %numA% / %numB% = !div!
 set /a ret = 8*!div!
-echo ret=%ret%
 endlocal & set /a %~4=%ret%
 exit /b 0
 
@@ -101,17 +99,11 @@ exit /b 0
 rem 拆分文件路径: call ... extract <文件> <输出路径变量> <输出文件名变量>
 rem   输出形如 "D:\dir\" 与 "name-compressed.mp4"
 rem 获取到文件路径
-echo in extract()
-echo %~dp2
 set %~3="%~dp2"
 rem 获取到文件盘符
-echo %~d2
 rem 获取到文件名称
-echo "%~n2"
 rem 获取到文件后缀
-echo %~x2
 set %~4="%~n2-compressed.mp4"
-echo "%~n2-compressed.mp4"
 exit /b 0
 
 :get_suffix
@@ -123,13 +115,9 @@ exit /b 0
 rem 拆分文件路径(remux 用, 输出名不加后缀): call ... extract_mp4 <文件> <输出路径变量> <输出文件名变量>
 rem   输出形如 "D:\dir\" 与 "name.mp4"
 rem 获取到文件路径
-echo in extract_mp4()
-echo %~dp2
 set %~3="%~dp2"
 rem 获取到文件名称
-echo "%~n2"
 set %~4="%~n2.mp4"
-echo "%~n2.mp4"
 exit /b 0
 
 :find_ffmpeg
@@ -155,3 +143,27 @@ if not defined FFBIN (
 if "%FFBIN:~-1%"=="\" set "FFBIN=%FFBIN:~0,-1%"
 set "%FF_OUT%=%FFBIN%"
 exit /b 0
+
+:check_isvideo
+rem 校验输入是否含视频流: call ... check_isvideo <文件>
+rem   返回 0 = 含视频流; 返回 1 = 无视频流/参数缺失/FFPROBE_PATH 未设(均已打印错误)
+rem   依赖调用方已设置 FFPROBE_PATH; 参数直接传带引号的 %SRC_FILE% 即可
+rem   (路径在双引号内无需转义, 加 ^& 反而会把字面量脱字符带进路径)
+set "CV_FILE=%~2"
+if not defined CV_FILE (
+    echo [check_isvideo] missing file argument
+    exit /b 1
+)
+if not defined FFPROBE_PATH (
+    echo [check_isvideo] FFPROBE_PATH not set by caller
+    exit /b 1
+)
+set "CV_TMP=%TEMP%\ffmpeg_bat_cv_%RANDOM%%RANDOM%.tmp"
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "%CV_FILE%" > "%CV_TMP%" 2>nul
+set "CV_TYPE="
+set /p CV_TYPE=<"%CV_TMP%"
+del "%CV_TMP%" 2>nul
+rem 注意: 下面这行刻意不进括号块、且给路径加引号 —— 路径含 ) 或 & 时才不会被解析坏
+if defined CV_TYPE exit /b 0
+echo [check_isvideo] "%CV_FILE%" 不是视频文件, 未检测到视频流
+exit /b 1

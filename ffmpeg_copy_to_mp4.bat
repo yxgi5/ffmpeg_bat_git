@@ -78,6 +78,9 @@ if /I "%SUFFIX%" == ".mp4" (
     echo "suffix is not mp4, need to convert"
 )
 
+rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
+call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
+if errorlevel 1 exit /b 3
 SET "RUN_COM=%RUN_COM% -i %SRC_FILE:&=^&% -c:v copy -c:a copy"
 echo RUN_COM0=%RUN_COM%
 
