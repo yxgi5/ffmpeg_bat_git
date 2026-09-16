@@ -1,22 +1,21 @@
 @echo off
 rem ============================================================
 rem cp65001 relaunch guard (ASCII only - do NOT add non-ASCII here)
-rem cmd.exe parses a .bat with the codepage active when the file was
-rem opened; an in-file chcp 65001 can misalign the parser on UTF-8
-rem lines (known cmd bug: a split line fragment is executed as a
-rem command). If the console is not already UTF-8, chcp first and
-rem restart ourselves as a child process, so the whole file is parsed
-rem under a UTF-8 console from byte 0. If it is already 65001 (e.g.
-rem via opencmd.bat), continue in-process with zero re-parsing.
-if /I "%~1"=="__cp65001" (
-    shift
-    goto main
-)
-set "CP="
-for /f "delims=" %%l in ('chcp') do set "CP=%%l"
-if "%CP:*: =%"=="65001" goto main
+rem cmd.exe reads a .bat with the codepage of the process that reads
+rem it; an in-file chcp can misalign that reader, and the split line
+rem fragment is then executed as a command (garbled banner line). So:
+rem switch the console to UTF-8 and restart ourselves in a FRESH cmd
+rem process, which reads this whole file from byte 0 under UTF-8.
+rem Do NOT use a marker ARGUMENT + SHIFT here: SHIFT overwrites %0 as
+rem well (documented), so every path derived from the script directory
+rem would then resolve against the marker instead of this script. An
+rem environment variable keeps %0 and all arguments untouched.
+rem SELF_DIR is captured first and used for every sub-call below.
+set "SELF_DIR=%~dp0"
+if defined FB_UTF8_GUARD goto main
+set "FB_UTF8_GUARD=1"
 chcp 65001 >nul
-cmd /c call "%~f0" __cp65001 %*
+cmd /c call "%~f0" %*
 exit /b %errorlevel%
 
 :main
@@ -37,7 +36,7 @@ echo.
 echo 由 andreas 编写
 echo ============================================================
 
-call "%~dp0lib\common.bat" find_ffmpeg FF_BIN
+call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
@@ -63,7 +62,7 @@ set SRC_FILE="%SRC_FILE:"=%"
 
 echo SRC_FILE:%SRC_FILE%
 
-if defined SRC_FILE call "%~dp0lib\common.bat" get_suffix %SRC_FILE% SUFFIX
+if defined SRC_FILE call "%SELF_DIR%lib\common.bat" get_suffix %SRC_FILE% SUFFIX
 echo SUFFIX:%SUFFIX%
 
 if /I "%SUFFIX%" == ".mp4" (
@@ -78,7 +77,7 @@ echo RUN_COM0=%RUN_COM%
 
 echo.
 echo SRC_FILE:%SRC_FILE%
-if defined SRC_FILE call "%~dp0lib\common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME
+if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
