@@ -365,6 +365,34 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 深测的 3 个 FAIL 全部是**本机环境所限、与仓库无关**，且都是"期望失败"：
 
+### 6.2 A 机（Ubuntu 22.04 / i7-9700T + UHD630 Gen9.5 / ffmpeg 4.4.2 ESM / 2026-09-16）
+
+| 命令 | 结果 |
+|------|------|
+| `python3 test/lint/lint.py` / `selftest.py` | `21 PASS / 0 FAIL / 6 WARN`、`13 cases / 0 FAIL` |
+| `bash test/sh/smoke_ffmpeg.sh all` | `PASS=21 FAIL=0 SKIP=5`，harness `rc=0` |
+| `bash test/sh/smoke_special_chars.sh` | `PASS=28 FAIL=0 SKIP=0`（Linux 上 Z3 反斜杠文件名是真用例） |
+| `bash test/sh/check_env.sh` | 快查：`OK 10 / 不可用 5 / 待深测 0` |
+
+SKIP 的 5 条全为正当硬件/平台 SKIP：T2/T14/T20（无 N 卡）、T15（Gen9.5 无 AV1 QSV）、T7（cp65001 是 Windows 特性）。
+
+### 6.3 C 机（Ubuntu 22.04 / Ultra 7 265K Arrow Lake / ffmpeg 4.4.2 ESM / 2026-09-16）
+
+| 命令 | 结果 |
+|------|------|
+| `python3 test/lint/lint.py` / `selftest.py` | `21 PASS / 0 FAIL / 6 WARN`、`13 cases / 0 FAIL` |
+| `bash test/sh/smoke_ffmpeg.sh all` | `PASS=22 FAIL=0 SKIP=4`，harness `rc=0` |
+| `bash test/sh/smoke_special_chars.sh` | `PASS=28 FAIL=0 SKIP=0` |
+| `bash test/sh/check_env.sh` | 快查：`OK 10 / 不可用 5 / 待深测 0` |
+
+与 A 机的唯一差异：**T15 av1_qsv 在 Arrow Lake 上真 PASS**（真产出 AV1），与硬件代际一致。
+T19 hevc_vaapi 在 C 机 4.4.2 上通过探针与全用例（此前记录的 4.4.x `Encode failed: -5`
+与片源/参数相关，320×240 探针与 1080p60 用例均未复现）。
+
+**三机的这轮结果由 `can_run` 修复（a1a4557）之后测得**——修复前 A/C 的 QSV/VAAPI 门控
+存在 stdin 泄漏（ffmpeg 吃掉 heredoc 后续行导致 T3/T19 错乱 SKIP）与探针产物残留
+（T6/T10 误 SKIP）两类假 SKIP，详见该提交说明。
+
 | 入口 | 失败原因 |
 |------|----------|
 | `ffmpeg_av1_qsv.sh` | 本机是 Raptor Lake 核显，**无 AV1 硬编**（`Current codec type is unsupported`） |
