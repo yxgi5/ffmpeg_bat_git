@@ -24,7 +24,7 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 test/README.md             测试体系说明（三层：静态检查 / 冒烟套件 / 能力报告）
 test/lint/lint.py          静态 + 跨族对等检查器（零依赖，1 秒内跑完）
 test/lint/selftest.py      检查器自身的回归测试（recall + precision 双向验证）
-test/sh/smoke_sh.sh        Linux 侧冒烟套件（T1–T25，与 .bat 套件同 T 编号）
+test/sh/smoke_ffmpeg.sh    Linux 侧回归套件（T1–T25，与 .bat 套件同 T 编号）
 test/bat/smoke_*.bat       Windows 侧冒烟套件（T1–T17 回归 + 元字符矩阵 + 合并运行器）
 test/sh/check_env.sh       Linux 侧能力报告（快查 / --probe 深测）
 test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` 深测）
@@ -35,7 +35,7 @@ test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` �
 | 层 | 命令 | 回答的问题 | 耗时 |
 |----|------|-----------|------|
 | ① 静态 + 对等检查 | `python3 test/lint/lint.py` | 代码有没有结构性问题？两族对等吗？ | < 1 秒 |
-| ② 冒烟套件 | `bash test/sh/smoke_sh.sh` / 双击 `test\bat\smoke_all.bat` | 真实编码跑通了吗？断言对不对？ | 数分钟 |
+| ② 冒烟套件 | `bash test/sh/smoke_all.sh` / 双击 `test\bat\smoke_all.bat` | 真实编码跑通了吗？断言对不对？ | 数分钟 |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` / 双击 `test\bat\check_env.bat` | **这台机器**能用哪些入口？ | 秒级 / 数十秒 |
 
 建议顺序：先 ① 后 ② —— 静态检查 1 秒就能抓出行尾/括号/标签/引号/编码问题，不必等几分钟的冒烟跑完才发现。
@@ -130,10 +130,10 @@ test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` �
 |----|------|--------------------------------------------|
 | ① 静态 + 对等 | `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 7 WARN`，退出码 0 |
 | ① 检查器自测 | `python3 test/lint/selftest.py` | `13 cases / 0 FAIL` |
-| ② sh 冒烟 | `bash test/sh/smoke_sh.sh all` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
+| ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
 
-- **`.sh` 家族**：`test/sh/smoke_sh.sh` 共 **T1–T25**，与 `.bat` 套件**同 T 编号、同夹具、同期望码率**。
+- **`.sh` 家族**：`test/sh/smoke_ffmpeg.sh` 共 **T1–T25**，与 `.bat` 套件**同 T 编号、同夹具、同期望码率**。
   2026-09-16 本机全量 **PASS=22 FAIL=0 SKIP=4**；A / C 两机（Ubuntu 22.04）此前各轮均为全 PASS。
   本轮修掉一个**假 SKIP**：可用性探针夹具原用 128×128，而 NVENC 拒绝初始化这么小的编码器，
   导致本机明明有可用 NVENC，`T2`/`T14`/`T20` 却一直被记 SKIP；改用 320×240 后三条恢复为真实 PASS

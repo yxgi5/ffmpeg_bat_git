@@ -5,10 +5,19 @@
 | 层 | 文件 | 回答的问题 | 耗时 | 需要硬件 |
 |----|------|-----------|------|---------|
 | ① 静态 + 对等检查 | `lint/lint.py` | 代码本身有没有结构性问题？两族是否对等？ | < 1 秒 | 否 |
-| ② 冒烟套件 | `sh/smoke_sh.sh`、`bat/smoke_ffmpeg_bat.bat` | 每一次真实编码跑通了吗？断言对不对？ | 数分钟 | 部分是（无则 SKIP） |
+| ② 冒烟套件 | `sh/smoke_ffmpeg.sh`、`sh/smoke_special_chars.sh`、`bat/smoke_ffmpeg.bat`、`bat/smoke_special_chars.bat` | 每一次真实编码跑通了吗？断言对不对？ | 数分钟 | 部分是（无则 SKIP） |
 | ③ 环境能力报告 | `sh/check_env.sh`、`bat/check_env.bat` | **这台机器**能用哪些入口？为什么不能用？ | 秒级 / 深测数十秒 | 否（深测会真跑） |
 
 三层的退出码语义一致：**`0` = 干净，非 0 = 有问题**（能力报告例外，见 §4）。
+
+**两族文件名一一对应**（去掉族后缀，目录名即族名）——同名文件就是同一件事在两个家族里的孪生实现：
+
+| 用途 | `.sh` 族 | `.bat` 族 |
+|------|----------|-----------|
+| T 编号回归套件 | `test/sh/smoke_ffmpeg.sh` | `test/bat/smoke_ffmpeg.bat` |
+| 元字符文件名矩阵 | `test/sh/smoke_special_chars.sh` | `test/bat/smoke_special_chars.bat` |
+| 一键串跑 | `test/sh/smoke_all.sh` | `test/bat/smoke_all.bat` |
+| 环境能力报告 | `test/sh/check_env.sh` | `test/bat/check_env.bat` |
 
 ---
 
@@ -21,10 +30,11 @@ python3 test/lint/lint.py --lint-only  # 只做静态检查
 python3 test/lint/lint.py --parity-only# 只做对等检查
 python3 test/lint/selftest.py          # 检查检查器自己（13 个用例）
 
-# ② 冒烟套件
-bash test/sh/smoke_sh.sh               # sh 族全量
-bash test/sh/smoke_sh.sh guard         # 只跑参数校验/退出码段
-bash test/sh/smoke_sh.sh list          # 只跑清单模式段
+# ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
+bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T25）
+bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
+bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
+bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
 
 # ③ 环境能力报告
 bash test/sh/check_env.sh              # 快查：秒级，静态盘点
@@ -34,7 +44,9 @@ bash test/sh/check_env.sh --probe      # 深测：每个入口真跑一遍
 Windows 侧双击运行（`.bat` 与 `.sh` 一一对应）：
 
 ```
-test\bat\smoke_ffmpeg_bat.bat          双击    全量冒烟
+test\bat\smoke_all.bat                 双击    一键串跑两套
+test\bat\smoke_ffmpeg.bat              双击    回归套件（T 编号）
+test\bat\smoke_special_chars.bat       双击    元字符矩阵
 test\bat\check_env.bat                 双击    能力报告（快查）
 test\bat\check_env.bat "" PROBE        命令行  能力报告（深测）
 ```
@@ -48,16 +60,20 @@ test\bat\check_env.bat "" PROBE        命令行  能力报告（深测）
 
 ```
 test/
-├── README.md                  本文件
+├── README.md                    本文件
 ├── lint/
-│   ├── lint.py                静态 + 跨族对等检查器（零依赖，仅标准库）
-│   └── selftest.py            lint.py 自身的回归测试（recall + precision）
+│   ├── lint.py                  静态 + 跨族对等检查器（零依赖，仅标准库）
+│   └── selftest.py              lint.py 自身的回归测试（recall + precision）
 ├── sh/
-│   ├── smoke_sh.sh            sh 族冒烟套件（与 bat 套件同 T 编号）
-│   └── check_env.sh           sh 族环境能力报告
+│   ├── smoke_ffmpeg.sh          sh 族回归套件（与 bat 套件同 T 编号）
+│   ├── smoke_special_chars.sh   sh 族元字符矩阵（与 bat 套件同 part 字母）
+│   ├── smoke_all.sh             sh 族一键串跑
+│   └── check_env.sh             sh 族环境能力报告
 └── bat/
-    ├── smoke_ffmpeg_bat.bat   bat 族冒烟套件
-    └── check_env.bat          bat 族环境能力报告
+    ├── smoke_ffmpeg.bat         bat 族回归套件
+    ├── smoke_special_chars.bat  bat 族元字符矩阵
+    ├── smoke_all.bat            bat 族一键串跑
+    └── check_env.bat            bat 族环境能力报告
 ```
 
 约定（`.gitattributes` 已钉死）：
@@ -66,6 +82,9 @@ test/
 * 所有测试输出**只用 ASCII**。本仓库有长期 cp936/cp65001 踩坑史，日志一旦混入中文，
   控制台码页一变就变乱码，跨机器贴日志会失真。
 * `.bat` 的 cp65001 守卫区（`:main` 之前）必须纯 ASCII。
+* **同名文件互为孪生**：`smoke_ffmpeg.sh` ↔ `smoke_ffmpeg.bat` 等四处。改名时必须两族同步改
+  （2026-09-16 起从 `smoke_sh.sh` / `smoke_ffmpeg_bat.bat` 改为现在的形态，就是为了让
+  文件名层面也对等 —— 之前 T 编号对等了，文件名没对等，"哪个文件对应哪个文件"仍要靠脑子记）。
 
 ---
 
@@ -157,7 +176,7 @@ test/
 ### 3.1 运行方式
 
 ```bash
-bash test/sh/smoke_sh.sh [all|parity|list|guard]
+bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 ```
 环境开关：`REPO=`、`WORK=`（临时目录）、`WIPE=0`（保留现场）、`FIXTURE=`（自带素材）、
 `EXPECT_AV1_QSV=auto|ok|fail|skip`。
@@ -166,7 +185,7 @@ bash test/sh/smoke_sh.sh [all|parity|list|guard]
 > 重定向目标正好在里面的话，输出会写进一个已被删除的 inode，跑完什么也没有。
 > 日志写到 `WORK` 外面，或 `WIPE=0`。
 
-`.bat` 套件：双击运行；或 `smoke_ffmpeg_bat.bat [repo_path] [LIST]`。
+`.bat` 套件：双击运行；或 `smoke_ffmpeg.bat [repo_path] [LIST]`。
 日志与汇总在 `test/bat/smoke_logs/`。
 
 ### 3.2 T 编号对照表
@@ -224,6 +243,23 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 | `0` | 全部通过（SKIP 不算失败） |
 | `1` | 存在 FAIL |
 | `2` | 环境/安装错误（仓库、ffmpeg、夹具生成） |
+
+### 3.5 元字符矩阵（`smoke_special_chars.*`，两族同构）
+
+片库里有 `A & B (2020).mp4`、`Tora! Tora! Tora!.mov` 这类名字。两族各有一套
+**同构**的矩阵，part 字母与用例编号一致（A 段同为那 20 个文件名）：
+
+| part | 内容 | sh 侧 | bat 侧 |
+|------|------|-------|--------|
+| A | 20 个元字符文件名过 `copy_to_mp4` | ✅ 20/20 实测 | ✅ |
+| C | 3 个真实形状走**完整编码** | `ffmpeg_libx264.sh`（无需硬件） | `ffmpeg_avc_qsv.bat` |
+| B | 6 个元字符条目走 **list 模式** | `convert_from_list_libx265.sh`（无需硬件） | `convert_from_list_qsv.bat` |
+| D | 无参模式，路径从 stdin 喂 | **真 PASS**（重定向确实到达 `read`） | SKIP（cp65001 重启的探针取证限制，见其头注释） |
+| Z | 构造微测试 | `${name%.*}` 剥后缀 / `while IFS= read -r` 往返 / **反斜杠文件名**（Linux 合法，Windows 造不出→SKIP） | `set` 形态与 cp65001 守卫复刻（Windows 专属构造） |
+
+三处**刻意分歧**都有依据：sh 侧 C/B 段选软编入口是为了**整套不需要任何硬件**；
+**A07 脱字符在 sh 侧是真用例**（bash 不二次解析参数），bat 侧必须 SKIP（`CALL` 会把 `^` 翻倍，
+探针造不出同名文件）；bat 侧 Z 段的守卫复刻是 Windows 专属构造，sh 侧没有对应物。
 
 ---
 
@@ -320,7 +356,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 |------|------|
 | `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 7 WARN`，退出码 0 |
 | `python3 test/lint/selftest.py` | `13 cases / 0 FAIL` |
-| `bash test/sh/smoke_sh.sh all` | `PASS=22 FAIL=0 SKIP=4`，harness `rc=0` |
+| `bash test/sh/smoke_ffmpeg.sh all` | `PASS=22 FAIL=0 SKIP=4`，harness `rc=0` |
 | `bash test/sh/check_env.sh` | 快查：`OK 5 / 不可用 6 / 待深测 4` |
 | `bash test/sh/check_env.sh --probe` | 深测：**`ok=12 / fail=3`**，rc=0 |
 
@@ -360,7 +396,7 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
 ### 6.2 待人工补跑
 
 `.bat` 侧套件无法在本环境的自动化通道里执行（cmd.exe 的输出拿不到），
-需要手工双击验证：`test\bat\smoke_all.bat`（或 `smoke_ffmpeg_bat.bat`）与
+需要手工双击验证：`test\bat\smoke_all.bat`（或 `smoke_ffmpeg.bat`）与
 `test\bat\check_env.bat`。需要重点看的是本轮新增的部分：
 
 * T16 / T17（新增 `ffmpeg_libx264.bat` 与低码率 clamp 回归）；

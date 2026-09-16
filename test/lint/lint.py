@@ -843,7 +843,7 @@ def check_table_expectations(inv):
     for name in TABLES:
         v = table_value(name, 2073600)
         expected[name] = v // 2
-    p = os.path.join(ROOT, "test", "bat", "smoke_ffmpeg_bat.bat")
+    p = os.path.join(ROOT, "test", "bat", "smoke_ffmpeg.bat")
     if os.path.isfile(p):
         _, t = read_text(p)
         for m in re.finditer(r"call :runA (\S+)\s+\S+\s+(\S+)\s+(\d+)\s", t):
@@ -855,9 +855,9 @@ def check_table_expectations(inv):
                 continue
             tbl = family_table(codec)
             if tbl and expected[tbl] != val:
-                bads.append("smoke_ffmpeg_bat.bat %s: expected %d but table says %d"
+                bads.append("smoke_ffmpeg.bat %s: expected %d but table says %d"
                             % (logname, val, expected[tbl]))
-    p = os.path.join(ROOT, "test", "sh", "smoke_sh.sh")
+    p = os.path.join(ROOT, "test", "sh", "smoke_ffmpeg.sh")
     if os.path.isfile(p):
         _, t = read_text(p)
         for m in re.finditer(r"^(?:run_arg|gate_arg)\s+(T\d+)\s+(\S+)\s+(?:ok|fail)?\s*(\d+)",
@@ -867,7 +867,7 @@ def check_table_expectations(inv):
                 if codec in script or (codec == "h264" and "libx264" in script):
                     tbl = family_table(codec)
                     if tbl and expected[tbl] != val:
-                        bads.append("smoke_sh.sh %s %s: expected %d but table says %d"
+                        bads.append("smoke_ffmpeg.sh %s %s: expected %d but table says %d"
                                     % (tid, script, val, expected[tbl]))
                     break
     if bads:

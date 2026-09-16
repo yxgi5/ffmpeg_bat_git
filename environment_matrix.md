@@ -109,7 +109,7 @@
 > **cmd/PowerShell 行的 ✅ 指二进制本身**（ffmpeg.exe 直接调用已验证）；`.bat` 列的 `6/10` = 10 个 bat 中 6 个通过探针实测（4 编码器 + copy_to_mp4 + convert_from_list_qsv），opencmd 属一行起壳脚本不计；剩 3 个 list bat（cuda / libx265 / repack）与本轮所修共享同一行代码，风险低，可选复核。
 > **`.sh` 行的本轮复核（AI 在沙箱内直接跑 bash，无需用户介入）**：6 个编码入口 + 4 个 list 脚本全部 rc=0 且产出正确，含静音输入（`-map 0:a?`）、中文/空格文件名、CRLF+BOM 清单；同轮修掉 `check_file_is_text` 悬空调用与 `run_list` 的 CRLF/BOM 兼容（详见 code_review_report.md）。
 >
-> **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash/PowerShell 两条路均被安全策略拦截），改用一次性探针 `smoke_ffmpeg_bat.bat`（现位于仓库内 `test/bat/`，一次双击即跑完：4 编码器 + copy_to_mp4 + 交互输入 + 新进程 UTF-8 + 静音输入 + list 模式，日志落 `smoke_logs\`）。
+> **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash 与命令行工具两条路均被安全策略拦截），改用一次性探针（现位于仓库内 `test/bat/smoke_ffmpeg.bat`〔原名 smoke_ffmpeg_bat.bat〕，一次双击即跑完：4 编码器 + copy_to_mp4 + 交互输入 + 新进程 UTF-8 + 静音输入 + list 模式，日志落 `smoke_logs\`）。
 > 第一轮结果：**936 控制台（双击/拖放默认起点）下 5 个含中文 bat 全部在 banner 后立即报 `The system cannot find the path specified.` + `找不到 ffmpeg.exe`** → 定位为守卫 `shift` 连 `%0` 一起移位致 `%~dp0` 失效（详见 code_review_report.md，已修 4ffd990）；同一轮确认 **936→子进程重启路径下 banner 中文完全正常**（原先的 `'�使用方式:'` 报错消失），AVC/HEVC 码率查表值正确（`TARGET_BITRATE` = 3836249 / 2548951，percentage 10~15%）。
 > 第二轮结果（v2 探针）：守卫回归已消除、查表值正确、`copy_to_mp4` 通过；但暴露 **① 守卫标记 `FB_UTF8_GUARD` 泄漏到调用者环境**（`call` 链或同会话第二次运行即跳过守卫 → 936 解析下 banner 报错复现）**② `-map 0:a` 缺 `?`**（静音输入整条失败 errorlevel -22）**③ list 驱动 bat 缺 `call` + 清单路径未 `usebackq` 引号化 + 编码器裸名调用**。三类均已修（守卫首行 `setlocal` / 18 处改 `-map 0:a?` / 4 个 list bat 改 `usebackq`+`call`+`%~dp0` 锚定）。
 > 第三轮结果（v3 探针）：**编码 bat 主链路全绿** —— T1 AVC-QSV / T2 HEVC-NVENC / T3 HEVC-QSV / T4 libx265 / T5 copy_to_mp4 / T6 交互式输入 / T7 新进程 UTF-8 / T10 静音输入 **全部 PASS**，`TARGET_BITRATE` = 3836249 / 2548951 与码率表一致，**全局 banner 检查 `[PASS]`**（三种用法下均无 `is not recognized`），每个产物另有 ffprobe 复核。同轮暴露 list 驱动 bat **第 4 个缺陷**：`SET SRC_FILE=%1` 保留参数引号 → `in ("%SRC_FILE%")` 展开成双重引号路径，cmd 报 `The system cannot find the file "…\list.txt"`（rc=123，0/2）。已改 `%~1` 去引号（commit 2a58d97），**list 模式待第四轮复核**。
@@ -430,3 +430,21 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       带双向自校准 selftest）与 `test/{sh,bat}/check_env.*`（环境能力报告，默认快查 + 深测）。
       能力报告的价值正是把 ①②③ 这类"硬件在但测不到 / 硬件不在却报错"的模糊态显式化：
       `OK / NO-ENCODER / NO-DEVICE / N/A-OS / UNKNOWN / PROBE-OK / PROBE-FAIL / NO-ENTRY`。
+
+20. **测试文件名对等 + sh 侧补齐元字符矩阵（2026-09-16 深夜，本轮）**：T 编号对等之后，用户指出
+    **文件名层面也不对等**（bat 侧 4 个套件、sh 侧只有 2 个，且名字对不上）→ 两族文件名去掉族后缀、
+    **同名文件互为孪生**：
+    | 用途 | sh | bat |
+    |------|----|----|
+    | T 编号回归 | `test/sh/smoke_ffmpeg.sh`（原 `smoke_sh.sh`） | `test/bat/smoke_ffmpeg.bat`（原 `smoke_ffmpeg_bat.bat`） |
+    | 元字符矩阵 | `test/sh/smoke_special_chars.sh`（**新增**，part A/C/B/D/Z 与 bat 同构） | `test/bat/smoke_special_chars.bat` |
+    | 一键串跑 | `test/sh/smoke_all.sh`（**新增**） | `test/bat/smoke_all.bat` |
+    | 能力报告 | `test/sh/check_env.sh` | `test/bat/check_env.bat` |
+    sh 侧元字符矩阵的三处**刻意分歧**（都在脚本头注释里写明）：① part C/B 用 `libx264`/`libx265`
+    软编入口 → **全套无需硬件**（bat 用 QSV 是因为 Windows 测试机上它总在）；② **A07 脱字符在 sh 侧
+    是真用例**（bat 必须 SKIP：`CALL` 会二次解析参数、把 `^` 翻倍，探针造不出同名文件）；③ part D
+    在 sh 侧是**真 PASS**（文件重定向的 stdin 能到达无参分支；bat 侧是 cp65001 重启的探针取证限制）。
+    part Z 的定位改为钉住 `run_list` 与后缀剥离所依赖的 shell 构造（`${name%.*}`、
+    `while IFS= read -r`），并新增 **Z3 反斜杠文件名**（Linux 合法、Windows 文件系统造不出 → 条件 SKIP）。
+    沙箱权限复核：用户称已给完全权限，但实测 **cmd.exe 调用仍被拦截、外部 exe 的重定向输出仍为 0 字节**
+    —— `.bat` 侧验证仍需用户双击。

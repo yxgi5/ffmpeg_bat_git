@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg_bat.bat (v7)   *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg.bat (v8)   *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -56,7 +56,7 @@ rem
 rem Location: <repo>\test\bat\  (the repo root is derived from this
 rem         file's own path, two levels up)
 rem
-rem Usage:  smoke_ffmpeg_bat.bat [repo_path] [LIST]
+rem Usage:  smoke_ffmpeg.bat [repo_path] [LIST]
 rem         (no 2nd arg = full run incl. T13/T14/T15/T16/T17;
 rem          LIST = list tests only)
 rem         default repo_path = two levels up from this .bat
@@ -316,7 +316,7 @@ rem ============================================================
 rem :gate <bat base name>
 rem   Probe the ENTRY itself on the shared gate clip and set GATED when this
 rem   initialise it. The caller then reports SKIP instead of FAIL - the same
-rem   policy as :gate_arg in test/sh/smoke_sh.sh, so the two suites agree on
+rem   policy as :gate_arg in test/sh/smoke_ffmpeg.sh, so the two suites agree on
 rem   what "this machine cannot run it" means.
 rem   The probe runs the real entry (not a hand written ffmpeg line) so it
 rem   exercises the same device init path the real case uses.
@@ -463,7 +463,7 @@ if not "%NT%"=="" echo        why: %NT% >> "%SUM%"
 exit /b 0
 
 :NO_REPO
-echo [FATAL] repo not found. usage: smoke_ffmpeg_bat.bat ^<repo_path^>
+echo [FATAL] repo not found. usage: smoke_ffmpeg.bat ^<repo_path^>
 pause
 exit /b 1
 

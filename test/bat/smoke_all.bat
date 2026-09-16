@@ -4,7 +4,7 @@ rem smoke_all.bat   *** ASCII ONLY / CRLF ***
 rem
 rem One double-click runs both smoke layers against the repo:
 rem
-rem   [1/2] smoke_ffmpeg_bat.bat      regression suite T1-T15
+rem   [1/2] smoke_ffmpeg.bat          regression suite T1-T17
 rem         - every encoder entry, three usage modes (drag-drop,
 rem           interactive, fresh-UTF-8 console), list mode,
 rem           silent-input test, audio-only rejection, AV1 NVENC
@@ -30,8 +30,8 @@ echo  combined smoke: regression suite + special character matrix
 echo ============================================================
 echo.
 
-if not exist "%SELF%smoke_ffmpeg_bat.bat" (
-    echo [FATAL] smoke_ffmpeg_bat.bat not found next to this file
+if not exist "%SELF%smoke_ffmpeg.bat" (
+    echo [FATAL] smoke_ffmpeg.bat not found next to this file
     pause
     exit /b 1
 )
@@ -41,8 +41,8 @@ if not exist "%SELF%smoke_special_chars.bat" (
     exit /b 1
 )
 
-echo [1/2] regression suite T1-T15 ...
-call "%SELF%smoke_ffmpeg_bat.bat" < nul
+echo [1/2] regression suite T1-T17 ...
+call "%SELF%smoke_ffmpeg.bat" < nul
 set "RC1=%ERRORLEVEL%"
 
 echo.

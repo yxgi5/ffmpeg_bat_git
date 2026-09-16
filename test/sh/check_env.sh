@@ -290,8 +290,8 @@ echo
 
 # ---------- tooling + data inventory ----------
 echo "---- repo tooling ----"
-for t in test/lint/lint.py test/lint/selftest.py test/sh/smoke_sh.sh test/sh/check_env.sh \
-         test/bat/smoke_ffmpeg_bat.bat test/bat/check_env.bat test/README.md; do
+for t in test/lint/lint.py test/lint/selftest.py test/sh/smoke_ffmpeg.sh test/sh/check_env.sh \
+         test/bat/smoke_ffmpeg.bat test/bat/check_env.bat test/README.md; do
     if [ -f "$REPO/$t" ]; then printf '  present  %s\n' "$t"; else printf '  MISSING  %s\n' "$t"; fi
 done
 echo "---- bitrate tables ----"

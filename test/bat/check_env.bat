@@ -130,7 +130,7 @@ echo.
 
 rem ---- tooling and data inventory ----
 echo ---- repo tooling ----
-for %%t in (test\lint\lint.py test\lint\selftest.py test\sh\smoke_sh.sh test\sh\check_env.sh test\bat\check_env.bat test\bat\smoke_ffmpeg_bat.bat test\README.md) do call :have "%%t"
+for %%t in (test\lint\lint.py test\lint\selftest.py test\sh\smoke_ffmpeg.sh test\sh\check_env.sh test\bat\check_env.bat test\bat\smoke_ffmpeg.bat test\README.md) do call :have "%%t"
 echo ---- bitrate tables ----
 for %%c in (lib\bitrate_table_avc.csv lib\bitrate_table_hevc.csv lib\bitrate_table_av1.csv) do call :rows "%%c"
 echo.

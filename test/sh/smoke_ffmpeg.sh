@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-# smoke_sh.sh (v2) - sh-family smoke harness
+# smoke_ffmpeg.sh (v2) - sh-family smoke harness
 #
 #   PARITY NOTE: this harness is the 1:1 twin of
-#   test/bat/smoke_ffmpeg_bat.bat. Cases that exist in both
+#   test/bat/smoke_ffmpeg.bat. Cases that exist in both
 #   families share the same T-id, the same 1080p60 fixture and
 #   the same expected TARGET_BITRATE, so a T-number difference
 #   between the two families is a real cross-family divergence.
@@ -14,7 +14,7 @@
 #   this script's own path (two levels up), so a clone anywhere
 #   works. ASCII only, LF.
 #
-# Usage:  bash test/sh/smoke_sh.sh [part]
+# Usage:  bash test/sh/smoke_ffmpeg.sh [part]
 #         part = all (default) | parity | list | guard
 #
 # Env knobs:
@@ -36,6 +36,12 @@ set -u
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${REPO:-$(cd "$SELF_DIR/../.." && pwd)}"
 W="${WORK:-${TMPDIR:-/tmp}/ffmpeg_bat_smoke_sh}"
+# A Windows-form TEMP value ("C:////Users////...") mixes separators once joined with
+# "/ffmpeg_bat_smoke_sh"; native tools and some safe-delete wrappers cannot
+# canonicalise that. Normalise to a pure forward-slash absolute path.
+case "$W" in
+    *[\\]*) W="$(cygpath -m "$W" 2>/dev/null || printf '%s' "$W" | tr '\\' '/')" ;;
+esac
 LOG="$W/logs"
 SUM="$W/summary.txt"
 PART="${1:-all}"
@@ -243,7 +249,7 @@ gate_arg() {
 }
 
 # ============================================================
-# part: parity  (T-ids shared with smoke_ffmpeg_bat.bat)
+# part: parity  (T-ids shared with test/bat/smoke_ffmpeg.bat)
 # ============================================================
 if part_in parity; then
 head1 "part parity: 1080p60 fixture, arg mode (same T-ids as the .bat harness)"
@@ -254,7 +260,7 @@ run_arg T16 ffmpeg_libx264.sh ok 3836249 h264 "arg: soft AVC (bat twin added 202
 # T17: 400k source vs table(1080p AVC)/2 = 3836249 -> the documented clamp
 # ("keep the source bitrate") must fire in ARG mode, not only interactively.
 run_arg T17 ffmpeg_libx264.sh ok LT:3836249 h264 "arg: low-bitrate source keeps source bitrate" "$LOW"
-say "       | $(grep -a 'real TARGET_BITRATE\|percentage' "$LOG/T17_libx264.log" | tr '\n' ' ')"
+say "       | $(grep -a 'real TARGET_BITRATE\|percentage' "$LOG/T17_ffmpeg_libx264.log" | tr '\n' ' ')"
 
 # --- hardware paths: probe first, SKIP when this box cannot run the encoder ---
 # format: tid|script|expTARGET|expCODEC|note
