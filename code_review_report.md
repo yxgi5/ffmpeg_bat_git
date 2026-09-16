@@ -24,6 +24,7 @@
 | ✅ 已解决 | 新增环境×硬件能力矩阵文档（三机器五环境，已验证/未验证/未编入状态） | 4db4577 + b210379 |
 | 🔲 待办 | P2: .bat 临时文件改用 for /f（.bat 家族整体重构，放最后） | — |
 | ✅ 已解决 | P2: .bat 家族重构 — 新建 lib/common.bat（dispatch + lookup_bitrate 读 CSV + 公共子程序），4 个编码 bat 450→191 行，固定临时文件改 %TEMP% 唯一名，avc_qsv.bat 修正为 AVC 码率表（旧版误用 HEVC 表）。**沙箱无法运行 cmd.exe，静态验证通过，待用户手动冒烟** | 57c418f |
+| ✅ 已解决 | 冒烟反馈修复: common.bat lookup_bitrate 比较方向写反（`max_pixels leq pixels` 应为 `pixels leq max_pixels`），导致永远命中表第 1 行 → TARGET_BITRATE 异常小 → percentage=0 → "bitrate abnormal"。修复后与 .sh 语义一致（向上取档），1080p60 实测预期: AVC TARGET=3836249 (21%) / HEVC TARGET=2548951 (14%)。banner 处 `'�使用方式:'` 报错为 cmd 65001 代码页已知解析 bug，原版即有、纯观感，决定保持 UTF-8 现状 | (本次) |
 | 🔲 待办 | Linux（A 机）/ Ultra 265K（C 机）平台实测项，见 environment_matrix.md 待验证清单 | — |
 
 **验证状态**：全部 14 个 .sh 重构完毕，eval 与 if-elif 查表在 .sh 中清零；试点+推广脚本在 Cygwin / MSYS2 mingw64 / 原生 gyan 三套 ffmpeg 下端到端验证通过（Cygwin 的 QSV 与 libx264/libx265 为构建限制，见矩阵文档）。

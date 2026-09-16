@@ -34,8 +34,9 @@ if not exist "%LB_FILE%" (
 )
 setlocal EnableDelayedExpansion
 set "LB_VAL="
+rem 方向与 common.sh 一致: 取第一个 max_pixels >= 像素数的档位 (向上取档)
 for /f "usebackq skip=1 tokens=1,2 delims=," %%a in ("%LB_FILE%") do (
-    if not defined LB_VAL if %%a leq %~2 set "LB_VAL=%%b"
+    if not defined LB_VAL if %~2 leq %%a set "LB_VAL=%%b"
 )
 endlocal & set "%LB_VAR%=%LB_VAL%"
 if not defined %LB_VAR% exit /b 2
