@@ -437,11 +437,11 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 | P1  | 提取公共函数到 lib/common.sh               | 减少 ~60% 重复代码            | ✅ |
 | P1  | 码率查找表改为 CSV 数据驱动                    | 94 分支→1 个函数，修改码率只需改 CSV | ✅ |
 | P1  | 合并 nvenc/nvenc_cygwin/libx265 为统一脚本 | 11 个文件→1 个脚本+参数         | ✅（方案 A：保留独立入口，内部统一 source lib） |
-| P2  | 消除 eval，改用数组                        | 安全性提升                   | ✅（.sh 全部；.bat 待重构） |
+| P2  | 消除 eval，改用数组                        | 安全性提升                   | ✅（.sh 数组传参；.bat 重构为 call 子程序 + CSV 查表，无 eval/if-elif） |
 | P2  | 修复变量引号和文件名空格处理                      | 健壮性提升                   | ✅ |
-| P2  | .bat 临时文件改用 for /f                  | 消除竞争风险                  | 🔲 |
+| P2  | .bat 临时文件消除竞争与残留                   | 消除竞争风险                  | ✅（采用 %TEMP%+RANDOM 唯一名 + 用后即删，见上表说明；字面 for /f 未采用） |
 | P3  | 清理死代码和调试标记                          | 可读性提升                   | ✅ |
 | P3  | 修正拼写错误                              | 专业性提升                   | ✅ |
 | P3  | 规范 git commit message               | 可追溯性提升                  | ✅ |
 
-**遗留事项**：.bat 家族重构（9 个文件，含临时文件与重复分支清理）、Linux（A 机）与 Ultra 265K（C 机）平台实测（见 environment_matrix.md）。
+**遗留事项**：.bat 家族重构已完成（57c418f + 后续修复/守卫/find_ffmpeg，待本机三用法冒烟）、Linux（A 机）与 Ultra 265K（C 机）平台实测（见 environment_matrix.md）、lib/common.bat 遗留调试输出清理、README/使用说明。
