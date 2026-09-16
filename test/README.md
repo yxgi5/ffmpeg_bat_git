@@ -393,6 +393,25 @@ T19 hevc_vaapi 在 C 机 4.4.2 上通过探针与全用例（此前记录的 4.4
 存在 stdin 泄漏（ffmpeg 吃掉 heredoc 后续行导致 T3/T19 错乱 SKIP）与探针产物残留
 （T6/T10 误 SKIP）两类假 SKIP，详见该提交说明。
 
+### 6.4 D 机（树莓派 4B / openmediavault / armv7l 32 位 / ffmpeg 4.1.3 Raspbian / 2026-09-16）
+
+`ssh_run.py --machine d`（`100.70.213.69`，用户 `pi`）。这是四台机器里唯一
+**没有任何硬件编码器**的：能力报告快查 `OK 2`（libx264 / libx265），其余 13 个入口
+全部 `NO-ENCODER / NO-DEVICE / N/A-OS`。ffmpeg 是 Raspbian 源的 4.1.3 —— 比 A/C 的
+4.4.2 更老，但全部入口脚本照常工作（`check_file_isvideo` / `lookup_bitrate` 等
+纯 shell 逻辑与 ffmpeg 版本解耦）。
+
+| 命令 | 结果 |
+|------|------|
+| `python3 test/lint/lint.py` / `selftest.py` | `21 PASS / 0 FAIL / 6 WARN`、`13 cases / 0 FAIL` |
+| `bash test/sh/smoke_ffmpeg.sh all` | 首轮 `PASS=12 FAIL=3 SKIP=11` → 门控修复后 **`PASS=12 FAIL=0 SKIP=14`** |
+| `bash test/sh/smoke_special_chars.sh` | `PASS=28 FAIL=0 SKIP=0`（Z3 反斜杠文件名在 Linux 是真用例） |
+
+首轮的 3 个 FAIL（T9/T11/T12）**不是 D 机的问题，是套件的门控缺口**：list 模式用例
+走 `convert_from_list_qsv`，隐式依赖 QSV AVC 硬件，而 A/B/C 三台恰好都有 QSV，
+缺口一直不可见。修复（4e42fbc）后三个用例在无 QSV 机器上正确记 SKIP —— 这正是
+把 Pi 拉进测试矩阵的价值：**它专门负责暴露"软编也要有、硬件依赖要显式"这类问题**。
+
 | 入口 | 失败原因 |
 |------|----------|
 | `ffmpeg_av1_qsv.sh` | 本机是 Raptor Lake 核显，**无 AV1 硬编**（`Current codec type is unsupported`） |

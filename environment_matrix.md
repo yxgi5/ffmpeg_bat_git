@@ -431,6 +431,19 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       能力报告的价值正是把 ①②③ 这类"硬件在但测不到 / 硬件不在却报错"的模糊态显式化：
       `OK / NO-ENCODER / NO-DEVICE / N/A-OS / UNKNOWN / PROBE-OK / PROBE-FAIL / NO-ENTRY`。
 
+20. **软编 AV1 入口的评估结论（2026-09-16，决策：不做）**：用户问「软件 AV1 是否过于慢、有没有必要做」。
+    实测（10 秒 1080p30、单遍 CBR 2548951 bps、与仓库入口同款参数）：
+    * B 机（gyan master，SVT-AV1 3.0.2）：`libx264 veryfast` 1.2s / `libx265 fast` 3.4s /
+      `svtav1 p8` **3.1s** / `p6` 4.9s / `p4` 23.3s —— **p8 与 x265 fast 同速**，"过于慢"不成立于新版本 SVT-AV1；
+    * A 机（i7-9700T，/opt master 同版 SVT-AV1）：`libx265 fast` 4.5s / `svtav1 p8` 6.0s / `p6` 11.7s；
+    * D 机（Pi 4B，ffmpeg 4.1.3）：**无 svtav1**（只有 libaom，慢 50–100 倍）——软编 AV1 在 Pi 上不存在可行性。
+    不做的理由是**矩阵位置而非速度**：① 有硬编 AV1 的机器（B: NVENC、C: QSV）永远不会选软编；
+    ② 无硬编 AV1 的机器里 A 机不是转码产线（100 部 × ~36 分钟/部 ≈ 60 小时，且主线是 NVENC HEVC）、
+    D 机根本没有 svtav1；③ 质量收益（同码率 VMAF 略高）对"看电影学英语"场景感知弱，
+    而 AV1 的**播放端兼容性反而更差**（Pi NAS / 旧设备软解 AV1 会卡）；④ 若未来出现
+    "无硬编 AV1 但算力强的产线机器"或"存储成本敏感"的需求，加入口成本可控
+    （bitrate_table_av1.csv 已存在，只需 2 个入口文件 + lint/T 用例）——届时再评估。
+
 20. **测试文件名对等 + sh 侧补齐元字符矩阵（2026-09-16 深夜，本轮）**：T 编号对等之后，用户指出
     **文件名层面也不对等**（bat 侧 4 个套件、sh 侧只有 2 个，且名字对不上）→ 两族文件名去掉族后缀、
     **同名文件互为孪生**：
