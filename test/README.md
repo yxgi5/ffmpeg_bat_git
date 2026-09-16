@@ -396,16 +396,22 @@ T19 hevc_vaapi 在 C 机 4.4.2 上通过探针与全用例（此前记录的 4.4
 ### 6.4 D 机（树莓派 4B / openmediavault / armv7l 32 位 / ffmpeg 4.1.3 Raspbian / 2026-09-16）
 
 `ssh_run.py --machine d`（`100.70.213.69`，用户 `pi`）。这是四台机器里唯一
-**没有任何硬件编码器**的：能力报告快查 `OK 2`（libx264 / libx265），其余 13 个入口
-全部 `NO-ENCODER / NO-DEVICE / N/A-OS`。ffmpeg 是 Raspbian 源的 4.1.3 —— 比 A/C 的
-4.4.2 更老，但全部入口脚本照常工作（`check_file_isvideo` / `lookup_bitrate` 等
-纯 shell 逻辑与 ffmpeg 版本解耦）。
+**没有 QSV / NVENC 硬件编码器**的：能力报告快查 `OK 7`（libx264、libx265、
+h264/hevc vaapi、copy_to_mp4 及两个 wrapper），QSV/NVENC 系全部 `NO-ENCODER`。
+ffmpeg 是 Raspbian 源的 4.1.3 —— 比 A/C 的 4.4.2 更老，但全部入口脚本照常工作
+（`check_file_isvideo` / `lookup_bitrate` 等纯 shell 逻辑与 ffmpeg 版本解耦）。
 
 | 命令 | 结果 |
 |------|------|
 | `python3 test/lint/lint.py` / `selftest.py` | `21 PASS / 0 FAIL / 6 WARN`、`13 cases / 0 FAIL` |
+| `bash test/sh/check_env.sh` | 首轮被 mawk bug 误报成全 NO（`0 listed`）→ 修复后 **OK=7 / 其余 8 个 NO-ENCODER** |
 | `bash test/sh/smoke_ffmpeg.sh all` | 首轮 `PASS=12 FAIL=3 SKIP=11` → 门控修复后 **`PASS=12 FAIL=0 SKIP=14`** |
 | `bash test/sh/smoke_special_chars.sh` | `PASS=28 FAIL=0 SKIP=0`（Z3 反斜杠文件名在 Linux 是真用例） |
+
+**check_env 在 D 机首轮全 NO 是检测脚本自己的 bug**（环境矩阵第 22 条）：Pi 默认 awk 是
+mawk 1.3.3，不支持区间表达式 `/^[A-Z.]{6}$/`，编码器清单被静默提取成空。快查报 `OK`
+只代表静态证据；D 机列出的 `h264_vaapi`/`hevc_vaapi` 编码器在 Pi GPU 上并没有 VAAPI
+驱动，能不能真跑以 `--probe` 为准。
 
 首轮的 3 个 FAIL（T9/T11/T12）**不是 D 机的问题，是套件的门控缺口**：list 模式用例
 走 `convert_from_list_qsv`，隐式依赖 QSV AVC 硬件，而 A/B/C 三台恰好都有 QSV，

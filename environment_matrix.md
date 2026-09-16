@@ -444,7 +444,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     "无硬编 AV1 但算力强的产线机器"或"存储成本敏感"的需求，加入口成本可控
     （bitrate_table_av1.csv 已存在，只需 2 个入口文件 + lint/T 用例）——届时再评估。
 
-20. **测试文件名对等 + sh 侧补齐元字符矩阵（2026-09-16 深夜，本轮）**：T 编号对等之后，用户指出
+21. **测试文件名对等 + sh 侧补齐元字符矩阵（2026-09-16 深夜，本轮）**：T 编号对等之后，用户指出
     **文件名层面也不对等**（bat 侧 4 个套件、sh 侧只有 2 个，且名字对不上）→ 两族文件名去掉族后缀、
     **同名文件互为孪生**：
     | 用途 | sh | bat |
@@ -461,3 +461,19 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     `while IFS= read -r`），并新增 **Z3 反斜杠文件名**（Linux 合法、Windows 文件系统造不出 → 条件 SKIP）。
     沙箱权限复核：用户称已给完全权限，但实测 **cmd.exe 调用仍被拦截、外部 exe 的重定向输出仍为 0 字节**
     —— `.bat` 侧验证仍需用户双击。
+
+22. **check_env.sh 的 mawk 陷阱（2026-09-16 深夜，用户在 D 机复跑时发现）**：D 机快查把
+    libx264 / libx265 报成 NO、`encoders : 0 listed`，hwaccels 粘连成一词 `vdpauvaapidrm`。
+    用户存疑「Pi 应该支持 libx264/libx265」——实测确认用户正确，是**检测脚本自己的 bug**：
+    * 根因①：D 机默认 awk 是 **mawk 1.3.3**（Raspbian），不支持区间表达式——`/^[A-Z.]{6}$/`
+      静默匹配 0 行 → `ENCODERS` 为空 → 所有编码器 NO。mawk 报错都不报，gawk/A 机完全无感。
+    * 根因②：`tr -d '[:space:]'` 本想清空白，实际把 hwaccel 名字全部粘连成一词。
+    * 修复（check_env.sh）：区间表达式展开为 6 个显式字符类 + `$2 != "="` 滤掉图例行；
+      hwaccels 改 `tr -s '[:space:]' ' '`。B 机（gawk）复跑 `237 listed` 不变，D 机修复后
+      `187 listed`、libx264/libx265 转 yes、OK=7。
+    * 结论修正：「Pi 无硬件编码器」应精确为「无 QSV/NVENC」——Raspbian 4.1.3 编译进了
+      `h264_vaapi`/`hevc_vaapi` 编码器本体，但 Pi GPU 没有 VAAPI 驱动，真跑与否以
+      `--probe` 为准（快查 OK 只是静态证据）。
+    * 教训：sh 侧工具脚本要按 POSIX 最小公共子集写——**mawk 1.3.3 连区间表达式都不支持**，
+      任何「只在 gawk 下验证过」的正则都可能在 Debian 系机器上静默失效。
+      B 机有双系统（Win11 / Ubuntu 22.04），待用户切 Ubuntu 轮再补一轮 sh 侧实测。

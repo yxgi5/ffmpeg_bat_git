@@ -102,8 +102,13 @@ case "$UNAME_S" in
     *)            OSFAMILY="other" ;;
 esac
 
-ENCODERS="$("$FF" -hide_banner -encoders 2>/dev/null | awk 'NF>=2 && $1 ~ /^[A-Z.]{6}$/ {print $2}')"
-HWACCELS="$("$FF" -hide_banner -hwaccels 2>/dev/null | tail -n +2 | tr -d '[:space:]' | tr '\n' ' ')"
+# mawk 1.3.3 (the default awk on e.g. Raspberry Pi OS Buster) silently fails
+# on interval expressions: /^[A-Z.]{6}$/ matches NOTHING there, ENCODERS ends
+# up empty and every encoder is reported NO. Spell the 6-char class out.
+# "$2 != '='" skips the " V..... = Video" legend lines.
+ENCODERS="$("$FF" -hide_banner -encoders 2>/dev/null | awk 'NF>=2 && $2 != "=" && $1 ~ /^[VAS.][A-Z.][A-Z.][A-Z.][A-Z.][A-Z.]$/ {print $2}')"
+# tr -d would glue all names into one word ("vdpauvaapidrm"); squeeze instead.
+HWACCELS="$("$FF" -hide_banner -hwaccels 2>/dev/null | tail -n +2 | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
 FILTERS="$("$FF" -hide_banner -filters 2>/dev/null | awk 'NF>=2 {print $2}')"
 
 has_enc()    { printf '%s\n' "$ENCODERS" | grep -qx "$1"; }
