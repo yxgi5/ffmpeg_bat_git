@@ -677,6 +677,47 @@ def check_bash_syntax(inv):
         ok("L12", "`bash -n` clean on every .sh (%d files)" % len(inv["all_sh"]))
 
 
+# ---------------------------------------------------------------- L14
+def check_exec_bits(inv):
+    """Every tracked .sh must be 100755 in the git index.
+
+    The suites were authored on Windows, where the filesystem does not carry
+    the exec bit: without this check a fresh `git clone` on Linux/A/B/C/D gets
+    non-executable scripts and every caller needs a manual chmod. Read the
+    MODE FROM THE INDEX (`git ls-files -s`), not from the filesystem -- on
+    Windows core.fileMode=false makes the worktree mode meaningless, and the
+    index is the only thing a clone actually receives.
+    """
+    if not os.path.isdir(os.path.join(ROOT, ".git")):
+        skip("L14", "not a git checkout: skipped exec-bit check")
+        return
+    git = shutil_which("git")
+    if not git:
+        skip("L14", "git not available: skipped exec-bit check")
+        return
+    r = subprocess.run([git, "ls-files", "-s"], cwd=ROOT, capture_output=True,
+                       text=True)
+    if r.returncode != 0:
+        skip("L14", "git ls-files failed: skipped exec-bit check")
+        return
+    bads = []
+    n = 0
+    for ln in r.stdout.splitlines():
+        parts = ln.split()
+        if len(parts) < 4 or not parts[3].endswith(".sh"):
+            continue
+        n += 1
+        if parts[0] != "100755":
+            bads.append("%s: index mode is %s (want 100755; "
+                        "fix with git update-index --chmod=+x)"
+                        % (parts[3], parts[0]))
+    if bads:
+        for m in bads:
+            bad("L14", m)
+    else:
+        ok("L14", "every tracked .sh carries the exec bit (%d files)" % n)
+
+
 def shutil_which(cmd):
     """Locate an executable.
 
@@ -1167,7 +1208,7 @@ def main():
         print("         L05 paren balance  L06 quote pairing  L07 call labels")
         print("         L08 wrapped set with quoted var  L09 metachar scan")
         print("         L10 run_list stdin  L11 option order  L12 bash -n")
-        print("         L13 exit-code contract")
+        print("         L13 exit-code contract  L14 .sh exec bit")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1191,6 +1232,7 @@ def main():
         check_metachars(inv, qvars_by_file, calibrated)
         check_sh_invariants(inv)
         check_bash_syntax(inv)
+        check_exec_bits(inv)
         check_exit_codes(inv)
 
     if not args.lint_only:
