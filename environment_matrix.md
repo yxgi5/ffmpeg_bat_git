@@ -616,6 +616,26 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * sh 侧不受影响：入口 .sh 如实传递 ffmpeg 退出码，rc 即判据（C 机深测 fail=4 就是这么抓到的）。
     * 沙箱可调 ffmpeg 实证了根因（rc=127、0 字节输出），但探针修复本身是静态改动，
       待用户 `/probe` 复跑确认：本机预期 av1_qsv → PROBE-FAIL，其余 → PROBE-OK out=…B。
+33. **soft_pair_calib.sh 入库：calib_av1.sh 的正名与参数化（2026-09-17）**：
+    * 当年会话工作区的 `calib_av1.sh`（软编配对校准：SVT-AV1 p8 vs libx265 fast，
+      第 25 条 r≈0.53–0.61 的数据来源）按用户要求入库，正名
+      `test/sh/soft_pair_calib.sh`——与 nvenc_pair_calib（硬编配对）构成对偶命名：
+      **soft_pair = 软编家族比例（表哲学基准），nvenc_pair = 硬件实现折损**。
+    * 参数化改造：`FFMPEG=` 指定构建（去掉 /opt 硬编码）、`SOFT_PAIR_WORK=` 工作目录
+      （去掉 $HOME/calib_av1 硬编码，路径勿含空格——log_path 进 lavfi 滤镜串）、
+      `SKIP_DOWNLOAD=1` 离线跑；libvmaf 的 log_path 改 **cwd 相对路径**
+      （Windows/MSYS 下绝对路径盘符冒号会炸滤镜解析，#26 同坑）。
+    * 脚本尾部保留免仓库兜底求解器；**维护版求解器 = test/py/eq_quality_solve.py**
+      （CSV 列 clip,codec,br_req,br_delivered,vmaf 完全一致，py 头部已注明 runner）。
+      回答用户疑问：py 三件套中 **eq_quality_solve.py 正是本脚本的配套分析工具**，
+      与 nvenc_pair_solve.py ↔ nvenc_pair_calib 的关系对偶。
+    * 本机沙箱验证（gyan full 构建、2s 合成 1080p 源、SKIP_DOWNLOAD）：1080 模式
+      全梯（12 编码 + VMAF + CSV）+ probe 模式通过，VMAF 分层正常
+      （82–97），eq_quality_solve.py 对接一致；合成片梯子区间无重叠属预期
+      （「overlap too small」，真实 10s 片源梯距按内容调过）。A/C 机主跑无需重跑
+      （即当年数据），未来复测直接用本脚本。
+    * test/README.md 新增 ③c 节 + 目录树；顺带修掉 README 遗留的
+      `bench_av1_calib.bat` 旧名引用（上轮改名漏网）。
 31. **check_env.bat 快查/深测五处修复 + 参数风格改正（2026-09-17，用户 B 机实跑暴露）**：
     * **① 编码器清单全 NO（最关键）**：`:hasenc` 的 findstr 正则只写了 6 个点，而 `-encoders` 行格式是
       **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格

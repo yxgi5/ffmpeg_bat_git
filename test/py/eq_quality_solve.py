@@ -1,6 +1,7 @@
 # eq_quality_solve.py - equal-quality bitrate-ratio solver (software pair)
 #
-# Reads calibration CSVs produced by a bench_calib-style ladder run
+# Reads calibration CSVs produced by test/sh/soft_pair_calib.sh (the
+# software-codec pair runner; historical name: calib_av1.sh)
 # (columns: clip,codec,br_req,br_delivered,vmaf; codec values x265/av1),
 # fits vmaf ~ a*log2(delivered)+b per (clip, codec), and reports the
 # bitrate ratio r = AV1/HEVC needed to reach each VMAF target.
