@@ -211,8 +211,8 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T11 | 清单模式 + UTF-8 文件名 | 清单 2 条目 | 2/2 产物 | ✅ | ✅ |
 | T12 | 清单模式，无参数，cwd 在别处 | 清单 2 条目 | 2/2 产物 | ✅ | ✅ |
 | T13 | 非视频输入必须被拦下 | 纯音频 | `rc=3` | ✅ | ✅ |
-| T14 | `ffmpeg_av1_nvenc` | arg | 1656818 / av1 | ✅ | ✅ |
-| T15 | `ffmpeg_av1_qsv` | arg | 1656818 / av1 | ✅ | ✅ |
+| T14 | `ffmpeg_av1_nvenc` | arg | 1707157 / av1 | ✅ | ✅ |
+| T15 | `ffmpeg_av1_qsv` | arg | 1707157 / av1 | ✅ | ✅ |
 | T16 | `ffmpeg_libx264` | arg | 3836249 / h264 | ✅ | ✅ |
 | T17 | 低码率源 clamp（400k 源） | arg | `< 3836249` / h264 | ✅ | ✅ |
 | T18 | `ffmpeg_libx264` stdin 指定码率 900k | stdin | `900k` / h264 | ✅ | — |

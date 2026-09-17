@@ -55,8 +55,9 @@ test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` �
 | `bitrate_table_hevc.csv` | `65.1 × pixels^0.775` | 5.10 Mbps | 14.9 Mbps |
 | `bitrate_table_av1.csv`  | `58.1 × pixels^0.755` | 3.43 Mbps | 9.76 Mbps |
 
-三代编码器的省码比例内嵌在表中：**HEVC/AVC ≈ 0.665 恒定；AV1/HEVC 分档**
-（小像素 0.75、中段 0.70、**1080p（2073600 px）及以上 0.65**、8K 以上 0.60）。
+三代编码器的省码比例内嵌在表中：**HEVC/AVC ≈ 0.665 恒定；AV1 表为连续幂律**
+`58.1 × pixels^0.755`，对 HEVC 的隐含比例随分辨率从 ≈0.68（720p）缓降到 ≈0.63（8K），无档位台阶。
+AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，本表偏宽松、画质保守侧），见 `environment_matrix.md` 第 25–28 条。
 
 **表的定位**：三张表描述的是*编解码器代际的理论收益*，衡量基准是各代最佳实用软编
 （x265 / SVT-AV1），不针对某个硬件编码器校准。硬编入口（qsv/nvenc/vaapi）沿用同表时，

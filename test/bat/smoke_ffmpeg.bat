@@ -155,10 +155,10 @@ chcp %CP0% >nul
 call :runA ffmpeg_libx265    "%IN%" T4_libx265_A      2548951 S A hevc
 chcp %CP0% >nul
 rem T14: ffmpeg_av1_nvenc.bat (added 2026-09-16). Needs an Ada+ GPU (RTX 40 series or
-rem newer); 1080p AV1 table entry = 1656818. Verdict artefacts: log must show
-rem TARGET_BITRATE=1656818 and the ffprobe sidecar must show codec_name=av1.
+rem newer); 1080p AV1 table entry = 1707157. Verdict artefacts: log must show
+rem TARGET_BITRATE=1707157 and the ffprobe sidecar must show codec_name=av1.
 call :gate ffmpeg_av1_nvenc
-if not defined GATED call :runA ffmpeg_av1_nvenc  "%IN%" T14_av1_nvenc_A  1656818 S A av1
+if not defined GATED call :runA ffmpeg_av1_nvenc  "%IN%" T14_av1_nvenc_A  1707157 S A av1
 if defined GATED call :skipcase T14 ffmpeg_av1_nvenc
 
 rem ============ T16: ffmpeg_libx264.bat (added 2026-09-16) ============
@@ -216,7 +216,7 @@ rem ============ T15: ffmpeg_av1_qsv.bat (added 2026-09-16) =============
 rem AV1 QSV hardware encoding only exists on Arrow Lake or newer iGPUs and
 rem only in recent ffmpeg builds. Probe the capability first so this case
 rem reports SKIP instead of FAIL on a box that simply lacks the hardware.
-rem 1080p AV1 table entry = 1656818 (same value the .sh twin produced on
+rem 1080p AV1 table entry = 1707157 (same value the .sh twin produced on
 rem the C-machine Arrow Lake box).
 chcp %CP0% >nul
 set "AV1P=%WORK%\probe_av1_qsv.mp4"
@@ -228,7 +228,7 @@ if not "%AV1PRC%"=="0" goto T15SKIP
 if not exist "%AV1P%" goto T15SKIP
 del /q "%AV1P%" >nul 2>&1
 chcp %CP0% >nul
-call :runA ffmpeg_av1_qsv "%IN%" T15_av1_qsv_A 1656818 S A av1
+call :runA ffmpeg_av1_qsv "%IN%" T15_av1_qsv_A 1707157 S A av1
 goto T15DONE
 :T15SKIP
 echo [SKIP] T15 ffmpeg_av1_qsv: no AV1 QSV hardware encoder on this box >> "%SUM%"

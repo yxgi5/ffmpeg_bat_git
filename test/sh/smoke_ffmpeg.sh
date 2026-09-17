@@ -283,7 +283,7 @@ T3|ffmpeg_hevc_qsv.sh|2548951|hevc|QSV HEVC
 T8|ffmpeg_h264_vaapi.sh|3836249|h264|VAAPI AVC (Linux-only entry: VAAPI is a Linux kernel API)
 T19|ffmpeg_hevc_vaapi.sh|2548951|hevc|VAAPI HEVC
 T2|ffmpeg_hevc_nvenc.sh|2548951|hevc|NVENC HEVC
-T14|ffmpeg_av1_nvenc.sh|1656818|av1|AV1 NVENC (needs Ada or newer)
+T14|ffmpeg_av1_nvenc.sh|1707157|av1|AV1 NVENC (needs Ada or newer)
 T20|ffmpeg_hevc_nvenc_cygwin.sh|2548951|hevc|Cygwin variant (cuvid + hwdownload)
 SPECS
 
@@ -291,9 +291,9 @@ SPECS
 if [ "$EXPECT_AV1_QSV" = "skip" ]; then
     skipcase T15 ffmpeg_av1_qsv.sh "EXPECT_AV1_QSV=skip"
 elif [ "$EXPECT_AV1_QSV" = "ok" ] || [ "$EXPECT_AV1_QSV" = "fail" ]; then
-    run_arg T15 ffmpeg_av1_qsv.sh "$EXPECT_AV1_QSV" 1656818 av1 "arg: AV1 QSV (forced by EXPECT_AV1_QSV)"
+    run_arg T15 ffmpeg_av1_qsv.sh "$EXPECT_AV1_QSV" 1707157 av1 "arg: AV1 QSV (forced by EXPECT_AV1_QSV)"
 else
-    gate_arg T15 ffmpeg_av1_qsv.sh 1656818 av1 "AV1 QSV (needs Arrow Lake or newer iGPU)"
+    gate_arg T15 ffmpeg_av1_qsv.sh 1707157 av1 "AV1 QSV (needs Arrow Lake or newer iGPU)"
 fi
 
 # T5: copy_to_mp4 remux, no bitrate table; output keeps the source name
