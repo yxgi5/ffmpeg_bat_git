@@ -708,3 +708,37 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * test/README.md：新增 ③c 节（配对校准工具族两族对等表）并置于 ③b 之后、目录树补齐 bat 孪生、
       T23 的 bat 列 `—` → `✅`；**真正修掉遗留的 `bench_av1_calib.bat` 旧名引用**（第 30 条记的"已修"
       实际修的是另一处实例，本条订正）。
+36. **能力矩阵成文 + check_env 深测呈现增强 + Cygwin QSV 核实（2026-09-17）**：
+    * **新文档 `test/capability_matrix.md`**：环境 × ffmpeg 构建 × 编解码器的权威矩阵，含
+      A/B/C/D 四机、B 机三套构建、编码与解码两个维度，并用统一图例区分
+      **✅ 实测可用 / ❌ 实测不可用 / ⚠️ 编入未验证 / — 未编入 / 🅿️ 仅 /opt**。
+      用户点名要的「软编 x264/x265 + 软件 AV1」与「已验证 / 未验证」两列都在表内。
+    * **同一台机器，三种 shell → 三个不同的 ffmpeg**（本轮实测，最容易被忽略的一条）：
+      `cmd`/系统 shell/Git Bash → `C:\Program Files\ffmpeg\bin`（gyan full，全能力）；
+      MSYS2 MINGW64 → `/mingw64/bin/ffmpeg` **8.1**（软编硬编齐，**无 libvmaf**）；
+      Cygwin → `/usr/bin/ffmpeg` **7.1.1**（**无 libx264/libx265**，无 libvmaf，无 VAAPI）。
+      结论：**.sh 入口在 MSYS2 下会用 8.1、在 Cygwin 下会用 7.1.1**，能力表跟着 shell 变。
+    * **Cygwin QSV 核实（用户存疑项）**：编码器**列得出来但真编一律失败**
+      （`Error creating a MFX session: -9`，`rc=171`），编码/解码两侧都一样 → 按用户判断
+      「Cygwin 略过 QSV」处理。Cygwin 上真实可用的是 **NVENC（h264/hevc/av1 全通）+
+      软件 AV1（libsvtav1/libaom）**。
+    * **A/C 两机 `--probe` 实测**（本地未推送，故 tar 打包工作树经 SFTP 投 `/tmp/fbgit` 真跑）：
+      A `ok=10 / fail=5`、C `ok=11 / fail=4`，差异只在 **`ffmpeg_av1_qsv.sh`**——
+      C 机（Ultra 7 265K / Arrow Lake）**`PROBE-OK`**，A 机（UHD630 Gen9.5）失败。
+      这是「AV1 编码留到 Ultra 平台验证」这条计划的实测支撑。
+    * **`check_env` 呈现增强（两族同步）**：① 快查新增 `filt libvmaf : yes/NO`（calib 族硬依赖，
+      MSYS2/Cygwin/Ubuntu 4.4.2 都是 NO，只有原生 gyan full 与 `/opt` master 是 yes）；
+      ② bat 深测 `PROBE-FAIL` 行附 **`run.log` 末条错误**（`findstr` 过滤 error/failed/invalid/
+      unsupported 取最后一条截 70 字符），与 sh 侧 `rc=1 | <错误行>` 呈现对齐；
+      ③ 回显走**延迟展开**（`setlocal EnableDelayedExpansion` + `echo !T!`）——普通 `%VAR%`
+      展开会把日志里的 `&`/`>` 当成命令分隔符/重定向，这是批处理的经典陷阱。
+    * **`-map` 盘点结论**：12 个编码入口（两族）**都已带**
+      `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`；
+      **只有 remux 族（`ffmpeg_copy_to_mp4` 两族）没有 `-map`** → 默认选流只留 1 视频 + 1 音频，
+      多音轨/字幕会被丢掉。是否补齐待用户裁定（属输出行为变更，按约定先确认）。
+    * **打包坑**：仓库根目录躺着 **4.3 GB 测试片**（`input_4k25.mov` 1.9G 等），
+      已被 `.gitignore` 忽略、未被跟踪（`git status` 干净）。给远端投包时**必须 `--exclude`**，
+      否则包体 4.5 GB、传输中途断裂（`tar: Unexpected EOF`），还会误判成"远端跑挂了"。
+      另：`tar czf "C:/..."` 在 MSYS 下会把 `C:` 当远程主机名 → 用 `/c/...` 给 tar、
+      `C:/...` 给 python/paramiko。长任务的远端执行用 **`setsid` + 结果写文件**，
+      不要让 paramiko 去读一个可能被后台进程持有 stdout 的通道（那次误等了 26 分钟）。

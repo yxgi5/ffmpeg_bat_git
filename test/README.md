@@ -100,6 +100,7 @@ soft_pair 首次运行会从 test-videos.co.uk 下载 10s 样本（1080p 两片�
 ```
 test/
 ├── README.md                    本文件
+├── capability_matrix.md         环境 × ffmpeg 构建 × 编解码器 能力矩阵（全机实测）
 ├── lint/
 │   ├── lint.py                  静态 + 跨族对等检查器（零依赖，仅标准库）
 │   └── selftest.py              lint.py 自身的回归测试（recall + precision）
@@ -322,10 +323,10 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 两种模式：
 
-* **快查**（默认）：静态盘点 ffmpeg 构建特性、hwaccels、渲染节点/GPU、三张码率表行数、
-  测试工具是否齐全。秒级。
+* **快查**（默认）：静态盘点 ffmpeg 构建特性、hwaccels、渲染节点/GPU、编码器、
+  **`libvmaf` 滤镜**（calib 族的硬依赖）、三张码率表行数、测试工具是否齐全。秒级。
 * **深测**（`--probe` / `PROBE`）：再建一个 3 秒小片，把每个候选入口真跑一遍，
-  报真实退出码。数十秒。
+  报真实退出码，失败时**附 `run.log` 的末条错误**（两族同样的呈现方式）。数十秒。
 
 状态词表（两族**完全一致**，两份报告可以直接逐行对比）：
 
@@ -336,7 +337,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 | `NO-DEVICE` | 编码器有，但本机没有可用设备/GPU |
 | `N/A-OS` | 该入口在当前系统无意义（VAAPI 是 Linux 内核 API） |
 | `UNKNOWN` | 静态判断不了 → 用深测决定 |
-| `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果（bat 侧还要求真实输出文件；sh 侧看 rc） |
+| `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果（bat 侧还要求真实输出文件；sh 侧看 rc）；失败行带 rc 与 `run.log` 末条错误 |
 | `NO-ENTRY` | 仓库里没有这个文件 |
 
 两个实现细节值得记住，它们都是**踩过的坑**：
@@ -428,6 +429,11 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 ## 6. 实测记录
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
+
+> **当前基线（2026-09-17）**：`lint 23 PASS / 0 FAIL / 5 WARN`、`selftest 16 cases / 0 FAIL`。
+> 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
+> **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
+> 编码/解码两个维度、已验证/未验证标注）。
 
 ### 6.1 本机（Windows 11 / MSYS2 MINGW64 / LAPTOP-MECHREVO / 2026-09-16）
 
@@ -537,17 +543,36 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
 判成 SKIP 的，属于「有硬件却静默不测」。这也说明：**探针夹具的规格必须经得起推敲**，
 它本身可以成为覆盖率的隐性上限。
 
-### 6.2 待人工补跑
+### 6.5 待人工补跑
 
 `.bat` 侧套件无法在本环境的自动化通道里执行（cmd.exe 的输出拿不到），
 需要手工双击验证：`test\bat\smoke_all.bat`（或 `smoke_ffmpeg.bat`）与
 `test\bat\check_env.bat`。需要重点看的是本轮新增的部分：
 
-* T16 / T17（新增 `ffmpeg_libx264.bat` 与低码率 clamp 回归）；
+* **T23**（新增：清单条目缺失必须在那一刻中止，两族共享）；
+* **`soft_pair_calib.bat`**（新增：拖一部片上去；首次会下 10s 样本，离线设 `SKIP_DOWNLOAD=1`）；
+* **`check_env.bat /probe`**（探针改判真实产物后，本机预期：`av1_qsv` → `PROBE-FAIL rc=1 | <错误行>`，
+  其余 `PROBE-OK out=…B`；表尾还有 `filt libvmaf : yes`）；
 * T1/T2/T3/T7/T14 的 `[SKIP]` 行是否只在**真的没有硬件**时出现；
 * `gate_*.log` 是否生成、内容是否指向硬件缺失而非脚本错误。
 
 ---
+
+### 6.6 全机能力矩阵（2026-09-17，含 B 机三套 ffmpeg 构建）
+
+权威表格见 **[`capability_matrix.md`](capability_matrix.md)**，这里只记结论：
+
+| 事项 | 结果 |
+|------|------|
+| A 机 `--probe`（4.4.2 + `/opt` master） | `ok=10 / fail=5` —— 5 个 FAIL 全是 CUDA/AV1 系（无 N 卡、Gen9.5 无 AV1 编） |
+| C 机 `--probe`（同上） | `ok=11 / fail=4` —— **`ffmpeg_av1_qsv.sh` 在 C 机是 `PROBE-OK`**（Arrow Lake 有 AV1 硬编） |
+| B 机三套 ffmpeg 构建 | 原生 gyan full **全能力**（含 libvmaf）；MSYS2 8.1 有全部软编/硬编但**无 libvmaf**；Cygwin 7.1.1 **无 libx264/libx265**、QSV 真编一律 `MFX session: -9`、无 VAAPI（详见矩阵） |
+| 同一台机器的环境差异 | `cmd` / 系统自带 shell / Git Bash → 原生 gyan；MSYS2 shell → `/mingw64/bin/ffmpeg` 8.1；Cygwin shell → `/usr/bin/ffmpeg` 7.1.1。**换个 shell 就换个 ffmpeg** |
+| `check_env` 新增 | 两族都打印 `filt libvmaf : yes/NO`（calib 族硬依赖）；bat 深测失败行附 `run.log` 末条错误，与 sh 侧呈现对齐 |
+
+> 本轮 A/C 的验证方式：本地未推送（用户手动 push），故用 `tar` 打包当前工作树经 SFTP 投到
+> `/tmp/fbgit` 后真跑，不是 `git pull` 来的。打包必须带 `--exclude` —— 仓库根目录有 4.3 GB
+> 被 `.gitignore` 忽略的测试片（`*.mp4`/`*.mov`），不排除会把包撑到 4.5 GB 并传断。
 
 ## 7. 约定与坑（都在本仓库真实发生过）
 
