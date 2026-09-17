@@ -380,4 +380,12 @@ echo "entries needing --probe: $COUNT_UNK"
 echo
 echo "NOTE: a status here is a statement about THIS machine, not about the"
 echo "      entry itself. NO-DEVICE just means the hardware is absent."
+if [ "$PROBE" != 1 ]; then
+    echo
+    echo "NEXT: QUICK statuses are STATIC evidence only -- they say the encoder/"
+    echo "      device exists, not that the entry really produces a file (an OK"
+    echo "      entry can still fail at encode time, and entries may silently"
+    echo "      prefer a /opt ffmpeg build that differs from the one inventoried"
+    echo "      here). For the ground truth run: $SELF_DIR/check_env.sh --probe"
+fi
 exit 0

@@ -300,6 +300,14 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
    退出报 NVML 错误，快查因此把 `*_nvenc` 标成 `NO-DEVICE`，而 `--probe` 深测
    同一入口是 `PROBE-OK rc=0`（真编出了 HEVC / AV1）。**结论：`NO-DEVICE` 只用来
    提示"值得深测"，别拿它下判决**；要定论就跑 `--probe`。
+4. **快查回答的问题和"哪些脚本真能用"不是同一个问题** —— 快查盘点的是 **PATH 上
+   那个 ffmpeg 构建**，而入口脚本可能自带 `/opt` 软偏好、实际用另一个构建跑；
+   且静态证据到不了"编码这一步"。C 机实测（2026-09-17）：4.4.2 PATH 下快查说
+   `av1_qsv` 是 `NO-ENCODER`、`hevc_vaapi` 是 `OK`，而深测两者都 `PROBE-OK`
+   —— 因为这两个入口自己偏好 `/opt` 的 master 构建（master 才有 `av1_qsv`，
+   且 4.4.x 的 HEVC VAAPI 老路径在 Arrow Lake 上编码失败，master 正常）。
+   **所以：要精确知道"本机哪些脚本能用"，唯一判据是 `--probe` 深测
+   （`PROBE-OK / PROBE-FAIL` + 真实 rc 和日志）；快查只是秒级预筛。**
 
 ---
 
@@ -384,10 +392,16 @@ SKIP 的 5 条全为正当硬件/平台 SKIP：T2/T14/T20（无 N 卡）、T15�
 | `bash test/sh/smoke_ffmpeg.sh all` | `PASS=22 FAIL=0 SKIP=4`，harness `rc=0` |
 | `bash test/sh/smoke_special_chars.sh` | `PASS=28 FAIL=0 SKIP=0` |
 | `bash test/sh/check_env.sh` | 快查：`OK 10 / 不可用 5 / 待深测 0` |
+| `bash test/sh/check_env.sh --probe` | 深测（2026-09-17 复测，4.4.2 与 `/opt` master 两构建**结果一致**）：**`ok=11 / fail=4`** —— 4 个 FAIL 全是 NVENC/CUDA 系（`cu->cuInit failed`，本机无可用 N 卡） |
 
 与 A 机的唯一差异：**T15 av1_qsv 在 Arrow Lake 上真 PASS**（真产出 AV1），与硬件代际一致。
 T19 hevc_vaapi 在 C 机 4.4.2 上通过探针与全用例（此前记录的 4.4.x `Encode failed: -5`
 与片源/参数相关，320×240 探针与 1080p60 用例均未复现）。
+
+**快查与深测可能不一致，判定"能用/不能用"以深测为准**（2026-09-17 用户实测确认）：
+快查盘点的是 **PATH 上那个 ffmpeg 构建**，而入口脚本可能自带 `/opt` 软偏好——
+4.4.2 PATH 下快查说 `av1_qsv` 是 `NO-ENCODER`（4.4.2 确实没有），深测却 `PROBE-OK`
+（入口自己切到了 master）。静态证据也到不了"编码这一步"，所以深测才是唯一精确判据。
 
 **三机的这轮结果由 `can_run` 修复（a1a4557）之后测得**——修复前 A/C 的 QSV/VAAPI 门控
 存在 stdin 泄漏（ffmpeg 吃掉 heredoc 后续行导致 T3/T19 错乱 SKIP）与探针产物残留
