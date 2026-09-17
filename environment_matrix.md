@@ -506,3 +506,19 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       全表恢复单调；lint 回落 WARN 消失（22 PASS / 0 FAIL / 5 WARN，剩 5 条全是 AVC 表已知重复行）。
     * 遗留：AVC 表 5 条重复行（WARN，不可达）可顺手清理；拟合指数 0.775 与用户
       FormatFactory power-law 模型（pixels^0.775）一致，可视为模型的正式化。
+25. **AV1/HEVC 等画质码率比首次实测校准（2026-09-17，C 机主跑 + A 机交叉验证）**：方法——两类内容
+    （BBB 动画 / Sintel CG 动作，test-videos.co.uk 10s 片段）× 720p/1080p/2160p × SVT-AV1(p8) 与
+    x265(fast) 各三档码率梯，全部按 ffprobe 实测 delivered 码率 + libvmaf 出分，log-domain 拟合求
+    等质量交叉点。脚本为会话工作区 calib_av1.sh（~80 行 bash + python 汇总），C 机 20 核全程 ≈8 分钟。
+    * **结果（r = AV1 码率 / HEVC 码率 @ 等画质）**：
+      - bbb_1080 VMAF93：**r=0.573（C）/ 0.576（A）**——两机独立一致，方法可信；
+      - 720p：0.534（bbb）/ 0.532（sil）；2160p（1080 上变换，caveat）：0.580；
+      - **r 随目标画质上升**：bbb_1080 从 VMAF90 的 0.402 升到 V93 的 0.573（sil_1080 V96→V98 为
+        0.451→0.611）——接近透明的档位上 AV1 优势收窄。
+    * **结论方向反转**：软件配对（SVT-AV1 p8 vs x265 fast）实测 r ≈ 0.53–0.61，**低于码率表现行的
+      0.65–0.75 阶梯——AV1 表不是缺码，反而偏宽松 10–15%**。此前「÷2 链式会缺码」的担忧被数据否定。
+    * **但先别改表**：此配对是软编对照，而 AV1 表实际服务 av1_nvenc/av1_qsv 硬编入口；硬件 AV1 的
+      压缩效率低于 SVT-AV1 p8，硬件配对的 r 必然更高。定论等 B 机 `bench_av1_calib.bat`
+      （hevc_nvenc vs av1_nvenc，p4 CBR，与产线同参数，提交 4d2b074）跑出硬件配对数字后再下。
+    * 其他 caveat：源为 h264 压缩片源（VMAF 参照=压缩源，比例仍自洽）；单片段代表性有限；
+      2160p 无可下载源，由 1080 参考上变换生成。
