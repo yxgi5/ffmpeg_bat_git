@@ -874,6 +874,46 @@ def check_fail_propagation(inv):
                   ".bat entries/wrappers `exit /b 1`, .sh entries `exit 1`)" % checked)
 
 
+# ---------------------------------------------------------------- L16
+# Stream-mapping uniformity. ffmpeg's DEFAULT stream selection keeps exactly one
+# video + one audio stream, so an mp4 entry without an explicit -map silently
+# drops every extra audio track and every subtitle - a container conversion
+# quietly throwing away the alternate-language tracks is very hard to notice.
+# The 12 encoder entries always carried the full set; the two remux entries
+# (ffmpeg_copy_to_mp4.{bat,sh}) did not until 2026-09-17, found by the user
+# asking what `-map 0:v` was doing there. This rule pins the set for EVERY
+# mp4-producing entry in both families.
+STREAM_MAP_TOKENS = ("-map 0:v", "-map 0:a?", "-map 0:s?", "-c:s mov_text",
+                     "-map_metadata 0", "-map_chapters 0")
+
+
+def check_stream_map(inv):
+    bads = []
+    checked = 0
+    for fam, key in (("bat", "root_bat"), ("sh", "root_sh")):
+        for f in inv[key]:
+            if not re.match(r"^ffmpeg_.*\.%s$" % fam, f, re.IGNORECASE):
+                continue
+            p = os.path.join(ROOT, f)
+            if not os.path.isfile(p):
+                continue
+            _, t = read_text(p)
+            body = "\n".join(ln for ln in lf_lines(t)
+                             if not ln.strip().lower().startswith(("rem", "#")))
+            checked += 1
+            missing = [tok for tok in STREAM_MAP_TOKENS if tok not in body]
+            if missing:
+                bads.append("%s: lacks %s - ffmpeg default selection keeps only 1 video "
+                            "+ 1 audio, so extra audio/subtitle tracks are dropped"
+                            % (f, ", ".join(missing)))
+    if bads:
+        for m in bads[:8]:
+            bad("L16", m)
+    else:
+        ok("L16", "all %d mp4 entries (both families) keep every stream "
+                  "(-map 0:v/-map 0:a?/-map 0:s? + mov_text)" % checked)
+
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1302,6 +1342,7 @@ def main():
         print("         L10 run_list stdin  L11 option order  L12 bash -n")
         print("         L13 exit-code contract  L14 .sh exec bit")
         print("         L15 failure propagation (family parity of the failure path)")
+        print("         L16 stream-map uniformity (mp4 entries keep all streams)")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1328,6 +1369,7 @@ def main():
         check_exec_bits(inv)
         check_exit_codes(inv)
         check_fail_propagation(inv)
+        check_stream_map(inv)
 
     if not args.lint_only:
         print("---- parity ----")

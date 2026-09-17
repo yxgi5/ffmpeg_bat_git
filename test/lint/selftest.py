@@ -160,6 +160,7 @@ CASES = [
         ":main\n"
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "echo RUN_COM4:%RUN_COM%\n"
         "%RUN_COM%\n"
         "echo ERRORLEVEL:%ERRORLEVEL%\n"
@@ -173,6 +174,7 @@ CASES = [
         ":main\n"
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
         "if errorlevel 1 (\n"
         "    echo Convert failed! rc=%ERRORLEVEL%\n"
@@ -190,6 +192,39 @@ CASES = [
         "for /f \"usebackq delims=\" %%i in (\"%SRC_FILE%\") do "
         "call \"%~dp0ffmpeg_probe.bat\" \"%%i\"\n",
         {"L15"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13"},
+    ),
+    (
+        "L16: an mp4 entry without a stream map is caught",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v libx264\n"
+        "%RUN_COM%\n"
+        "if errorlevel 1 (\n"
+        "    echo Convert failed! rc=%ERRORLEVEL%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        {"L16"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13", "L15"},
+    ),
+    (
+        "L16 precision: a fully mapped .sh entry stays silent",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "CMD+=(-i \"$ABS_NAME\")\n"
+        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "-map_chapters 0)\n"
+        "CMD+=(-c:v libx264 \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        set(), {"L03", "L15", "L16"},
     ),
 ]
 
@@ -234,6 +269,7 @@ def run_checks(inv):
     lint.check_sh_invariants(inv)
     lint.check_exit_codes(inv)
     lint.check_fail_propagation(inv)
+    lint.check_stream_map(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

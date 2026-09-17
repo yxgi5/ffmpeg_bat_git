@@ -99,7 +99,7 @@ if /I "%SUFFIX%" == ".mp4" (
 rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
 call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
-set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy
+set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0
 echo RUN_COM0=%RUN_COM%
 
 echo.
