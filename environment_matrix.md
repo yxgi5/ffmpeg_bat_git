@@ -477,3 +477,17 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * 教训：sh 侧工具脚本要按 POSIX 最小公共子集写——**mawk 1.3.3 连区间表达式都不支持**，
       任何「只在 gawk 下验证过」的正则都可能在 Debian 系机器上静默失效。
       B 机有双系统（Win11 / Ubuntu 22.04），待用户切 Ubuntu 轮再补一轮 sh 侧实测。
+
+23. **Pi 4B 的硬件编解码真相（2026-09-17，用户质疑「Pi 4 怎么也有硬编解码器吧」——正确）**：
+    check_env/本矩阵说 D 机「无硬件编码器」指的是**仓库 12 个入口对应的 QSV/NVENC/VAAPI 路径**；
+    Pi 4 的硬件编解码走 **V4L2 mem2mem**（`/dev/video10-12`），不在入口覆盖范围内。实测（ffmpeg 4.1.3，OMV armv7l）：
+    * **硬编有且只有 H.264**：`h264_v4l2m2m` 真跑成功——1080p30、10 秒素材 **9.2s**（≈1.1× 实时），
+      同机软编参照：`libx264 ultrafast` 13.9s、`libx264 fast` 40.2s → **硬编 ≈ 4.4× 于主线 preset**。
+      代价是控制极粗：B 帧/GOP/profile/qmin/qmax 全被硬件忽略（日志逐条 `Failed to set ...`），基本只有码率可调。
+    * **无 HEVC 硬编**：`hevc_v4l2m2m` 编码器虽在构建里，真跑报 `Could not find a valid device`
+      —— Pi 4 的 VideoCore VI 只有 H.264 编码单元；HEVC 是**只解不编**（4K60 解码）。
+    * 解码器齐全：`h264/hevc/mpeg2/mpeg4/vc1/vp8/vp9` 的 v4l2m2m + h264/mpeg2/mpeg4/vc1 的 mmal，
+      另有 `h264_omx`（OpenMAX 老接口）。
+    * 结论：D 机定位不变——暴露隐式硬件依赖 + 跑软编/纯 shell 逻辑。它的 H.264 硬编画质一般、
+      参数模型（无 B 帧、固定 QP 倾向）与仓库码率表不匹配，**不值得为它加入口**；若未来要做
+      Pi 产线转码，加 `h264_v4l2m2m` 入口成本可控（一张码率表 + 1 个入口 + lint/T 用例）。
