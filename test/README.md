@@ -51,6 +51,12 @@ test\bat\check_env.bat                 双击    能力报告（快查）
 test\bat\check_env.bat "" PROBE        命令行  能力报告（深测）
 ```
 
+另有一个**基准工具**（不属于回归体系）：`test\bat\bench_av1_calib.bat`——
+把任意视频拖上去，用 hevc_nvenc / av1_nvenc（p4 CBR，与入口脚本同参数）编三档码率梯
+并算 VMAF，产出 `results.csv`，用于实测「等画质下 AV1 相对 HEVC 省多少码率」，
+校验码率表的代际比例假设。要求 ffmpeg 带 libvmaf + Ada 级 NVENC。
+```
+
 > 建议顺序：**先 ① 后 ②**。静态检查能在 1 秒内抓住语法/标签/引号/编码问题，
 > 不必等几分钟的冒烟跑完才发现第 3 行少了个括号。
 
