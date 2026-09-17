@@ -773,3 +773,33 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **本轮基线**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
       `.bat` 侧的负数安全守卫**尚未在真机运行过**（沙箱跑不了 cmd.exe），需用户双击一个必然失败的入口
       （无 AV1 硬编机器上的 `ffmpeg_av1_qsv.bat`）确认窗口打印 `Convert failed! rc=-40`、`%ERRORLEVEL%=1`。
+
+38. **冒烟套件的耗时构成 + sh 侧源探测合并（2026-09-17，用户问「冒烟为什么要十几分钟」）**：
+    * **结论先行**：套件墙钟 ≈ **入口调用次数 × 单次入口成本**，与片长/编码器几乎无关。
+      实测单次入口 9.7s 里**只有 1.7s 在编码**（1080p60 2s 夹具 / libx265 fast；x265 自身
+      1.15s、104fps），其余是 8 个 ffprobe 进程（~5.5s）+ bash/MSYS 的 fork 与文件 IO（~3.4s）。
+    * **成本模型**（本机 Win11 + MSYS bash + 原生 gyan ffmpeg）：纯 `bash -c 'exit 0'` **0.72s**、
+      一次命令替换形态 **1.22s**、每多一个 helper 边际 **0.5s**。顺手排除两个嫌疑：
+      `-hwaccel auto` 只值 0.2s（实测对照 1.69s vs 1.45s）、片长 2s→1s 也只省 ~8%。
+    * **修法（sh 侧）**：`lib/common.sh` 新增 `probe_source()` —— 一条
+      `ffprobe -select_streams v:0 -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate -of flat`
+      取回全部字段，按**文件路径**缓存进关联数组 `_PROBE`（同文件再次调用命中缓存、0 进程），
+      7 个 `check_file_*` 改读缓存，解析全用 bash 内建（不再逐字段套 `tr -d '\r'` / `tr '\n' ' '` / `sed`）。
+      实测：单次入口 **9.7s → 5.6s**、5 条目清单用例 **51.1s → 30.5s**（同夹具同参数对比）。
+      flat 键名稳定为 `streams.stream.0.*`（v:0 会被重新编号）+ `format.*`；
+      **无视频流时 `stream.*` 整体缺失而 rc 仍为 0**，与原 v:0 选择器下的表现一致。
+    * **行为零变化且有实证**：8 种输入（正常 mp4 / mkv / 纯音频 / 缺失文件 / 中文+空格名 /
+      分数帧率 / 双流 mkv / 无音轨 mp4）× 7 个 helper = **56 组合**，新旧两版逐条比 stdout 与
+      退出码，`diff` 为空；冒烟侧 `TARGET_BITRATE` 精确断言（2548951）前后一致。
+    * **顺带查出一个既有 bug（刻意未修）**：旧代码写 `local x=$(ffprobe ... | tr -d '\r')` 再接
+      `if [ "$?" -ne 0 ]`，而 `$?` 取的是**管道末尾 `tr` 的退出码** → 那个「检查出错！/ exit 1」
+      分支**从未触发过**，探测失败的真实行为是「静默输出空 + rc=0」。本轮承诺"只换实现不改行为"，
+      故沿用该行为并在函数注释写明「要真正报错就判 `_PROBE_RC`」——**是否修留给裁定**。
+    * **刻意没做的两件事**：① 入口里 `dirname`/`basename`/`realpath` 各一次外部进程、
+      `lookup_bitrate` 的一次 `awk`（真实终端每项只值 ~0.1s，收益 <10% 而改动面涉及 11 个入口，
+      风险与收益不成比例）；② **`.bat` 侧同步**（`.bat` 入口那 8 条 `SRC_*` 探测仍是逐个 ffprobe、
+      每个还配一次临时文件写入 + `del`，照搬 sh 样板必须真机双击验证，不能拿沙箱推断）。
+    * **沙箱读数偏高，诊断时要当心**：`bash -x` trace 显示本会话每个子 shell 都会重新 source
+      沙箱包装层（`. .../shim/safe-bin/safe-de` **0.93s**、`. .../shim/brokered-sandbox` **0.57s**、
+      `unset __codebuddy_shell_runtime_dir` **1.43s**）→ **同一套东西在用户自己终端里跑得更快**。
+      做性能诊断先排除环境加成，再谈被测对象的开销。

@@ -26,6 +26,52 @@ function check_command() {
     fi
 }
 
+# ================================================================
+# 一次性源探测缓存 (2026-09-17)
+#
+# 背景: 原先 7 个 check_file_* 各自起一条 ffprobe, 一个入口走完就是 7~8 个
+# 独立进程; 每条还套着一个命令替换管道(tr -d '\r')。Windows/MSYS 下每次
+# ffprobe 连 fork + exe 启动约 0.5s, 于是单次入口 9.7~10.6s 里约 5.5s 花在
+# "问路"上, 真正编码只占 1.7s (实测 1080p60 2s 片源 / libx265 fast)。
+# 冒烟套件是按"入口调用次数"放大这个成本的, 清单用例更是 条目数 x 单次。
+#
+# 做法: 合并成一次 `-of flat` 探测(键=值, 两族都好解析), 结果存进关联数组;
+# 同一文件重复调用直接命中缓存(0 个新进程), 解析全部用 bash 内建
+# (不再为每个字段起 tr/sed)。文件换了自动重探。
+#
+# 契约: 每个 check_file_* 的标准输出内容/返回码/退出码与改造前逐条对齐,
+# 见各自函数注释里的"对照"说明。探针与 lint 都不依赖内部实现, 只依赖行为。
+# ================================================================
+declare -gA _PROBE=()
+_PROBE_FILE=""
+_PROBE_RC=0
+
+# 探测并按文件路径缓存源元数据; 返回 ffprobe 的退出码(命中缓存时为上次的)
+# 字段键名与 ffprobe flat 输出一致, 例如:
+#   streams.stream.0.codec_name / .codec_type / .width / .height / .r_frame_rate / .bit_rate
+#   format.size / format.duration / format.bit_rate
+# -select_streams v:0 会把选中的流重新编号为 stream.0; 无视频流时 stream.* 整体缺失
+# (只剩 format.*), 此时 rc 仍为 0 -- 与原实现 v:0 选择器下的表现一致。
+function probe_source() {
+    local f="$1" k v raw
+    if [ "$_PROBE_FILE" = "$f" ]; then
+        return "$_PROBE_RC"
+    fi
+    _PROBE_FILE="$f"
+    _PROBE=()
+    raw=$(ffprobe -v error -hide_banner -select_streams v:0 \
+        -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate \
+        -of flat "$f" 2>/dev/null)
+    _PROBE_RC=$?
+    raw="${raw//$'\r'/}"
+    while IFS='=' read -r k v; do
+        [ -n "$k" ] || continue
+        _PROBE["$k"]="${v%\"}"
+        _PROBE["$k"]="${_PROBE[$k]#\"}"
+    done <<< "$raw"
+    return "$_PROBE_RC"
+}
+
 # 检查文件是否存在, 不存在直接退出
 function check_file_exists() {
     if ! [ -f "$1" ]; then
@@ -53,9 +99,12 @@ function check_file_is_text() {
 
 # 检查文件是否为视频(含 video 流), 否则退出
 # 退出码 3 = 无视频流, 与 .bat 侧 check_isvideo 调用点(exit /b 3)数值一致
+# 对照: 原实现取"全部流"的 codec_type 找 video 子串; v:0 选择器下有视频流时
+# 必有 streams.stream.0.codec_type="video", 无视频流时 stream.* 整体缺失,
+# 两种输入的判定结果与原实现一致
 function check_file_isvideo() {
-    file_type=$(ffprobe -v error -hide_banner -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | tr -d '\r')
-    if [[ $file_type == *"video"* ]]; then
+    probe_source "$1"
+    if [ "${_PROBE[streams.stream.0.codec_type]-}" = "video" ]; then
         return 0
     else
         echo -e "\033[41;36m$1 不是视频文件!\033[0m"
@@ -64,52 +113,57 @@ function check_file_isvideo() {
 }
 
 # 输出第一个视频流的编码名
+# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
+# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
+# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
+# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
 function check_file_codec() {
-    local codec=$(ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x "$1" 2>/dev/null | tr -d '\r')
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36m$1 codec检查出错！\033[0m"
-        exit 1
-    else
-        echo "$codec"
-        return 0
-    fi
+    local codec
+    probe_source "$1"
+    codec="${_PROBE[streams.stream.0.codec_name]-}"
+    echo "$codec"
+    return 0
 }
 
 # 输出视频帧率(可能为分数形式如 30000/1001)
+# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
+# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
+# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
+# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
 function check_file_framerate() {
-    local framerate=$(ffprobe -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate "$1" 2>/dev/null | tr -d '\r')
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36m$1 framerate检查出错！\033[0m"
-        exit 1
-    else
-        echo "$framerate"
-        return 0
-    fi
+    local framerate
+    probe_source "$1"
+    framerate="${_PROBE[streams.stream.0.r_frame_rate]-}"
+    echo "$framerate"
+    return 0
 }
 
 # 输出视频宽高(空格分隔单行: "1920 720")
-# ffprobe flat 格式按行输出宽高, 此处归一为空格分隔, 便于 read/cut 解析
+# 对照: 原实现把 ffprobe 的两行输出 tr '\n' ' ' 再 sed 去尾空格, 得到
+# "W H"(字段缺失时更短); 现在直接拼装并做同款去尾空格(纯内建, 不起进程)
+# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
+# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
+# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
+# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
 function check_file_resolution() {
-    local resolution=$(ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | tr -d '\r')
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36m$1 resolution检查出错！\033[0m"
-        exit 1
-    else
-        echo "$resolution" | tr '\n' ' ' | sed -e 's/ *$//'
-        return 0
-    fi
+    local w h out
+    probe_source "$1"
+    w="${_PROBE[streams.stream.0.width]-}"
+    h="${_PROBE[streams.stream.0.height]-}"
+    out="$w $h"
+    out="${out%"${out##*[! ]}"}"
+    echo "$out"
+    return 0
 }
 
 # 输出文件字节数, ffprobe 失败时回退 stat
 function check_file_size() {
     local size
 
-    size=$(ffprobe -v error -hide_banner \
-        -show_entries format=size \
-        -of default=noprint_wrappers=1:nokey=1 \
-        "$1" 2>/dev/null | tr -d '\r')
+    probe_source "$1"
+    size="${_PROBE[format.size]-}"
 
-    if [ $? -ne 0 ] || [ -z "$size" ]; then
+    if [ "$_PROBE_RC" -ne 0 ] || [ -z "$size" ]; then
         size=$(stat -c%s "$1" 2>/dev/null | tr -d '\r')
     fi
 
@@ -123,32 +177,27 @@ function check_file_size() {
 }
 
 # 输出视频时长(秒, 浮点)
+# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
+# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
+# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
+# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
 function check_file_duration() {
-    local duration=$(ffprobe -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$1" 2>/dev/null | tr -d '\r')
-    if [ "$?" -ne 0 ]; then
-        echo -e "\033[41;36m$1 duration检查出错！\033[0m"
-        exit 1
-    else
-        echo "$duration"
-        return 0
-    fi
+    local duration
+    probe_source "$1"
+    duration="${_PROBE[format.duration]-}"
+    echo "$duration"
+    return 0
 }
 
 # 输出码率(bps), 优先视频流码率, 回退容器码率, 均无效时输出 0 并返回 1
 function check_file_bitrate() {
-    local file="$1"
     local bitrate
 
-    bitrate=$(ffprobe -v error -select_streams v:0 \
-        -show_entries stream=bit_rate \
-        -of default=noprint_wrappers=1:nokey=1 \
-        "$file" 2>/dev/null | tr -d '\r')
+    probe_source "$1"
 
+    bitrate="${_PROBE[streams.stream.0.bit_rate]-}"
     if [ -z "$bitrate" ] || ! [[ "$bitrate" =~ ^[0-9]+$ ]]; then
-        bitrate=$(ffprobe -v error \
-            -show_entries format=bit_rate \
-            -of default=noprint_wrappers=1:nokey=1 \
-            "$file" 2>/dev/null | tr -d '\r')
+        bitrate="${_PROBE[format.bit_rate]-}"
     fi
 
     if ! [[ "$bitrate" =~ ^[0-9]+$ ]]; then
