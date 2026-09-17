@@ -344,20 +344,32 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 按文件路径缓存进关联数组 `_PROBE`，解析全用 bash 内建（不再逐字段起 `tr`/`sed`）。
 7 个 helper 的**对外行为逐条不变**，由一次 56 组合的等价性对比钉住：8 种输入
 （正常 mp4 / mkv / 纯音频 / 缺失文件 / 中文+空格名 / 分数帧率 / 双流 mkv / 无音轨 mp4）
-× 7 个 helper，新旧两版逐条比 stdout 与退出码，`diff` 为空。
+× 7 个 helper，新旧两版逐条比 stdout 与退出码。
 
-> **改造时发现一个既有 bug，刻意没修**：旧代码写 `local x=$(ffprobe ... | tr -d '\r')`
-> 再接 `if [ "$?" -ne 0 ]`，而 `$?` 取的是**管道末尾 `tr` 的退出码**，所以那个
-> 「检查出错！/ exit 1」分支**从未触发过**；探测失败时它的实际行为是「静默输出空 + rc=0」。
-> 本轮承诺只换实现不改行为，故沿用该实际行为，并在函数注释里写明「要真正报错就判 `_PROBE_RC`」。
-> 要不要顺手修，是一个独立决定。
+> **改造时发现一个既有 bug（"假判据"），同日修复（用户裁定）**：旧代码写
+> `local x=$(ffprobe ... | tr -d '\r')` 再接 `if [ "$?" -ne 0 ]`，而 `$?` 取的是
+> **管道末尾 `tr` 的退出码**，所以那个「检查出错！/ exit 1」分支**从未触发过**，
+> 探测失败一直被静默成「输出空 + rc=0」。合并探测时先沿用了该行为，随后用户裁定修复：
+> codec / framerate / resolution / duration 四个 helper 现在判 `_PROBE_RC`，探测失败
+> 真正打印错误并 `exit 1`（`check_file_isvideo` 的 exit 3 与 `check_file_size` 的
+> `-z` 兜底本来就是真判据，不动）。修复后重跑 56 组合对比：**52 条完全一致，
+> 仅「缺失文件 × 这 4 个 helper」按预期从 rc=0 变 rc=1** —— 这 4 条差异就是修复本身。
+> 入口以 `SRC_X=$(check_file_...)` 捕获且不查 rc，`exit 1` 只退出命令替换子 shell，
+> 对入口而言失败后果与从前相同，差别只在多一条可见报错。
 
-**还能再榨但本轮刻意没做**：入口里的 `dirname`/`basename`/`realpath` 各一次外部进程、
+**还能再榨但刻意没做**：入口里的 `dirname`/`basename`/`realpath` 各一次外部进程、
 `lookup_bitrate` 的一次 `awk`。换成 bash 内建即可，但真实终端里每项只值 0.1s 量级，
 收益 <10% 而改动面涉及 11 个入口 —— 风险与收益不成比例。
 
-**bat 侧尚未同步**：`.bat` 入口的 8 条 `SRC_*` 探测仍是逐个 ffprobe（每个还配一次临时文件
-写入 + `del`）。sh 侧这套是先在 MSYS2 上验证过的样板，bat 侧照搬需要真机双击验证。
+**bat 侧同步（2026-09-17 同日完成）**：`lib/common.bat` 新增 `:probe_source` ——
+字段集与 sh 侧逐字一致的同一条 ffprobe `-of flat`，结果存进 `P_*` 变量
+（`for /f tokens=1,* delims==` + `%%~b` 剥引号），同文件重复调用命中缓存
+（`PS_LAST`/`PS_RC`）。`check_isvideo` 改走 `probe_source`；7 个编码入口把
+6 段「ffprobe + 临时文件 + `del`」探测换成直接读 `P_*`（入口探测进程数 7 → 1），
+宽高段顺带省掉了 `EnableDelayedExpansion` 块（片名感叹号不再有被吃风险）。
+入口在 `check_isvideo` 之后对 `probe_source` 的退出码做负数安全检查（失败
+`exit /b 1`，与 sh 侧探测失败报错对齐）。P_* 字段缺失时展开为空，与原实现的
+空值路径一致。**bat 侧无法在沙箱运行，需真机双击验证**（见 6.5 节）。
 
 ---
 
@@ -623,6 +635,11 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
   修之前这里会走到「转换已出错或完成, 默认不替换」并返回 0；
 * **拖一部含多音轨的 mkv 上 `ffmpeg_copy_to_mp4.bat`**：除了音轨数要对得上，
   还要确认 moov 前置 —— 用 `ffprobe -v trace` 看原子顺序是 `ftyp` → **`moov`** → `mdat`；
+* **`probe_source` 合并探测的运行时实证**（本轮新增）：拖一部普通片源上任意编码入口
+  （如 `ffmpeg_libx265.bat`），窗口的探测段应照旧打出
+  `SRC_CODEC / SRC_FRAMERATE / SRC_W / SRC_H / SRC_PIX / SRC_SIZE / SRC_DURATION / SRC_BITRATE / TARGET_BITRATE`
+  且数值与改造前一致；再拖一个**纯音频文件**，应报
+  `[check_isvideo] … 不是视频文件` 并退出（探测段不再执行）；
 * T1/T2/T3/T7/T14 的 `[SKIP]` 行是否只在**真的没有硬件**时出现；
 * `gate_*.log` 是否生成、内容是否指向硬件缺失而非脚本错误。
 

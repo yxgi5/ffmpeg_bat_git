@@ -113,26 +113,38 @@ function check_file_isvideo() {
 }
 
 # 输出第一个视频流的编码名
-# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
-# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
-# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
-# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
+# 探测失败(文件不存在/ffprobe 自身出错, _PROBE_RC != 0)时: 打印错误并 exit 1。
+# 这是 2026-09-17 用户裁定修复的"假判据": 原实现写作 local x=$(ffprobe ... | tr)
+# 再接 `if [ "$?" -ne 0 ]`, 而 $? 取的是管道末尾 tr 的退出码, 报错分支从未触发过,
+# 探测失败一直被静默成"输出空 + rc=0"。现在判 _PROBE_RC, 让该分支真正生效。
+# 注意: 入口以 SRC_X=$(check_file_...) 捕获且不查 rc, exit 1 只退出命令替换子 shell --
+# 对入口而言失败后果与从前相同(变量为空、后续 set -a 出错), 差别只在多一条可见报错。
 function check_file_codec() {
     local codec
     probe_source "$1"
+    if [ "$_PROBE_RC" -ne 0 ]; then
+        echo -e "\033[41;36m$1 codec检查出错！\033[0m"
+        exit 1
+    fi
     codec="${_PROBE[streams.stream.0.codec_name]-}"
     echo "$codec"
     return 0
 }
 
 # 输出视频帧率(可能为分数形式如 30000/1001)
-# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
-# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
-# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
-# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
+# 探测失败(文件不存在/ffprobe 自身出错, _PROBE_RC != 0)时: 打印错误并 exit 1。
+# 这是 2026-09-17 用户裁定修复的"假判据": 原实现写作 local x=$(ffprobe ... | tr)
+# 再接 `if [ "$?" -ne 0 ]`, 而 $? 取的是管道末尾 tr 的退出码, 报错分支从未触发过,
+# 探测失败一直被静默成"输出空 + rc=0"。现在判 _PROBE_RC, 让该分支真正生效。
+# 注意: 入口以 SRC_X=$(check_file_...) 捕获且不查 rc, exit 1 只退出命令替换子 shell --
+# 对入口而言失败后果与从前相同(变量为空、后续 set -a 出错), 差别只在多一条可见报错。
 function check_file_framerate() {
     local framerate
     probe_source "$1"
+    if [ "$_PROBE_RC" -ne 0 ]; then
+        echo -e "\033[41;36m$1 framerate检查出错！\033[0m"
+        exit 1
+    fi
     framerate="${_PROBE[streams.stream.0.r_frame_rate]-}"
     echo "$framerate"
     return 0
@@ -141,13 +153,19 @@ function check_file_framerate() {
 # 输出视频宽高(空格分隔单行: "1920 720")
 # 对照: 原实现把 ffprobe 的两行输出 tr '\n' ' ' 再 sed 去尾空格, 得到
 # "W H"(字段缺失时更短); 现在直接拼装并做同款去尾空格(纯内建, 不起进程)
-# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
-# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
-# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
-# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
+# 探测失败(文件不存在/ffprobe 自身出错, _PROBE_RC != 0)时: 打印错误并 exit 1。
+# 这是 2026-09-17 用户裁定修复的"假判据": 原实现写作 local x=$(ffprobe ... | tr)
+# 再接 `if [ "$?" -ne 0 ]`, 而 $? 取的是管道末尾 tr 的退出码, 报错分支从未触发过,
+# 探测失败一直被静默成"输出空 + rc=0"。现在判 _PROBE_RC, 让该分支真正生效。
+# 注意: 入口以 SRC_X=$(check_file_...) 捕获且不查 rc, exit 1 只退出命令替换子 shell --
+# 对入口而言失败后果与从前相同(变量为空、后续 set -a 出错), 差别只在多一条可见报错。
 function check_file_resolution() {
     local w h out
     probe_source "$1"
+    if [ "$_PROBE_RC" -ne 0 ]; then
+        echo -e "\033[41;36m$1 resolution检查出错！\033[0m"
+        exit 1
+    fi
     w="${_PROBE[streams.stream.0.width]-}"
     h="${_PROBE[streams.stream.0.height]-}"
     out="$w $h"
@@ -177,13 +195,19 @@ function check_file_size() {
 }
 
 # 输出视频时长(秒, 浮点)
-# 注: 原实现写作 local x=$(ffprobe ... | tr -d '\r') 再接 `if [ "$?" -ne 0 ]`,
-# 而 $? 取的是管道末尾 tr 的退出码, 所以那个报错分支从未触发过:
-# 探测失败时它的实际行为是"输出空 + rc=0"。本轮改造承诺只换实现不改行为,
-# 故此处沿用该实际行为。若哪天要让它真正报错(exit 1), 判 _PROBE_RC 即可。
+# 探测失败(文件不存在/ffprobe 自身出错, _PROBE_RC != 0)时: 打印错误并 exit 1。
+# 这是 2026-09-17 用户裁定修复的"假判据": 原实现写作 local x=$(ffprobe ... | tr)
+# 再接 `if [ "$?" -ne 0 ]`, 而 $? 取的是管道末尾 tr 的退出码, 报错分支从未触发过,
+# 探测失败一直被静默成"输出空 + rc=0"。现在判 _PROBE_RC, 让该分支真正生效。
+# 注意: 入口以 SRC_X=$(check_file_...) 捕获且不查 rc, exit 1 只退出命令替换子 shell --
+# 对入口而言失败后果与从前相同(变量为空、后续 set -a 出错), 差别只在多一条可见报错。
 function check_file_duration() {
     local duration
     probe_source "$1"
+    if [ "$_PROBE_RC" -ne 0 ]; then
+        echo -e "\033[41;36m$1 duration检查出错！\033[0m"
+        exit 1
+    fi
     duration="${_PROBE[format.duration]-}"
     echo "$duration"
     return 0

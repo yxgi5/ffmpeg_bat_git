@@ -17,6 +17,7 @@ if /I "%~1"=="calc_bitrate_fromsize" goto calc_bitrate_fromsize
 if /I "%~1"=="extract"               goto extract
 if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
+if /I "%~1"=="probe_source"          goto probe_source
 if /I "%~1"=="check_isvideo"          goto check_isvideo
 echo 未知函数: %~1
 exit /b 1
@@ -158,12 +159,40 @@ if not defined FFPROBE_PATH (
     echo [check_isvideo] FFPROBE_PATH not set by caller
     exit /b 1
 )
-set "CV_TMP=%TEMP%\ffmpeg_bat_cv_%RANDOM%%RANDOM%.tmp"
-"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "%CV_FILE%" > "%CV_TMP%" 2>nul
-set "CV_TYPE="
-set /p CV_TYPE=<"%CV_TMP%"
-del "%CV_TMP%" 2>nul
+rem 2026-09-17: 探测统一走 probe_source(一次 ffprobe); 入口随后用同文件再调
+rem probe_source 时命中缓存, 不再起第二个 ffprobe 进程。
+call "%~f0" probe_source "%CV_FILE%"
 rem 注意: 下面这行刻意不进括号块、且给路径加引号 —— 路径含 ) 或 & 时才不会被解析坏
-if defined CV_TYPE exit /b 0
+if defined P_streams.stream.0.codec_type exit /b 0
 echo [check_isvideo] "%CV_FILE%" 不是视频文件, 未检测到视频流
 exit /b 1
+
+:probe_source
+rem 取回全部源字段: call ... probe_source <文件>
+rem   一次 ffprobe -of flat(字段集与 .sh 侧 lib/common.sh 的 probe_source 逐字对齐),
+rem   结果存入 P_* 变量(值已由 %%~b 剥引号):
+rem     P_streams.stream.0.{codec_type,codec_name,width,height,r_frame_rate,bit_rate}
+rem     P_format.{size,duration,bit_rate}
+rem   -select_streams v:0 会把选中流重新编号为 stream.0; 无视频流时 stream.* 整体缺失
+rem   (format.* 仍在)而 rc 仍为 0 -- 与原逐字段 v:0 探测的表现一致。
+rem   返回 ffprobe 的退出码。同一文件在同一进程内重复调用命中缓存(PS_LAST/PS_RC):
+rem   check_isvideo 先探一次, 入口紧接的 probe_source 调用是零进程的。
+rem   P_* 不清理: 每个入口进程只探一个源文件, 重复调用按同键覆盖。
+rem   注意: 本函数不 setlocal -- P_*/PS_* 必须对调用方可见(本文件函数约定)。
+set "PS_FILE=%~2"
+if not defined PS_FILE (
+    echo [probe_source] missing file argument
+    exit /b 1
+)
+if not defined FFPROBE_PATH (
+    echo [probe_source] FFPROBE_PATH not set by caller
+    exit /b 1
+)
+if "%PS_LAST%"=="%PS_FILE%" exit /b %PS_RC%
+set "PS_LAST=%PS_FILE%"
+set "PS_TMP=%TEMP%\ffmpeg_bat_probe_%RANDOM%%RANDOM%.tmp"
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate -of flat "%PS_FILE%" > "%PS_TMP%" 2>nul
+set "PS_RC=%ERRORLEVEL%"
+for /f "usebackq tokens=1,* delims==" %%a in ("%PS_TMP%") do set "P_%%a=%%~b"
+del "%PS_TMP%" 2>nul
+exit /b %PS_RC%

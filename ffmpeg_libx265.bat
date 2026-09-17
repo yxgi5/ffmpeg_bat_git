@@ -89,22 +89,22 @@ echo SRC_FILE:%SRC_FILE%
 rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
 call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
+rem 统一源探测: 一次 ffprobe 取回全部字段(同文件对 check_isvideo 的探测命中缓存);
+rem 失败时传回 1, 与 .sh 侧探测失败报错对齐(2026-09-17 用户裁定修"假判据")。
+call "%SELF_DIR%lib\common.bat" probe_source %SRC_FILE%
+set "FB_RC=%ERRORLEVEL%"
+if not "%FB_RC%"=="0" exit /b 1
 set RUN_COM=%RUN_COM% -i %SRC_FILE%
 echo RUN_COM0=%RUN_COM%
 
-rem 唯一临时文件: 替代固定名 temp/temp.txt/size/duration/bit_rate, 避免并行冲突
-set "FB_TMP=%TEMP%\ffmpeg_bat_%RANDOM%%RANDOM%.tmp"
-
-set SRC_CODEC="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -select_streams v:0 -show_entries stream=codec_name -of csv=p=0:s=x %SRC_FILE%
-%SRC_CODEC% > "%FB_TMP%"
-set /p SRC_CODEC=<"%FB_TMP%"
-del "%FB_TMP%" 2>nul
+rem 源探测统一走 common.bat 的 probe_source: 一次 ffprobe 取回全部字段,
+rem 结果在 P_* 变量里(值已剥引号)。此前这里要起 6 个 ffprobe 进程、每个
+rem 配一次临时文件写入+del, 是冒烟套件墙钟的主要成分(见 test/README 6.5 节)。
+rem 字段缺失(无视频流等)时 P_ 变量未定义、展开为空 —— 与原实现的空值路径一致。
+set "SRC_CODEC=%P_streams.stream.0.codec_name%"
 echo SRC_CODEC=%SRC_CODEC%
 
-set SRC_FRAMERATE="%FFPROBE_PATH%" -v error -select_streams v:0 -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate %SRC_FILE%
-%SRC_FRAMERATE% > "%FB_TMP%"
-set /p SRC_FRAMERATE=<"%FB_TMP%"
-del "%FB_TMP%" 2>nul
+set "SRC_FRAMERATE=%P_streams.stream.0.r_frame_rate%"
 echo SRC_FRAMERATE=%SRC_FRAMERATE%
 set /a SRC_FRAMERATE=%SRC_FRAMERATE%
 
@@ -113,48 +113,26 @@ if %SRC_FRAMERATE% gtr 31 (
     echo TURN DOWN TARGET FRAME RATE TO 30
 )
 
-set SRC_RESOLUTION="%FFPROBE_PATH%" -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%
-
-rem SRC_RESOLUTION 的执行刻意放在 delayed 块外: 块内 %VAR% 的展开结果
-rem 还要再过一遍延迟展开扫描, 片名里的感叹号会被成对吃掉从而丢失字符
-%SRC_RESOLUTION% >  "%FB_TMP%"
-set "SRC_W=0"
-set "SRC_H=0"
-setlocal EnableDelayedExpansion
-set "output_cnt=0"
-for /F "usebackq delims=" %%f in ("%FB_TMP%") do (
-    set /a output_cnt+=1
-    set "output[!output_cnt!]=%%f"
-)
-del "%FB_TMP%" 2>nul
-set SRC_W=!output[1]!
-set SRC_H=!output[2]!
+rem 宽高直接读 P_*, 省掉原 resolution 段的 EnableDelayedExpansion 块:
+rem 那个块里 %VAR% 展开要再过一遍延迟扫描, 片名带感叹号时会丢字符; 现在整段无路径, 无此风险
+set "SRC_W=%P_streams.stream.0.width%"
+set "SRC_H=%P_streams.stream.0.height%"
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
-rem pass local var to global var
-endlocal & set SRC_W=%SRC_W% & set SRC_H=%SRC_H%
 set /a SRC_PIX=%SRC_W%*%SRC_H%
 echo SRC_PIX=%SRC_PIX%
 
-set SRC_SIZE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=size -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%
-%SRC_SIZE% > "%FB_TMP%"
-set /p SRC_SIZE=<"%FB_TMP%"
-del "%FB_TMP%" 2>nul
+set "SRC_SIZE=%P_format.size%"
+if not defined SRC_SIZE set "SRC_SIZE=0"
 if %SRC_SIZE% leq 0 (
    for %%A in (%SRC_FILE%) do set SRC_SIZE=%%~zA
 )
 echo SRC_SIZE=%SRC_SIZE%
 
-set SRC_DURATION="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%
-%SRC_DURATION% > "%FB_TMP%"
-set /p SRC_DURATION=<"%FB_TMP%"
-del "%FB_TMP%" 2>nul
+set "SRC_DURATION=%P_format.duration%"
 echo SRC_DURATION=%SRC_DURATION%
 
-set SRC_BITRATE="%FFPROBE_PATH%" -v error -hide_banner -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 %SRC_FILE%
-%SRC_BITRATE% > "%FB_TMP%"
-set /p SRC_BITRATE=<"%FB_TMP%"
-del "%FB_TMP%" 2>nul
+set "SRC_BITRATE=%P_format.bit_rate%"
 set /a SRC_BITRATE=%SRC_BITRATE%
 IF not %ERRORLEVEL% NEQ 0 (
   if %SRC_BITRATE% == 0 (

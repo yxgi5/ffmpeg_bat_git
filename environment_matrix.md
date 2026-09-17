@@ -803,3 +803,28 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       沙箱包装层（`. .../shim/safe-bin/safe-de` **0.93s**、`. .../shim/brokered-sandbox` **0.57s**、
       `unset __codebuddy_shell_runtime_dir` **1.43s**）→ **同一套东西在用户自己终端里跑得更快**。
       做性能诊断先排除环境加成，再谈被测对象的开销。
+
+39. **`.bat` 侧探测合并 + sh 侧"假判据"修复（2026-09-17，用户裁定「bat 同步 + 假判据要修」）**：
+    * **sh 侧假判据修复**：`lib/common.sh` 的 `check_file_codec/framerate/resolution/duration`
+      四个 helper 现在判 `_PROBE_RC`，探测失败（文件不存在 / ffprobe 出错）真正打印
+      「…检查出错！」并 `exit 1` —— 恢复原代码的**意图**（原实现 `local x=$(ffprobe … | tr)` 后的
+      `$?` 判的是管道末尾 `tr` 的退出码，报错分支从未触发过）。`check_file_isvideo`（exit 3）与
+      `check_file_size`（`-z` 兜底）本来就是真判据，不动。修复后 56 组合等价性对比：
+      **52 条完全一致，仅「缺失文件 × 4 个 helper」从 rc=0 变 rc=1**（即修复本身，无其他漂移）。
+      入口 `SRC_X=$(check_file_…)` 不查 rc，`exit 1` 只退出命令替换子 shell —— 对入口无破坏。
+    * **bat 侧同步**：`lib/common.bat` 新增 **`:probe_source`** —— 与 sh 侧字段集逐字一致的
+      一条 `ffprobe -of flat`，`for /f "usebackq tokens=1,* delims=="` + `%%~b` 剥引号，
+      存入 `P_streams.stream.0.*` / `P_format.*`；同文件重复调用命中缓存（`PS_LAST`/`PS_RC`，
+      零进程）。`check_isvideo` 改走 `probe_source`（重入 `call "%~f0"`）。
+      **7 个编码入口**把 6 段「ffprobe + 临时文件 + `del`」探测换成直接读 `P_*`
+      （每入口探测进程数 **7 → 1**），宽高段顺带省掉 `EnableDelayedExpansion` 块
+      （片名感叹号不再有被吃风险）；入口在 `check_isvideo` 后对 `probe_source` 退出码做
+      负数安全检查，失败 `exit /b 1`（与 sh 侧对齐）。`FB_TMP` 临时文件机制随之退役。
+    * **解析实证（python 模拟 bat 的 for /f 语义）**：flat 值如 `codec_name="h264"`、
+      `width=640`（数字不带引号，`%%~b` 对无引号值无害）、`r_frame_rate="60/1"`（`set /a` 得 60）；
+      纯音频文件 `stream.*` 整体缺失而 `format.*` 仍在、rc=0 —— 与原 v:0 逐字段探测行为一致。
+    * **行为差异清单（唯一有意变更）**：探测段空值兜底从「语法错误后继续崩」变为
+      `SRC_SIZE` 空时先置 0 再走 `%%~zA` 文件大小兜底 —— 只影响本就会崩的失败路径。
+    * **基线**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
+      **bat 侧需真机双击验证**（沙箱跑不了 cmd.exe）：普通片源探测段数值应与改造前一致；
+      纯音频应报「不是视频文件」；smoke_all.bat 无回归。
