@@ -11,7 +11,7 @@ rem same table shape, so the two reports can be compared line by line.
 rem
 rem   (default)   QUICK  - static capability inventory: ffmpeg build
 rem                        features, video controllers, encoders.
-rem   PROBE       DEEP   - additionally runs every candidate entry on a
+rem   /probe      DEEP   - additionally runs every candidate entry on a
 rem                        tiny 3s clip and reports its real exit code.
 rem
 rem Status vocabulary:
@@ -19,16 +19,18 @@ rem   OK           usable here (static evidence, or rc=0 from PROBE)
 rem   NO-ENCODER   the ffmpeg build has no such encoder
 rem   NO-DEVICE    encoder exists but this machine has no usable GPU
 rem   N/A-OS       entry is meaningless on Windows (VAAPI is a Linux API)
-rem   UNKNOWN      static check cannot decide -> rerun with the PROBE argument
+rem   UNKNOWN      static check cannot decide -> rerun with /probe
 rem   PROBE-OK     PROBE ran it and it worked
 rem   PROBE-FAIL   PROBE ran it and it returned non-zero
 rem
 rem Location: <repo>\test\bat\  (the repo root is derived from this file's
 rem           own path, two levels up)
 rem
-rem Usage:  check_env.bat [repo_path] [PROBE]
-rem         no 2nd arg = quick report;  PROBE = also really run each entry
-rem         default repo_path = two levels up from this .bat
+rem Usage:  check_env.bat [/probe] [repo_path]
+rem         /probe | -probe | --probe (or legacy positional PROBE) =
+rem         deep mode. No flag = quick report. Default repo_path is
+rem         two levels up from this .bat; the legacy form
+rem         "check_env.bat "" PROBE" keeps working.
 rem
 rem Exit code: 0 = report produced (statuses are data, not failures)
 rem            2 = setup error (repo missing / ffmpeg missing)
@@ -47,10 +49,13 @@ exit /b %errorlevel%
 :main
 setlocal EnableExtensions
 
-set "REPO=%~1"
+rem ---- argument parsing: flags anywhere, positional repo_path optional.
+rem      /probe (or -probe, --probe) turns on deep mode; the legacy
+rem      "" PROBE form keeps working because an empty arg is skipped. ----
+set "REPO="
+set "DOPROBE="
+for %%a in (%*) do call :onearg "%%~a"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
-set "DOPROBE=%~2"
-if /I not "%DOPROBE%"=="PROBE" set "DOPROBE="
 if not exist "%REPO%\ffmpeg_avc_qsv.bat" goto NO_REPO
 
 set "WORK=%TEMP%\ffmpeg_bat_check_env"
@@ -87,9 +92,11 @@ if defined DOPROBE (
 echo.
 
 rem ---- video controllers: the only static way to tell which GPU families exist ----
+rem PowerShell first: wmic (deprecated, and its UTF-16 output garbles under
+rem chcp 65001 and defeats findstr) is only the fallback.
 del /q "%TMPGPU%" >nul 2>&1
-if exist "%SystemRoot%\System32\wbem\wmic.exe" "%SystemRoot%\System32\wbem\wmic.exe" path win32_VideoController get name > "%TMPGPU%" 2>nul
-if not exist "%TMPGPU%" powershell -NoProfile -Command "(Get-CimInstance Win32_VideoController).Name" > "%TMPGPU%" 2>nul
+powershell -NoProfile -Command "(Get-CimInstance Win32_VideoController).Name" > "%TMPGPU%" 2>nul
+if not exist "%TMPGPU%" if exist "%SystemRoot%\System32\wbem\wmic.exe" "%SystemRoot%\System32\wbem\wmic.exe" path win32_VideoController get name > "%TMPGPU%" 2>nul
 set "HASINTEL="
 set "HASNVIDIA="
 findstr /i /c:"Intel" "%TMPGPU%" >nul 2>&1
@@ -117,7 +124,7 @@ del /q "%TMPREQ%" >nul 2>&1
 >> "%TMPREQ%" echo ffmpeg_av1_qsv.bat^|av1_qsv^|qsv^|AV1 QSV needs Arrow Lake or newer iGPU
 >> "%TMPREQ%" echo ffmpeg_hevc_nvenc.bat^|hevc_nvenc^|nvidia^|NVIDIA NVENC HEVC
 >> "%TMPREQ%" echo ffmpeg_av1_nvenc.bat^|av1_nvenc^|nvidia^|AV1 NVENC needs Ada RTX 40 or newer
->> "%TMPREQ%" echo ffmpeg_copy_to_mp4.bat^-^|none^|remux only - no encoder involved
+>> "%TMPREQ%" echo ffmpeg_copy_to_mp4.bat^|-^|none^|remux only - no encoder involved
 
 echo ---- entries ----
 call :hdr
@@ -148,7 +155,7 @@ for %%f in ("%REPO%\ffmpeg_*.bat") do call :probe_entry "%%~nxf"
 for %%f in ("%REPO%\convert_from_list_*.bat") do call :probe_list "%%~nxf"
 call :probe_list repack_from_list.bat
 echo.
-echo probe logs: %WORK%\<entry name>\run.log
+echo probe logs: %WORK%\^<entry name^>\run.log
 echo.
 
 :SUMMARY
@@ -166,15 +173,29 @@ rem ===============================================================
 rem subroutines
 rem ===============================================================
 
+:onearg
+rem classify one argument: probe flags, or the first positional repo_path
+set "ARG=%~1"
+if not defined ARG exit /b 0
+if /I "%ARG%"=="/probe" ( set "DOPROBE=1" & exit /b 0 )
+if /I "%ARG%"=="-probe" ( set "DOPROBE=1" & exit /b 0 )
+if /I "%ARG%"=="--probe" ( set "DOPROBE=1" & exit /b 0 )
+if /I "%ARG%"=="PROBE" ( set "DOPROBE=1" & exit /b 0 )
+if not defined REPO set "REPO=%~1"
+exit /b 0
+
 rem :hdr - the column header, used by both tables
 :hdr
 echo STATUS       ENTRY                          NOTE
 echo ------------ ------------------------------ ------------------------------------
 exit /b 0
 
-rem :hasenc <encoder> - one line of the encoder inventory
+rem :hasenc <encoder> - one line of the encoder inventory.
+rem "-encoders" rows look like " V....D libx264   ..." = leading space +
+rem 7-char flag field + space + name, so the regex needs SEVEN dots before
+rem the name (six dots would end on the last flag char and always fail).
 :hasenc
-findstr /r /b /c:"...... %1 " "%TMPENC%" >nul 2>&1
+findstr /r /b /c:"....... %1 " "%TMPENC%" >nul 2>&1
 if errorlevel 1 (
     echo   enc  %1 : NO
 ) else (
@@ -185,7 +206,7 @@ exit /b 0
 rem :hasenc_set <encoder> - sets ENCOK when the build has that encoder
 :hasenc_set
 set "ENCOK="
-findstr /r /b /c:"...... %~1 " "%TMPENC%" >nul 2>&1
+findstr /r /b /c:"....... %~1 " "%TMPENC%" >nul 2>&1
 if not errorlevel 1 set "ENCOK=1"
 exit /b 0
 
@@ -391,7 +412,7 @@ exit /b 0
 
 :NO_REPO
 echo FATAL: repo not found at "%REPO%" - expected ffmpeg_avc_qsv.bat there
-echo usage: check_env.bat [repo_path] [PROBE]
+echo usage: check_env.bat [/probe] [repo_path]
 exit /b 2
 
 :NO_FF

@@ -601,3 +601,23 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       AV1 ≈1.75M/1.87M（1.89/2.02×T/2，6s 短段拟合斜率敏感，差异可接受）。
       至此 bench_calib sh 侧三机（B=MSYS2、A、C）全部实测通过。
     * 文档同步：test/README.md 工具段与目录树补齐 bench 工具族 + py/ 三件套。
+31. **check_env.bat 快查/深测五处修复 + 参数风格改正（2026-09-17，用户 B 机实跑暴露）**：
+    * **① 编码器清单全 NO（最关键）**：`:hasenc` 的 findstr 正则只写了 6 个点，而 `-encoders` 行格式是
+      **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格
+      却撞上标志位末字符 `D` → 永远不匹配 → 全部 NO。实测验证：6 点 0 命中、7 点命中。已改 7 点。
+      此 bug 一直存在但被深测掩盖（PROBE 直接跑真编码，不受静态清单影响）。
+    * **② `ffmpeg_copy_to_mp4.bat` 误报 NO-ENTRY**：TMPREQ 行写成 `bat^-^|none^|...`，转义后
+      `-` 粘在 entry 上 → entry token 变 `ffmpeg_copy_to_mp4.bat-`（缺了 entry 与 enc 字段之间的
+      分隔符）→ `if not exist` 必然成立。连锁反应：`:wrapper` 对 repack_from_list 的目标状态查表
+      也失配 → UNKNOWN。已补 `^|-^|`。
+    * **③ 探针表格后一行裸报错 `The system cannot find the file specified.`**：
+      `echo probe logs: %WORK%\<entry name>\run.log` 里 `<` 被 cmd 当输入重定向解析——echo 文本
+      没打出来，只留一条系统错误。已转义为 `^<entry name^>`。
+    * **④ video controllers 乱码**：wmic 输出 UTF-16，在 chcp 65001 下重定向后中英全花（`??Name`），
+      且 findstr 无法在其中匹配 Intel/NVIDIA → HASINTEL/HASNVIDIA 静默失效。已改为
+      **PowerShell Get-CimInstance 优先**、wmic 仅兜底（顺带规避 wmic 在 Win11 24H2 被移除）。
+    * **⑤ 参数风格**：原 `check_env.bat [repo_path] [PROBE]` 需要占位空参数 `"" PROBE`，别扭。
+      新解析支持 **flag 任意位置**：`/probe`、`-probe`、`--probe`（与 sh 侧 `--probe` 对齐），
+      位置参数只剩可选 repo_path；`"" PROBE` 旧写法保持兼容（空参数被跳过）。
+    * 全部为静态修复（沙箱跑不了 cmd.exe），待用户复跑验证：QUICK 应看到 libx264/libx265/… 全 yes、
+      copy_to_mp4=OK、repack=OK；PROBE 的 summary 计数与探针表一致。

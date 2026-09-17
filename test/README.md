@@ -48,7 +48,7 @@ test\bat\smoke_all.bat                 双击    一键串跑两套
 test\bat\smoke_ffmpeg.bat              双击    回归套件（T 编号）
 test\bat\smoke_special_chars.bat       双击    元字符矩阵
 test\bat\check_env.bat                 双击    能力报告（快查）
-test\bat\check_env.bat "" PROBE        命令行  能力报告（深测）
+test\bat\check_env.bat /probe          命令行  能力报告（深测；旧写法 "" PROBE 仍兼容）
 ```
 
 另有一个**基准工具**（不属于回归体系）：`test\bat\bench_av1_calib.bat`——

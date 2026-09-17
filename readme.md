@@ -27,7 +27,7 @@ test/lint/selftest.py      检查器自身的回归测试（recall + precision �
 test/sh/smoke_ffmpeg.sh    Linux 侧回归套件（T1–T25，与 .bat 套件同 T 编号）
 test/bat/smoke_*.bat       Windows 侧冒烟套件（T1–T17 回归 + 元字符矩阵 + 合并运行器）
 test/sh/check_env.sh       Linux 侧能力报告（快查 / --probe 深测）
-test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` 深测）
+test/bat/check_env.bat     Windows 侧能力报告（双击快查，`/probe` 深测）
 ```
 
 ## 测试体系（三层，各管一件事）
