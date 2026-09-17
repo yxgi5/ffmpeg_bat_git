@@ -7,8 +7,10 @@
 #   families share the same T-id, the same 1080p60 fixture and
 #   the same expected TARGET_BITRATE, so a T-number difference
 #   between the two families is a real cross-family divergence.
-#   sh-only cases are T8 / T18 / T19 / T20 / T21 / T22 / T23 /
-#   T24 / T25 (see test/README.md for the full table).
+#   sh-only cases are T8 / T18 / T19 / T20 / T21 / T22 /
+#   T24 / T25 (see test/README.md for the full table). T23 is
+#   shared since 2026-09-17, when the .bat wrappers started to
+#   fail fast on a failed child.
 #
 #   Location: <repo>/test/sh/  - the repo root is derived from
 #   this script's own path (two levels up), so a clone anywhere
@@ -354,7 +356,7 @@ mklist() {   # mklist <dir> <listfile> <eol:lf|crlf> <bom:0|1> <names...>
 }
 
 if part_in list; then
-head1 "part list: T9/T11/T12 mirror the .bat harness, T21-T23 are sh-only extensions"
+head1 "part list: T9/T11/T12/T23 mirror the .bat harness, T21-T22 are sh-only extensions"
 
 # convert_from_list_qsv.sh needs QSV AVC hardware. Probe ONCE for the whole
 # part: on a box without QSV (e.g. the Raspberry Pi test box) the three list
@@ -474,11 +476,15 @@ RC=$?
 if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T25 non-text list file rejected rc=$RC"
 else FAIL=$((FAIL+1)); say "[FAIL] T25 non-text list file rc=$RC want non-zero"; fi
 
-# T23 (sh-only): a missing list entry aborts the run at that entry
+# T23: a missing list entry aborts the run AT that entry (both families)
+# The wrapper must fail fast: the first failed child ends the run with a
+# non-zero code instead of grinding through the rest of the list and still
+# reporting success. libx265 wrapper on purpose - it needs no hardware, so
+# the case is runnable everywhere (the .bat twin uses the same wrapper).
 d="$W/cases/T23_list_abort"; mkdir -p "$d"
 printf '%s\n' "$d/nope.mp4" > "$d/badlist.txt"
 LOGF="$LOG/T23_list_abort.log"
-bash "$REPO/convert_from_list_qsv.sh" "$d/badlist.txt" > "$LOGF" 2>&1
+bash "$REPO/convert_from_list_libx265.sh" "$d/badlist.txt" > "$LOGF" 2>&1
 RC=$?
 if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T23 missing list entry aborts run rc=$RC"
 else FAIL=$((FAIL+1)); say "[FAIL] T23 missing list entry rc=$RC want non-zero"; fi

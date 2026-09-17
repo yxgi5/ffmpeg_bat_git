@@ -601,6 +601,27 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       AV1 ≈1.75M/1.87M（1.89/2.02×T/2，6s 短段拟合斜率敏感，差异可接受）。
       至此 bench_calib sh 侧三机（B=MSYS2、A、C）全部实测通过。
     * 文档同步：test/README.md 工具段与目录树补齐 bench 工具族 + py/ 三件套。
+31. **check_env.bat 快查/深测五处修复 + 参数风格改正（2026-09-17，用户 B 机实跑暴露）**：
+    * **① 编码器清单全 NO（最关键）**：`:hasenc` 的 findstr 正则只写了 6 个点，而 `-encoders` 行格式是
+      **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格
+      却撞上标志位末字符 `D` → 永远不匹配 → 全部 NO。实测验证：6 点 0 命中、7 点命中。已改 7 点。
+      此 bug 一直存在但被深测掩盖（PROBE 直接跑真编码，不受静态清单影响）。
+    * **② `ffmpeg_copy_to_mp4.bat` 误报 NO-ENTRY**：TMPREQ 行写成 `bat^-^|none^|...`，转义后
+      `-` 粘在 entry 上 → entry token 变 `ffmpeg_copy_to_mp4.bat-`（缺了 entry 与 enc 字段之间的
+      分隔符）→ `if not exist` 必然成立。连锁反应：`:wrapper` 对 repack_from_list 的目标状态查表
+      也失配 → UNKNOWN。已补 `^|-^|`。
+    * **③ 探针表格后一行裸报错 `The system cannot find the file specified.`**：
+      `echo probe logs: %WORK%\<entry name>\run.log` 里 `<` 被 cmd 当输入重定向解析——echo 文本
+      没打出来，只留一条系统错误。已转义为 `^<entry name^>`。
+    * **④ video controllers 乱码**：wmic 输出 UTF-16，在 chcp 65001 下重定向后中英全花（`??Name`），
+      且 findstr 无法在其中匹配 Intel/NVIDIA → HASINTEL/HASNVIDIA 静默失效。已改为
+      **PowerShell Get-CimInstance 优先**、wmic 仅兜底（顺带规避 wmic 在 Win11 24H2 被移除）。
+    * **⑤ 参数风格**：原 `check_env.bat [repo_path] [PROBE]` 需要占位空参数 `"" PROBE`，别扭。
+      新解析支持 **flag 任意位置**：`/probe`、`-probe`、`--probe`（与 sh 侧 `--probe` 对齐），
+      位置参数只剩可选 repo_path；`"" PROBE` 旧写法保持兼容（空参数被跳过）。
+    * 全部为静态修复（沙箱跑不了 cmd.exe），待用户复跑验证：QUICK 应看到 libx264/libx265/… 全 yes、
+      copy_to_mp4=OK、repack=OK；PROBE 的 summary 计数与探针表一致。
+
 32. **check_env.bat 探针改判「真实产物」，rc 不再是判据（2026-09-17）**：
     * 用户复跑暴露：修复后的快查 enc 全 yes 正常了，但深测仍 `av1_qsv PROBE-OK rc=0`——
       而该机 Intel UHD Graphics 不支持 AV1 编码，沙箱实测 av1_qsv 真编是
@@ -665,23 +686,25 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       ③ **`ffmpeg -n` 拒绝覆盖同名输出时自身返回 0**（日志里只有 `already exists /
       Error opening output file`）→ 两族都传不出非零，这正是探针坚持判「真实产物」的第二个理由
       （也否决了"预置同名输出当失败夹具"的测试方案）。
-31. **check_env.bat 快查/深测五处修复 + 参数风格改正（2026-09-17，用户 B 机实跑暴露）**：
-    * **① 编码器清单全 NO（最关键）**：`:hasenc` 的 findstr 正则只写了 6 个点，而 `-encoders` 行格式是
-      **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格
-      却撞上标志位末字符 `D` → 永远不匹配 → 全部 NO。实测验证：6 点 0 命中、7 点命中。已改 7 点。
-      此 bug 一直存在但被深测掩盖（PROBE 直接跑真编码，不受静态清单影响）。
-    * **② `ffmpeg_copy_to_mp4.bat` 误报 NO-ENTRY**：TMPREQ 行写成 `bat^-^|none^|...`，转义后
-      `-` 粘在 entry 上 → entry token 变 `ffmpeg_copy_to_mp4.bat-`（缺了 entry 与 enc 字段之间的
-      分隔符）→ `if not exist` 必然成立。连锁反应：`:wrapper` 对 repack_from_list 的目标状态查表
-      也失配 → UNKNOWN。已补 `^|-^|`。
-    * **③ 探针表格后一行裸报错 `The system cannot find the file specified.`**：
-      `echo probe logs: %WORK%\<entry name>\run.log` 里 `<` 被 cmd 当输入重定向解析——echo 文本
-      没打出来，只留一条系统错误。已转义为 `^<entry name^>`。
-    * **④ video controllers 乱码**：wmic 输出 UTF-16，在 chcp 65001 下重定向后中英全花（`??Name`），
-      且 findstr 无法在其中匹配 Intel/NVIDIA → HASINTEL/HASNVIDIA 静默失效。已改为
-      **PowerShell Get-CimInstance 优先**、wmic 仅兜底（顺带规避 wmic 在 Win11 24H2 被移除）。
-    * **⑤ 参数风格**：原 `check_env.bat [repo_path] [PROBE]` 需要占位空参数 `"" PROBE`，别扭。
-      新解析支持 **flag 任意位置**：`/probe`、`-probe`、`--probe`（与 sh 侧 `--probe` 对齐），
-      位置参数只剩可选 repo_path；`"" PROBE` 旧写法保持兼容（空参数被跳过）。
-    * 全部为静态修复（沙箱跑不了 cmd.exe），待用户复跑验证：QUICK 应看到 libx264/libx265/… 全 yes、
-      copy_to_mp4=OK、repack=OK；PROBE 的 summary 计数与探针表一致。
+35. **soft_pair_calib.bat 孪生上线 + T23 跨族 + bench_calib 锚定修复（2026-09-17，用户裁定"建 bat 孪生 + 加 wrapper 冒烟用例"）**：
+    * **新增 `test/bat/soft_pair_calib.bat`**（补齐 test/ 工具族最后一处两族缺口）：与
+      `test/sh/soft_pair_calib.sh` 同语义——同样本源（1080p×2；full 另加 720p×2 与 2160p 上变换参照）、
+      同参照规格（x264 crf10 slow + fps30/yuv420p）、同三档梯（800k–3200k / 1500k–6600k / 4000k–16000k）、
+      同 CSV 列（`clip,codec,br_req,br_delivered,vmaf,model`）、同逐点缓存、同 `probe|1080|full` 三模式。
+      bat 实现要点：`%~dp0..\..` 锚定仓库、工作目录 `%TEMP%\ffmpeg_soft_pair_calib`（`SOFT_PAIR_WORK` 可改）、
+      下载走系统 `curl.exe`（`SKIP_DOWNLOAD=1` 离线）、VMAF 均值用 PowerShell `ConvertFrom-Json` 取
+      `pooled_metrics.vmaf.mean`、**log_path 相对 + pushd**（盘符冒号坑）、三个辅助函数**刻意不加
+      setlocal**（否则失败计数会随 setlocal 弹出而丢失）、`if cond echo X & pause & exit` 改括号块
+      （`&` 比 `if` 松的老坑）、出口一律 `pause`。静态校验：270 行 CRLF、纯 ASCII、lint 全绿。
+    * **T23 由 sh-only 升为两族共享**：sh 侧 T23（清单条目缺失 → 中止）此前只能 sh-only，因为 bat
+      wrapper 从不中止；wrapper fail-fast 落地后补齐 bat 孪生（`smoke_ffmpeg.bat` 升 **v9**），并把 sh 侧
+      T23 的 wrapper 从 `convert_from_list_qsv.sh` 换成 `convert_from_list_libx265.sh`（软编、无硬件依赖
+      → 两族同夹具且永不被 SKIP）。sh-only 现为 T8/T18/T19/T20/T21/T22/T24/T25；**T24/T25 的 bat 孪生
+      如今也具备可行性**（失败即非零已成立），留作后续。
+    * **bench_calib.bat 潜伏 bug 顺手修**：全文**从未定义 `SELF_DIR`**，`"%SELF_DIR%lib\common.bat"`
+      实为相对路径，只在「cwd = 仓库根」时可用（从 `test\bat` 双击会误报 NO_FFMPEG）。已改
+      `%~dp0..\..` 锚定，并把两个 ffmpeg 调用点改为 `%FFMPEG_PATH%`（去掉对 PATH 的隐含依赖，与
+      `find_ffmpeg` 契约一致）。`nvenc_pair_calib.bat` 明确要求 ffmpeg 在 PATH（自洽），未动。
+    * test/README.md：新增 ③c 节（配对校准工具族两族对等表）并置于 ③b 之后、目录树补齐 bat 孪生、
+      T23 的 bat 列 `—` → `✅`；**真正修掉遗留的 `bench_av1_calib.bat` 旧名引用**（第 30 条记的"已修"
+      实际修的是另一处实例，本条订正）。

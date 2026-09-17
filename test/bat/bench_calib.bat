@@ -20,7 +20,8 @@ rem Ladder: table lookup T at the (optionally capped) pixel count,
 rem then 5 points: T/4, T/3, T/2, 3T/4, T.  Defaults: 30s segment,
 rem no height cap.
 rem
-rem Requirements: ffmpeg/ffprobe with libvmaf on PATH (gyan full /
+rem Requirements: ffmpeg/ffprobe with libvmaf, found by
+rem lib\common.bat find_ffmpeg (PATH or FFMPEG_BIN; gyan full /
 rem master builds qualify), software encoder libx264 / libx265 /
 rem libsvtav1. Work dir: %TEMP%\ffmpeg_bench_calib_<codec>
 rem Exit code: 0 = results.csv written; 2 = setup error
@@ -61,7 +62,7 @@ if not defined SRC (
 if not defined SRC goto NO_SRC
 if not exist "%SRC%" goto NO_SRC
 
-call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
+call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_FFMPEG
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
@@ -83,7 +84,7 @@ if %CAP% gtr 0 if %SH% gtr %CAP% (
 )
 set /a PIX=W2*H2
 if %PIX% lss 0 goto NO_VIDEO
-call "%SELF_DIR%lib\common.bat" lookup_bitrate %PIX% T %CSVN%
+call "%REPO%\lib\common.bat" lookup_bitrate %PIX% T %CSVN%
 if errorlevel 1 goto NO_TABLE
 
 set "PREP=fps=30,format=yuv420p,setsar=1"
@@ -136,7 +137,7 @@ setlocal
 set "BR=%~1"
 set "TAG=%W2%x%H2%_%BR%"
 set "OUT=%WORK%\%TAG%.mp4"
-if not exist "%OUT%" ffmpeg -y -hide_banner -loglevel error -ss %SS% -t %LEN% -i "%SRC%" -vf "%PREP%" -c:v %ENC% -preset %PSET% -b:v %BR% -an "%OUT%" || ( endlocal & exit /b 1 )
+if not exist "%OUT%" "%FFMPEG_PATH%" -y -hide_banner -loglevel error -ss %SS% -t %LEN% -i "%SRC%" -vf "%PREP%" -c:v %ENC% -preset %PSET% -b:v %BR% -an "%OUT%" || ( endlocal & exit /b 1 )
 set "DEL="
 for /f "usebackq delims=" %%R in (`"%FFPROBE_PATH%" -v error -select_streams v:0 -show_entries stream^=bit_rate -of csv^=p^=0 "%OUT%"`) do set "DEL=%%R"
 if not defined DEL set "DEL=0"
@@ -146,7 +147,7 @@ rem the encode leg, or libvmaf pairs frames from different offsets.
 set "JS=%WORK%\%TAG%.json"
 if not exist "%JS%" (
     pushd "%WORK%" || ( endlocal & exit /b 1 )
-    ffmpeg -hide_banner -loglevel error -i "%TAG%.mp4" -ss %SS% -t %LEN% -i "%SRC%" -filter_complex "[1:v]%PREP%[sref];[0:v][sref]libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%TAG%.json" -f null -
+    "%FFMPEG_PATH%" -hide_banner -loglevel error -i "%TAG%.mp4" -ss %SS% -t %LEN% -i "%SRC%" -filter_complex "[1:v]%PREP%[sref];[0:v][sref]libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%TAG%.json" -f null -
     popd
     if errorlevel 1 ( endlocal & exit /b 1 )
 )

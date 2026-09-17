@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg.bat (v8)   *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg.bat (v9)   *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -10,6 +10,13 @@ rem   C) fresh process     -> console already UTF-8 (opencmd.bat style)
 rem Every run captures stdout+stderr into smoke_logs\*.log, and a verdict
 rem table is written to smoke_logs\summary.txt
 rem
+rem v9 changes vs v8:
+rem   - new case T23: a missing list entry must abort the wrapper
+rem     (rc != 0). It mirrors T23 in test/sh/smoke_ffmpeg.sh. It could
+rem     not exist here before 2026-09-17: the .bat wrappers kept going
+rem     after a failed child and still exited 0, so the case would have
+rem     failed on every run. Uses the libx265 wrapper -> no hardware,
+rem     never SKIPped, same fixture as the sh side.
 rem v8 changes vs v7:
 rem   - hardware-dependent cases (T1/T2/T3/T7/T14) now PROBE the entry on a
 rem     small clip first and report SKIP when this box cannot initialise the
@@ -234,6 +241,25 @@ goto T15DONE
 echo [SKIP] T15 ffmpeg_av1_qsv: no AV1 QSV hardware encoder on this box >> "%SUM%"
 echo        probe rc=%AV1PRC%, see T15_av1_qsv_probe.txt >> "%SUM%"
 :T15DONE
+
+rem ============ T23: a missing list entry must abort the wrapper ============
+rem Mirrors T23 in test/sh/smoke_ffmpeg.sh. The .bat wrappers used to grind
+rem through the whole list and still exit 0, so this case could only exist
+rem on the sh side; since 2026-09-17 they fail fast (goto LIST_FAIL). The
+rem libx265 wrapper is used on purpose: software encoder, no hardware, so
+rem the case can never be SKIPped and both families run the same fixture.
+chcp %CP0% >nul
+if not exist "%WORK%\T23_abort" mkdir "%WORK%\T23_abort" >nul 2>&1
+> "%WORK%\T23_abort\badlist.txt" echo %WORK%\T23_abort\nope.mp4
+call "%REPO%\convert_from_list_libx265.bat" "%WORK%\T23_abort\badlist.txt" < nul > "%LOGDIR%\T23_list_abort.log" 2>&1
+set "RC23=%errorlevel%"
+set "V23=PASS"
+set "N23="
+if "%RC23%"=="0" ( set "V23=FAIL" & set "N23=%N23% exitCode=0 wantNonZero;" )
+findstr /i /c:"is not recognized" "%LOGDIR%\T23_list_abort.log" >nul 2>&1
+if not errorlevel 1 ( set "V23=FAIL" & set "N23=%N23% bannerParseErr;" )
+echo [%V23%] T23 missing list entry aborts the wrapper rc=%RC23% >> "%SUM%"
+if not "%N23%"=="" echo        why: %N23% >> "%SUM%"
 
 :LISTONLY
 rem T9/T11/T12 run convert_from_list_qsv.bat, which needs QSV AVC hardware.

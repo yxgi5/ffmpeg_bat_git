@@ -51,12 +51,6 @@ test\bat\check_env.bat                 双击    能力报告（快查）
 test\bat\check_env.bat /probe          命令行  能力报告（深测；旧写法 "" PROBE 仍兼容）
 ```
 
-另有一个**基准工具**（不属于回归体系）：`test\bat\bench_av1_calib.bat`——
-把任意视频拖上去，用 hevc_nvenc / av1_nvenc（p4 CBR，与入口脚本同参数）编三档码率梯
-并算 VMAF，产出 `results.csv`，用于实测「等画质下 AV1 相对 HEVC 省多少码率」，
-校验码率表的代际比例假设。要求 ffmpeg 带 libvmaf + Ada 级 NVENC。
-（该工具的使命已完成，结论见 `environment_matrix.md` 第 25/26 条，保留作复测用。）
-
 ## ③b 单片源码率标尺 bench_calib（sh/bat 对等）
 
 **用途**：特殊片源需要尽可能保画质时，从原视频实测出「该给多少码率」——
@@ -79,6 +73,23 @@ fps30/像素格式归一），产出 `results.csv`。sh 侧附 log 域拟合，�
 （A/C 结果两机一致，见 `environment_matrix.md` 第 30 条）；bat 侧 B 机合成源通过，
 真实片源双击验证待用户执行。
 
+## ③c 编解码配对校准（nvenc_pair / soft_pair，两族对等）
+
+**用途**：实测「等画质下 AV1 相对 HEVC 到底省多少码率」，用于校验码率表的代际比例假设。
+不带回归断言，属于研究/校准工具（`.sh` 侧重跑远端 Linux，`.bat` 侧双击拖片即可）。
+
+| 工具 | 配对 | 结论 |
+|------|------|------|
+| `test/sh/nvenc_pair_calib.sh` + `test\bat\nvenc_pair_calib.bat` | **硬编** hevc_nvenc vs av1_nvenc（p4 CBR） | `environment_matrix.md` #26，r≈0.72–1.0 |
+| `test/sh/soft_pair_calib.sh` + `test\bat\soft_pair_calib.bat` | **软编** libx265 fast vs libsvtav1 p8 | #25，r≈0.53–0.61（表哲学的基准侧） |
+
+两者都产出 `results.csv`（列 `clip,codec,br_req,br_delivered,vmaf[,model]`），求解交给
+`test/py/` 下对应的脚本：`eq_quality_solve.py`（吃 CSV）与 `nvenc_pair_solve.py`（扫描工作目录）。
+soft_pair 首次运行会从 test-videos.co.uk 下载 10s 样本（1080p 两片；`full` 模式另加 720p 与
+2160p——2160p 参照是 1080p 上变换，两侧同等承担该 caveat）；`SKIP_DOWNLOAD=1` 可离线
+（预置 `src_*.mp4`）。工作目录 `%TEMP%\ffmpeg_soft_pair_calib`（`SOFT_PAIR_WORK` 可改）。
+（上表两对工具的校准使命均已完成；保留作复测，见 #25/#26。）
+
 > 建议顺序：**先 ① 后 ②**。静态检查能在 1 秒内抓住语法/标签/引号/编码问题，
 > 不必等几分钟的冒烟跑完才发现第 3 行少了个括号。
 
@@ -99,14 +110,15 @@ test/
 │   ├── check_env.sh             sh 族环境能力报告
 │   ├── bench_calib.sh           单片源码率标尺（软编基准，见 ③b）
 │   ├── nvenc_pair_calib.sh      NVENC AV1/HEVC 配对校准（bat 孪生）
-│   └── soft_pair_calib.sh       软编 SVT-AV1/x265 配对校准（无 bat 对偶，见 ③c）
+│   └── soft_pair_calib.sh       软编 SVT-AV1/x265 配对校准（bat 孪生，见 ③c）
 ├── bat/
 │   ├── smoke_ffmpeg.bat         bat 族回归套件
 │   ├── smoke_special_chars.bat  bat 族元字符矩阵
 │   ├── smoke_all.bat            bat 族一键串跑
 │   ├── check_env.bat            bat 族环境能力报告
 │   ├── bench_calib.bat          单片源码率标尺（sh 孪生）
-│   └── nvenc_pair_calib.bat     NVENC AV1/HEVC 配对校准（sh 孪生）
+│   ├── nvenc_pair_calib.bat     NVENC AV1/HEVC 配对校准（sh 孪生）
+│   └── soft_pair_calib.bat      软编 AV1/x265 配对校准（sh 孪生）
 └── py/
     ├── eq_quality_solve.py      软编配对等画质求解器（校准 CSV）
     ├── nvenc_pair_solve.py      NVENC 配对求解器（校准工作目录）
@@ -254,7 +266,7 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T20 | `ffmpeg_hevc_nvenc_cygwin` | arg | 2548951 / hevc | ✅ | 无此入口 |
 | T21 | 清单 CRLF + UTF-8 BOM | 清单 3 条目 | 3/3 产物 | ✅ | — |
 | T22 | `run_list` 的 `</dev/null` 隔离 | 5 条目清单 | 5/5 产物 | ✅ | — |
-| T23 | 清单条目文件缺失 → 中止 | 清单含不存在的路径 | `rc=1` | ✅ | — |
+| T23 | 清单条目文件缺失 → 中止 | 清单含不存在的路径 | `rc=1` | ✅ | ✅ |
 | T24 | 输入文件不存在 | 不存在的路径 | `rc=1` | ✅ | — |
 | T25 | 清单不是文本文件 | 传一个 mp4 当清单 | `rc=1` | ✅ | — |
 
