@@ -450,21 +450,32 @@ popd
 call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%" "%D%\run.log"
 exit /b 0
 
-rem :judge_art <entry> <rc> <artifact> <run.log> - PROBE-OK needs rc>=0 taken
-rem seriously AND a real output artifact (>4096 bytes). The entry .bat wrappers
-rem USED to exit 0 unconditionally, so rc alone could not separate "encoded"
-rem from "ffmpeg died, the window said 转换已出错或完成 anyway"; the artifact
-rem size can. Since 2026-09-17 the entries propagate rc=1 as well (lint L15),
-rem so a failure now shows both a non-zero rc and the reason line taken from
-rem run.log. A 3s 320x240 encode at the table bitrate is tens of KB, so 4096
-rem is a safe floor. This mirrors the .sh probe, which prints "rc=<n> | <first
-rem error line>".
+rem :judge_art <entry> <rc> <artifact> <run.log> - PROBE-OK needs THREE signals to
+rem agree: rc==0 taken seriously, no "Conversion failed" in the log, and a real
+rem output artifact (>4096 bytes). The entry .bat wrappers USED to exit 0
+rem unconditionally, so rc alone could not separate "encoded" from "ffmpeg died,
+rem the window said 转换已出错或完成 anyway"; the artifact size and the log
+rem marker can. Since 2026-09-17 the entries propagate rc=1 as well (lint L15),
+rem through a `%ERRORLEVEL%` NEQ 0 test rather than `if errorlevel 1` -- the latter
+rem compares SIGNED, so the NEGATIVE code Windows ffmpeg returns (av1_qsv here
+rem exits -40, "Function not implemented") read as "success" and produced exactly
+rem this line: `rc=0 but no real output (0B) | ERRORLEVEL:-40`. A 3s 320x240
+rem encode at the table bitrate is tens of KB, so 4096 is a safe floor. This
+rem mirrors the .sh probe, which prints "rc=<n> | <first error line>".
 :judge_art
 set "OUTSZ=0"
 if exist "%~3" for %%A in ("%~3") do set "OUTSZ=%%~zA"
 call :why "%~4"
 set "TAIL= - see run.log"
 if defined WHY set "TAIL= | %WHY%"
+rem third signal, independent of both rc and the artifact size: ffmpeg prints
+rem this exact line whenever a conversion dies, and it is the one signal an
+rem entry with a broken guard cannot fake.
+findstr /c:"Conversion failed" "%~4" >nul 2>&1
+if not errorlevel 1 (
+    call :pfail "%~1" "ffmpeg reported a failed conversion%TAIL%"
+    exit /b 0
+)
 if not "%~2"=="0" (
     call :pfail "%~1" "rc=%~2%TAIL%"
     exit /b 0

@@ -83,7 +83,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_av1_nvenc.bat` | AV1 NVENC | NVIDIA **Ada 及以后**（RTX 40 系起） |
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
-| `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出 |
+| `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
 
@@ -143,10 +143,10 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 
 测试体系分三层，先用 1 秒的静态检查过滤低层次问题，再跑数分钟的冒烟套件：
 
-| 层 | 命令 | 本机最近一轮（2026-09-16，Win11 + MSYS2 + RTX） |
+| 层 | 命令 | 本机最近一轮（2026-09-17，Win11 + MSYS2 + RTX） |
 |----|------|--------------------------------------------|
-| ① 静态 + 对等 | `python3 test/lint/lint.py` | `24 PASS / 0 FAIL / 5 WARN`，退出码 0 |
-| ① 检查器自测 | `python3 test/lint/selftest.py` | `18 cases / 0 FAIL` |
+| ① 静态 + 对等 | `python3 test/lint/lint.py` | `25 PASS / 0 FAIL / 5 WARN`，退出码 0 |
+| ① 检查器自测 | `python3 test/lint/selftest.py` | `22 cases / 0 FAIL` |
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
 
@@ -165,7 +165,9 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
   `hevc_nvenc_cygwin`）分别对应 Linux 内核 API 与 Cygwin 专用链路，`.bat` 侧无编码入口缺口
   （`opencmd.bat` 只是开 UTF-8 窗口的辅助脚本）。退出码契约已跨族统一为
   `0 成功 / 1 参数与文件错误（含编码失败、找不到 ffmpeg）/ 2 查表越界 / 3 无视频流 / 5 码率异常`；
-  「失败必须传回非零」由 lint **L15**、流映射一致性由 **L16** 静态钉住（`.bat` 入口历史上曾无条件 `exit /b 0` 吞掉失败）。
+  「失败必须传回非零」由 lint **L15**、流映射一致性由 **L16**、moov 前置由 **L17** 静态钉住
+  （`.bat` 入口历史上曾无条件 `exit /b 0` 吞掉失败；而 Windows 版 ffmpeg 的**负**退出码
+  `-40/-22/-2` 会让 `if errorlevel 1` 静默失手，故 L15 现在要求 `if not "%FB_RC%"=="0"` 这种负数安全写法）。
 - 逐项检查清单、T 编号对照表、SKIP 策略、对等矩阵与踩坑记录见 **`test/README.md`**
 - 详细矩阵与逐条记录见 `environment_matrix.md`，各轮缺陷的定位与修法见 `code_review_report.md`
 

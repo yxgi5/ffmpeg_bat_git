@@ -794,6 +794,26 @@ def check_exit_codes(inv):
 # L13 only checks which exit codes appear, never whether the failure path is
 # reachable. Fixed 2026-09-17 (batch 8 entries + 4 list wrappers); this rule
 # keeps it fixed.
+#
+# 2026-09-17, second pass - the guard has to be NEGATIVE-SAFE. The first fix
+# used `if errorlevel 1`, which reads as "errorlevel >= 1" and is compared
+# SIGNED: Windows ffmpeg returns NEGATIVE AVERROR values (av1_qsv here exits
+# -40, "Function not implemented", when the iGPU has no AV1 encoder), so
+# -40 >= 1 is false, the guard never fires and the entry still reached its
+# `exit /b 0` - the user's --probe run showed exactly that: `rc=0` while the
+# log tail said `ERRORLEVEL:-40`. Accepted forms are the two that really hold:
+#   if not "%FB_RC%"=="0"     (string compare; also fails SAFE on an empty value)
+#   if %FB_RC% NEQ 0          (numeric, sign-aware)
+# where the operand is %ERRORLEVEL% or a variable set from it right after the
+# encoder run. A bare `if errorlevel N` is rejected wherever the guard has to
+# catch a negative code.
+#
+# The list wrappers keep `if errorlevel 1` on purpose, and it is correct there:
+# their test sits INSIDE a `for /f ... do ( ... )` block, where every `%VAR%`
+# is expanded once when the block is parsed, so a `%ERRORLEVEL%` test would be
+# frozen at the block's entry value. `if errorlevel` reads the live status
+# instead - and the children are constrained by L13 to {0,1,2,3,5}, all
+# non-negative, so the signed compare cannot miss one.
 def check_fail_propagation(inv):
     bads = []
     checked = 0
@@ -803,6 +823,32 @@ def check_fail_propagation(inv):
             if ln.strip().lower().startswith("exit /b 1"):
                 return True
         return False
+
+    def negative_safe_guard(lines, idx):
+        """(ok, text) for the conditional that guards the failure exit."""
+        window = []
+        for ln in lines[idx + 1:]:
+            if ln.strip().lower().startswith("exit /b 1"):
+                break
+            window.append(ln)
+        operands = {"%ERRORLEVEL%"}
+        for ln in window:
+            m = re.match(r'\s*set\s+"?([A-Za-z_]\w*)=%ERRORLEVEL%"?\s*$', ln, re.IGNORECASE)
+            if m:
+                operands.add("%" + m.group(1) + "%")
+        guard = None
+        for ln in window:
+            s = ln.strip()
+            if re.match(r"if\s+(not\s+)?errorlevel\b", s, re.IGNORECASE):
+                return False, s          # signed compare: negatives slip through
+            if guard is None and s.lower().startswith("if"):
+                guard = s
+        if guard is None:
+            return False, ""
+        refs = any(op.upper() in guard.upper() for op in operands)
+        nonzero = bool(re.search(r"\bNEQ\s+0\b", guard, re.IGNORECASE)
+                       or re.search(r'NOT\s+"[^"]*"\s*==\s*"0"', guard, re.IGNORECASE))
+        return (refs and nonzero), guard
 
     # .bat encoder entries: the bare `%RUN_COM%` line is the one that runs ffmpeg
     for f in inv["root_bat"]:
@@ -824,6 +870,15 @@ def check_fail_propagation(inv):
         if not tail_has_exit1(lines, idx):
             bads.append("%s: ffmpeg failure is swallowed - no `exit /b 1` after "
                         "`%%RUN_COM%%` (the .sh twin exits 1 on convert failure)" % f)
+            continue
+        safe, gtext = negative_safe_guard(lines, idx)
+        if not safe:
+            bads.append("%s: the failure guard cannot see a NEGATIVE exit code (%s) - "
+                        "Windows ffmpeg returns negative AVERROR values (av1_qsv here: "
+                        "-40) and `if errorlevel N` is a signed compare, so the guard "
+                        "never fires and the entry still ends in `exit /b 0`"
+                        % (f, gtext or "no conditional found between the encoder run "
+                                       "and the exit"))
 
     # .bat list wrappers: the child is called from inside the for /f block
     for f in inv["root_bat"]:
@@ -871,7 +926,8 @@ def check_fail_propagation(inv):
             bad("L15", m)
     else:
         ok("L15", "child failures propagate in both families (%d files checked: "
-                  ".bat entries/wrappers `exit /b 1`, .sh entries `exit 1`)" % checked)
+                  ".bat entries `exit /b 1` behind a negative-safe %%ERRORLEVEL%% test, "
+                  ".bat wrappers `exit /b 1`, .sh entries `exit 1`)" % checked)
 
 
 # ---------------------------------------------------------------- L16
@@ -912,6 +968,43 @@ def check_stream_map(inv):
     else:
         ok("L16", "all %d mp4 entries (both families) keep every stream "
                   "(-map 0:v/-map 0:a?/-map 0:s? + mov_text)" % checked)
+
+
+# ---------------------------------------------------------------- L17
+# moov-in-front for the remux exit. A default mp4 keeps the index (moov) AFTER
+# the media data, so a player needs the tail of the file before it can start -
+# painful for a large file that is copied around or streamed. The user asked
+# for front placement on 2026-09-17. Measured on the 320x240/3s probe clip:
+# without the flag the atom order is ftyp/free/mdat/moov, with it
+# ftyp/moov/free/mdat - and the byte count is IDENTICAL, because ffmpeg moves
+# the index in place ("Starting second pass: moving the moov atom to the
+# beginning of the file"). Pinned for both remux entries. The 11 encoder
+# entries still write the default layout until the user asks for it there too.
+MOOV_FRONT = {"ffmpeg_copy_to_mp4.bat": "-movflags +faststart",
+              "ffmpeg_copy_to_mp4.sh": "-movflags +faststart"}
+
+
+def check_moov_front(inv):
+    bads = []
+    checked = 0
+    for f, token in sorted(MOOV_FRONT.items()):
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        body = "\n".join(ln for ln in lf_lines(t)
+                         if not ln.strip().lower().startswith(("rem", "#")))
+        checked += 1
+        if token not in body:
+            bads.append("%s: no `%s` - the mp4 index (moov) is written after mdat, "
+                        "so playback cannot start before the whole file is fetched"
+                        % (f, token))
+    if bads:
+        for m in bads:
+            bad("L17", m)
+    else:
+        ok("L17", "the %d remux entries put moov in front (-movflags +faststart, "
+                  "both families)" % checked)
 
 
 # ---------------------------------------------------------------- tables
@@ -1343,6 +1436,7 @@ def main():
         print("         L13 exit-code contract  L14 .sh exec bit")
         print("         L15 failure propagation (family parity of the failure path)")
         print("         L16 stream-map uniformity (mp4 entries keep all streams)")
+        print("         L17 moov in front (remux entries use -movflags +faststart)")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1370,6 +1464,7 @@ def main():
         check_exit_codes(inv)
         check_fail_propagation(inv)
         check_stream_map(inv)
+        check_moov_front(inv)
 
     if not args.lint_only:
         print("---- parity ----")

@@ -735,10 +735,41 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **`-map` 盘点结论**：12 个编码入口（两族）**都已带**
       `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`；
       **只有 remux 族（`ffmpeg_copy_to_mp4` 两族）没有 `-map`** → 默认选流只留 1 视频 + 1 音频，
-      多音轨/字幕会被丢掉。**用户裁定：与编码入口完全一致** → 两族 remux 已补齐 `-map 0:v -map 0:a? -map 0:s? `-c:s mov_text -map_metadata 0 -map_chapters 0`。实测（双音轨 eng/chi + srt 的 mkv）：改动前输出 1 视频 + 1 音频，改动后 **4 条流全保留**（2 音轨 + 字幕转 mov_text），rc=0。新增 lint **L16** 把该集合钉死（两族 19 个 mp4 出口；把 remux 的 map 行注释掉即报 FAIL，已实测召回）。
+      多音轨/字幕会被丢掉。**用户裁定：与编码入口完全一致** → 两族 remux 已补齐 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`。实测（双音轨 eng/chi + srt 的 mkv）：改动前输出 1 视频 + 1 音频，改动后 **4 条流全保留**（2 音轨 + 字幕转 mov_text），rc=0。新增 lint **L16** 把该集合钉死（两族 19 个 mp4 出口；把 remux 的 map 行注释掉即报 FAIL，已实测召回）。
     * **打包坑**：仓库根目录躺着 **4.3 GB 测试片**（`input_4k25.mov` 1.9G 等），
       已被 `.gitignore` 忽略、未被跟踪（`git status` 干净）。给远端投包时**必须 `--exclude`**，
       否则包体 4.5 GB、传输中途断裂（`tar: Unexpected EOF`），还会误判成"远端跑挂了"。
       另：`tar czf "C:/..."` 在 MSYS 下会把 `C:` 当远程主机名 → 用 `/c/...` 给 tar、
       `C:/...` 给 python/paramiko。长任务的远端执行用 **`setsid` + 结果写文件**，
       不要让 paramiko 去读一个可能被后台进程持有 stdout 的通道（那次误等了 26 分钟）。
+
+37. **负退出码陷阱（两族失败路径对等的真正闭环）+ remux moov 前置（2026-09-17，用户复跑探针后揪出）**：
+    * **现象**：用户复跑 `check_env.bat /probe`，`ffmpeg_av1_qsv.bat` 那行仍是
+      `PROBE-FAIL rc=0 but no real output (0B) | ERRORLEVEL:-40` —— 探针判成 FAIL（判产物生效了），
+      但**入口自身返回的 rc 依旧是 0**，即"失败传回 1"的修复在 `.bat` 侧**等于没生效**。
+    * **根因**：cmd 的 `if errorlevel N` 是「**带符号**比较」，而 Windows 版 ffmpeg 失败时返回
+      **负** AVERROR。用 `subprocess` 取原始 32 位码实测三种典型失败：
+      `av1_qsv` = `0xFFFFFFD8`(**-40**, `ENOSYS`/Function not implemented)、
+      输入文件不存在 = `0xFFFFFFFE`(**-2**, `ENOENT`)、参数错误 = `0xFFFFFFEA`(**-22**, `EINVAL`)。
+      `-40 >= 1` 为假 → 守卫不触发 → 走完尾部 `echo ... 转换已出错或完成` 再 `exit /b 0`
+      （日志里那行 `ERRORLEVEL:-40` 就是尾部那句 echo 打出来的）。`.sh` 侧 `[ $? -ne 0 ]` 一直是对的。
+    * **修法**：8 个 `.bat` 入口的守卫统一改成
+      `set "FB_RC=%ERRORLEVEL%"` + `if not "%FB_RC%"=="0" ( ... exit /b 1 )` ——
+      字符串相等比较，负数/正数/空值一律判失败（`if errorlevel` 在值空时还会报语法错误后继续往下跑）。
+      lint **L15 加硬**：`.bat` 入口的失败守卫必须是"负数安全"形式，`if errorlevel N` 直接 FAIL
+      （selftest 新增 recall 例 + `%ERRORLEVEL% NEQ 0` 形式被接受的 precision 例）。
+      清单 wrapper 保留 `if errorlevel 1` 是**正确**的：它的判定在 `for /f` 块内，`%VAR%` 会被
+      一次性展开冻结，而 `if errorlevel` 读的是实时值；且子进程受 L13 约束只返回 `{0,1,2,3,5}`。
+    * **探针补第三重判据**：两族深测现在要求 **rc=0 且 `run.log` 里没有 `Conversion failed`**
+      （bat 侧另要求真实产物 >4096B）。三层互相独立，任何一层被绕过另外两层仍会说真话。
+    * **纠错记录**：上一轮把沙箱 bash 报的 `rc=127` 当成"ffmpeg 真返回 127"，据此写下
+      「所以 `.bat` 侧必须写 `if errorlevel 1`」——方向正好反了（127 只是 MSYS 对同一个负码的渲染）。
+      教训：**跨运行时的退出码必须先取原始 32 位值再下结论**。
+    * **remux moov 前置（用户要求）**：`ffmpeg_copy_to_mp4.{bat,sh}` 补 `-movflags +faststart`。
+      实测同夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**
+      （ffmpeg 就地搬索引，日志 `Starting second pass: moving the moov atom to the beginning of the file`）；
+      `.sh` 入口真跑确认 moov 在第二位、双音轨（eng/chi）全保留。新增 lint **L17** 钉住两个 remux 出口
+      （去掉 flag 即报 FAIL，已实测召回）。11 个编码入口仍是默认布局，**待用户裁定是否一并前置**。
+    * **本轮基线**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
+      `.bat` 侧的负数安全守卫**尚未在真机运行过**（沙箱跑不了 cmd.exe），需用户双击一个必然失败的入口
+      （无 AV1 硬编机器上的 `ffmpeg_av1_qsv.bat`）确认窗口打印 `Convert failed! rc=-40`、`%ERRORLEVEL%=1`。

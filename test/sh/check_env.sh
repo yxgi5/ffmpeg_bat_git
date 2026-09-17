@@ -361,12 +361,24 @@ if [ "$PROBE" = 1 ]; then
                 ( cd "$d" && bash "$f" "$d/clip.mp4" < /dev/null > "$lf" 2>&1 ) || rc=$?
                 note="rc=0" ;;
         esac
-        if [ $rc -eq 0 ]; then
+        # Two signals must agree, exactly like the .bat twin: a zero exit status
+        # AND no fatal line in the log. rc is the primary signal; the log marker
+        # is the safety net for an entry that swallows ffmpeg's failure - the
+        # .bat entries did that until 2026-09-17, because `if errorlevel 1` is a
+        # SIGNED compare and the -40 that av1_qsv returns on Windows read as
+        # success. Without this net that swallowed failure printed PROBE-OK.
+        fail_note=""
+        if [ "$rc" -ne 0 ]; then
+            firsterr="$(grep -m1 -i -e 'error' -e 'not recognized' -e 'Invalid' -e 'No such' "$lf" 2>/dev/null | cut -c1-70)"
+            fail_note="rc=$rc ${firsterr:+| $firsterr}"
+        elif grep -qF "Conversion failed" "$lf" 2>/dev/null; then
+            fail_note="rc=0 | ffmpeg reported a failed conversion"
+        fi
+        if [ -z "$fail_note" ]; then
             printf '%-12s %-30s %s\n' "PROBE-OK" "$b" "$note"
             p_ok=$((p_ok+1))
         else
-            firsterr="$(grep -m1 -i -e 'error' -e 'not recognized' -e 'Invalid' -e 'No such' "$lf" 2>/dev/null | cut -c1-70)"
-            printf '%-12s %-30s %s\n' "PROBE-FAIL" "$b" "rc=$rc ${firsterr:+| $firsterr}"
+            printf '%-12s %-30s %s\n' "PROBE-FAIL" "$b" "$fail_note"
             p_fail=$((p_fail+1))
         fi
     done

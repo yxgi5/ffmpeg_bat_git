@@ -66,6 +66,10 @@ CMD+=(-c:v copy -c:a copy)
 # 流映射与 11 个编码入口完全一致 (2026-09-17 用户裁定): 默认选流只留 1 视频 + 1 音频,
 # 多音轨/多字幕会被静默丢掉; 图形字幕(PGS/VobSub)转 mov_text 会失败, 属已知代价。
 CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0)
+# moov 前置 (faststart): 默认 mp4 把索引 moov 写在 mdat 后面, 播放器必须
+# 拿到文件末尾才能起播;成品常被拷走/边下边播, 故统一加 faststart.
+# 实测: 不加 = ftyp/free/mdat/moov, 加了 = ftyp/moov/free/mdat, 字节数相同.
+CMD+=(-movflags +faststart)
 CMD+=(-n "$TARGET_FILE")
 
 printf 'RUN_COM:'

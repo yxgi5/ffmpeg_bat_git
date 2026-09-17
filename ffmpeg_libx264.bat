@@ -230,9 +230,19 @@ IF "%~1"=="" (
 echo RUN_COM4:%RUN_COM%
 echo.
 %RUN_COM%
-if errorlevel 1 (
+rem 负退出码陷阱 (2026-09-17 实测根因): Windows 版 ffmpeg 失败时常常
+rem 返回「负」的 AVERROR 值 —— 本机 av1_qsv 拿不到编码器时 ffmpeg.exe
+rem 退出码是 -40 (Function not implemented), 而 cmd 的 `if errorlevel N`
+rem 是「带符号」比较, -40 >= 1 不成立 → 守卫不会触发,
+rem 真失败一路落到文件末尾的 exit /b 0 (探针因此报 rc=0 假 OK).
+rem 改成「不等于 0」判定: 它同时兜住负数与正数, 且赋值到变量后
+rem 走字符串相等比较, 不依赖 cmd 对负数的数值解析;
+rem 值空时也会判成失败(安全侧), 而 if errorlevel 写法在值为空时
+rem 只会报语法错误并继续往下跑.
+set "FB_RC=%ERRORLEVEL%"
+if not "%FB_RC%"=="0" (
     echo.
-    echo Convert failed! rc=%ERRORLEVEL%
+    echo Convert failed! rc=%FB_RC%
     rem 与 .sh 孪生对齐: ffmpeg 失败必须传回 1, 不能吞成 0.
     rem 探针/冒烟/convert_from_list 都依赖这个非零退出码(见 test/README 退出码契约).
     exit /b 1

@@ -162,8 +162,9 @@ test/
 | L12 | `bash -n` 语法检查（找不到 bash 则 SKIP） | 最廉价的一道防线 |
 | L13 | `exit` / `exit /b` 取值在白名单内（bat `0,1,2,3,5`；sh 另允许 `8,9`） | 让 §5.2 的退出码契约不漂移 |
 | L14 | `test/` 下的 `.sh` 在 **git 索引**里必须是 `100755`（读 `git ls-files -s`，不读文件系统） | Windows 上 `core.fileMode=false`，pull 出来丢执行位 |
-| L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1` | **2026-09-17 实际缺口**：`.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）。L13 只查取值词表，查不出「失败路径根本不可达」 |
+| L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`。**且 `.bat` 入口的守卫必须是「负数安全」的**（`if not "%X%"=="0"` 或 `%X% NEQ 0`，`X` = `%ERRORLEVEL%` 或紧接着从它赋值的变量），不允许用 `if errorlevel N` | **2026-09-17 实际缺口（两层）**：① `.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）；② 改成 `if errorlevel 1` 后**仍然没修好**——它是**带符号比较**，而 Windows 版 ffmpeg 失败时返回**负** AVERROR（本机 `av1_qsv` 退出码 **-40 / Function not implemented**），`-40 >= 1` 不成立 → 守卫不触发 → 依旧落到 `exit /b 0`。用户正是在复跑探针时看到 `rc=0 but no real output (0B) \| ERRORLEVEL:-40` 才揪出来的。L13 只查取值词表，查不出「失败路径根本不可达」 |
 | L16 | **流映射一致性**：每个 mp4 出口（两族 19 个 `ffmpeg_*`）都必须带 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0` | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露 |
+| L17 | **moov 前置**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）必须带 `-movflags +faststart` | **2026-09-17 用户要求**：默认 mp4 把索引 `moov` 写在 `mdat` **之后**，播放器要拿到文件末尾才能起播（大文件拷走/边下边播时很难受）。实测同一夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**（ffmpeg 就地搬索引，日志里是 `Starting second pass: moving the moov atom to the beginning of the file`）。当前只管 remux 两个出口，11 个编码入口仍是默认布局（等用户裁定是否一并前置） |
 
 **L09 的做法值得单独说明**：它把「脚本语法」和「数据逃逸」区分开，而不是见 `&` 就报。
 
@@ -200,13 +201,15 @@ test/
 ### 2.3 检查器自测（`lint/selftest.py`）
 
 **一个只会输出「全部干净」的检查器是没有价值的——它可能只是瞎了。**
-`selftest.py` 用 16 个合成小仓库同时验证两个方向：
+`selftest.py` 用 22 个合成小仓库同时验证两个方向：
 
-* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15 各一例，
-  其中 L15 两例：吞掉 ffmpeg 失败的入口、忽略失败子调用的清单 wrapper）；
-* **precision**：已知正确的写法**必须不报**，其中 7 例正是开发过程中真实出现过的假阳性
+* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17 各一例起，
+  其中 L15 三例：吞掉 ffmpeg 失败的入口、`if errorlevel 1` 这种**看不见负退出码**的守卫、
+  忽略失败子调用的清单 wrapper；L17 一例：remux 出口漏了 `+faststart`）；
+* **precision**：已知正确的写法**必须不报**，其中 8 例正是开发过程中真实出现过的假阳性
   （`%VAR:"=%` 引号计数、`endlocal & set` 字面量、`%%~zA` 循环修饰符、
-  `set /p` 覆盖、安全的 `set VAR=%QVAR%` 惯用法、带失败传播的入口尾部）。
+  `set /p` 覆盖、安全的 `set VAR=%QVAR%` 惯用法、带失败传播的入口尾部、
+  `%ERRORLEVEL% NEQ 0` 守卫、带 `+faststart` 的 `.sh` remux 入口）。
 
 ### 2.4 退出码
 
@@ -338,10 +341,10 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 | `NO-DEVICE` | 编码器有，但本机没有可用设备/GPU |
 | `N/A-OS` | 该入口在当前系统无意义（VAAPI 是 Linux 内核 API） |
 | `UNKNOWN` | 静态判断不了 → 用深测决定 |
-| `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果（bat 侧还要求真实输出文件；sh 侧看 rc）；失败行带 rc 与 `run.log` 末条错误 |
+| `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果：两族都要求 **rc=0 且 `run.log` 里没有 `Conversion failed`**，bat 侧另外要求**真实输出文件**存在且 >4096 字节；失败行带 rc 与 `run.log` 末条错误 |
 | `NO-ENTRY` | 仓库里没有这个文件 |
 
-两个实现细节值得记住，它们都是**踩过的坑**：
+这些实现细节值得记住，它们都是**踩过的坑**（后两条是 2026-09-17 新踩的）：
 
 1. **`nvidia-smi` 不能单独当判据**：驱动异常时它会以 255 退出，同时在 **stdout**
    打印 `Failed to initialize NVML: Unknown Error`。天真地把 stdout 当 GPU 名，
@@ -371,8 +374,23 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
    实测连 `ffmpeg -n` 拒绝覆盖同名输出时**自身就返回 0**（只在日志里留
    `already exists / Error opening output file`），两族入口都传不出非零。
    判据与被检对象解耦，缺一个都还能说真话。
-   反过来，真失败会给**各种**非零码：沙箱实测 `av1_qsv` 是 `rc=127`（不是 1），
-   所以 `.bat` 侧必须写 `if errorlevel 1`（≥1 即命中），不能写 `if %ERRORLEVEL%==1`。
+6. **Windows 上 ffmpeg 的失败码是「负」的，`if errorlevel 1` 看不见它们（2026-09-17 实测）** ——
+   用 `subprocess` 取原始 32 位退出码，三种典型失败**全是负数**：
+
+   | 失败 | 原始码 | 含义 |
+   |------|--------|------|
+   | `av1_qsv`（本机无 AV1 硬编） | `0xFFFFFFD8` = **-40** | `ENOSYS` / Function not implemented |
+   | 输入文件不存在 | `0xFFFFFFFE` = **-2** | `ENOENT` |
+   | 参数错误 | `0xFFFFFFEA` = **-22** | `EINVAL` |
+
+   而 cmd 的 `if errorlevel N` 读作「errorlevel ≥ N」且**按有符号比较**，`-40 ≥ 1` 为假
+   → 守卫不触发，入口照样走到末尾的 `exit /b 0`。也就是说：**上一轮「失败传回 1」的修复
+   在 Windows 上等于没生效**（`.sh` 侧 `[ $? -ne 0 ]` 一直是对的，只有 `.bat` 侧漏了）。
+   现在的守卫是 `set "FB_RC=%ERRORLEVEL%"` + `if not "%FB_RC%"=="0"`（字符串相等比较，
+   负数/正数/空值一律判成失败），L15 已钉住这个形式，selftest 有专门的 recall 例。
+   顺带纠正一条早先的错判：沙箱里 bash 报的 `rc=127`（以及另一处的 `-40`）是 MSYS 对
+   同一个负码的渲染，**不是** ffmpeg 真返回 127；当时据此写下「所以 `.bat` 侧必须写
+   `if errorlevel 1`」，方向正好反了。
 
 ---
 
@@ -411,6 +429,8 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 **「编码失败 = 1」是两族共同语义**（`.sh` 入口一直是 `exit 1`；`.bat` 入口在
 2026-09-17 之前以无条件 `exit /b 0` 收尾、吞掉失败，同日修为 `exit /b 1`）。
+注意 Windows 上 ffmpeg **自己**返回的是负码（`-40`/`-22`/`-2`…，见 §4 第 6 条），
+入口负责把它归一成 `1` 再传出去：**契约里不存在负码**，调用方只判「非零」。
 因此清单 wrapper 必须 **fail-fast**：`.sh` 的 `run_list` 与 `.bat` wrapper
 都在第一个失败条目处中止并传回 `1`，不再跑完整份清单还报成功。
 
@@ -431,7 +451,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-17）**：`lint 24 PASS / 0 FAIL / 5 WARN`、`selftest 18 cases / 0 FAIL`。
+> **当前基线（2026-09-17）**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。
@@ -552,8 +572,16 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
 
 * **T23**（新增：清单条目缺失必须在那一刻中止，两族共享）；
 * **`soft_pair_calib.bat`**（新增：拖一部片上去；首次会下 10s 样本，离线设 `SKIP_DOWNLOAD=1`）；
-* **`check_env.bat /probe`**（探针改判真实产物后，本机预期：`av1_qsv` → `PROBE-FAIL rc=1 | <错误行>`，
-  其余 `PROBE-OK out=…B`；表尾还有 `filt libvmaf : yes`）；
+* **`check_env.bat /probe`**（本机预期：`av1_qsv` → `PROBE-FAIL rc=1 | Conversion failed!`
+  —— 入口现在把 ffmpeg 的负码 `-40` 归一成契约里的 `1`，`run.log` 里仍能看到原始的
+  `ERRORLEVEL:-40`；其余 `PROBE-OK out=…B`；表尾还有 `filt libvmaf : yes`）；
+* **失败守卫的运行时实证**（本轮最重要的待验项：`.bat` 侧的 `if not "%FB_RC%"=="0"`
+  永远没在真机上跑过一次，静态 + lint 只能证明形状对）—— 建议拿一个**必然失败**的入口
+  双击一次，例如在无 AV1 硬编的机器上跑 `ffmpeg_av1_qsv.bat`：
+  窗口应出现 `Convert failed! rc=-40`，**cmd 里 `echo %ERRORLEVEL%` 应为 1**；
+  修之前这里会走到「转换已出错或完成, 默认不替换」并返回 0；
+* **拖一部含多音轨的 mkv 上 `ffmpeg_copy_to_mp4.bat`**：除了音轨数要对得上，
+  还要确认 moov 前置 —— 用 `ffprobe -v trace` 看原子顺序是 `ftyp` → **`moov`** → `mdat`；
 * T1/T2/T3/T7/T14 的 `[SKIP]` 行是否只在**真的没有硬件**时出现；
 * `gate_*.log` 是否生成、内容是否指向硬件缺失而非脚本错误。
 

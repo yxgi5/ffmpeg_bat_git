@@ -176,7 +176,40 @@ CASES = [
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
         "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
+        "set \"FB_RC=%ERRORLEVEL%\"\n"
+        "if not \"%FB_RC%\"==\"0\" (\n"
+        "    echo Convert failed! rc=%FB_RC%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L15", "L01", "L02", "L04", "L05", "L06", "L07", "L13"},
+    ),
+    (
+        "L15: `if errorlevel 1` cannot see the NEGATIVE exit code ffmpeg returns",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "%RUN_COM%\n"
         "if errorlevel 1 (\n"
+        "    echo Convert failed! rc=%ERRORLEVEL%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        {"L15"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13"},
+    ),
+    (
+        "L15: a numeric NEQ 0 guard on %ERRORLEVEL% is accepted as negative-safe",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "%RUN_COM%\n"
+        "if %ERRORLEVEL% NEQ 0 (\n"
         "    echo Convert failed! rc=%ERRORLEVEL%\n"
         "    exit /b 1\n"
         ")\n"
@@ -202,8 +235,9 @@ CASES = [
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
         "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v libx264\n"
         "%RUN_COM%\n"
-        "if errorlevel 1 (\n"
-        "    echo Convert failed! rc=%ERRORLEVEL%\n"
+        "set \"FB_RC=%ERRORLEVEL%\"\n"
+        "if not \"%FB_RC%\"==\"0\" (\n"
+        "    echo Convert failed! rc=%FB_RC%\n"
         "    exit /b 1\n"
         ")\n"
         "exit /b 0\n",
@@ -225,6 +259,43 @@ CASES = [
         "fi\n"
         "exit 0\n",
         set(), {"L03", "L15", "L16"},
+    ),
+    (
+        "L17: a remux entry that leaves moov behind mdat is caught",
+        "ffmpeg_copy_to_mp4.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy "
+        "-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "%RUN_COM%\n"
+        "set \"FB_RC=%ERRORLEVEL%\"\n"
+        "if not \"%FB_RC%\"==\"0\" (\n"
+        "    echo Convert failed! rc=%FB_RC%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        {"L17"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13", "L15", "L16"},
+    ),
+    (
+        "L17 precision: a .sh remux entry with +faststart stays silent",
+        "ffmpeg_copy_to_mp4.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "CMD+=(-i \"$ABS_NAME\")\n"
+        "CMD+=(-c:v copy -c:a copy)\n"
+        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "-map_chapters 0)\n"
+        "CMD+=(-movflags +faststart)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        set(), {"L03", "L15", "L16", "L17"},
     ),
 ]
 
@@ -270,6 +341,7 @@ def run_checks(inv):
     lint.check_exit_codes(inv)
     lint.check_fail_propagation(inv)
     lint.check_stream_map(inv)
+    lint.check_moov_front(inv)
     return {cid for cid, _ in lint.FAIL}
 
 
