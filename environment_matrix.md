@@ -563,3 +563,19 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       L01 抓到并归位——本轮 P06/L01 两个守卫各立一功。
     * 状态：lint 22 PASS / 0 FAIL / 5 WARN，selftest 13/13。smoke 需待 push 后用户双击复验
       （T14/T15 目标值变了，产物期望随表更新）。
+29. **单片源码率标尺 bench_calib（2026-09-17，sh/bat 对等）**：用户需求——特殊片源需要尽可能
+    保画质时，从原视频实测出该给的目标码率。设计为**通用引擎 + codec 参数**（avc/hevc/av1）而非
+    三份拷贝（bat 侧无函数库可共享）：`test/sh/bench_calib.sh` + `test/bat/bench_calib.bat`。
+    * 方法：片源中段默认 30s，查表值 T 的五点梯（T/4 T/3 T/2 3T/4 T），**软件编码器**
+      （libx264 fast / libx265 fast / libsvtav1 p8——与码率表同基准，呼应第 27 条），libvmaf
+      **直接对照源片**（参照腿与编码腿做同样的 fps30/pixfmt/[可选缩放] 归一，不经有损代理）；
+      4K 源自动换 vmaf_4k model。支持高度上限参数（4K 源标 1080 档）。
+    * sh 侧输出 log 域拟合 + VMAF 90/93/95/97 交叉码率 + 建议值 /（T/2）比值；bat 侧输出
+      VMAF≥95 最小梯点。产物缓存于 work dir，重跑只补缺失点。
+    * 开发中 sh 侧踩了两个 libvmaf 新坑（bat 侧 bench_av1_calib 未暴露因为参照是独立文件）：
+      ① **参照腿必须带与编码腿相同的 -ss/-t**——否则逐帧错位配对，VMAF 掉到 ~0.7-21 的垃圾值；
+      ② **JSON 解析不能抓第一个 "mean"**——pooled_metrics 里 integer_adm2 等对象在 vmaf 之前，
+        且每帧还有裸 "vmaf": <num> 行，必须匹配 `"vmaf": {` 对象键再取内部 mean。
+    * 本机实测（合成 720p testsrc2，6s 段）：三 codec 全链路通，AVC 建议 2.39M=1.17×(T/2)、
+      HEVC 2.32M=1.71×(T/2)（合成源偏难，真实电影通常更低）。lint 22/0/5、selftest 13/13。
+      bat 侧待用户双击验证。

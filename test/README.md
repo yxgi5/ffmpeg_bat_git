@@ -55,7 +55,25 @@ test\bat\check_env.bat "" PROBE        命令行  能力报告（深测）
 把任意视频拖上去，用 hevc_nvenc / av1_nvenc（p4 CBR，与入口脚本同参数）编三档码率梯
 并算 VMAF，产出 `results.csv`，用于实测「等画质下 AV1 相对 HEVC 省多少码率」，
 校验码率表的代际比例假设。要求 ffmpeg 带 libvmaf + Ada 级 NVENC。
+（该工具的使命已完成，结论见 `environment_matrix.md` 第 25/26 条，保留作复测用。）
+
+## ③b 单片源码率标尺 bench_calib（sh/bat 对等）
+
+**用途**：特殊片源需要尽可能保画质时，从原视频实测出「该给多少码率」——
+不信任理论表，直接量这一部。
+
 ```
+bash test/sh/bench_calib.sh [avc|hevc|av1] <source> [max_h] [seconds]   # sh 侧
+test\bat\bench_calib.bat <source>          # 双击，默认 hevc
+test\bat\bench_calib.bat av1 <source> 1080 # 带编码器与高度上限
+```
+
+做法：取片源中段一段（默认 30s），按查表值 T 的 **T/4 → T 五点码率梯**，用该编码器的
+**软件编码器**（libx264 fast / libx265 fast / libsvtav1 p8——与码率表同基准，见
+`environment_matrix.md` 第 27 条）编码，libvmaf 直接对照源片本身（参照腿与编码腿做同样的
+fps30/像素格式归一），产出 `results.csv`。sh 侧附 log 域拟合，解出 VMAF 90/93/95/97 各需
+多少码率并给出建议值；bat 侧给出 VMAF≥95 的最小梯点。产物缓存于
+`%TEMP%/ffmpeg_bench_calib_<codec>/`，重跑只补缺失点。
 
 > 建议顺序：**先 ① 后 ②**。静态检查能在 1 秒内抓住语法/标签/引号/编码问题，
 > 不必等几分钟的冒烟跑完才发现第 3 行少了个括号。
