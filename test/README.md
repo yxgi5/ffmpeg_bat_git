@@ -163,6 +163,7 @@ test/
 | L13 | `exit` / `exit /b` 取值在白名单内（bat `0,1,2,3,5`；sh 另允许 `8,9`） | 让 §5.2 的退出码契约不漂移 |
 | L14 | `test/` 下的 `.sh` 在 **git 索引**里必须是 `100755`（读 `git ls-files -s`，不读文件系统） | Windows 上 `core.fileMode=false`，pull 出来丢执行位 |
 | L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1` | **2026-09-17 实际缺口**：`.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）。L13 只查取值词表，查不出「失败路径根本不可达」 |
+| L16 | **流映射一致性**：每个 mp4 出口（两族 19 个 `ffmpeg_*`）都必须带 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0` | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露 |
 
 **L09 的做法值得单独说明**：它把「脚本语法」和「数据逃逸」区分开，而不是见 `&` 就报。
 
@@ -430,7 +431,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-17）**：`lint 23 PASS / 0 FAIL / 5 WARN`、`selftest 16 cases / 0 FAIL`。
+> **当前基线（2026-09-17）**：`lint 24 PASS / 0 FAIL / 5 WARN`、`selftest 18 cases / 0 FAIL`。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。

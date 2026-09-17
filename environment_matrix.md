@@ -674,7 +674,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **新增 lint L15「失败路径的两族对等」**：入口 `.bat` 在裸 `%RUN_COM%` 之后必须有 `exit /b 1`；
       清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`（防回归）。
       selftest 由 13 → **16 例**（新增 L15 两族召回 + 一条 precision：带传播的入口尾部不误报）。
-      基线：**lint 23 PASS / 0 FAIL / 5 WARN、selftest 16/0**。
+      基线：**lint 24 PASS / 0 FAIL / 5 WARN、selftest 18/0**。
     * 影响面：探针在失败机器上会显示 `PROBE-FAIL rc=1`（此前靠产物判定已能抓到，现在 rc 也真了）；
       批量 wrapper 首次失败即中止（行为变更，属**修正**：`.sh` 一直如此）；
       交互式双击体验不变（脚本照常打印提示，只是退出码不再是假的 0）。
@@ -735,7 +735,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **`-map` 盘点结论**：12 个编码入口（两族）**都已带**
       `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`；
       **只有 remux 族（`ffmpeg_copy_to_mp4` 两族）没有 `-map`** → 默认选流只留 1 视频 + 1 音频，
-      多音轨/字幕会被丢掉。是否补齐待用户裁定（属输出行为变更，按约定先确认）。
+      多音轨/字幕会被丢掉。**用户裁定：与编码入口完全一致** → 两族 remux 已补齐 `-map 0:v -map 0:a? -map 0:s? `-c:s mov_text -map_metadata 0 -map_chapters 0`。实测（双音轨 eng/chi + srt 的 mkv）：改动前输出 1 视频 + 1 音频，改动后 **4 条流全保留**（2 音轨 + 字幕转 mov_text），rc=0。新增 lint **L16** 把该集合钉死（两族 19 个 mp4 出口；把 remux 的 map 行注释掉即报 FAIL，已实测召回）。
     * **打包坑**：仓库根目录躺着 **4.3 GB 测试片**（`input_4k25.mov` 1.9G 等），
       已被 `.gitignore` 忽略、未被跟踪（`git status` 干净）。给远端投包时**必须 `--exclude`**，
       否则包体 4.5 GB、传输中途断裂（`tar: Unexpected EOF`），还会误判成"远端跑挂了"。
