@@ -153,6 +153,44 @@ CASES = [
         "@echo off\n:main\nsetlocal\nexit /b 7\n",
         {"L13"}, set(),
     ),
+    (
+        "L15: an entry .bat that swallows ffmpeg failure is caught",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "echo RUN_COM4:%RUN_COM%\n"
+        "%RUN_COM%\n"
+        "echo ERRORLEVEL:%ERRORLEVEL%\n"
+        "exit /b 0\n",
+        {"L15"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13"},
+    ),
+    (
+        "L15 precision: an entry that propagates the failure stays silent",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
+        "%RUN_COM%\n"
+        "if errorlevel 1 (\n"
+        "    echo Convert failed! rc=%ERRORLEVEL%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L15", "L01", "L02", "L04", "L05", "L06", "L07", "L13"},
+    ),
+    (
+        "L15: a list wrapper that ignores a failed child is caught",
+        "convert_from_list_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "for /f \"usebackq delims=\" %%i in (\"%SRC_FILE%\") do "
+        "call \"%~dp0ffmpeg_probe.bat\" \"%%i\"\n",
+        {"L15"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13"},
+    ),
 ]
 
 
@@ -195,6 +233,7 @@ def run_checks(inv):
     lint.check_metachars(inv, qbf, lint.calibrate_scanner())
     lint.check_sh_invariants(inv)
     lint.check_exit_codes(inv)
+    lint.check_fail_propagation(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

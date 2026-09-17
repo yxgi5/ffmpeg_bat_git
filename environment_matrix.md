@@ -636,6 +636,35 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       （即当年数据），未来复测直接用本脚本。
     * test/README.md 新增 ③c 节 + 目录树；顺带修掉 README 遗留的
       `bench_av1_calib.bat` 旧名引用（上轮改名漏网）。
+34. **失败路径的两族对等修复：`.bat` 吞掉编码失败（2026-09-17，用户追问追出）**：
+    * **缺口**：`.sh` 入口在 `"${CMD[@]}"` 之后 `if [ $? -ne 0 ]; then echo Convert failed; exit 1; fi`，
+      `lib/common.sh` 的 `run_list` 也在第一个失败条目 `exit 1`；而 **8 个 `.bat` 入口一律
+      以 `echo ERRORLEVEL:%ERRORLEVEL%` 之后**无条件 `exit /b 0`** 收尾，4 个清单 wrapper 的 `for /f ... do call`
+      也从不检查子调用返回值** → 任何编码失败对调用方都伪装成成功（wrapper 继续跑完整份清单还报 0；
+      check_env 探针报 PROBE-OK；冒烟 harness 分不出失败与成功）。
+    * **为什么 lint 没抓到**：**L13 只校验 `exit` 取值落在白名单内**（0,1,2,3,5），
+      从不问「失败路径是否可达」。对等检查（P 系列）此前聚焦参数、编码器、表、harness 期望，
+      退出码只对到"数值词表"这一层。**教训：契约要钉"语义"（失败必须传回非零），
+      不能只钉"取值集合"。**
+    * **修复**：8 个入口在 `%RUN_COM%` 后加 `if errorlevel 1 ( echo Convert failed! rc=... & exit /b 1 )`；
+      `NO_PATH_ERR`（找不到 ffmpeg）由 `exit /b 0` 改 `exit /b 1`（`.sh` 侧本就是 1）；
+      4 个 wrapper 改 fail-fast（`for /f ... do ( call ... & if errorlevel 1 goto LIST_FAIL )`）。
+      与 `.sh` 语义逐条对齐：编码失败=1、找不到 ffmpeg=1、清单 fail-fast。
+    * **新增 lint L15「失败路径的两族对等」**：入口 `.bat` 在裸 `%RUN_COM%` 之后必须有 `exit /b 1`；
+      清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`（防回归）。
+      selftest 由 13 → **16 例**（新增 L15 两族召回 + 一条 precision：带传播的入口尾部不误报）。
+      基线：**lint 23 PASS / 0 FAIL / 5 WARN、selftest 16/0**。
+    * 影响面：探针在失败机器上会显示 `PROBE-FAIL rc=1`（此前靠产物判定已能抓到，现在 rc 也真了）；
+      批量 wrapper 首次失败即中止（行为变更，属**修正**：`.sh` 一直如此）；
+      交互式双击体验不变（脚本照常打印提示，只是退出码不再是假的 0）。
+    * 文档同步：readme.md 基线与契约句、test/README.md（L14/L15 检查项、selftest 段、§4 坑 5 重写、§5.2 退出码契约补「编码失败=1 + wrapper fail-fast」）。
+    * **沙箱实证（本机 gyan 构建，为对齐找锚点）**：
+      ① sh 入口失败确实传 1、wrapper 首个失败条目即中止（`Convert failed` 只出现一次、rc=1）；
+      ② **真失败的非零码不止 1**：`av1_qsv` 实测 `rc=127` → `.bat` 侧判据必须用
+      `if errorlevel 1`（≥1 即命中），写 `==1` 会漏；
+      ③ **`ffmpeg -n` 拒绝覆盖同名输出时自身返回 0**（日志里只有 `already exists /
+      Error opening output file`）→ 两族都传不出非零，这正是探针坚持判「真实产物」的第二个理由
+      （也否决了"预置同名输出当失败夹具"的测试方案）。
 31. **check_env.bat 快查/深测五处修复 + 参数风格改正（2026-09-17，用户 B 机实跑暴露）**：
     * **① 编码器清单全 NO（最关键）**：`:hasenc` 的 findstr 正则只写了 6 个点，而 `-encoders` 行格式是
       **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格

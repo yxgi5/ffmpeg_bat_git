@@ -230,6 +230,14 @@ IF "%~1"=="" (
 echo RUN_COM4:%RUN_COM%
 echo.
 %RUN_COM%
+if errorlevel 1 (
+    echo.
+    echo Convert failed! rc=%ERRORLEVEL%
+    rem 与 .sh 孪生对齐: ffmpeg 失败必须传回 1, 不能吞成 0.
+    rem 探针/冒烟/convert_from_list 都依赖这个非零退出码(见 test/README 退出码契约).
+    exit /b 1
+)
+
 
 echo ERRORLEVEL:%ERRORLEVEL%
 echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完整性
@@ -248,4 +256,4 @@ exit /b 0
 echo 找不到 ffmpeg.exe: 请安装 ffmpeg(默认查找 C:\Program Files\ffmpeg\bin)
 echo 或设置环境变量 FFMPEG_BIN 指向其 bin 目录后重试
 pause
-exit /b 0
+exit /b 1

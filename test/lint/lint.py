@@ -782,6 +782,98 @@ def check_exit_codes(inv):
                   "(bat %s / sh %s)" % (sorted(ALLOWED_BAT_EXITS), sorted(ALLOWED_SH_EXITS)))
 
 
+# ---------------------------------------------------------------- L15
+# Family parity of the FAILURE PATH, not just of the vocabulary (that is L13).
+# The .sh twins abort with exit 1 when ffmpeg fails (encoder entries) and
+# run_list stops the whole list on the first failed file (wrappers). The .bat
+# family was written for double-click use and ended with an unconditional
+# `exit /b 0`, so every encode failure looked like success to whoever called
+# it: convert_from_list wrappers kept going, check_env --probe reported
+# PROBE-OK for encoders that cannot run at all, and the smoke harness could
+# not tell a failed case from a passing one. That gap survived L13 because
+# L13 only checks which exit codes appear, never whether the failure path is
+# reachable. Fixed 2026-09-17 (batch 8 entries + 4 list wrappers); this rule
+# keeps it fixed.
+def check_fail_propagation(inv):
+    bads = []
+    checked = 0
+
+    def tail_has_exit1(lines, idx):
+        for ln in lines[idx + 1:]:
+            if ln.strip().lower().startswith("exit /b 1"):
+                return True
+        return False
+
+    # .bat encoder entries: the bare `%RUN_COM%` line is the one that runs ffmpeg
+    for f in inv["root_bat"]:
+        if not re.match(r"^ffmpeg_.*\.bat$", f, re.IGNORECASE):
+            continue
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        lines = lf_lines(t)
+        idx = None
+        for i, ln in enumerate(lines):
+            if ln.strip() == "%RUN_COM%":
+                idx = i
+        if idx is None:
+            bads.append("%s: no bare %%RUN_COM%% execution line found" % f)
+            continue
+        checked += 1
+        if not tail_has_exit1(lines, idx):
+            bads.append("%s: ffmpeg failure is swallowed - no `exit /b 1` after "
+                        "`%%RUN_COM%%` (the .sh twin exits 1 on convert failure)" % f)
+
+    # .bat list wrappers: the child is called from inside the for /f block
+    for f in inv["root_bat"]:
+        if not re.match(r"^(convert_from_list|repack_from_list).*\.bat$", f, re.IGNORECASE):
+            continue
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        lines = lf_lines(t)
+        idx = None
+        for i, ln in enumerate(lines):
+            if re.search(r"call\s+\"%~dp0ffmpeg_", ln):
+                idx = i
+        if idx is None:
+            bads.append("%s: no `call \"%%~dp0ffmpeg_...bat\"` child call found" % f)
+            continue
+        checked += 1
+        if not tail_has_exit1(lines, idx):
+            bads.append("%s: a failed child is ignored - no `exit /b 1` after the list "
+                        "loop (the .sh twin run_list exits 1 on the first failure)" % f)
+
+    # .sh encoder entries: already correct, pinned against regressions
+    for f in inv["root_sh"]:
+        if not re.match(r"^ffmpeg_.*\.sh$", f, re.IGNORECASE):
+            continue
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        lines = lf_lines(t)
+        idx = None
+        for i, ln in enumerate(lines):
+            if '"${CMD[@]}"' in ln or ln.strip() == "$RUN_COM":
+                idx = i
+        if idx is None:
+            continue
+        checked += 1
+        if not any(re.match(r"^\s*exit 1\b", ln) for ln in lines[idx + 1:]):
+            bads.append("%s: convert failure is swallowed - no `exit 1` after the "
+                        "encoder run" % f)
+
+    if bads:
+        for m in bads[:8]:
+            bad("L15", m)
+    else:
+        ok("L15", "child failures propagate in both families (%d files checked: "
+                  ".bat entries/wrappers `exit /b 1`, .sh entries `exit 1`)" % checked)
+
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1209,6 +1301,7 @@ def main():
         print("         L08 wrapped set with quoted var  L09 metachar scan")
         print("         L10 run_list stdin  L11 option order  L12 bash -n")
         print("         L13 exit-code contract  L14 .sh exec bit")
+        print("         L15 failure propagation (family parity of the failure path)")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1234,6 +1327,7 @@ def main():
         check_bash_syntax(inv)
         check_exec_bits(inv)
         check_exit_codes(inv)
+        check_fail_propagation(inv)
 
     if not args.lint_only:
         print("---- parity ----")

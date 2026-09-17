@@ -145,8 +145,8 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 
 | 层 | 命令 | 本机最近一轮（2026-09-16，Win11 + MSYS2 + RTX） |
 |----|------|--------------------------------------------|
-| ① 静态 + 对等 | `python3 test/lint/lint.py` | `21 PASS / 0 FAIL / 6 WARN`，退出码 0 |
-| ① 检查器自测 | `python3 test/lint/selftest.py` | `13 cases / 0 FAIL` |
+| ① 静态 + 对等 | `python3 test/lint/lint.py` | `23 PASS / 0 FAIL / 5 WARN`，退出码 0 |
+| ① 检查器自测 | `python3 test/lint/selftest.py` | `16 cases / 0 FAIL` |
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
 
@@ -164,7 +164,8 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 - **架构/对等结论**：两族共享 **12 个编码入口**；`.sh` 独有的 3 个（`h264_vaapi`/`hevc_vaapi`/
   `hevc_nvenc_cygwin`）分别对应 Linux 内核 API 与 Cygwin 专用链路，`.bat` 侧无编码入口缺口
   （`opencmd.bat` 只是开 UTF-8 窗口的辅助脚本）。退出码契约已跨族统一为
-  `0 成功 / 1 参数与文件错误 / 2 查表越界 / 3 无视频流 / 5 码率异常`。
+  `0 成功 / 1 参数与文件错误（含编码失败、找不到 ffmpeg）/ 2 查表越界 / 3 无视频流 / 5 码率异常`；
+  「失败必须传回非零」由 lint **L15** 静态钉住（`.bat` 入口历史上曾无条件 `exit /b 0` 吞掉失败）。
 - 逐项检查清单、T 编号对照表、SKIP 策略、对等矩阵与踩坑记录见 **`test/README.md`**
 - 详细矩阵与逐条记录见 `environment_matrix.md`，各轮缺陷的定位与修法见 `code_review_report.md`
 

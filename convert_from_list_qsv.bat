@@ -43,4 +43,14 @@ rem NOTE: usebackq + quotes makes the list path a FILE, not a literal
 rem string; CALL is required or cmd never returns from the encoder and
 rem only the first list entry gets processed; %~dp0 anchors the encoder
 rem so this also works when the repo is not the current directory.
-for /f "usebackq delims=" %%i in ("%SRC_FILE%") do call "%~dp0ffmpeg_hevc_qsv.bat" "%%i"
+rem fail-fast: 与 .sh 孪生(run_list)对齐 —— 任一文件失败立即中止并传回 1,
+rem 不再默默跑完整份清单还报 0。goto 是 cmd 里跳出 for 块的可靠写法。
+for /f "usebackq delims=" %%i in ("%SRC_FILE%") do (
+    call "%~dp0ffmpeg_hevc_qsv.bat" "%%i"
+    if errorlevel 1 goto LIST_FAIL
+)
+exit /b 0
+
+:LIST_FAIL
+echo Convert failed! rc=%ERRORLEVEL%
+exit /b 1
