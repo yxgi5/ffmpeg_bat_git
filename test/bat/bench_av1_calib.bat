@@ -77,6 +77,7 @@ echo.
 echo Send %CSV%
 echo (or paste the table above) back to the assistant to solve the
 echo equal-quality bitrate ratio r = AV1 / HEVC.
+pause
 exit /b 0
 
 :DORES
@@ -109,9 +110,19 @@ set "OUT=%WORK%\%TAG%.mp4"
 set "JS=%WORK%\%TAG%.json"
 if not exist "%OUT%" ffmpeg -y -hide_banner -loglevel error -i "%REF%" -c:v %CODEC% -preset p4 -rc cbr -b:v %BR% -an "%OUT%" || ( endlocal & exit /b 1 )
 for /f "usebackq delims=" %%R in (`ffprobe -v error -select_streams v:0 -show_entries stream^=bit_rate -of csv^=p^=0 "%OUT%"`) do set "DEL=%%R"
-if not exist "%JS%" ffmpeg -hide_banner -loglevel error -i "%OUT%" -i "%REF%" -lavfi "libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%JS%" -f null - 2>nul || ( endlocal & exit /b 1 )
+rem NOTE: log_path must be RELATIVE. An absolute path like C:/... breaks
+rem       the filtergraph parser (the drive colon is read as a separator
+rem       -> "No option name near ..." and every VMAF step fails silently).
+rem       pushd into WORK and use the bare tag name instead.
+set "JSABS=%WORK%\%TAG%.json"
+if not exist "%JSABS%" (
+    pushd "%WORK%" || ( endlocal & exit /b 1 )
+    ffmpeg -hide_banner -loglevel error -i "%OUT%" -i "%REF%" -lavfi "libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%TAG%.json" -f null -
+    popd
+    if errorlevel 1 ( endlocal & exit /b 1 )
+)
 set "VM="
-for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content -Raw '%JS%' | ConvertFrom-Json).pooled_metrics.vmaf.mean"`) do set "VM=%%V"
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content -Raw '%JSABS%' | ConvertFrom-Json).pooled_metrics.vmaf.mean"`) do set "VM=%%V"
 >> "%CSV%" echo %W%x%H%,%CODEC%,%BR%,%DEL%,%VM%
 echo   %TAG%  delivered=%DEL%  vmaf=%VM%
 endlocal
@@ -119,19 +130,25 @@ exit /b 0
 
 :NO_SRC
 echo ERROR: source video not found or not given.
+pause
 exit /b 2
 :NO_VIDEO
 echo ERROR: ffprobe found no video stream in the source.
+pause
 exit /b 2
 :NO_FFMPEG
 echo ERROR: ffmpeg/ffprobe not on PATH.
+pause
 exit /b 2
 :NO_VMAF
 echo ERROR: this ffmpeg build has no libvmaf filter - use a gyan.dev full or master build.
+pause
 exit /b 2
 :NO_AV1NVENC
 echo ERROR: no av1_nvenc here - AV1 NVENC needs an Ada (RTX 40) or newer GPU.
+pause
 exit /b 2
 :NO_HEVCNVENC
 echo ERROR: no hevc_nvenc in this ffmpeg build.
+pause
 exit /b 2
