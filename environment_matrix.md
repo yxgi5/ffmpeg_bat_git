@@ -601,6 +601,21 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       AV1 ≈1.75M/1.87M（1.89/2.02×T/2，6s 短段拟合斜率敏感，差异可接受）。
       至此 bench_calib sh 侧三机（B=MSYS2、A、C）全部实测通过。
     * 文档同步：test/README.md 工具段与目录树补齐 bench 工具族 + py/ 三件套。
+32. **check_env.bat 探针改判「真实产物」，rc 不再是判据（2026-09-17）**：
+    * 用户复跑暴露：修复后的快查 enc 全 yes 正常了，但深测仍 `av1_qsv PROBE-OK rc=0`——
+      而该机 Intel UHD Graphics 不支持 AV1 编码，沙箱实测 av1_qsv 真编是
+      `Task finished with error code -22` / `Conversion failed` / 输出 0 字节。
+    * **根因**：入口 `.bat` 是交互式设计，末尾无条件 `exit /b 0`（「转换已出错或完成，
+      默认不替换」）→ 探针只看入口 rc 时**任何入口都永远 PROBE-OK**；且
+      `ffmpeg_copy_to_mp4.bat` 对 mp4 输入直接 `goto :eof` 什么都不做，双重假象。
+    * **修复**：`:probe_entry` / `:probe_list` 改为**判定真实输出文件**（存在且 >4096 字节，
+      3s 320x240 梯点编码产物为几十 KB 量级，4096 是安全下限），并打印 `out=<size>B`；
+      remux 入口（copy_to_mp4 / repack_from_list）改喂 `.mkv` 夹具——remux 拒绝 mp4 进
+      mp4 出、且 arg 模式带 `-n` 会与同名输入冲突（与冒烟 T5 的 remux_me.mkv 同思路）。
+      PROBE-FAIL 新增一种形态：`rc=0 but no real output (0B) - see run.log`。
+    * sh 侧不受影响：入口 .sh 如实传递 ffmpeg 退出码，rc 即判据（C 机深测 fail=4 就是这么抓到的）。
+    * 沙箱可调 ffmpeg 实证了根因（rc=127、0 字节输出），但探针修复本身是静态改动，
+      待用户 `/probe` 复跑确认：本机预期 av1_qsv → PROBE-FAIL，其余 → PROBE-OK out=…B。
 31. **check_env.bat 快查/深测五处修复 + 参数风格改正（2026-09-17，用户 B 机实跑暴露）**：
     * **① 编码器清单全 NO（最关键）**：`:hasenc` 的 findstr 正则只写了 6 个点，而 `-encoders` 行格式是
       **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格

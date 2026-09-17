@@ -98,7 +98,8 @@ test/
 │   ├── smoke_all.sh             sh 族一键串跑
 │   ├── check_env.sh             sh 族环境能力报告
 │   ├── bench_calib.sh           单片源码率标尺（软编基准，见 ③b）
-│   └── nvenc_pair_calib.sh      NVENC AV1/HEVC 配对校准（bat 孪生）
+│   ├── nvenc_pair_calib.sh      NVENC AV1/HEVC 配对校准（bat 孪生）
+│   └── soft_pair_calib.sh       软编 SVT-AV1/x265 配对校准（无 bat 对偶，见 ③c）
 ├── bat/
 │   ├── smoke_ffmpeg.bat         bat 族回归套件
 │   ├── smoke_special_chars.bat  bat 族元字符矩阵
@@ -320,7 +321,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 | `NO-DEVICE` | 编码器有，但本机没有可用设备/GPU |
 | `N/A-OS` | 该入口在当前系统无意义（VAAPI 是 Linux 内核 API） |
 | `UNKNOWN` | 静态判断不了 → 用深测决定 |
-| `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果（含 rc） |
+| `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果（bat 侧还要求真实输出文件；sh 侧看 rc） |
 | `NO-ENTRY` | 仓库里没有这个文件 |
 
 两个实现细节值得记住，它们都是**踩过的坑**：
@@ -344,6 +345,12 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
    且 4.4.x 的 HEVC VAAPI 老路径在 Arrow Lake 上编码失败，master 正常）。
    **所以：要精确知道"本机哪些脚本能用"，唯一判据是 `--probe` 深测
    （`PROBE-OK / PROBE-FAIL` + 真实 rc 和日志）；快查只是秒级预筛。**
+5. **入口 `.bat` 无条件 `exit /b 0`，rc 不是判据（bat 侧探针判产物）** ——
+   入口脚本是交互式设计，ffmpeg 失败也照样走到 `exit /b 0`（"转换已出错或
+   完成，默认不替换"）。初版深测只看入口 rc，结果 `av1_qsv` 在不支持 AV1
+   编码的机器上也 `PROBE-OK`。现改为判定**真实输出文件**（存在且 >4096 字节；
+   remux 入口因拒绝 mp4 进 mp4 出、且 `-n` 会与同名输入冲突，改喂 `.mkv`
+   夹具，与冒烟 T5 同思路）。sh 侧入口如实传 ffmpeg 的退出码，无此问题。
 
 ---
 

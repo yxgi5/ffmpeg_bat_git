@@ -20,8 +20,12 @@ rem   NO-ENCODER   the ffmpeg build has no such encoder
 rem   NO-DEVICE    encoder exists but this machine has no usable GPU
 rem   N/A-OS       entry is meaningless on Windows (VAAPI is a Linux API)
 rem   UNKNOWN      static check cannot decide -> rerun with /probe
-rem   PROBE-OK     PROBE ran it and it worked
-rem   PROBE-FAIL   PROBE ran it and it returned non-zero
+rem   PROBE-OK     PROBE ran it and it produced a real output file
+rem   PROBE-FAIL   PROBE ran it and it failed: non-zero rc, or rc=0 with
+rem                no/empty output artifact. Every entry .bat ends with an
+rem                unconditional "exit /b 0" (interactive design), so the
+rem                exit code alone proves nothing - the artifact is the
+rem                only honest evidence that the encoder really ran.
 rem
 rem Location: <repo>\test\bat\  (the repo root is derived from this file's
 rem           own path, two levels up)
@@ -151,9 +155,18 @@ if exist "%TINY%" goto HAVE_CLIP
 if not exist "%TINY%" goto NO_FIXTURE
 :HAVE_CLIP
 call :hdr
-for %%f in ("%REPO%\ffmpeg_*.bat") do call :probe_entry "%%~nxf"
-for %%f in ("%REPO%\convert_from_list_*.bat") do call :probe_list "%%~nxf"
-call :probe_list repack_from_list.bat
+rem copy_to_mp4 is a remuxer: it refuses mp4-in/mp4-out and writes the
+rem output next to the input, so it probes with a .mkv-named copy (same
+rem fixture trick as smoke case T5). Everything else is an encoder entry.
+for %%f in ("%REPO%\ffmpeg_*.bat") do (
+    if /I "%%~nxf"=="ffmpeg_copy_to_mp4.bat" (
+        call :probe_entry "%%~nxf" remux
+    ) else (
+        call :probe_entry "%%~nxf" enc
+    )
+)
+for %%f in ("%REPO%\convert_from_list_*.bat") do call :probe_list "%%~nxf" enc
+call :probe_list repack_from_list.bat remux
 echo.
 echo probe logs: %WORK%\^<entry name^>\run.log
 echo.
@@ -359,42 +372,78 @@ echo   %~1 %N% rows
 exit /b 0
 
 rem :probe_entry <entry> - run it with the tiny clip as the file argument
+rem :probe_entry <entry> <enc|remux> - run it once on a tiny clip and judge
+rem by the real artifact (see :judge_art). enc mode: fixture clip.mp4 in,
+rem clip-compressed.mp4 expected out. remux mode: fixture named clip.mkv in
+rem (a remux entry refuses mp4-in and -n would collide with the input name),
+rem clip.mp4 expected out.
 :probe_entry
 set "B=%~1"
 set "D=%WORK%\entry_%~n1"
 if not exist "%D%" mkdir "%D%" >nul 2>&1
-copy /y "%TINY%" "%D%\clip.mp4" >nul 2>&1
-del /q "%D%\clip-compressed.mp4" >nul 2>&1
+set "INFILE=clip.mp4"
+set "OUTFILE=clip-compressed.mp4"
+if /I "%~2"=="remux" (
+    copy /y "%TINY%" "%D%\clip.mkv" >nul 2>&1
+    del /q "%D%\clip.mp4" >nul 2>&1
+    set "INFILE=clip.mkv"
+    set "OUTFILE=clip.mp4"
+) else (
+    copy /y "%TINY%" "%D%\clip.mp4" >nul 2>&1
+    del /q "%D%\clip-compressed.mp4" >nul 2>&1
+)
 pushd "%D%"
-call "%REPO%\%B%" "clip.mp4" < nul > "%D%\run.log" 2>&1
+call "%REPO%\%B%" "%INFILE%" < nul > "%D%\run.log" 2>&1
 set "RC=%errorlevel%"
 popd
-if "%RC%"=="0" (
-    call :pok "%B%" "rc=0"
-) else (
-    call :pfail "%B%" "%RC%"
-)
+call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%"
 exit /b 0
 
-rem :probe_list <entry> - run it with a one-line list file as the argument.
-rem The list holds an ABSOLUTE path (same rule as the .sh twin): a relative name
-rem depends on the child's cwd, an absolute one does not. Spaces are fine -
-rem the list helper reads the whole line and quotes it when calling the encoder.
+rem :probe_list <entry> <enc|remux> - same, but the entry receives a one-line
+rem list file. The list holds an ABSOLUTE path (same rule as the .sh twin): a
+rem relative name depends on the child's cwd, an absolute one does not.
+rem Spaces are fine - the list helper reads the whole line and quotes it
+rem when calling the encoder.
 :probe_list
 set "B=%~1"
 if not exist "%REPO%\%B%" exit /b 0
 set "D=%WORK%\list_%~n1"
 if not exist "%D%" mkdir "%D%" >nul 2>&1
-copy /y "%TINY%" "%D%\clip.mp4" >nul 2>&1
-> "%D%\list.txt" echo %D%\clip.mp4
+set "INFILE=clip.mp4"
+set "OUTFILE=clip-compressed.mp4"
+if /I "%~2"=="remux" (
+    copy /y "%TINY%" "%D%\clip.mkv" >nul 2>&1
+    del /q "%D%\clip.mp4" >nul 2>&1
+    set "INFILE=clip.mkv"
+    set "OUTFILE=clip.mp4"
+) else (
+    copy /y "%TINY%" "%D%\clip.mp4" >nul 2>&1
+    del /q "%D%\clip-compressed.mp4" >nul 2>&1
+)
+> "%D%\list.txt" echo %D%\%INFILE%
 pushd "%D%"
 call "%REPO%\%B%" "%D%\list.txt" < nul > "%D%\run.log" 2>&1
 set "RC=%errorlevel%"
 popd
-if "%RC%"=="0" (
-    call :pok "%B%" "rc=0 - list mode"
+call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%"
+exit /b 0
+
+rem :judge_art <entry> <rc> <artifact> - PROBE-OK needs rc=0 AND a real
+rem output artifact (>4096 bytes). The entry .bat wrappers always exit 0,
+rem so rc alone cannot separate "encoded" from "ffmpeg died, window said
+rem 转换已出错或完成 anyway"; the artifact size can. A 3s 320x240 encode at
+rem the table bitrate is tens of KB, so 4096 is a safe floor.
+:judge_art
+set "OUTSZ=0"
+if exist "%~3" for %%A in ("%~3") do set "OUTSZ=%%~zA"
+if not "%~2"=="0" (
+    call :pfail "%~1" "rc=%~2"
+    exit /b 0
+)
+if %OUTSZ% GTR 4096 (
+    call :pok "%~1" "rc=0 out=%OUTSZ%B"
 ) else (
-    call :pfail "%B%" "%RC%"
+    call :pfailnote "%~1" "rc=0 but no real output (%OUTSZ%B) - see run.log"
 )
 exit /b 0
 
@@ -407,6 +456,12 @@ exit /b 0
 :pfail
 call :pad PROBE-FAIL
 echo %PAD% %~1 rc=%~2
+set /a P_FAIL+=1
+exit /b 0
+
+:pfailnote
+call :pad PROBE-FAIL
+echo %PAD% %~1 %~2
 set /a P_FAIL+=1
 exit /b 0
 
