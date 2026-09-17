@@ -47,6 +47,16 @@ test/bat/check_env.bat     Windows 侧能力报告（双击快查，`"" PROBE` �
 ## 码率怎么来的
 
 码率表是「像素总数 → 参考码率」的分档表，曲线拟合的原始数据见 `archive/bitrate_calc.xlsx`。
+三张表各自逼近一条幂律曲线（2026-09-17 全表最小二乘拟合，方法与逐档比例见 `environment_matrix.md` 第 24 条）：
+
+| 表 | 拟合式 bitrate (bps) | 1080p 参考 | 4K 参考 |
+| --- | --- | --- | --- |
+| `bitrate_table_avc.csv` | `92.5 × pixels^0.779` | 7.67 Mbps | 22.6 Mbps |
+| `bitrate_table_hevc.csv` | `65.1 × pixels^0.775` | 5.10 Mbps | 14.9 Mbps |
+| `bitrate_table_av1.csv`  | `58.1 × pixels^0.755` | 3.43 Mbps | 9.76 Mbps |
+
+三代编码器的省码比例内嵌在表中：**HEVC/AVC ≈ 0.665 恒定；AV1/HEVC 分档**
+（小像素 0.75、中段 0.70、**1080p（2073600 px）及以上 0.65**、8K 以上 0.60）。
 实际目标码率 = **查表值 ÷ 2**（中等质量）；**若源码率本身已低于该值，则沿用源码率**，避免低码率源被重编码放大。
 
 ## Windows 用法
