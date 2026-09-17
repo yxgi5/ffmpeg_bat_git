@@ -10,7 +10,7 @@ rem It is the twin of test\sh\check_env.sh: same status vocabulary and the
 rem same table shape, so the two reports can be compared line by line.
 rem
 rem   (default)   QUICK  - static capability inventory: ffmpeg build
-rem                        features, video controllers, encoders.
+rem                        features, video controllers, encoders, filters.
 rem   /probe      DEEP   - additionally runs every candidate entry on a
 rem                        tiny 3s clip and reports its real exit code.
 rem
@@ -22,10 +22,12 @@ rem   N/A-OS       entry is meaningless on Windows (VAAPI is a Linux API)
 rem   UNKNOWN      static check cannot decide -> rerun with /probe
 rem   PROBE-OK     PROBE ran it and it produced a real output file
 rem   PROBE-FAIL   PROBE ran it and it failed: non-zero rc, or rc=0 with
-rem                no/empty output artifact. Every entry .bat ends with an
-rem                unconditional "exit /b 0" (interactive design), so the
-rem                exit code alone proves nothing - the artifact is the
-rem                only honest evidence that the encoder really ran.
+rem                no/empty output artifact. The NOTE carries the rc plus the
+rem                last error line of run.log, exactly like the .sh twin.
+rem                Entries propagate rc=1 since 2026-09-17 (lint L15); before
+rem                that every entry .bat ended with an unconditional
+rem                "exit /b 0" (interactive design), which is why the artifact
+rem                size - not the exit code - is the primary evidence.
 rem
 rem Location: <repo>\test\bat\  (the repo root is derived from this file's
 rem           own path, two levels up)
@@ -65,6 +67,8 @@ if not exist "%REPO%\ffmpeg_avc_qsv.bat" goto NO_REPO
 set "WORK=%TEMP%\ffmpeg_bat_check_env"
 if not exist "%WORK%" mkdir "%WORK%" >nul 2>&1
 set "TMPENC=%WORK%\encoders.txt"
+set "TMPFILT=%WORK%\filters.txt"
+set "TMPWHY=%WORK%\why.txt"
 set "TMPGPU=%WORK%\video_controllers.txt"
 set "TMPREQ=%WORK%\requirements.txt"
 
@@ -115,6 +119,10 @@ echo.
 echo   encoder availability in this ffmpeg build:
 "%FF%" -hide_banner -encoders > "%TMPENC%" 2>&1
 for %%e in (libx264 libx265 h264_qsv hevc_qsv av1_qsv h264_vaapi hevc_vaapi h264_nvenc hevc_nvenc av1_nvenc) do call :hasenc %%e
+echo.
+echo   filter availability (the bench_calib family needs libvmaf):
+"%FF%" -hide_banner -filters > "%TMPFILT%" 2>&1
+call :hasfilt libvmaf
 echo.
 
 rem ---- entry to requirement map: <entry>|<encoder>|<device>|<note> ----
@@ -213,6 +221,20 @@ if errorlevel 1 (
     echo   enc  %1 : NO
 ) else (
     echo   enc  %1 : yes
+)
+exit /b 0
+
+rem :hasfilt <filter> - one line of the filter inventory. "-filters" rows look
+rem like " .. libvmaf   VV->V  ..." = leading space + 2-char flag field + space
+rem + name, hence TWO dots. A build without libvmaf compiles the whole tool
+rem family out (bench_calib / soft_pair_calib / nvenc_pair_calib cannot run),
+rem which is worth knowing BEFORE you drag a film onto one of them.
+:hasfilt
+findstr /r /b /c:" .. %1 " "%TMPFILT%" >nul 2>&1
+if errorlevel 1 (
+    echo   filt %1 : NO
+) else (
+    echo   filt %1 : yes
 )
 exit /b 0
 
@@ -396,7 +418,7 @@ pushd "%D%"
 call "%REPO%\%B%" "%INFILE%" < nul > "%D%\run.log" 2>&1
 set "RC=%errorlevel%"
 popd
-call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%"
+call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%" "%D%\run.log"
 exit /b 0
 
 rem :probe_list <entry> <enc|remux> - same, but the entry receives a one-line
@@ -425,26 +447,45 @@ pushd "%D%"
 call "%REPO%\%B%" "%D%\list.txt" < nul > "%D%\run.log" 2>&1
 set "RC=%errorlevel%"
 popd
-call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%"
+call :judge_art "%B%" "%RC%" "%D%\%OUTFILE%" "%D%\run.log"
 exit /b 0
 
-rem :judge_art <entry> <rc> <artifact> - PROBE-OK needs rc=0 AND a real
-rem output artifact (>4096 bytes). The entry .bat wrappers always exit 0,
-rem so rc alone cannot separate "encoded" from "ffmpeg died, window said
-rem 转换已出错或完成 anyway"; the artifact size can. A 3s 320x240 encode at
-rem the table bitrate is tens of KB, so 4096 is a safe floor.
+rem :judge_art <entry> <rc> <artifact> <run.log> - PROBE-OK needs rc>=0 taken
+rem seriously AND a real output artifact (>4096 bytes). The entry .bat wrappers
+rem USED to exit 0 unconditionally, so rc alone could not separate "encoded"
+rem from "ffmpeg died, the window said 转换已出错或完成 anyway"; the artifact
+rem size can. Since 2026-09-17 the entries propagate rc=1 as well (lint L15),
+rem so a failure now shows both a non-zero rc and the reason line taken from
+rem run.log. A 3s 320x240 encode at the table bitrate is tens of KB, so 4096
+rem is a safe floor. This mirrors the .sh probe, which prints "rc=<n> | <first
+rem error line>".
 :judge_art
 set "OUTSZ=0"
 if exist "%~3" for %%A in ("%~3") do set "OUTSZ=%%~zA"
+call :why "%~4"
+set "TAIL= - see run.log"
+if defined WHY set "TAIL= | %WHY%"
 if not "%~2"=="0" (
-    call :pfail "%~1" "rc=%~2"
+    call :pfail "%~1" "rc=%~2%TAIL%"
     exit /b 0
 )
 if %OUTSZ% GTR 4096 (
     call :pok "%~1" "rc=0 out=%OUTSZ%B"
 ) else (
-    call :pfailnote "%~1" "rc=0 but no real output (%OUTSZ%B) - see run.log"
+    call :pfailnote "%~1" "rc=0 but no real output (%OUTSZ%B)%TAIL%"
 )
+exit /b 0
+
+rem :why <run.log> - keep the LAST error-ish line of a run log, cut to 70 chars,
+rem for the NOTE column. Kept separate from the echo so the text never gets
+rem re-parsed: :pfail/:pfailnote print it through delayed expansion, which is
+rem the one form that cannot turn a log line into redirection or a separator.
+:why
+set "WHY="
+if not exist "%~1" exit /b 0
+findstr /i /c:"error" /c:"failed" /c:"invalid" /c:"unsupported" /c:"not supported" "%~1" > "%TMPWHY%" 2>nul
+for /f "usebackq delims=" %%L in ("%TMPWHY%") do set "WHY=%%L"
+if defined WHY set "WHY=%WHY:~0,70%"
 exit /b 0
 
 :pok
@@ -454,14 +495,20 @@ set /a P_OK+=1
 exit /b 0
 
 :pfail
+setlocal EnableDelayedExpansion
 call :pad PROBE-FAIL
-echo %PAD% %~1 rc=%~2
+set "T=%PAD% %~1 %~2"
+echo !T!
+endlocal
 set /a P_FAIL+=1
 exit /b 0
 
 :pfailnote
+setlocal EnableDelayedExpansion
 call :pad PROBE-FAIL
-echo %PAD% %~1 %~2
+set "T=%PAD% %~1 %~2"
+echo !T!
+endlocal
 set /a P_FAIL+=1
 exit /b 0
 

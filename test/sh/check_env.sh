@@ -157,6 +157,9 @@ printf '  encoders     : %s listed\n' "$n_enc"
 for e in libx264 libx265 h264_qsv hevc_qsv av1_qsv h264_vaapi hevc_vaapi h264_nvenc hevc_nvenc av1_nvenc; do
     if has_enc "$e"; then printf '  enc  %-12s: yes\n' "$e"; else printf '  enc  %-12s: NO\n' "$e"; fi
 done
+# The bench_calib family (and every VMAF measurement) needs this filter: a
+# build without it looks fine until the tool dies halfway through a run.
+if has_filter libvmaf; then printf '  filt %-12s: yes\n' libvmaf; else printf '  filt %-12s: NO\n' libvmaf; fi
 echo
 
 # ---------- entry -> requirement map ----------
