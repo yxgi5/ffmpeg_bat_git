@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem bench_av1_calib.bat - AV1 vs HEVC equal-quality calibration  *** ASCII ONLY / CRLF ***
+rem nvenc_pair_calib.bat - AV1 vs HEVC equal-quality calibration  *** ASCII ONLY / CRLF ***
 rem
 rem Measures the bitrate ratio r = bitrate(AV1) / bitrate(HEVC)
 rem at equal VMAF for THIS machine's hardware encoders:
@@ -13,7 +13,7 @@ rem measured number for your GPU.
 rem
 rem Usage:
 rem   drag any video file onto this bat, or
-rem   bench_av1_calib.bat "D:\path\movie.mkv"
+rem   nvenc_pair_calib.bat "D:\path\movie.mkv"
 rem
 rem What it does:
 rem   1. cuts a silent 10s segment from the middle of the file
@@ -29,7 +29,7 @@ rem
 rem Requirements: ffmpeg/ffprobe with libvmaf on PATH
 rem               (gyan.dev full/master builds qualify),
 rem               NVIDIA GPU with HEVC NVENC + AV1 NVENC (Ada).
-rem Work dir:     %TEMP%\ffmpeg_bat_av1_calib  (safe to delete)
+rem Work dir:     %TEMP%\ffmpeg_bat_nvenc_pair  (safe to delete)
 rem Exit code:    0 = results.csv written; 2 = setup error
 rem ============================================================
 setlocal
@@ -54,7 +54,7 @@ ffmpeg -hide_banner -filters 2>nul | findstr /c:"libvmaf" >nul || goto NO_VMAF
 ffmpeg -hide_banner -encoders 2>nul | findstr /c:"av1_nvenc" >nul || goto NO_AV1NVENC
 ffmpeg -hide_banner -encoders 2>nul | findstr /c:"hevc_nvenc" >nul || goto NO_HEVCNVENC
 
-set "WORK=%TEMP%\ffmpeg_bat_av1_calib"
+set "WORK=%TEMP%\ffmpeg_bat_nvenc_pair"
 if not exist "%WORK%" mkdir "%WORK%" >nul 2>&1
 set "CSV=%WORK%\results.csv"
 > "%CSV%" echo res,codec,br_req,br_delivered,vmaf

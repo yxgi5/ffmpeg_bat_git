@@ -1,13 +1,14 @@
 # nvenc_pair_solve.py - NVENC AV1/HEVC equal-quality pair solver
 #
-# Companion analysis tool for test/bat/bench_av1_calib.bat. Scans the
+# Companion analysis tool for test/bat/nvenc_pair_calib.bat (and its
+# sh twin test/sh/nvenc_pair_calib.sh). Scans the
 # bench work dir for <res>_<br>k_<av1|hevc>_nvenc.json + .mp4 pairs,
 # reads delivered bitrate via ffprobe and pooled VMAF from the JSON,
 # then reports the bitrate ratio r = AV1/HEVC at each VMAF target.
 #
 # Usage:
 #   python nvenc_pair_solve.py [<work_dir>]
-#     work_dir default: %LOCALAPPDATA%\Temp\ffmpeg_bat_av1_calib
+#     work_dir default: %LOCALAPPDATA%\Temp\ffmpeg_bat_nvenc_pair
 #
 # Requires ffprobe on PATH. Historical results (B machine RTX 4080
 # Laptop, 2026-09-17): r ~ 0.72-1.0 depending on quality target,
@@ -47,7 +48,7 @@ def fit(pts):
 
 def main():
     work = sys.argv[1] if len(sys.argv) > 1 else os.path.expandvars(
-        r"%LOCALAPPDATA%\Temp\ffmpeg_bat_av1_calib")
+        r"%LOCALAPPDATA%\Temp\ffmpeg_bat_nvenc_pair")
     d = load(work)
     if not d:
         sys.exit(f"no *_nvenc.json found under {work}")

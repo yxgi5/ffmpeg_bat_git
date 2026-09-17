@@ -75,6 +75,10 @@ fps30/像素格式归一），产出 `results.csv`。sh 侧附 log 域拟合，�
 多少码率并给出建议值；bat 侧给出 VMAF≥95 的最小梯点。产物缓存于
 `%TEMP%/ffmpeg_bench_calib_<codec>/`，重跑只补缺失点。
 
+实测状态：sh 侧已在 **B 机（MSYS2）/ A 机 / C 机** 三机用合成源跑通三 codec 全梯
+（A/C 结果两机一致，见 `environment_matrix.md` 第 30 条）；bat 侧 B 机合成源通过，
+真实片源双击验证待用户执行。
+
 > 建议顺序：**先 ① 后 ②**。静态检查能在 1 秒内抓住语法/标签/引号/编码问题，
 > 不必等几分钟的冒烟跑完才发现第 3 行少了个括号。
 
@@ -92,12 +96,20 @@ test/
 │   ├── smoke_ffmpeg.sh          sh 族回归套件（与 bat 套件同 T 编号）
 │   ├── smoke_special_chars.sh   sh 族元字符矩阵（与 bat 套件同 part 字母）
 │   ├── smoke_all.sh             sh 族一键串跑
-│   └── check_env.sh             sh 族环境能力报告
-└── bat/
-    ├── smoke_ffmpeg.bat         bat 族回归套件
-    ├── smoke_special_chars.bat  bat 族元字符矩阵
-    ├── smoke_all.bat            bat 族一键串跑
-    └── check_env.bat            bat 族环境能力报告
+│   ├── check_env.sh             sh 族环境能力报告
+│   ├── bench_calib.sh           单片源码率标尺（软编基准，见 ③b）
+│   └── nvenc_pair_calib.sh      NVENC AV1/HEVC 配对校准（bat 孪生）
+├── bat/
+│   ├── smoke_ffmpeg.bat         bat 族回归套件
+│   ├── smoke_special_chars.bat  bat 族元字符矩阵
+│   ├── smoke_all.bat            bat 族一键串跑
+│   ├── check_env.bat            bat 族环境能力报告
+│   ├── bench_calib.bat          单片源码率标尺（sh 孪生）
+│   └── nvenc_pair_calib.bat     NVENC AV1/HEVC 配对校准（sh 孪生）
+└── py/
+    ├── eq_quality_solve.py      软编配对等画质求解器（校准 CSV）
+    ├── nvenc_pair_solve.py      NVENC 配对求解器（校准工作目录）
+    └── table_ratio_audit.py     三表比例/单调性/幂律审计
 ```
 
 约定（`.gitattributes` 已钉死）：

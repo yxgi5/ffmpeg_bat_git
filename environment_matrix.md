@@ -519,11 +519,12 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       0.65–0.75 阶梯——AV1 表不是缺码，反而偏宽松 10–15%**。此前「÷2 链式会缺码」的担忧被数据否定。
     * **但先别改表**：此配对是软编对照，而 AV1 表实际服务 av1_nvenc/av1_qsv 硬编入口；硬件 AV1 的
       压缩效率低于 SVT-AV1 p8，硬件配对的 r 必然更高。定论等 B 机 `bench_av1_calib.bat`
+      （现名 `nvenc_pair_calib.bat`，2026-09-17 更名，见第 30 条）
       （hevc_nvenc vs av1_nvenc，p4 CBR，与产线同参数，提交 4d2b074）跑出硬件配对数字后再下。
     * 其他 caveat：源为 h264 压缩片源（VMAF 参照=压缩源，比例仍自洽）；单片段代表性有限；
       2160p 无可下载源，由 1080 参考上变换生成。
 26. **NVENC 硬件配对校准完成（2026-09-17，B 机 RTX 4080 Laptop，hevc_nvenc vs av1_nvenc 同为 p4 CBR）**：
-    用户把一部电影拖上 `test\bat\bench_av1_calib.bat`。首跑暴露两个 bat 级 bug（`212a27a` 修复）：
+    用户把一部电影拖上 `test\bat\bench_av1_calib.bat`（现名 `nvenc_pair_calib.bat`）。首跑暴露两个 bat 级 bug（`212a27a` 修复）：
     ① **libvmaf 的 log_path 用绝对路径必炸**——盘符冒号被滤镜语法解析器当成选项分隔符
     （`No option name near '/Users/...'`），且 bat 里 `2>nul` 吞错 → 18 行全部静默失败、CSV 只剩表头。
     修法：pushd 进工作目录用相对 log_path。② 出口无 pause，双击窗口秒关看不到任何信息。
@@ -579,3 +580,24 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * 本机实测（合成 720p testsrc2，6s 段）：三 codec 全链路通，AVC 建议 2.39M=1.17×(T/2)、
       HEVC 2.32M=1.71×(T/2)（合成源偏难，真实电影通常更低）。lint 22/0/5、selftest 13/13。
       bat 侧待用户双击验证。
+30. **bench 工具族更名对齐 + py 分析脚本入库 + bench_calib.sh 三机验证（2026-09-17）**：
+    * **更名**：`test/bat/bench_av1_calib.bat` → `test/bat/nvenc_pair_calib.bat`（工作目录同步改名
+      `%TEMP%\ffmpeg_bat_nvenc_pair`）。旧名"AV1 基准"名不副实——它测的是 **NVENC AV1/HEVC 配对**，
+      且校准使命已收官；`bench_calib` 才是从片源推导目标码率的通用标尺。改名保留（用户裁定），
+      未来 A/C 机做 QSV/VAAPI 配对校准可复用此骨架。
+    * **sh 对等补齐**：新增 `test/sh/nvenc_pair_calib.sh`（bat 的 1:1 孪生：同 10s 中段静音段、
+      同 x264 crf10 slow 近透明参照 720p/1080p/4K、同三档码率梯、同 results.csv 列、同相对
+      log_path 与缓存补点逻辑；曲线拟合不入盒，交 `nvenc_pair_solve.py`）。
+    * **py 分析脚本入库**（`test/py/`，三个，已参数化去硬编码路径，均用当时真实数据复验输出一致）：
+      - `eq_quality_solve.py`（原工作区 calib_solve.py）：软编配对（SVT-AV1 vs x265）等画质求解，
+        复算 r≈0.53–0.61 与第 25 条一致；
+      - `nvenc_pair_solve.py`（原 calib_solve_b.py）：NVENC 配对求解，复算 overall r=0.847
+        与第 26 条一致；
+      - `table_ratio_audit.py`（原 ratio_analysis.py）：三表比例/单调性/幂律审计，能直接报出
+        AVC 表 5 条重复桶（P04 同源）。
+    * **bench_calib.sh A/C 机真实验证（合成 720p testsrc2 12s、6s 段，/opt master N-117740，
+      Ubuntu 默认 mawk 下拟合/解析全通过）**：三 codec × 两机全链路 rc=0，两机数字高度一致——
+      AVC VMAF95 ≈2.19M/2.21M（1.07/1.08×T/2）、HEVC ≈2.17M/2.16M（**两机同为 1.59×T/2**）、
+      AV1 ≈1.75M/1.87M（1.89/2.02×T/2，6s 短段拟合斜率敏感，差异可接受）。
+      至此 bench_calib sh 侧三机（B=MSYS2、A、C）全部实测通过。
+    * 文档同步：test/README.md 工具段与目录树补齐 bench 工具族 + py/ 三件套。
