@@ -165,6 +165,7 @@ test/
 | L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`。**且 `.bat` 入口的守卫必须是「负数安全」的**（`if not "%X%"=="0"` 或 `%X% NEQ 0`，`X` = `%ERRORLEVEL%` 或紧接着从它赋值的变量），不允许用 `if errorlevel N` | **2026-09-17 实际缺口（两层）**：① `.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）；② 改成 `if errorlevel 1` 后**仍然没修好**——它是**带符号比较**，而 Windows 版 ffmpeg 失败时返回**负** AVERROR（本机 `av1_qsv` 退出码 **-40 / Function not implemented**），`-40 >= 1` 不成立 → 守卫不触发 → 依旧落到 `exit /b 0`。用户正是在复跑探针时看到 `rc=0 but no real output (0B) \| ERRORLEVEL:-40` 才揪出来的。L13 只查取值词表，查不出「失败路径根本不可达」 |
 | L16 | **流映射一致性**：每个 mp4 出口（两族 19 个 `ffmpeg_*`）都必须带 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0` | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露 |
 | L17 | **moov 前置**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）必须带 `-movflags +faststart` | **2026-09-17 用户要求**：默认 mp4 把索引 `moov` 写在 `mdat` **之后**，播放器要拿到文件末尾才能起播（大文件拷走/边下边播时很难受）。实测同一夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**（ffmpeg 就地搬索引，日志里是 `Starting second pass: moving the moov atom to the beginning of the file`）。当前只管 remux 两个出口，11 个编码入口仍是默认布局（等用户裁定是否一并前置） |
+| L18 | **锚定变量**：凡是读 `%REPO%` / `%SELF_DIR%` 的 `.bat`，必须在**首次读取之前**赋值；且 `test\bat\` 下的工具必须用 `%~dp0..\..` 自锚定 | **2026-09-20 实际缺口（用户报障）**：`bench_calib.bat` 里 `call "%REPO%\lib\common.bat"` 的 `REPO` **从未定义** → 路径塌缩成 `"\lib\common.bat"`（盘根路径）→ 任何 cwd 下都报 `The system cannot find the path specified.`，而调用方把它伪装成「ffmpeg/ffprobe not on PATH」。更早一版是 `"%SELF_DIR%lib\common.bat"`（`SELF_DIR` 同样未定义）→ 退化为**相对路径**，只在 cwd = 仓库根时碰巧可用。两类症状不同（一个必崩、一个看运气），根因同源 |
 
 **L09 的做法值得单独说明**：它把「脚本语法」和「数据逃逸」区分开，而不是见 `&` 就报。
 
@@ -201,15 +202,18 @@ test/
 ### 2.3 检查器自测（`lint/selftest.py`）
 
 **一个只会输出「全部干净」的检查器是没有价值的——它可能只是瞎了。**
-`selftest.py` 用 22 个合成小仓库同时验证两个方向：
+`selftest.py` 用 26 个合成小仓库同时验证两个方向：
 
-* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17 各一例起，
+* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17/L18 各一例起，
   其中 L15 三例：吞掉 ffmpeg 失败的入口、`if errorlevel 1` 这种**看不见负退出码**的守卫、
-  忽略失败子调用的清单 wrapper；L17 一例：remux 出口漏了 `+faststart`）；
+  忽略失败子调用的清单 wrapper；L17 一例：remux 出口漏了 `+faststart`；
+  L18 三例：读了 `%REPO%` 却从未赋值、锚定赋值出现在首次使用**之后**、`test\bat` 工具没有
+  `%~dp0..\..` 自锚定）；
 * **precision**：已知正确的写法**必须不报**，其中 8 例正是开发过程中真实出现过的假阳性
   （`%VAR:"=%` 引号计数、`endlocal & set` 字面量、`%%~zA` 循环修饰符、
   `set /p` 覆盖、安全的 `set VAR=%QVAR%` 惯用法、带失败传播的入口尾部、
-  `%ERRORLEVEL% NEQ 0` 守卫、带 `+faststart` 的 `.sh` remux 入口）。
+  `%ERRORLEVEL% NEQ 0` 守卫、带 `+faststart` 的 `.sh` remux 入口），另加 L18 一例
+  （正确自锚定的 `test\bat` 工具）。
 
 ### 2.4 退出码
 
@@ -504,7 +508,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-17）**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
+> **当前基线（2026-09-20）**：`lint 26 PASS / 0 FAIL / 5 WARN`、`selftest 26 cases / 0 FAIL`。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。

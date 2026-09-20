@@ -1007,6 +1007,80 @@ def check_moov_front(inv):
                   "both families)" % checked)
 
 
+# ---------------------------------------------------------------- L18
+# Self anchoring: an "anchor" variable (REPO / SELF_DIR) holds the path that
+# leads back to the repo from a .bat which may be started anywhere. Two ways to
+# get it wrong, both of which happened in this repo:
+#   * undefined -- "%REPO%\lib\common.bat" degrades to "\lib\common.bat", i.e. a
+#     DRIVE-ROOT path, so the call dies from every cwd with "The system cannot
+#     find the path specified." and the caller reports it as the misleading
+#     "ffmpeg/ffprobe not on PATH". bench_calib.bat did exactly that when it was
+#     run from the repo root (user report, 2026-09-20); the commit that was
+#     supposed to fix it only swapped one undefined name for another;
+#   * "%SELF_DIR%lib\..." with SELF_DIR undefined -- a RELATIVE path that works
+#     only while the cwd happens to be the repo root (the bug that swap replaced).
+# So: every anchor reference needs an assignment EARLIER in the same file, and a
+# tool under test\bat (two levels down) must derive it from %~dp0..\..
+ANCHOR_VARS = ("REPO", "SELF_DIR")
+ANCHOR_UP2 = "%~dp0..\\.."
+
+
+def anchor_set_re(var):
+    """`set VAR=` at line start, or `... do set VAR=` inside a for/if guard."""
+    return (re.compile(r'set\s+"?%s=' % var, re.IGNORECASE),
+            re.compile(r'\bdo\s+set\s+"?%s=' % var, re.IGNORECASE))
+
+
+def check_repo_anchor(inv):
+    undef, late, unanchored = [], [], []
+    checked = 0
+    for f in inv["all_bat"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        lines = lf_lines(t)
+        body = "\n".join(ln for ln in lines
+                         if not ln.strip().lower().startswith(("rem", "::")))
+        used = [v for v in ANCHOR_VARS if re.search(r"%%%s%%" % v, body, re.IGNORECASE)]
+        if not used:
+            continue
+        checked += 1
+        for v in used:
+            use_re = re.compile(r"%%%s%%" % v, re.IGNORECASE)
+            head_re, do_re = anchor_set_re(v)
+            first_use = first_set = None
+            for i, ln in enumerate(lines, 1):
+                s = ln.strip()
+                if s.lower().startswith(("rem", "::")):
+                    continue
+                if first_set is None and (head_re.search(s) or do_re.search(s)):
+                    first_set = i
+                elif first_use is None and use_re.search(s):
+                    first_use = i
+                if first_use is not None and first_set is not None:
+                    break
+            if first_set is None:
+                undef.append("%s:%d reads %%%s%% but the file never assigns it "
+                             "(the path degrades to a drive-root or relative one)"
+                             % (f, first_use or 0, v))
+            elif first_use is not None and first_set > first_use:
+                late.append("%s:%d reads %%%s%% before it is assigned at line %d"
+                            % (f, first_use, v, first_set))
+        if f.replace("\\", "/").startswith("test/bat/") and ANCHOR_UP2 not in body:
+            unanchored.append("%s: no `%s` anchor - this tool lives two levels below "
+                              "the root, so the cwd is wherever the user clicked"
+                              % (f, ANCHOR_UP2))
+    msgs = undef + late + unanchored
+    if msgs:
+        for m in msgs[:8]:
+            bad("L18", m)
+    else:
+        ok("L18", "anchor variables are assigned before use in every .bat that reads "
+                  "them, and every test\\bat tool self-anchors on %s (%d files)"
+           % (ANCHOR_UP2, checked))
+
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1437,6 +1511,8 @@ def main():
         print("         L15 failure propagation (family parity of the failure path)")
         print("         L16 stream-map uniformity (mp4 entries keep all streams)")
         print("         L17 moov in front (remux entries use -movflags +faststart)")
+        print("         L18 anchor vars (REPO/SELF_DIR) defined before use, "
+              "test\\bat self-anchored")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1465,6 +1541,7 @@ def main():
         check_fail_propagation(inv)
         check_stream_map(inv)
         check_moov_front(inv)
+        check_repo_anchor(inv)
 
     if not args.lint_only:
         print("---- parity ----")

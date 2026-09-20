@@ -701,10 +701,13 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       T23 的 wrapper 从 `convert_from_list_qsv.sh` 换成 `convert_from_list_libx265.sh`（软编、无硬件依赖
       → 两族同夹具且永不被 SKIP）。sh-only 现为 T8/T18/T19/T20/T21/T22/T24/T25；**T24/T25 的 bat 孪生
       如今也具备可行性**（失败即非零已成立），留作后续。
-    * **bench_calib.bat 潜伏 bug 顺手修**：全文**从未定义 `SELF_DIR`**，`"%SELF_DIR%lib\common.bat"`
-      实为相对路径，只在「cwd = 仓库根」时可用（从 `test\bat` 双击会误报 NO_FFMPEG）。已改
-      `%~dp0..\..` 锚定，并把两个 ffmpeg 调用点改为 `%FFMPEG_PATH%`（去掉对 PATH 的隐含依赖，与
-      `find_ffmpeg` 契约一致）。`nvenc_pair_calib.bat` 明确要求 ffmpeg 在 PATH（自洽），未动。
+    * **bench_calib.bat 潜伏 bug 顺手修（⚠️ 本条记录当时有误，见第 40 条订正）**：全文**从未定义
+      `SELF_DIR`**，`"%SELF_DIR%lib\common.bat"` 实为相对路径，只在「cwd = 仓库根」时可用。
+      当时只把 `%SELF_DIR%` 换成 `%REPO%` —— 而 `REPO` **同样从未定义**，等于把一个未定义名换成
+      另一个未定义名（`"%SELF_DIR%lib\..."` → `"\lib\common.bat"` 由相对路径变成盘根路径，
+      连 cwd = 仓库根这个唯一可用情形也一起弄丢了）。真正的锚定在 **2026-09-20** 补上（第 40 条）。
+      同轮把两个 ffmpeg 调用点改为 `%FFMPEG_PATH%`（去掉对 PATH 的隐含依赖，与 `find_ffmpeg` 契约一致）
+      这一项**是有效的**。`nvenc_pair_calib.bat` 明确要求 ffmpeg 在 PATH（自洽），未动。
     * test/README.md：新增 ③c 节（配对校准工具族两族对等表）并置于 ③b 之后、目录树补齐 bat 孪生、
       T23 的 bat 列 `—` → `✅`；**真正修掉遗留的 `bench_av1_calib.bat` 旧名引用**（第 30 条记的"已修"
       实际修的是另一处实例，本条订正）。
@@ -828,3 +831,50 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **基线**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
       **bat 侧需真机双击验证**（沙箱跑不了 cmd.exe）：普通片源探测段数值应与改造前一致；
       纯音频应报「不是视频文件」；smoke_all.bat 无回归。
+40. **bench_calib.bat 锚定真正修好 + `:ONE` 的 setlocal 吞掉推荐值 + 新增 lint L18（2026-09-20，用户报障）**：
+    * **现象（用户原样报回）**：在仓库根执行
+      `.\test\bat\bench_calib.bat "F:\👍 看电影学英语…\The.Princess.Diaries.2.2004.mp4"` →
+      `The system cannot find the path specified.` + `ERROR: ffmpeg/ffprobe not on PATH.`
+    * **根因**：第 35 条那次「锚定修复」只把 `%SELF_DIR%` 改写成 `%REPO%`，而 `REPO` 在本文件里
+      **同样从未赋值** → `call "%REPO%\lib\common.bat"` 展开成 `call "\lib\common.bat"`：
+      反斜杠开头 = **当前盘根**，任何 cwd 都找不到 → cmd 打印 "The system cannot find the path
+      specified." 并置 `errorlevel=1`，下一行 `if errorlevel 1 goto NO_FFMPEG` 于是打出那句**误导性**
+      的「ffmpeg/ffprobe not on PATH」（`find_ffmpeg` 与 ffmpeg 本身都没问题，本机
+      `C:\Program Files\ffmpeg\bin` gyan full 带 libvmaf/libx264/libx265/libsvtav1，已核对）。
+      顺带说明为什么这个 bug 能活下来：改名前是 `"%SELF_DIR%lib\common.bat"`（相对路径），
+      在「cwd = 仓库根」时**碰巧能跑**，所以从仓库根手测会以为已修好——而本次报障恰好也是从仓库根
+      跑的，于是暴露的是**另一个**症状（盘根路径必崩）。
+    * **修法**：`test\bat\bench_calib.bat` 在 `:main` 开头补自锚定（与 `soft_pair_calib.bat` 同款）：
+      `set "REPO=%~dp0..\.."` + `for %%I in ("%REPO%") do set "REPO=%%~fI"` +
+      `if not exist "%REPO%\lib\common.bat" goto NO_REPO`（新增 `:NO_REPO` 出口，rc=2）；
+      `NO_FFMPEG` 文案改成列出四级查找位置（`FFMPEG_BIN` / 仓库 `ffmpeg\bin` / PATH /
+      `C:\Program Files\ffmpeg\bin`），不再一口咬定 "not on PATH"；duration 缺失时补
+      `if not defined SS goto NO_VIDEO` 兜底。
+    * **同轮揪出第二个静默 bug**：`:ONE` 子过程**自己套了 `setlocal`**，而它要跨 5 个梯点累加
+      `RECO_REQ`/`RECO_VM` → 每次 `endlocal` 把推荐值弹掉，调用方最后**恒**打印
+      「no ladder point reached VMAF 95」，即使逐点行明明写着 vmaf=96.x。这正是
+      `soft_pair_calib.bat` 早就记过的教训（辅助函数刻意不加 setlocal）——移除 `:ONE` 的
+      setlocal/endlocal，并把判定简化为「首达即最小档」（五个调用点按 T/4→T 升序，
+      首达即最小，顺带避开首次调用时 `%RECO_REQ%` 为空导致的比较操作数缺失）。
+    * **新增 lint L18（锚定变量）**：凡是读 `%REPO%` / `%SELF_DIR%` 的 `.bat`，必须在**首次读取之前**
+      赋值；`test\bat\` 下的工具还必须在**非注释**代码里出现 `%~dp0..\..`（防"注释里写了锚定、
+      代码里没有"）。**召回已实测**：把 `HEAD:test/bat/bench_calib.bat`（未修版）临时落到 `test\bat\`
+      下，L18 精确报出 `:65 reads %REPO% but the file never assigns it` + 「无 `%~dp0..\..` 锚定」
+      两条；删掉探针文件即复原。selftest 22 → **26 例**（L18 三例 recall：未赋值 / 赋值晚于使用 /
+      `test\bat` 无自锚定；一例 precision：正确自锚定不报）。
+    * **本轮基线**：`lint 26 PASS / 0 FAIL / 5 WARN`、`selftest 26 cases / 0 FAIL`
+      （静态 19 + 对等 7）。**仍待用户真机双击**：本文件静态无法验证 cmd 语义（沙箱无 cmd.exe），
+      建议先跑一次确认 `repo`/`source`/`table`/`encode` 四个头行与 5 个梯点正常，
+      再看 `RECOMMENDATION` 是否与逐点 vmaf 自洽。
+    * **工具链实证（沙箱里用与 bat 逐字相同的 ffmpeg 调用形式跑了一个梯点，非双击 .bat）**：
+      片源 `The.Princess.Diaries.2.2004.mp4` = 1280x720 / 6787s / h264；
+      `PIX=921600` → **T=2719757**，梯 = 679939 / 906585 / 1359878 / 2039817 / 2719757；
+      `SS=3393`。取 T/2 按 10s 试跑：**delivered 1649923 bps、VMAF 94.78**（模型 `vmaf_v0.6.1`），
+      编码 6.0s（x265 fast 50 fps）+ VMAF 11.5s → 推 30s 段每点约 18s + 34s ≈ **52s，五点约 4~5 分钟**。
+      顺带一个真实数据点：**这部片子 T/2 只到 94.78，差一点够不到 95** → 该片会比表值更"难"，
+      工具最终大概率推荐 3T/4（这正是一次性单片标尺存在的意义）。
+      另：`log_path` 相对 + pushd、`-of csv=p=0`、flat 字段名等本次全部按预期工作。
+    * **教训（可复用）**：① 「把一个变量的名字换掉」不等于「修好」——改动前先确认新名字**有定义**；
+      ② 症状会随 cwd 变形的路径 bug，必须**换 cwd 复测**（仓库根 / `test\bat` / 任意目录各一次），
+      否则会被"碰巧能跑"骗过去；③ 调用方用一句**兜底文案**替子调用失败背锅（这里把 `call` 失败
+      说成 "not on PATH"）会大幅拉长排查时间，错误出口应只陈述本层能确定的事实。

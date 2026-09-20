@@ -297,6 +297,54 @@ CASES = [
         "exit 0\n",
         set(), {"L03", "L15", "L16", "L17"},
     ),
+    (
+        "L18: a test\\bat tool reading %REPO% without ever assigning it is caught",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "call \"%REPO%\\lib\\common.bat\" extract %SRC_FILE% OUT_PATH OUT_NAME\n"
+        "pause\n"
+        "exit /b 0\n",
+        {"L18"}, set(),
+    ),
+    (
+        "L18: an anchor assigned AFTER its first use is caught",
+        "probe_tool.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "call \"%REPO%\\lib\\common.bat\" extract %SRC_FILE% OUT_PATH OUT_NAME\n"
+        "set \"REPO=%~dp0\"\n"
+        "exit /b 0\n",
+        {"L18"}, set(),
+    ),
+    (
+        "L18: a test\\bat tool that never self-anchors on %~dp0..\\.. is caught",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~1\"\n"
+        "call \"%REPO%\\lib\\common.bat\" extract %SRC_FILE% OUT_PATH OUT_NAME\n"
+        "exit /b 0\n",
+        {"L18"}, set(),
+    ),
+    (
+        "L18 precision: a properly self-anchored test\\bat tool stays silent",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "for %%I in (\"%REPO%\") do set \"REPO=%%~fI\"\n"
+        "if not exist \"%REPO%\\lib\\common.bat\" goto NO_REPO\n"
+        "call \"%REPO%\\lib\\common.bat\" extract %SRC_FILE% OUT_PATH OUT_NAME\n"
+        "exit /b 0\n"
+        ":NO_REPO\n"
+        "exit /b 2\n",
+        set(), {"L18"},
+    ),
 ]
 
 
@@ -311,16 +359,26 @@ def build(root, files):
             fh.write(data.encode("utf-8"))
 
 
+def listing(root, *parts):
+    d = os.path.join(root, *parts)
+    if not os.path.isdir(d):
+        return []
+    return [os.path.join(*parts, f) for f in sorted(os.listdir(d)) if os.path.isfile(os.path.join(d, f))]
+
+
 def make_inv(root):
-    bat = sorted(f for f in os.listdir(root)
-                 if f.endswith(".bat") and os.path.isfile(os.path.join(root, f)))
-    sh = sorted(f for f in os.listdir(root)
-                if f.endswith(".sh") and os.path.isfile(os.path.join(root, f)))
-    lib = [os.path.join("lib", f) for f in sorted(os.listdir(os.path.join(root, "lib")))]
+    """Same shape as lint.inventory(). The test/bat and test/sh trees are only
+    populated for the cases that need them (an L18 case lives two levels down),
+    every other case still gets the flat root-only inventory."""
+    bat = [f for f in listing(root) if f.endswith(".bat")]
+    sh = [f for f in listing(root) if f.endswith(".sh")]
+    test_bat = [f for f in listing(root, "test", "bat") if f.endswith(".bat")]
+    test_sh = [f for f in listing(root, "test", "sh") if f.endswith(".sh")]
+    lib = listing(root, "lib")
     return {
         "bat": bat, "root_bat": bat, "root_sh": sh, "lib": lib,
-        "test_bat": [], "test_sh": [], "md": [],
-        "all_bat": bat + lib, "all_sh": sh + ["lib/common.sh"],
+        "test_bat": test_bat, "test_sh": test_sh, "md": [],
+        "all_bat": bat + lib + test_bat, "all_sh": sh + test_sh + ["lib/common.sh"],
     }
 
 
@@ -342,6 +400,7 @@ def run_checks(inv):
     lint.check_fail_propagation(inv)
     lint.check_stream_map(inv)
     lint.check_moov_front(inv)
+    lint.check_repo_anchor(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

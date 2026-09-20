@@ -35,6 +35,18 @@ exit /b %errorlevel%
 
 :main
 setlocal EnableExtensions
+rem This file sits two levels below the repo root and is meant to be started
+rem from anywhere (drag a movie onto it, double-click it, or call it from a
+rem shell), so the current directory proves nothing - anchor on the script
+rem location instead. %~dp0..\.. is relative until %%~fI normalizes it to a
+rem full path. Without this, "%REPO%\lib\common.bat" collapses to
+rem "\lib\common.bat" (a drive-root path) and the call fails with "The system
+rem cannot find the path specified." - which the caller then reports as the
+rem misleading "ffmpeg/ffprobe not on PATH".
+set "REPO=%~dp0..\.."
+for %%I in ("%REPO%") do set "REPO=%%~fI"
+if not exist "%REPO%\lib\common.bat" goto NO_REPO
+
 set "CODEC=hevc"
 set "A1=%~1"
 set "A2=%~2"
@@ -75,6 +87,7 @@ for /f "usebackq delims=" %%H in (`%FFPROBE_PATH% -v error -select_streams v:0 -
 for /f "usebackq delims=." %%D in (`%FFPROBE_PATH% -v error -show_entries format^=duration -of csv^=p^=0 "%SRC%"`) do set /a SS=%%D/2
 if not defined SW goto NO_VIDEO
 if not defined SH goto NO_VIDEO
+if not defined SS goto NO_VIDEO
 set "W2=%SW%"
 set "H2=%SH%"
 if %CAP% gtr 0 if %SH% gtr %CAP% (
@@ -133,11 +146,17 @@ pause
 exit /b 0
 
 :ONE
-setlocal
+rem Deliberately NO setlocal here: this subroutine accumulates RECO_REQ /
+rem RECO_VM across the five ladder calls, and a setlocal would pop them on
+rem return - the caller would then always report "no ladder point reached
+rem VMAF 95" even when the per-point lines clearly show one did. (Same lesson
+rem as the soft_pair_calib.bat helpers.) The scratch names set here (BR, TAG,
+rem OUT, DEL, JS, VM, VM10) collide with nothing in :main and are recomputed
+rem on every call.
 set "BR=%~1"
 set "TAG=%W2%x%H2%_%BR%"
 set "OUT=%WORK%\%TAG%.mp4"
-if not exist "%OUT%" "%FFMPEG_PATH%" -y -hide_banner -loglevel error -ss %SS% -t %LEN% -i "%SRC%" -vf "%PREP%" -c:v %ENC% -preset %PSET% -b:v %BR% -an "%OUT%" || ( endlocal & exit /b 1 )
+if not exist "%OUT%" "%FFMPEG_PATH%" -y -hide_banner -loglevel error -ss %SS% -t %LEN% -i "%SRC%" -vf "%PREP%" -c:v %ENC% -preset %PSET% -b:v %BR% -an "%OUT%" || ( exit /b 1 )
 set "DEL="
 for /f "usebackq delims=" %%R in (`"%FFPROBE_PATH%" -v error -select_streams v:0 -show_entries stream^=bit_rate -of csv^=p^=0 "%OUT%"`) do set "DEL=%%R"
 if not defined DEL set "DEL=0"
@@ -146,10 +165,10 @@ rem filtergraph parser) and the reference leg needs the SAME -ss/-t as
 rem the encode leg, or libvmaf pairs frames from different offsets.
 set "JS=%WORK%\%TAG%.json"
 if not exist "%JS%" (
-    pushd "%WORK%" || ( endlocal & exit /b 1 )
+    pushd "%WORK%" || ( exit /b 1 )
     "%FFMPEG_PATH%" -hide_banner -loglevel error -i "%TAG%.mp4" -ss %SS% -t %LEN% -i "%SRC%" -filter_complex "[1:v]%PREP%[sref];[0:v][sref]libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%TAG%.json" -f null -
     popd
-    if errorlevel 1 ( endlocal & exit /b 1 )
+    if errorlevel 1 ( exit /b 1 )
 )
 set "VM="
 for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content -Raw '%JS%' | ConvertFrom-Json).pooled_metrics.vmaf.mean"`) do set "VM=%%V"
@@ -158,13 +177,20 @@ set "VM10="
 for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "[int][math]::Floor((Get-Content -Raw '%JS%' | ConvertFrom-Json).pooled_metrics.vmaf.mean * 10)"`) do set "VM10=%%V"
 >> "%CSV%" echo %W2%x%H2%,%CODEC%,%BR%,%DEL%,%VM%
 echo   %TAG%  req=%BR%  delivered=%DEL%  vmaf=%VM%
-if defined VM10 if %VM10% geq 950 (
-    if not defined RECO_REQ set "RECO_REQ=%BR%" & set "RECO_VM=%VM%"
+rem The five call sites walk the ladder in ASCENDING bitrate order
+rem (T/4 <= T/3 <= T/2 <= 3T/4 <= T), so the first point to reach VMAF 95 is
+rem already the smallest one - a plain "if not defined" latch is enough, and it
+rem avoids comparing against an empty operand on the first call.
+if defined VM10 if %VM10% geq 950 if not defined RECO_REQ (
+    set "RECO_REQ=%BR%"
+    set "RECO_VM=%VM%"
 )
-if defined VM10 if %VM10% geq 950 if defined RECO_REQ if %BR% lss %RECO_REQ% set "RECO_REQ=%BR%" & set "RECO_VM=%VM%"
-endlocal
 exit /b 0
 
+:NO_REPO
+echo ERROR: repo not found at "%REPO%" - expected lib\common.bat there.
+pause
+exit /b 2
 :NO_SRC
 echo ERROR: source video not found or not given.
 pause
@@ -174,7 +200,8 @@ echo ERROR: ffprobe failed / pixel count overflow on this source.
 pause
 exit /b 2
 :NO_FFMPEG
-echo ERROR: ffmpeg/ffprobe not on PATH.
+echo ERROR: no ffmpeg.exe found - looked at FFMPEG_BIN, the repo's ffmpeg\bin,
+echo        PATH and C:\Program Files\ffmpeg\bin.
 pause
 exit /b 2
 :NO_VMAF
