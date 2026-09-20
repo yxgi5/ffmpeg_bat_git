@@ -83,6 +83,14 @@ else
     FF=ffmpeg
     FP=ffprobe
 fi
+# Every call that touches a file goes through ff_run/fp_run (lib/common.sh): they
+# hand a native Windows build the X:/... spelling it can actually open, because
+# Cygwin does not rewrite POSIX argv paths for native child processes (see
+# native_path). Without lib/common.sh there is nothing to translate.
+if ! declare -F ff_run >/dev/null 2>&1; then
+    ff_run() { "$FF" "$@"; }
+    fp_run() { "$FP" "$@"; }
+fi
 W="${SOFT_PAIR_WORK:-$HOME/ffmpeg_soft_pair_calib}"
 LOG="$W/logs"; REF="$W/ref"; ENC="$W/enc"
 mkdir -p "$LOG" "$REF" "$ENC"
@@ -120,7 +128,7 @@ if [ "$MODE" = full ]; then
     SRC[bbb_2160]=3840:2160
     if [ -s "$REF/ref_bbb_1080.mp4" ] && [ ! -s "$REF/ref_bbb_2160.mp4" ]; then
         echo "prep  ref_bbb_2160 (upscaled from ref_bbb_1080)"
-        "$FF" -y -hide_banner -loglevel error -i "$REF/ref_bbb_1080.mp4" \
+        ff_run -y -hide_banner -loglevel error -i "$REF/ref_bbb_1080.mp4" \
             -vf "scale=3840:2160:flags=lanczos,setsar=1,format=yuv420p" \
             -c:v libx264 -crf 10 -preset slow -an "$REF/ref_bbb_2160.mp4"
     fi
@@ -131,7 +139,7 @@ for key in "${!SRC[@]}"; do
     dim="${SRC[$key]}"; wh="${dim%%:*}x${dim##*:}"
     if [ ! -s "$REF/ref_$key.mp4" ]; then
         echo "prep  ref_$key ($wh)"
-        "$FF" -y -hide_banner -loglevel error -i "src_${key}.mp4" \
+        ff_run -y -hide_banner -loglevel error -i "src_${key}.mp4" \
             -vf "scale=$wh:flags=lanczos,setsar=1,fps=30,format=yuv420p" \
             -c:v libx264 -crf 10 -preset slow -an "$REF/ref_$key.mp4" || { echo "prep FAIL $key"; continue; }
     fi
@@ -162,7 +170,7 @@ for key in "${!SRC[@]}"; do
                             # verify 4k model once; fall back to default
                             if [ -z "${MODEL_4K_CHECK:-}" ]; then
                                 MODEL_4K_CHECK=1
-                                "$FF" -hide_banner -loglevel error -i "$ref" -i "$ref" \
+                                ff_run -hide_banner -loglevel error -i "$ref" -i "$ref" \
                                     -lavfi "libvmaf=model=version=vmaf_4k_v0.6.1" -f null - 2>/dev/null \
                                     && MODEL_4K="model=version=vmaf_4k_v0.6.1" || MODEL_4K="model=version=vmaf_v0.6.1"
                                 echo "4k model: $MODEL_4K"
@@ -177,17 +185,17 @@ for key in "${!SRC[@]}"; do
             if [ ! -s "$out" ]; then
                 echo "enc   $tag"
                 # shellcheck disable=SC2086
-                "$FF" -y -hide_banner -loglevel error -i "$ref" -c:v "$enc" $opts -b:v "$br" -an "$out" \
+                ff_run -y -hide_banner -loglevel error -i "$ref" -c:v "$enc" $opts -b:v "$br" -an "$out" \
                     || { echo "encode FAIL $tag"; continue; }
             fi
-            delivered=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0 "$out")
-            case "$delivered" in ''|*[!0-9]*) delivered=$("$FP" -v error -show_entries format=bit_rate -of csv=p=0 "$out") ;; esac
+            delivered=$(fp_run -v error -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0 "$out")
+            case "$delivered" in ''|*[!0-9]*) delivered=$(fp_run -v error -show_entries format=bit_rate -of csv=p=0 "$out") ;; esac
             if [ ! -s "$js" ]; then
                 echo "vmaf  $tag (delivered ${delivered}bps)"
                 # log_path is deliberately cwd-relative: an absolute path
                 # with a drive colon breaks libvmaf's filter-arg parser on
                 # Windows (and POSIX /c/... paths are not rewritten there).
-                "$FF" -hide_banner -loglevel error -i "$out" -i "$ref" \
+                ff_run -hide_banner -loglevel error -i "$out" -i "$ref" \
                     -lavfi "libvmaf=$MODEL:log_fmt=json:log_path=$js" -f null - 2>"$LOG/$tag.err" \
                     || { echo "vmaf FAIL $tag"; tail -2 "$LOG/$tag.err"; continue; }
             fi

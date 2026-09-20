@@ -36,6 +36,20 @@
 
 > 这条最容易被忽略：同一台机器，换个 shell 就换了个 ffmpeg，能力表跟着变。
 > 在 Cygwin 里跑 `ffmpeg_libx264.sh` 会直接失败（该构建未编入 x264）。
+>
+> **同一台机器，三种 shell 对「路径」的处理也不同（2026-09-20 实测）**：把 POSIX 路径交给
+> **原生** `ffmpeg.exe` / `ffprobe.exe`，只有 MSYS2 会替你改写成 Windows 形式。
+>
+> | 交给原生 ffmpeg 的写法 | MSYS2 | Cygwin | Git Bash |
+> |---|---|---|---|
+> | `/f/…`（MSYS 系）/ `/cygdrive/f/…`（Cygwin） | ✅ 自动改写 | ❌ `No such file or directory` | ⚠️ 本沙箱不改写（真机 Git for Windows 默认会改写） |
+> | `F:/…`（混合写法） | ✅ | ✅ | ✅ |
+> | `F:\…`（反斜杠） | ✅ | ✅ | ✅ |
+>
+> 连**纯 ASCII** 路径也一样（`/cygdrive/c/…` 失败、`C:/…` 成功），所以这不是非 ASCII 字符
+> 的问题，而是 Cygwin 不给原生子进程改写 argv。仓库的应对：`lib/common.sh` 的
+> **`native_path()`**（`cygpath -m` → `X:/…`）与 **`ff_run()` / `fp_run()`** 包装，
+> 三个 `*calib*` 工具已全部走包装。
 
 ## 3. 编码能力矩阵
 

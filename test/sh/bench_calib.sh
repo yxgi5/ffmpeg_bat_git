@@ -25,6 +25,8 @@
 #
 #   Env knobs:
 #     WORK=<path>  output dir; default $TMPDIR/ffmpeg_bench_calib_<codec>
+#                  artifacts live in a per-parameter subdir of it, so a rerun
+#                  can never pick up files made with different settings
 #     FFMPEG_BIN=<dir> / FFMPEG=<file>   pin the ffmpeg to use (same names
 #                  as the .bat side); otherwise lib/common.sh find_ffmpeg
 #                  picks one that actually has libvmaf
@@ -108,9 +110,9 @@ SRC="$(normalize_source_path "$SRC")"
     echo "       the brackets show exactly what this shell received."
     exit 2; }
 
-SW=$("$FP" -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
-SH=$("$FP" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
-DUR=$("$FP" -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
+SW=$(fp_run -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
+SH=$(fp_run -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
+DUR=$(fp_run -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
 case "$SW$SH$DUR" in ""|*[!0-9]*) echo "ERROR: ffprobe failed on $SRC"; exit 2 ;; esac
 SS=$((DUR / 2))
 
@@ -130,7 +132,17 @@ if [ "$H2" -ne "$SH" ] || [ "$W2" -ne "$SW" ]; then
 fi
 if [ "$H2" -ge 2160 ]; then MODEL="vmaf_4k_v0.6.1"; else MODEL="vmaf_v0.6.1"; fi
 
+# The work dir is scoped to the parameter set: s<ss>t<len>_<W>x<H>_T<T>_<source bytes>.
+# The "if the file exists" guards below keep a rerun cheap, so the directory MUST
+# change whenever anything that changes the result changes - and it did not. A run
+# printed "seg 30s" over artifacts left behind by an earlier test at a different
+# segment length and reported their numbers as its own (user report, 2026-09-20:
+# this side said 1783203 bps, the .bat side 2039817 bps on the same source).
+# A parameter-scoped dir makes stale reuse impossible, with no signature
+# bookkeeping, and its name doubles as a record of what produced the artifacts.
+# Same rule on the .bat side (test/bat/bench_calib.bat).
 WORK="${WORK:-${TMPDIR:-/tmp}/ffmpeg_bench_calib_${CODEC}}"
+WORK="$WORK/s${SS}t${LEN}_${W2}x${H2}_T${T}_$(src_stamp "$SRC")"
 mkdir -p "$WORK"
 CSV="$WORK/results.csv"
 printf 'res,codec,br_req,br_delivered,vmaf\n' > "$CSV"
@@ -144,23 +156,26 @@ echo "work   : $WORK"
 echo
 
 encode_ladder() {
-    local frac br tag out
-    for frac in 25 33 50 75 100; do
-        br=$((T * frac / 100))
+    local br tag out
+    # The same five points as test/bat/bench_calib.bat, computed the same way.
+    # This used to be T*25/100, T*33/100, ... which is not the ladder the header
+    # (and the .bat side) documents: 33% is not 1/3, so point 2 was 897519 here
+    # against 906585 there, and the artifact names disagreed for a same ladder.
+    for br in $((T / 4)) $((T / 3)) $((T / 2)) $((T * 3 / 4)) "$T"; do
         [ "$br" -lt 100 ] && br=100
-        tag="${W2}x${H2}_${frac}"
+        tag="${W2}x${H2}_${br}"
         out="$WORK/$tag.mp4"
         if [ ! -f "$out" ]; then
-            "$FF" -y -hide_banner -loglevel error -ss "$SS" -t "$LEN" -i "$SRC" \
+            ff_run -y -hide_banner -loglevel error -ss "$SS" -t "$LEN" -i "$SRC" \
                 -vf "$PREP" -c:v "$ENC" -preset "$PSET" -b:v "$br" -an "$out" < /dev/null \
                 || { echo "  ENCODE FAIL $tag"; continue; }
         fi
         local del vm js
-        del=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate \
+        del=$(fp_run -v error -select_streams v:0 -show_entries stream=bit_rate \
               -of csv=p=0 "$out" < /dev/null | tr -d '\r')
         # mp4 carries a per-stream rate, other containers (mkv) do not - fall
         # back to the container average rather than reporting a silent 0.
-        case "$del" in ''|*[!0-9]*) del=$("$FP" -v error -show_entries \
+        case "$del" in ''|*[!0-9]*) del=$(fp_run -v error -show_entries \
               format=bit_rate -of csv=p=0 "$out" < /dev/null | tr -d '\r') ;; esac
         case "$del" in ''|*[!0-9]*) del=0 ;; esac
         js="$tag.json"
@@ -170,7 +185,7 @@ encode_ladder() {
             # the reference leg needs the SAME -ss/-t as the encode leg,
             # otherwise libvmaf pairs frames from different offsets and
             # returns garbage (~0.7) scores.
-            ( cd "$WORK" && "$FF" -hide_banner -loglevel error \
+            ( cd "$WORK" && ff_run -hide_banner -loglevel error \
                 -i "$tag.mp4" -ss "$SS" -t "$LEN" -i "$SRC" \
                 -filter_complex "[1:v]${PREP}[sref];[0:v][sref]libvmaf=model=version=${MODEL}:log_fmt=json:log_path=${js}[out]" \
                 -map "[out]" -f null - < /dev/null ) \

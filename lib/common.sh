@@ -519,3 +519,64 @@ function rejoin_split_path() {
     if [ "$dn" -gt 1 ]; then REJOIN_PATH="$dbest"; REJOIN_N="$dn"; return 0; fi
     return 1
 }
+
+# ================================================================
+# native_path <路径>
+#   给"原生"(非 Cygwin/MSYS)的 ffmpeg.exe / ffprobe.exe 用的路径写法。
+#
+# 背景(用户报障, 2026-09-20 实测): 同一个 gyan full 构建, 同一条路径, 三种 shell 表现不同 ——
+#     Cygwin  /cygdrive/f/👍 看电影学英语…/x.mp4  ->  No such file or directory   (rc=1)
+#     Cygwin  F:/👍 看电影学英语…/x.mp4           ->  1280                         (rc=0)
+#     MSYS2   /f/👍 看电影学英语…/x.mp4           ->  1280                         (rc=0)
+# 连纯 ASCII 的 /cygdrive/c/... 也一样失败, 所以不是非 ASCII 字符的问题: Cygwin 不给原生子
+# 进程改写 argv 里的路径, MSYS2 会。混合写法 X:/... 两边都认 -> 统一走它。
+# 纯 Linux 上没有 cygpath, 原样返回(那里的 ffmpeg 本来就要 POSIX 路径)。
+# ================================================================
+function native_path() {
+    local p="${1:-}" w
+    [ -n "$p" ] || return 0
+    case "$p" in
+        [A-Za-z]:[\\/]*) printf '%s' "$p"; return 0 ;;
+    esac
+    case "$p" in
+        /*)
+            if command -v cygpath >/dev/null 2>&1; then
+                w="$(cygpath -m "$p" 2>/dev/null)"
+                [ -n "$w" ] && { printf '%s' "$w"; return 0; }
+            fi
+            ;;
+    esac
+    printf '%s' "$p"
+}
+
+# ================================================================
+# ff_run / fp_run  ——  会改写路径的 ffmpeg / ffprobe 调用
+#   规则: 参数以 / 开头就当成路径, 换成原生写法; 其余(过滤串、-map、数字、编解码器名)
+#   原样传递。工具里凡是要读/写文件的调用都走这两个包装, 不要直接 "$FF" / "$FP"。
+#   依赖调用方已设好 FF 与 FP(见各工具的 find_ffmpeg 段)。
+# ================================================================
+function _ff_native_exec() {
+    local exe="$1"; shift
+    local a out=()
+    for a in "$@"; do
+        case "$a" in
+            /*) out+=("$(native_path "$a")") ;;
+            *)  out+=("$a") ;;
+        esac
+    done
+    "$exe" ${out[@]+"${out[@]}"}
+}
+function ff_run() { _ff_native_exec "$FF" "$@"; }
+function fp_run() { _ff_native_exec "$FP" "$@"; }
+
+# ================================================================
+# src_stamp <文件>  ——  把源文件折算成一小段"身份串", 用来给工作目录命名
+#   只取字节数: .bat 侧的 %%\~zI 能算出同一个数, 两族因此可以共用同一份产物;
+#   mtime 不行(cmd 的 %%\~tI 是本地化格式, 和 stat/date 的秒数对不上)。
+#   区分"换了一个源文件"的强度足够 —— 两部电影字节数撞车的概率可以忽略。
+# ================================================================
+function src_stamp() {
+    local sz=""
+    if sz="$(stat -c '%s' "$1" 2>/dev/null)" && [ -n "$sz" ]; then printf '%s' "$sz"; return 0; fi
+    wc -c < "$1" 2>/dev/null | tr -d ' \r'
+}

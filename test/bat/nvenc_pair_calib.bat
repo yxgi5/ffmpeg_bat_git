@@ -54,14 +54,20 @@ ffmpeg -hide_banner -filters 2>nul | findstr /c:"libvmaf" >nul || goto NO_VMAF
 ffmpeg -hide_banner -encoders 2>nul | findstr /c:"av1_nvenc" >nul || goto NO_AV1NVENC
 ffmpeg -hide_banner -encoders 2>nul | findstr /c:"hevc_nvenc" >nul || goto NO_HEVCNVENC
 
-set "WORK=%TEMP%\ffmpeg_bat_nvenc_pair"
-if not exist "%WORK%" mkdir "%WORK%" >nul 2>&1
-set "CSV=%WORK%\results.csv"
-> "%CSV%" echo res,codec,br_req,br_delivered,vmaf
 
 for /f "usebackq delims=" %%W in (`ffprobe -v error -select_streams v:0 -show_entries stream^=width -of csv^=p^=0 "%SRC%"`) do set "SW=%%W"
 if not defined SW goto NO_VIDEO
 for /f "usebackq delims=." %%D in (`ffprobe -v error -show_entries format^=duration -of csv^=p^=0 "%SRC%"`) do set /a SS=%%D/2
+rem Per-parameter work dir: the cached ref_<W>x<H>.mp4 and the per-point
+rem mp4/json are reused when present, so the directory has to change when the
+rem source or the segment start does. The work dir is created here rather than
+rem earlier because %SS% is only known now (see the long note in
+rem test\bat\bench_calib.bat; same rule in test\sh\nvenc_pair_calib.sh).
+for %%I in ("%SRC%") do set "SZ=%%~zI"
+set "WORK=%TEMP%\ffmpeg_bat_nvenc_pair\s%SS%t10_%SZ%"
+if not exist "%WORK%" mkdir "%WORK%" >nul 2>&1
+set "CSV=%WORK%\results.csv"
+> "%CSV%" echo res,codec,br_req,br_delivered,vmaf
 echo source : %SRC%
 echo width  : %SW%   segment start: %SS%s
 echo work   : %WORK%

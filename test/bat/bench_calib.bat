@@ -130,7 +130,19 @@ if not "%W2%"=="%SW%" set "PREP=scale=%W2%:%H2%:flags=lanczos,%PREP%"
 set "MODEL=vmaf_v0.6.1"
 if %H2% geq 2160 set "MODEL=vmaf_4k_v0.6.1"
 
-set "WORK=%TEMP%\ffmpeg_bench_calib_%CODEC%"
+rem The work dir is scoped to the parameter set:
+rem   s<ss>t<len>_<W>x<H>_T<T>_<source bytes>
+rem The per-file reuse guards below (if not exist OUT / if exist JS) keep a
+rem rerun cheap, so the directory MUST change whenever anything that changes
+rem the result changes - and it did not. A run printed "seg 30s" over
+rem artifacts left behind by an earlier test at a different segment length and
+rem reported their numbers as its own (user report, 2026-09-20: this side said
+rem 2039817 bps, the .sh side 1783203 bps on the same source). A scoped dir
+rem makes stale reuse impossible without any signature bookkeeping, and its
+rem name doubles as a record of what produced the artifacts. Same rule in
+rem test\sh\bench_calib.sh.
+for %%I in ("%SRC%") do set "SZ=%%~zI"
+set "WORK=%TEMP%\ffmpeg_bench_calib_%CODEC%\s%SS%t%LEN%_%W2%x%H2%_T%T%_%SZ%"
 if not exist "%WORK%" mkdir "%WORK%" >nul 2>&1
 set "CSV=%WORK%\results.csv"
 > "%CSV%" echo res,codec,br_req,br_delivered,vmaf

@@ -51,6 +51,14 @@ if declare -F find_ffmpeg >/dev/null 2>&1; then
 else
     FF=ffmpeg; FP=ffprobe
 fi
+# Every call that touches a file goes through ff_run/fp_run (lib/common.sh): they
+# hand a native Windows build the X:/... spelling it can actually open, because
+# Cygwin does not rewrite POSIX argv paths for native child processes (see
+# native_path). Without the library there is nothing to translate.
+if ! declare -F ff_run >/dev/null 2>&1; then
+    ff_run() { "$FF" "$@"; }
+    fp_run() { "$FP" "$@"; }
+fi
 "$FF" -hide_banner -encoders 2>/dev/null | grep -q " av1_nvenc " \
     || { echo "ERROR: no av1_nvenc in $FF - AV1 NVENC needs an Ada (RTX 40) or newer GPU"; exit 2; }
 "$FF" -hide_banner -encoders 2>/dev/null | grep -q " hevc_nvenc " \
@@ -98,12 +106,21 @@ fi
     echo "       tried: [$SRC]"
     exit 2; }
 
-SW=$("$FP" -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
-DUR=$("$FP" -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
+SW=$(fp_run -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
+DUR=$(fp_run -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
 case "$SW$DUR" in ""|*[!0-9]*) echo "ERROR: ffprobe failed on $SRC (no video stream?)"; exit 2 ;; esac
 SS=$((DUR / 2))
 
+# Per-parameter subdir for the same reason as test/sh/bench_calib.sh: the cached
+# ref_<W>x<H>.mp4 and the per-point mp4/json are reused when present, so the
+# directory has to change when the source or the segment start does.
+if declare -F src_stamp >/dev/null 2>&1; then
+    SZ="$(src_stamp "$SRC")"
+else
+    SZ="$(wc -c < "$SRC" 2>/dev/null | tr -d ' ')"
+fi
 WORK="${WORK:-${TMPDIR:-/tmp}/ffmpeg_bat_nvenc_pair}"
+WORK="$WORK/s${SS}t10_${SZ}"
 mkdir -p "$WORK"
 CSV="$WORK/results.csv"
 printf 'res,codec,br_req,br_delivered,vmaf\n' > "$CSV"
@@ -121,21 +138,21 @@ score_point() {
     out="$WORK/$tag.mp4"
     js="$tag.json"
     if [ ! -f "$out" ]; then
-        "$FF" -y -hide_banner -loglevel error -i "$ref" \
+        ff_run -y -hide_banner -loglevel error -i "$ref" \
             -c:v "$codec" -preset p4 -rc cbr -b:v "$br" -an "$out" < /dev/null \
             || { echo "  ENCODE FAIL $tag"; return 1; }
     fi
-    del=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate \
+    del=$(fp_run -v error -select_streams v:0 -show_entries stream=bit_rate \
           -of csv=p=0 "$out" < /dev/null | tr -d '\r')
     # containers without a per-stream rate fall back to the average, so the
     # column is never a silent 0 (same rule as test/sh/bench_calib.sh).
-    case "$del" in ''|*[!0-9]*) del=$("$FP" -v error -show_entries \
+    case "$del" in ''|*[!0-9]*) del=$(fp_run -v error -show_entries \
           format=bit_rate -of csv=p=0 "$out" < /dev/null | tr -d '\r') ;; esac
     case "$del" in ''|*[!0-9]*) del=0 ;; esac
     # log_path must stay RELATIVE: an absolute path breaks the
     # filtergraph parser on Windows (drive colon = separator).
     if [ ! -f "$WORK/$js" ]; then
-        ( cd "$WORK" && "$FF" -hide_banner -loglevel error \
+        ( cd "$WORK" && ff_run -hide_banner -loglevel error \
             -i "$tag.mp4" -i "$ref" \
             -lavfi "libvmaf=model=version=${model}:log_fmt=json:log_path=${js}" \
             -f null - < /dev/null ) \
@@ -163,7 +180,7 @@ run_res() {
     echo
     echo "==== reference ${w}x${h} ===="
     if [ ! -f "$ref" ]; then
-        "$FF" -y -hide_banner -loglevel error -ss "$SS" -t 10 -i "$SRC" \
+        ff_run -y -hide_banner -loglevel error -ss "$SS" -t 10 -i "$SRC" \
             -vf "scale=${w}:${h}:flags=lanczos,setsar=1,fps=30,format=yuv420p" \
             -c:v libx264 -crf 10 -preset slow -an "$ref" < /dev/null \
             || return 1
