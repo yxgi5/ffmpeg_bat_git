@@ -4,6 +4,7 @@ rem lib\common.bat - 公共子程序库 (P1 重构)
 rem 用法: call "%~dp0lib\common.bat" <函数名> [参数...]
 rem   函数的实际参数从 %2 开始 ( %1 为函数名)
 rem   find_ffmpeg: 四级回退定位 ffmpeg/ffprobe (FFMPEG_BIN > 仓库内 > PATH > 默认目录)
+rem                 可选第 3 参数 = 必需能力名(如 libvmaf): 命中候选不满足时继续往下列兜底目录找
 rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
 rem   call 跨文件共享环境: 函数内 set 的变量(非 setlocal 内)对调用方可见
 rem 注意: 本文件必须保持 CRLF 行尾, 勿用会剥 CR 的编辑器保存
@@ -123,10 +124,14 @@ set %~4="%~n2.mp4"
 exit /b 0
 
 :find_ffmpeg
-rem 定位 ffmpeg/ffprobe 所在 bin 目录: call ... find_ffmpeg <输出变量名>
+rem 定位 ffmpeg/ffprobe 所在 bin 目录: call ... find_ffmpeg <输出变量名> [必需能力名]
 rem 优先级: 环境变量 FFMPEG_BIN(指向bin目录) > 仓库内 ffmpeg\bin > PATH(where) > C:\Program Files\ffmpeg\bin
+rem   第 3 参数(如 libvmaf)可选: 给定时, 先按上面的顺序选一个, 若它不含该能力
+rem   则继续往下列的两个兜底目录找(见文件末尾的"能力复核"注释)。
+rem   不给时逐字节等价于改造前的行为, 12 个编码入口都是这种用法。
 rem 命中: 输出变量=bin目录(无尾部反斜杠), 返回 0; 未找到: 返回 1
 set "FF_OUT=%~2"
+set "FF_NEED=%~3"
 if not defined FF_OUT exit /b 1
 set "FFBIN="
 if defined FFMPEG_BIN if exist "%FFMPEG_BIN%\ffmpeg.exe" set "FFBIN=%FFMPEG_BIN%"
@@ -137,6 +142,38 @@ if not defined FFBIN (
     )
 )
 if not defined FFBIN if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files\ffmpeg\bin"
+rem 能力复核 (2026-09-20): 调用方给了必需能力而当前候选没有时, 继续往下列兜底目录找。
+rem   现实动因: 从 MSYS2 的终端里跑 .bat 时, cmd 继承的 PATH 把 D:\msys64\mingw64\bin
+rem   排在前面, 那里的 ffmpeg 8.1 没有 libvmaf -> calib 族会误报 NO_VMAF, 而机器上
+rem   C:\Program Files\ffmpeg\bin 的 gyan full 明明有(与 sh 侧 find_ffmpeg 同一回事)。
+rem   两级兜底都不满足就保留原候选, 由调用方自己的 NO_VMAF/NO_ENC 文案报错。
+rem   注意: 本段只在给了第 3 参数时生效, 没给的调用方路径与改造前完全一致。
+if not defined FFBIN goto FF_CHECKED
+if not defined FF_NEED goto FF_CHECKED
+call :ff_satisfies "%FFBIN%"
+if not errorlevel 1 goto FF_CHECKED
+rem FFMPEG_BIN 是显式指定: 不够用时只报告, 不换别的构建
+rem   (与 sh 侧 lib/common.sh 的 find_ffmpeg 同一条规则: 显式指定优先, 绝不悄悄换)
+if defined FFMPEG_BIN if /I "%FFBIN%"=="%FFMPEG_BIN%" (
+    echo [find_ffmpeg] FFMPEG_BIN=%FFBIN% 缺少 %FF_NEED% (显式指定, 不再另找)
+    goto FF_CHECKED
+)
+echo [find_ffmpeg] %FFBIN% 缺少 %FF_NEED%, 继续在兜底目录里找
+if exist "%~dp0..\ffmpeg\bin\ffmpeg.exe" (
+    call :ff_satisfies "%~dp0..\ffmpeg\bin"
+    if not errorlevel 1 (
+        for %%I in ("%~dp0..\ffmpeg\bin") do set "FFBIN=%%~fI"
+        goto FF_CHECKED
+    )
+)
+if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" (
+    call :ff_satisfies "C:\Program Files\ffmpeg\bin"
+    if not errorlevel 1 (
+        set "FFBIN=C:\Program Files\ffmpeg\bin"
+        goto FF_CHECKED
+    )
+)
+:FF_CHECKED
 if not defined FFBIN (
     echo [find_ffmpeg] 未找到 ffmpeg.exe: 请安装 ffmpeg 或设置环境变量 FFMPEG_BIN 指向其 bin 目录
     set "%FF_OUT%="
@@ -145,6 +182,17 @@ if not defined FFBIN (
 if "%FFBIN:~-1%"=="\" set "FFBIN=%FFBIN:~0,-1%"
 set "%FF_OUT%=%FFBIN%"
 exit /b 0
+
+:ff_satisfies
+rem 内部子程序: 候选 bin 目录是否含 FF_NEED 指定的能力; 含返回 0, 不含返回 1
+rem   参数1 = bin 目录。先查 -filters 再查 -encoders(能力名两处都试, 调用方不必区分)。
+rem   只判 findstr 命中与否, 不看 ffmpeg 自身退出码 —— Windows 版 ffmpeg 失败返回负
+rem   AVERROR, 对 if errorlevel 无效(见 lint L15 与 environment_matrix 的负码陷阱)。
+"%1\ffmpeg.exe" -hide_banner -filters 2>nul | findstr /c:"%FF_NEED%" >nul
+if not errorlevel 1 exit /b 0
+"%1\ffmpeg.exe" -hide_banner -encoders 2>nul | findstr /c:"%FF_NEED%" >nul
+if not errorlevel 1 exit /b 0
+exit /b 1
 
 :check_isvideo
 rem 校验输入是否含视频流: call ... check_isvideo <文件>

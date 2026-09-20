@@ -388,6 +388,64 @@ CASES = [
         "exit /b 0\n",
         set(), {"L19"},
     ),
+    (
+        "L20: a .sh needing libvmaf but trusting PATH is caught",
+        "test/sh/probe_calib.sh", False,
+        "#!/bin/bash\n"
+        "ffmpeg -hide_banner -filters 2>/dev/null | grep -q libvmaf \\\n"
+        "    || { echo \"ERROR: this ffmpeg build has no libvmaf filter\"; exit 2; }\n"
+        "ffmpeg -y -i \"$1\" -c:v libx265 -preset fast -b:v 1M out.mp4\n",
+        {"L20"}, set(),
+    ),
+    (
+        "L20: a .bat calling find_ffmpeg without the capability argument is caught",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "call \"%REPO%\\lib\\common.bat\" find_ffmpeg FF_BIN\n"
+        "if errorlevel 1 goto NO_FFMPEG\n"
+        "set \"FFMPEG_PATH=%FF_BIN%\\ffmpeg.exe\"\n"
+        "\"%FFMPEG_PATH%\" -hide_banner -filters 2>nul | "
+        "findstr /c:\"libvmaf\" >nul || goto NO_VMAF\n"
+        "exit /b 0\n",
+        {"L20"}, set(),
+    ),
+    (
+        "L20 precision: the capability-aware forms on both sides are legal",
+        "test/sh/probe_calib.sh", False,
+        "#!/bin/bash\n"
+        "FF=\"$(find_ffmpeg --need-filter libvmaf)\" || exit 2\n"
+        "FP=\"$(find_ffprobe \"$FF\")\" || exit 2\n"
+        "\"$FF\" -y -i \"$1\" -c:v libx265 -preset fast -b:v 1M out.mp4\n",
+        set(), {"L20"},
+    ),
+    (
+        "L20 precision: the bat capability argument is legal",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "call \"%REPO%\\lib\\common.bat\" find_ffmpeg FF_BIN libvmaf\n"
+        "if errorlevel 1 goto NO_FFMPEG\n"
+        "\"%FF_BIN%\\ffmpeg.exe\" -hide_banner -filters 2>nul | "
+        "findstr /c:\"libvmaf\" >nul || goto NO_VMAF\n"
+        "exit /b 0\n",
+        set(), {"L20"},
+    ),
+    (
+        "L20 precision: check_env is an inventory tool, not a libvmaf consumer",
+        "test/sh/check_env.sh", False,
+        "#!/bin/bash\n"
+        "# reports whether the ffmpeg on PATH has libvmaf\n"
+        "if command -v ffmpeg >/dev/null 2>&1; then\n"
+        "    ffmpeg -hide_banner -filters 2>/dev/null | grep -q libvmaf "
+        "&& echo \"filt libvmaf : yes\"\n"
+        "fi\n",
+        set(), {"L20"},
+    ),
 ]
 
 
@@ -445,6 +503,7 @@ def run_checks(inv):
     lint.check_moov_front(inv)
     lint.check_repo_anchor(inv)
     lint.check_backtick_program(inv)
+    lint.check_ffmpeg_requirement(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

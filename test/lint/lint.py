@@ -1137,6 +1137,80 @@ def check_backtick_program(inv):
                   "(%d backtick command(s) inspected)" % inspected)
 
 
+# ---------------------------------------------------------------- L20
+FF_REQ_WHITELIST = {
+    # check_env.{sh,bat} 是"环境盘点"工具: 它们故意报告 PATH 上那个 ffmpeg 有没有
+    # libvmaf(以及各构建的分布), 不是 libvmaf 的消费者。这两处 find_ffmpeg 只是
+    # 拿一个"待盘点的对象", 不参与能力筛选。
+    "test/sh/check_env.sh",
+    "test/bat/check_env.bat",
+}
+
+
+def _norm_path(f):
+    return f.replace("\\", "/")
+
+
+def check_ffmpeg_requirement(inv):
+    """A tool that hard-requires libvmaf must not simply trust PATH.
+
+    Both families resolve the binary through a shared find_ffmpeg
+    (lib/common.sh / lib/common.bat). The sh one takes
+    --need-filter/--need-encoder and skips builds that lack them; the bat one
+    takes the requirement as its third argument and, when the candidate from
+    PATH cannot do the job, keeps looking down the fallback list. The point is
+    the same on both sides: on a Windows box an MSYS2 shell resolves `ffmpeg`
+    to /mingw64/bin 8.1, which has no libvmaf, while the gyan full build sits
+    further down the list - a plain PATH lookup then fails with a misleading
+    "this ffmpeg build has no libvmaf filter" on a machine that has one.
+    Both families hit that class within one day (2026-09-20), hence the rule.
+    """
+    bads, inspected = [], []
+    for f in inv["test_sh"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        code = [ln for ln in lf_lines(t) if not ln.strip().startswith("#")]
+        if not any("libvmaf" in ln for ln in code):
+            continue
+        if f.replace(os.sep, "/") in FF_REQ_WHITELIST or _norm_path(f) in FF_REQ_WHITELIST:
+            continue
+        inspected.append(f)
+        if not any("find_ffmpeg" in ln and "--need-filter" in ln
+                   and "libvmaf" in ln for ln in code):
+            bads.append("%s requires libvmaf but does not resolve ffmpeg with "
+                        "it - use find_ffmpeg --need-filter libvmaf from "
+                        "lib/common.sh instead of trusting PATH" % f)
+    for f in inv["test_bat"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        code = [ln for ln in lf_lines(t)
+                if not ln.strip().lower().startswith(("rem", "::"))]
+        if not any("libvmaf" in ln for ln in code):
+            continue
+        if _norm_path(f) in FF_REQ_WHITELIST:
+            continue
+        calls = [ln for ln in code if "find_ffmpeg" in ln]
+        if not calls:
+            # nvenc_pair_calib.bat deliberately requires ffmpeg on PATH
+            # (its header says so), so it is not a find_ffmpeg caller at all.
+            continue
+        inspected.append(f)
+        if not any("libvmaf" in ln for ln in calls):
+            bads.append("%s calls find_ffmpeg without the capability argument "
+                        "while requiring libvmaf - pass it as the third "
+                        "argument: call ... find_ffmpeg <outvar> libvmaf" % f)
+    if bads:
+        for m in bads[:8]:
+            bad("L20", m)
+    else:
+        ok("L20", "libvmaf consumers resolve ffmpeg with the capability "
+                  "argument (%d tool(s) inspected)" % len(inspected))
+
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1569,6 +1643,9 @@ def main():
         print("         L17 moov in front (remux entries use -movflags +faststart)")
         print("         L18 anchor vars (REPO/SELF_DIR) defined before use, "
               "test\\bat self-anchored")
+        print("         L19 no for-backtick runs a variable-expanded program path")
+        print("         L20 libvmaf consumers resolve ffmpeg with the "
+              "capability argument")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1599,6 +1676,7 @@ def main():
         check_moov_front(inv)
         check_repo_anchor(inv)
         check_backtick_program(inv)
+        check_ffmpeg_requirement(inv)
 
     if not args.lint_only:
         print("---- parity ----")

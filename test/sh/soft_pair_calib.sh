@@ -21,8 +21,10 @@
 #
 # Environment overrides:
 #   FFMPEG=...       ffmpeg to use, e.g. a master build under /opt
-#                    (default: "ffmpeg" on PATH; ffprobe is taken from
-#                    FFPROBE or the same directory as FFMPEG)
+#                    (default: lib/common.sh find_ffmpeg picks a build that
+#                    has libvmaf + libsvtav1 + libx265; ffprobe is taken
+#                    from FFPROBE or the same directory as FFMPEG).
+#                    FFMPEG_BIN=<bin dir> works too (same name as the .bat side)
 #   SOFT_PAIR_WORK=  work dir (default: ~/ffmpeg_soft_pair_calib).
 #                    Avoid spaces: the path is embedded in a -lavfi filter
 #                    string (libvmaf log_path), which cannot quote it.
@@ -43,7 +45,25 @@
 #     breaks filter-arg parsing), hence the cwd-relative logs/ paths.
 set -u
 MODE="${1:-full}"
-if [ -n "${FFMPEG:-}" ]; then
+# Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
+# lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
+# skipping candidates that lack libvmaf. Plain PATH lookup is not enough on Windows:
+# an MSYS2 shell resolves `ffmpeg` to /mingw64/bin 8.1 (no libvmaf) while the gyan
+# full build sits one level further down the list. The library is optional on
+# purpose - this script is also meant to be copyable to a bare remote box, where it
+# simply falls back to whatever `ffmpeg` PATH hands it (FFMPEG/FFPROBE still win).
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$SELF_DIR/../../lib/common.sh" ]; then
+    # shellcheck source=../../lib/common.sh
+    . "$SELF_DIR/../../lib/common.sh"
+fi
+if declare -F find_ffmpeg >/dev/null 2>&1; then
+    FF="$(find_ffmpeg --need-filter libvmaf --need-encoder libsvtav1 --need-encoder libx265)" || {
+        echo "FATAL: no ffmpeg with libvmaf + libsvtav1 + libx265 was found"
+        echo "       set FFMPEG_BIN=/path/to/bin (or FFMPEG=/path/to/ffmpeg)"
+        exit 1; }
+    FP="$(find_ffprobe "$FF")" || { echo "FATAL: no ffprobe next to $FF"; exit 1; }
+elif [ -n "${FFMPEG:-}" ]; then
     FF="$FFMPEG"
     FP="${FFPROBE:-$(dirname "$FF")/ffprobe}"
 else
@@ -56,9 +76,9 @@ mkdir -p "$LOG" "$REF" "$ENC"
 cd "$W" || exit 1
 
 echo "=== toolchain check ==="
-$FF -hide_banner -encoders 2>/dev/null | grep -qE "libsvtav1" || { echo "FATAL: no libsvtav1"; exit 1; }
-$FF -hide_banner -encoders 2>/dev/null | grep -qE "libx265"    || { echo "FATAL: no libx265"; exit 1; }
-$FF -hide_banner -filters 2>/dev/null | grep -qE "libvmaf"     || { echo "FATAL: no libvmaf"; exit 1; }
+"$FF" -hide_banner -encoders 2>/dev/null | grep -qE "libsvtav1" || { echo "FATAL: no libsvtav1"; exit 1; }
+"$FF" -hide_banner -encoders 2>/dev/null | grep -qE "libx265"    || { echo "FATAL: no libx265"; exit 1; }
+"$FF" -hide_banner -filters 2>/dev/null | grep -qE "libvmaf"     || { echo "FATAL: no libvmaf"; exit 1; }
 [ "$MODE" = probe ] && { echo "toolchain OK"; exit 0; }
 
 # ---- download clips (10s h264 sources, two content classes) ----
@@ -87,7 +107,7 @@ if [ "$MODE" = full ]; then
     SRC[bbb_2160]=3840:2160
     if [ -s "$REF/ref_bbb_1080.mp4" ] && [ ! -s "$REF/ref_bbb_2160.mp4" ]; then
         echo "prep  ref_bbb_2160 (upscaled from ref_bbb_1080)"
-        $FF -y -hide_banner -loglevel error -i "$REF/ref_bbb_1080.mp4" \
+        "$FF" -y -hide_banner -loglevel error -i "$REF/ref_bbb_1080.mp4" \
             -vf "scale=3840:2160:flags=lanczos,setsar=1,format=yuv420p" \
             -c:v libx264 -crf 10 -preset slow -an "$REF/ref_bbb_2160.mp4"
     fi
@@ -98,7 +118,7 @@ for key in "${!SRC[@]}"; do
     dim="${SRC[$key]}"; wh="${dim%%:*}x${dim##*:}"
     if [ ! -s "$REF/ref_$key.mp4" ]; then
         echo "prep  ref_$key ($wh)"
-        $FF -y -hide_banner -loglevel error -i "src_${key}.mp4" \
+        "$FF" -y -hide_banner -loglevel error -i "src_${key}.mp4" \
             -vf "scale=$wh:flags=lanczos,setsar=1,fps=30,format=yuv420p" \
             -c:v libx264 -crf 10 -preset slow -an "$REF/ref_$key.mp4" || { echo "prep FAIL $key"; continue; }
     fi
@@ -129,7 +149,7 @@ for key in "${!SRC[@]}"; do
                             # verify 4k model once; fall back to default
                             if [ -z "${MODEL_4K_CHECK:-}" ]; then
                                 MODEL_4K_CHECK=1
-                                $FF -hide_banner -loglevel error -i "$ref" -i "$ref" \
+                                "$FF" -hide_banner -loglevel error -i "$ref" -i "$ref" \
                                     -lavfi "libvmaf=model=version=vmaf_4k_v0.6.1" -f null - 2>/dev/null \
                                     && MODEL_4K="model=version=vmaf_4k_v0.6.1" || MODEL_4K="model=version=vmaf_v0.6.1"
                                 echo "4k model: $MODEL_4K"
@@ -144,16 +164,16 @@ for key in "${!SRC[@]}"; do
             if [ ! -s "$out" ]; then
                 echo "enc   $tag"
                 # shellcheck disable=SC2086
-                $FF -y -hide_banner -loglevel error -i "$ref" -c:v "$enc" $opts -b:v "$br" -an "$out" \
+                "$FF" -y -hide_banner -loglevel error -i "$ref" -c:v "$enc" $opts -b:v "$br" -an "$out" \
                     || { echo "encode FAIL $tag"; continue; }
             fi
-            delivered=$($FP -v error -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0 "$out")
+            delivered=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0 "$out")
             if [ ! -s "$js" ]; then
                 echo "vmaf  $tag (delivered ${delivered}bps)"
                 # log_path is deliberately cwd-relative: an absolute path
                 # with a drive colon breaks libvmaf's filter-arg parser on
                 # Windows (and POSIX /c/... paths are not rewritten there).
-                $FF -hide_banner -loglevel error -i "$out" -i "$ref" \
+                "$FF" -hide_banner -loglevel error -i "$out" -i "$ref" \
                     -lavfi "libvmaf=$MODEL:log_fmt=json:log_path=$js" -f null - 2>"$LOG/$tag.err" \
                     || { echo "vmaf FAIL $tag"; tail -2 "$LOG/$tag.err"; continue; }
             fi

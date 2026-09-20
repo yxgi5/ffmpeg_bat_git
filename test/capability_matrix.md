@@ -101,6 +101,20 @@
 
   → `bench_calib` / `soft_pair_calib` / `nvenc_pair_calib` **只能**在原生 gyan full 或 `/opt` master 下跑。
   `check_env` 两种模式现在都会打印 `filt libvmaf : yes/NO`，别再靠猜。
+* **两族现在都会自己挑一个"够用"的构建（2026-09-20）**：上面这张 shell → ffmpeg 的错位表，
+  过去只写在文档里，工具本身并不知道 —— 于是 MSYS2 用户跑 sh 侧 calib 必然得到
+  `no libvmaf filter`，而机器上明明装着 gyan full。现在：
+  * `.sh`：`lib/common.sh` 的 **`find_ffmpeg [--need-filter <名>] [--need-encoder <名>]`**
+    按 `FFMPEG_BIN/FFMPEG > 仓库内 ffmpeg/bin > PATH > /opt/ffmpeg/*/bin,/usr/local/bin,/usr/bin,
+    C:\Program Files\ffmpeg\bin` 逐级找，**跳过**不含所需能力的候选（跳过的每个都会在标准错误里
+    说明"缺少什么"）；显式指定的 `FFMPEG_BIN`/`FFMPEG` 若不够用，只报错、不换别的构建。
+    `find_ffprobe <ffmpeg>` 取同目录的 ffprobe（尊重 `FFPROBE`），`ffmpeg_build_id` 打版本串。
+  * `.bat`：`lib/common.bat` 的 `:find_ffmpeg` 多了可选第 3 参数（能力名，如 `libvmaf`），
+    语义与 sh 侧一致（显式指定优先、不够用就报错不换）。**不传第 3 参数时行为与改造前逐字节一致**，
+    12 个编码入口都不传。
+  * 灰度对照（本机，2026-09-20 实测）：`/mingw64/bin/ffmpeg`(8.1) 无 libvmaf、Cygwin 7.1.1 无 libvmaf、
+    `C:\Program Files\ffmpeg\bin`(gyan full 2025-05-01) 有 libvmaf —— 定位器在 PATH 命中前两个时会跳过并
+    落到第三个（`[find_ffmpeg] 跳过 … 缺少 filter:libvmaf`）。
 
 ## 6. 未验证 / 待补清单（诚实记录）
 

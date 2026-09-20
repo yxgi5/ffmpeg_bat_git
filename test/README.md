@@ -28,7 +28,7 @@
 python3 test/lint/lint.py              # 全部
 python3 test/lint/lint.py --lint-only  # 只做静态检查
 python3 test/lint/lint.py --parity-only# 只做对等检查
-python3 test/lint/selftest.py          # 检查检查器自己（13 个用例）
+python3 test/lint/selftest.py          # 检查检查器自己（34 个用例）
 
 # ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
 bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T25）
@@ -166,6 +166,7 @@ test/
 | L16 | **流映射一致性**：每个 mp4 出口（两族 19 个 `ffmpeg_*`）都必须带 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0` | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露 |
 | L17 | **moov 前置**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）必须带 `-movflags +faststart` | **2026-09-17 用户要求**：默认 mp4 把索引 `moov` 写在 `mdat` **之后**，播放器要拿到文件末尾才能起播（大文件拷走/边下边播时很难受）。实测同一夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**（ffmpeg 就地搬索引，日志里是 `Starting second pass: moving the moov atom to the beginning of the file`）。当前只管 remux 两个出口，11 个编码入口仍是默认布局（等用户裁定是否一并前置） |
 | L18 | **锚定变量**：凡是读 `%REPO%` / `%SELF_DIR%` 的 `.bat`，必须在**首次读取之前**赋值；且 `test\bat\` 下的工具必须用 `%~dp0..\..` 自锚定 | **2026-09-20 实际缺口（用户报障）**：`bench_calib.bat` 里 `call "%REPO%\lib\common.bat"` 的 `REPO` **从未定义** → 路径塌缩成 `"\lib\common.bat"`（盘根路径）→ 任何 cwd 下都报 `The system cannot find the path specified.`，而调用方把它伪装成「ffmpeg/ffprobe not on PATH」。更早一版是 `"%SELF_DIR%lib\common.bat"`（`SELF_DIR` 同样未定义）→ 退化为**相对路径**，只在 cwd = 仓库根时碰巧可用。两类症状不同（一个必崩、一个看运气），根因同源 |
+| L20 | **libvmaf 消费者必须带能力要求去定位 ffmpeg**：`test/sh/*.sh` 里凡是要 libvmaf 的（非注释行出现 `libvmaf`），必须有一行同时出现 `find_ffmpeg` / `--need-filter` / `libvmaf`；`test/bat/*.bat` 里凡是要 libvmaf **且**调用 `find_ffmpeg` 的，调用行必须带第 3 参数（`libvmaf`）。白名单：`test/{sh,bat}/check_env.*`（环境盘点工具，报告 libvmaf 有无所用，自带的 `find_ffmpeg` 只是挑一个"待盘点对象"） | **2026-09-20 实际缺口（用户报障）**：用户在 MSYS2 MINGW64 里跑 `test/sh/bench_calib.sh` 得到 `ERROR: this ffmpeg build has no libvmaf filter`，而**同一台机器**上 `C:\Program Files\ffmpeg\bin` 的 gyan full（2025-05-01）是带 libvmaf 的 —— 缺的不是工具链，是 sh 侧**一律信 PATH**：MSYS2 的 `/mingw64/bin/ffmpeg` 是 8.1、无 libvmaf，却排在 PATH 前面（`test/capability_matrix.md` 早写明「同一台机器三种 shell 解析到三个不同 ffmpeg」，但 sh 侧从没有对应机制）。bat 侧同一个坑换了个形态：从 MSYS2 终端跑 `.bat` 时 cmd 继承的 PATH 同样把 `/mingw64/bin` 排在前面 → `find_ffmpeg` 选中它 → NO_VMAF。两族同一天各踩一次，故立此规则 |
 | L19 | **反引号里的程序路径**：`for /f` 反引号内被执行的**程序名**不得是 `%VAR%` 展开（不得出现 `` `%FFPROBE_PATH% ...` ``，也不得出现 `` `"%FFPROBE_PATH%" ...` ``）；程序路径必须走「常规命令行 + 重定向到临时文件」，再由 `for /f "usebackq"` 读文件 | **2026-09-20 实际缺口（用户报障，与 L18 同一次）**：`bench_calib.bat` 三行 `` for /f ... in (`%FFPROBE_PATH% -v error ...`) `` → cmd 打印三次 `'C:\Program' is not recognized as an internal or external command`（`C:\Program Files\ffmpeg\bin\ffprobe.exe` 在空格处被切断），紧接着工具自己的兜底文案又把它解释成「ffprobe failed / pixel count overflow on this source」。**同一文件第 161 行**还有更隐蔽的一处：它在反引号里给路径**加了**引号，看似"已经修过"，实则撞上 `cmd /c` 的引号剥离规则（「行首是引号时，剥掉首个引号与**该行最后一个**引号」）→ 末尾参数的收尾引号被吃掉，路径含空格时同样散架，而且它**静默**把 delivered 记成 0。`nvenc_pair_calib.bat` 里的裸 `ffprobe`（PATH 解析，程序名不是变量）不受影响，也不该被报 |
 
 **L09 的做法值得单独说明**：它把「脚本语法」和「数据逃逸」区分开，而不是见 `&` 就报。
@@ -203,20 +204,22 @@ test/
 ### 2.3 检查器自测（`lint/selftest.py`）
 
 **一个只会输出「全部干净」的检查器是没有价值的——它可能只是瞎了。**
-`selftest.py` 用 29 个合成小仓库同时验证两个方向：
+`selftest.py` 用 34 个合成小仓库同时验证两个方向：
 
-* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17/L18/L19 各一例起，
+* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17/L18/L19/L20 各一例起，
   其中 L15 三例：吞掉 ffmpeg 失败的入口、`if errorlevel 1` 这种**看不见负退出码**的守卫、
   忽略失败子调用的清单 wrapper；L17 一例：remux 出口漏了 `+faststart`；
   L18 三例：读了 `%REPO%` 却从未赋值、锚定赋值出现在首次使用**之后**、`test\bat` 工具没有
   `%~dp0..\..` 自锚定；L19 两例：`for /f` 反引号里裸写 `%FFPROBE_PATH%`、以及给它套普通
-  双引号（两种写法都不可靠，见 L19 行）；
+  双引号（两种写法都不可靠，见 L19 行）；L20 两例：`.sh` 要 libvmaf 却信 PATH、
+  `.bat` 调 `find_ffmpeg` 却没带能力参数；
 * **precision**：已知正确的写法**必须不报**，其中 8 例正是开发过程中真实出现过的假阳性
   （`%VAR:"=%` 引号计数、`endlocal & set` 字面量、`%%~zA` 循环修饰符、
   `set /p` 覆盖、安全的 `set VAR=%QVAR%` 惯用法、带失败传播的入口尾部、
   `%ERRORLEVEL% NEQ 0` 守卫、带 `+faststart` 的 `.sh` remux 入口），另加 L18 一例
-  （正确自锚定的 `test\bat` 工具）与 L19 一例（反引号里跑的是 PATH 解析的 `ffprobe` /
-  `powershell`，程序名不是变量，合法）。
+  （正确自锚定的 `test\bat` 工具）、L19 一例（反引号里跑的是 PATH 解析的 `ffprobe` /
+  PowerShell，程序名不是变量，合法）与 L20 三例（`--need-filter libvmaf` 的 `.sh`、
+  带能力参数的 `.bat`、白名单里的 `check_env` 盘点工具——它报告 libvmaf 的有无，不消费它）。
 
 ### 2.4 退出码
 
@@ -511,7 +514,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-20）**：`lint 27 PASS / 0 FAIL / 5 WARN`、`selftest 29 cases / 0 FAIL`。
+> **当前基线（2026-09-20）**：`lint 28 PASS / 0 FAIL / 5 WARN`、`selftest 34 cases / 0 FAIL`。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。

@@ -293,3 +293,126 @@ function run_list() {
         fi
     done < "$list_file"
 }
+
+# ================================================================
+# ffmpeg / ffprobe 定位 (2026-09-20)
+#
+# 背景: sh 侧此前一律依赖 PATH 上的裸 `ffmpeg`, 而 bat 侧早就有四级回退
+# (:find_ffmpeg in lib/common.bat)。同一台 Windows 机器上三种 shell 会解析到
+# 三个不同的 ffmpeg (见 test/capability_matrix.md): cmd / PowerShell / Git Bash
+# 命中 gyan.dev full(全能力), MSYS2 shell 命中 /mingw64/bin 8.1(**无 libvmaf**),
+# Cygwin 命中 /usr/bin 7.1.1(无 libx264/libx265)。于是 calib 族在 MSYS2 下必然
+# 报 "this ffmpeg build has no libvmaf filter" —— 而机器上其实装着一个完全能用
+# 的构建, 只是 PATH 里排在前面。
+#
+# 契约:
+#   find_ffmpeg [--need-filter <名>]... [--need-encoder <名>]...
+#     成功: 标准输出打印 ffmpeg 可执行文件路径(供 FF=$(...) 捕获), 返回 0
+#     失败: 返回 1, 诊断信息(跳过了谁/为什么)全部走标准错误
+#   find_ffprobe <ffmpeg 路径>
+#     成功: 打印同目录(或 PATH 上)的 ffprobe 并返回 0, 失败返回 1
+#   ffmpeg_build_id <ffmpeg 路径>
+#     打印版本串(如 "8.1" / "2025-05-01-git-707c04fe06-full_build-www.gyan.dev")
+#
+# 优先级(与 lib/common.bat 的 :find_ffmpeg 对齐):
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH > 常见安装前缀
+# 显式指定一旦存在就无条件采用 —— 即使能力不足也只报错、不再往下找(不把用户
+# 明确的选择悄悄换掉)。后面三级则**跳过**能力不足的候选并在标准错误里说明原因:
+# 只要机器上存在一个能做这件事的构建, 就不会因为 PATH 恰好指错而失败。
+# ================================================================
+
+# 内部: 一条定位诊断(标准错误, 前缀统一, 便于检索)
+_ff_note() { printf '[find_ffmpeg] %s\n' "$1" >&2; }
+
+# 内部: 列出候选缺少的能力(空串 = 全部满足), 形如 "filter:libvmaf encoder:libx265"
+_ff_missing() {
+    local bin="$1" fl="$2" en="$3" f e out=""
+    for f in $fl; do
+        "$bin" -hide_banner -filters 2>/dev/null | grep -q -- "$f" || out="$out filter:$f"
+    done
+    for e in $en; do
+        "$bin" -hide_banner -encoders 2>/dev/null | grep -q -- " $e " || out="$out encoder:$e"
+    done
+    printf '%s' "${out# }"
+}
+
+# 内部: 候选是否满足全部能力要求
+_ff_capable() { [ -z "$(_ff_missing "$1" "$2" "$3")" ]; }
+
+# 内部: 采用显式指定的候选; 能力不足时打印原因并返回 1
+_ff_adopt() {
+    local bin="$1" fl="$2" en="$3" src="$4"
+    _ff_capable "$bin" "$fl" "$en" && { echo "$bin"; return 0; }
+    _ff_note "$src=$bin 缺少 $(_ff_missing "$bin" "$fl" "$en") —— 显式指定优先, 不再自动查找"
+    return 1
+}
+
+# 内部: 试用一个自动候选(已见过/不存在/能力不足都跳过); 命中则打印路径
+# 去重按"去掉 .exe 后缀"比较: Git Bash 的 command -v 返回不带后缀的路径,
+# 常见安装前缀那里写的是 ffmpeg.exe, 两者往往指向同一个文件, 不必探测两次。
+_ff_try() {
+    local bin="$1" fl="$2" en="$3" key
+    [ -n "$bin" ] || return 1
+    [ -x "$bin" ] || return 1
+    key="${bin%.exe}"
+    case " ${_FF_SEEN:-} " in
+        *" $key "*) return 1 ;;
+    esac
+    _FF_SEEN="${_FF_SEEN:-} $key"
+    _ff_capable "$bin" "$fl" "$en" && { echo "$bin"; return 0; }
+    _ff_note "跳过 $bin —— 缺少 $(_ff_missing "$bin" "$fl" "$en")"
+    return 1
+}
+
+function find_ffmpeg() {
+    local fl="" en="" cand repo_root
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --need-filter)  fl="$fl ${2:-}"; shift 2 ;;
+            --need-encoder) en="$en ${2:-}"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    _FF_SEEN=""
+
+    # ---- 阶段一: 显式指定(FFMPEG_BIN 指目录, 与 bat 侧同名同义) ----
+    if [ -n "${FFMPEG_BIN:-}" ]; then
+        for cand in "$FFMPEG_BIN/ffmpeg" "$FFMPEG_BIN/ffmpeg.exe"; do
+            [ -x "$cand" ] && { _ff_adopt "$cand" "$fl" "$en" FFMPEG_BIN; return $?; }
+        done
+        _ff_note "FFMPEG_BIN=$FFMPEG_BIN 下没有可执行的 ffmpeg, 继续自动查找"
+    fi
+    if [ -n "${FFMPEG:-}" ]; then
+        [ -x "$FFMPEG" ] && { _ff_adopt "$FFMPEG" "$fl" "$en" FFMPEG; return $?; }
+        _ff_note "FFMPEG=$FFMPEG 不可执行, 继续自动查找"
+    fi
+
+    # ---- 阶段二: 自动查找, 跳过能力不足的候选 ----
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    for cand in "$repo_root/ffmpeg/bin/ffmpeg" "$repo_root/ffmpeg/bin/ffmpeg.exe"; do
+        _ff_try "$cand" "$fl" "$en" && return 0
+    done
+    _ff_try "$(command -v ffmpeg 2>/dev/null || true)" "$fl" "$en" && return 0
+    for cand in /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg \
+                "/c/Program Files/ffmpeg/bin/ffmpeg.exe"; do
+        _ff_try "$cand" "$fl" "$en" && return 0
+    done
+    return 1
+}
+
+function find_ffprobe() {
+    local ff="${1:-}" p
+    if [ -n "${FFPROBE:-}" ] && [ -x "${FFPROBE}" ]; then echo "${FFPROBE}"; return 0; fi
+    if [ -n "$ff" ]; then
+        for p in "$(dirname "$ff")/ffprobe" "$(dirname "$ff")/ffprobe.exe"; do
+            [ -x "$p" ] && { echo "$p"; return 0; }
+        done
+    fi
+    p="$(command -v ffprobe 2>/dev/null || true)"
+    [ -n "$p" ] && { echo "$p"; return 0; }
+    return 1
+}
+
+function ffmpeg_build_id() {
+    "$1" -hide_banner -version 2>/dev/null | awk 'NR==1{print $3; exit}'
+}

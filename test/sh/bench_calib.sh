@@ -23,6 +23,9 @@
 #
 #   Env knobs:
 #     WORK=<path>  output dir; default $TMPDIR/ffmpeg_bench_calib_<codec>
+#     FFMPEG_BIN=<dir> / FFMPEG=<file>   pin the ffmpeg to use (same names
+#                  as the .bat side); otherwise lib/common.sh find_ffmpeg
+#                  picks one that actually has libvmaf
 #
 #   Requires: ffmpeg/ffprobe with libvmaf (gyan full / master build,
 #   or a distro build with libvmaf), software encoders libx264 /
@@ -49,12 +52,20 @@ case "$CODEC" in
     av1) CSV_NAME="bitrate_table_av1.csv";  ENC="libsvtav1"; PSET="8" ;;
 esac
 
-command -v ffmpeg >/dev/null 2>&1 || { echo "ERROR: ffmpeg not on PATH"; exit 2; }
-command -v ffprobe >/dev/null 2>&1 || { echo "ERROR: ffprobe not on PATH"; exit 2; }
-ffmpeg -hide_banner -filters 2>/dev/null | grep -q libvmaf \
-    || { echo "ERROR: this ffmpeg build has no libvmaf filter"; exit 2; }
-ffmpeg -hide_banner -encoders 2>/dev/null | grep -q " $ENC " \
-    || { echo "ERROR: encoder $ENC not in this ffmpeg build"; exit 2; }
+# Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
+# lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes).
+# It skips candidates that lack the capability this tool needs, which is the point:
+# on Windows an MSYS2 shell resolves `ffmpeg` to /mingw64/bin 8.1 (no libvmaf) while
+# the gyan full build sits one level down the list, so plain PATH lookup used to
+# fail here with "no libvmaf filter" on a machine that has one.
+FF="$(find_ffmpeg --need-filter libvmaf)" || {
+    echo "ERROR: no ffmpeg with the libvmaf filter was found."
+    echo "       install a full build or set FFMPEG_BIN=/path/to/bin (or FFMPEG=/path/to/ffmpeg)."
+    exit 2; }
+FP="$(find_ffprobe "$FF")" || {
+    echo "ERROR: no ffprobe next to $FF and none on PATH"; exit 2; }
+"$FF" -hide_banner -encoders 2>/dev/null | grep -q " $ENC " \
+    || { echo "ERROR: encoder $ENC not in $FF"; exit 2; }
 
 if [ -z "${SRC:-}" ]; then
     printf 'drag a video file here, or enter its full path: '
@@ -62,10 +73,10 @@ if [ -z "${SRC:-}" ]; then
 fi
 [ -n "$SRC" ] && [ -f "$SRC" ] || { echo "ERROR: source video not found"; exit 2; }
 
-SW=$(ffprobe -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
-SH=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
-DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
-case "$SW$SH$DUR" in *[!0-9]*) echo "ERROR: ffprobe failed on $SRC"; exit 2 ;; esac
+SW=$("$FP" -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
+SH=$("$FP" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
+DUR=$("$FP" -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
+case "$SW$SH$DUR" in ""|*[!0-9]*) echo "ERROR: ffprobe failed on $SRC"; exit 2 ;; esac
 SS=$((DUR / 2))
 
 # effective encode size: optional height cap, kept even
@@ -90,6 +101,7 @@ CSV="$WORK/results.csv"
 printf 'res,codec,br_req,br_delivered,vmaf\n' > "$CSV"
 
 echo "source : $SRC"
+echo "ffmpeg : $FF ($(ffmpeg_build_id "$FF"))"
 echo "encode : ${W2}x${H2} fps30  seg ${LEN}s from ${SS}s  encoder $ENC ($PSET)"
 echo "table  : $CSV_NAME -> T=$T   ladder: T/4 T/3 T/2 3T/4 T"
 echo "vmaf   : model $MODEL (reference = the source itself)"
@@ -104,12 +116,12 @@ encode_ladder() {
         tag="${W2}x${H2}_${frac}"
         out="$WORK/$tag.mp4"
         if [ ! -f "$out" ]; then
-            ffmpeg -y -hide_banner -loglevel error -ss "$SS" -t "$LEN" -i "$SRC" \
+            "$FF" -y -hide_banner -loglevel error -ss "$SS" -t "$LEN" -i "$SRC" \
                 -vf "$PREP" -c:v "$ENC" -preset "$PSET" -b:v "$br" -an "$out" < /dev/null \
                 || { echo "  ENCODE FAIL $tag"; continue; }
         fi
         local del vm js
-        del=$(ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate \
+        del=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate \
               -of csv=p=0 "$out" < /dev/null | tr -d '\r')
         case "$del" in ''|*[!0-9]*) del=0 ;; esac
         js="$tag.json"
@@ -119,7 +131,7 @@ encode_ladder() {
             # the reference leg needs the SAME -ss/-t as the encode leg,
             # otherwise libvmaf pairs frames from different offsets and
             # returns garbage (~0.7) scores.
-            ( cd "$WORK" && ffmpeg -hide_banner -loglevel error \
+            ( cd "$WORK" && "$FF" -hide_banner -loglevel error \
                 -i "$tag.mp4" -ss "$SS" -t "$LEN" -i "$SRC" \
                 -filter_complex "[1:v]${PREP}[sref];[0:v][sref]libvmaf=model=version=${MODEL}:log_fmt=json:log_path=${js}[out]" \
                 -map "[out]" -f null - < /dev/null ) \

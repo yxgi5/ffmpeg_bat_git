@@ -22,18 +22,37 @@
 #   Exit code: 0 = results.csv written; 2 = setup error
 #   Requires: ffmpeg/ffprobe with libvmaf, NVIDIA GPU with
 #   HEVC NVENC + AV1 NVENC (Ada or newer). ASCII only, LF.
+#   Env knobs: WORK=<dir>, FFMPEG_BIN=<bin dir> / FFMPEG=<file> to pin
+#   the ffmpeg (otherwise find_ffmpeg in lib/common.sh picks a build
+#   that actually has libvmaf, instead of trusting PATH).
 # ============================================================
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-command -v ffmpeg >/dev/null 2>&1 || { echo "ERROR: ffmpeg not on PATH"; exit 2; }
-command -v ffprobe >/dev/null 2>&1 || { echo "ERROR: ffprobe not on PATH"; exit 2; }
-ffmpeg -hide_banner -filters 2>/dev/null | grep -q libvmaf \
-    || { echo "ERROR: this ffmpeg build has no libvmaf filter - use a gyan.dev full or master build"; exit 2; }
-ffmpeg -hide_banner -encoders 2>/dev/null | grep -q " av1_nvenc " \
-    || { echo "ERROR: no av1_nvenc here - AV1 NVENC needs an Ada (RTX 40) or newer GPU"; exit 2; }
-ffmpeg -hide_banner -encoders 2>/dev/null | grep -q " hevc_nvenc " \
-    || { echo "ERROR: no hevc_nvenc in this ffmpeg build"; exit 2; }
+# Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
+# lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
+# skipping candidates that lack libvmaf. Plain PATH lookup is not enough on Windows:
+# an MSYS2 shell resolves `ffmpeg` to /mingw64/bin 8.1 (no libvmaf) while the gyan
+# full build sits one level further down the list. The library is optional on
+# purpose - this script is also meant to be copyable to a bare remote box, where it
+# simply falls back to whatever `ffmpeg` PATH hands it.
+if [ -r "$SELF_DIR/../../lib/common.sh" ]; then
+    # shellcheck source=../../lib/common.sh
+    . "$SELF_DIR/../../lib/common.sh"
+fi
+if declare -F find_ffmpeg >/dev/null 2>&1; then
+    FF="$(find_ffmpeg --need-filter libvmaf)" || {
+        echo "ERROR: no ffmpeg with the libvmaf filter was found."
+        echo "       install a full build or set FFMPEG_BIN=/path/to/bin (or FFMPEG=/path/to/ffmpeg)."
+        exit 2; }
+    FP="$(find_ffprobe "$FF")" || { echo "ERROR: no ffprobe next to $FF and none on PATH"; exit 2; }
+else
+    FF=ffmpeg; FP=ffprobe
+fi
+"$FF" -hide_banner -encoders 2>/dev/null | grep -q " av1_nvenc " \
+    || { echo "ERROR: no av1_nvenc in $FF - AV1 NVENC needs an Ada (RTX 40) or newer GPU"; exit 2; }
+"$FF" -hide_banner -encoders 2>/dev/null | grep -q " hevc_nvenc " \
+    || { echo "ERROR: no hevc_nvenc in $FF"; exit 2; }
 
 SRC="${1:-}"
 if [ -z "$SRC" ]; then
@@ -42,9 +61,9 @@ if [ -z "$SRC" ]; then
 fi
 [ -n "$SRC" ] && [ -f "$SRC" ] || { echo "ERROR: source video not found or not given"; exit 2; }
 
-SW=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
-DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
-case "$SW$DUR" in *[!0-9]*) echo "ERROR: ffprobe failed on $SRC (no video stream?)"; exit 2 ;; esac
+SW=$("$FP" -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
+DUR=$("$FP" -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)
+case "$SW$DUR" in ""|*[!0-9]*) echo "ERROR: ffprobe failed on $SRC (no video stream?)"; exit 2 ;; esac
 SS=$((DUR / 2))
 
 WORK="${WORK:-${TMPDIR:-/tmp}/ffmpeg_bat_nvenc_pair}"
@@ -53,6 +72,7 @@ CSV="$WORK/results.csv"
 printf 'res,codec,br_req,br_delivered,vmaf\n' > "$CSV"
 
 echo "source : $SRC"
+echo "ffmpeg : $FF"
 echo "width  : $SW   segment start: ${SS}s"
 echo "work   : $WORK"
 
@@ -64,17 +84,17 @@ score_point() {
     out="$WORK/$tag.mp4"
     js="$tag.json"
     if [ ! -f "$out" ]; then
-        ffmpeg -y -hide_banner -loglevel error -i "$ref" \
+        "$FF" -y -hide_banner -loglevel error -i "$ref" \
             -c:v "$codec" -preset p4 -rc cbr -b:v "$br" -an "$out" < /dev/null \
             || { echo "  ENCODE FAIL $tag"; return 1; }
     fi
-    del=$(ffprobe -v error -select_streams v:0 -show_entries stream=bit_rate \
+    del=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate \
           -of csv=p=0 "$out" < /dev/null | tr -d '\r')
     case "$del" in ''|*[!0-9]*) del=0 ;; esac
     # log_path must stay RELATIVE: an absolute path breaks the
     # filtergraph parser on Windows (drive colon = separator).
     if [ ! -f "$WORK/$js" ]; then
-        ( cd "$WORK" && ffmpeg -hide_banner -loglevel error \
+        ( cd "$WORK" && "$FF" -hide_banner -loglevel error \
             -i "$tag.mp4" -i "$ref" \
             -lavfi "libvmaf=model=version=${model}:log_fmt=json:log_path=${js}" \
             -f null - < /dev/null ) \
@@ -102,7 +122,7 @@ run_res() {
     echo
     echo "==== reference ${w}x${h} ===="
     if [ ! -f "$ref" ]; then
-        ffmpeg -y -hide_banner -loglevel error -ss "$SS" -t 10 -i "$SRC" \
+        "$FF" -y -hide_banner -loglevel error -ss "$SS" -t 10 -i "$SRC" \
             -vf "scale=${w}:${h}:flags=lanczos,setsar=1,fps=30,format=yuv420p" \
             -c:v libx264 -crf 10 -preset slow -an "$ref" < /dev/null \
             || return 1

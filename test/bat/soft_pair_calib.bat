@@ -70,7 +70,10 @@ if not exist "%WORK%\ref"  mkdir "%WORK%\ref"  >nul 2>&1
 if not exist "%WORK%\enc"  mkdir "%WORK%\enc"  >nul 2>&1
 pushd "%WORK%" || goto NO_WORK
 
-call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN
+rem libvmaf as the 3rd argument makes find_ffmpeg skip builds that lack it (an MSYS2
+rem terminal puts D:\msys64\mingw64\bin 8.1, which has no libvmaf, in front of the
+rem gyan full build). Same rule as test/sh/soft_pair_calib.sh.
+call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN libvmaf
 if errorlevel 1 goto NO_FFMPEG
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"

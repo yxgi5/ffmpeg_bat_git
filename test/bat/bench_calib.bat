@@ -74,7 +74,12 @@ if not defined SRC (
 if not defined SRC goto NO_SRC
 if not exist "%SRC%" goto NO_SRC
 
-call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN
+rem the third argument (libvmaf) makes find_ffmpeg skip candidates that lack it:
+rem when this .bat is launched from an MSYS2 terminal, cmd inherits a PATH whose
+rem first ffmpeg.exe is D:\msys64\mingw64\bin 8.1 (no libvmaf), while the gyan full
+rem build sits lower in the list - without the requirement the tool reported NO_VMAF
+rem on a machine that has a perfectly good build. Same rule as test/sh/bench_calib.sh.
+call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN libvmaf
 if errorlevel 1 goto NO_FFMPEG
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"

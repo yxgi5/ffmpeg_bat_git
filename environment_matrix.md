@@ -922,3 +922,54 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **教训（可复用）**：① **不要用 `for /f` 反引号去跑变量展开的程序路径** —— 加不加引号都会在
       「路径含空格」这个最普通的情况下崩；要跑就重定向到临时文件再读；② 「看起来加了引号」不等于安全，
       `cmd /c` 的引号剥离规则与直觉相反；③ **静默失败比崩溃危险** —— 161 行那处不报错、只把数字写成 0。
+
+42. **两族 ffmpeg 定位器按"能力"筛构建 + L20（2026-09-20，用户报障）**：
+    * **现象（用户原样报回）**：MSYS2 MINGW64 里
+      `test/sh/bench_calib.sh \`cygpath "F:\👍 看电影学英语…\The.Princess.Diaries.2.2004.mp4"\``
+      → `ERROR: this ffmpeg build has no libvmaf filter`。
+    * **排查**：三个构建逐个实测 —— `/d/msys64/mingw64/bin/ffmpeg.exe` = **8.1**（`-filters | grep -c libvmaf` = 0）、
+      `/d/cygwin64/bin/ffmpeg.exe` = **7.1.1**（0）、`/c/Program Files/ffmpeg/bin/ffmpeg.exe` =
+      **2025-05-01-git-707c04fe06-full_build-www.gyan.dev**（1）。**ffmpeg 一点没缺**——缺的是"挑哪个 ffmpeg"的机制：
+      sh 侧从改造以来一律裸调 PATH 上的 `ffmpeg`，而 MSYS2 的 `/mingw64/bin` 排在 PATH 最前面。
+      这正是 `test/capability_matrix.md` 早就写下的「同一台机器三种 shell 解析到三个不同 ffmpeg」，
+      只是**过去只写在文档里**，工具自己不知道。
+    * **修法（先 sh 后 bat，语义对齐）**：
+      ① `lib/common.sh` 新增 **`find_ffmpeg [--need-filter <名>] [--need-encoder <名>]`**
+      —— 四级回退顺序与 bat 侧对齐（`FFMPEG_BIN`(目录)/`FFMPEG`(文件) > 仓库内 `ffmpeg/bin` > PATH >
+      `/opt/ffmpeg/*/bin`、`/usr/local/bin`、`/usr/bin`、`C:\Program Files\ffmpeg\bin`），
+      **逐个候选跑 `-filters`/`-encoders` 验证能力，跳过不合格的**（每个跳过都在标准错误里说明缺什么）；
+      另有 `find_ffprobe <ffmpeg>`（尊重 `FFPROBE`，先同目录再 PATH）与 `ffmpeg_build_id`（版本串）。
+      **显式指定优先**：`FFMPEG_BIN`/`FFMPEG` 若不够用，只报错、**绝不悄悄换成别的构建**。
+      ② `test/sh/{bench_calib,nvenc_pair_calib,soft_pair_calib}.sh` 改走它，并把所有调用点写成 `"$FF"`/`"$FP"`。
+      两个 pair 工具是「有则用、无则退回 PATH 裸 ffmpeg」（它们设计上可单独拷到裸机跑），
+      所以是 `[ -r lib/common.sh ] && .` + `declare -F find_ffmpeg` 判断。
+      ③ `lib/common.bat` 的 `:find_ffmpeg` 增加可选第 3 参数（能力名）：命中候选不满足时**继续往兜底目录找**
+      （`FFMPEG_BIN` 显式指定则只报告不换）；新增内部子程序 `:ff_satisfies`（`-filters` 先查、`-encoders` 再查，
+      **只判 findstr 命中与否，不看 ffmpeg 退出码** —— 负 AVERROR 对 `if errorlevel` 不可见，见第 39 条）。
+      **不传第 3 参数时行为与改造前逐字节一致**，12 个编码入口都不传、零额外开销（calib 族多 1~2 次 `-filters`）。
+      bat 侧的现实动因：从 MSYS2 终端跑 `.bat` 时 cmd 继承的 PATH 也把 `/mingw64/bin` 排在前面。
+    * **同轮揪出的两处真 bug**：
+      ① `soft_pair_calib.sh` 里 `$FF -hide_banner …` **未加引号**（全程 8 处）—— 从前 `$FF` 恒为裸 `ffmpeg`（无空格）
+      所以没事，一旦变成 `C:\Program Files\…` 就会在空格处断；② `bench_calib.sh` / `nvenc_pair_calib.sh` 的数值守卫
+      `case "$SW$SH$DUR" in *[!0-9]*)` **空串不匹配该模式** → ffprobe 探测失败（值为空）时守卫不触发、
+      静默按 `SS=0` 继续跑（实测报出 `[: : integer expected`）。已改为 `""|*[!0-9]*)`。
+    * **新增 lint L20（libvmaf 消费者必须带能力要求去定位 ffmpeg）**：`.sh` 侧要求
+      `find_ffmpeg … --need-filter libvmaf` 同行出现；`.bat` 侧要求 `find_ffmpeg` 调用行带第 3 参数；
+      白名单 `test/{sh,bat}/check_env.*`（环境盘点工具，只是挑一个"待盘点对象"）。
+      **召回已实测**：把两个 `HEAD:` 未修版分别临时落到 `test/sh/`、`test/bat/` 下，L20 各报一条、随即删除。
+      **`--list` 目录补上 L19/L20 两行**（L19 那轮漏了）。selftest 29 → **34 例**（L20 两例 recall + 三例 precision）。
+    * **真跑验证（沙箱，git-bash 侧）**：`test/sh/bench_calib.sh hevc <公主日记2> 0 2` 五个梯点全绿 ——
+      `T=2719757`、`SS=3393`，delivered 534228/681033/1071753/1673787/2281160，VMAF 87.95→95.84，
+      拟合 `vmaf = 3.79·log2(bitrate) + 16.26`，推荐 VMAF95 ≈ 1783203（= 生产 T/2 的 1.31 倍）。
+      另核 `soft_pair_calib.sh probe` → `toolchain OK`、`nvenc_pair_calib.sh <非视频>` → 正确报
+      「ffprobe failed (no video stream?)」rc=2。
+    * **注意**：沙箱的 bash 对**原生 exe 不做 POSIX→Windows 参数转换**（`ffprobe /tmp/x` 报 No such file，
+      而 `C:/Users/…/Temp/x` 正常），所以验证时必须显式用 `WORK=C:/Users/…/Temp/…`；真实 MSYS2 里
+      这条转换是生效的（`cygpath` 出来的 `/f/…` 能直接喂给原生 ffmpeg）。
+    * **本轮基线**：`lint 28 PASS / 0 FAIL / 5 WARN`（静态 21 + 对等 7）、`selftest 34 cases / 0 FAIL`。
+      **仍待用户真机验证**（沙箱无 cmd.exe）：双击 `test\bat\bench_calib.bat` 与 `soft_pair_calib.bat`
+      应看到 `[find_ffmpeg] …` 相关输出正常、无 NO_VMAF。
+    * **教训（可复用）**：① **"环境事实写在文档里"不等于工具知道它** —— 同一台机器多套 ffmpeg 时，
+      凡是有硬能力依赖的工具都必须自己筛，不能信 PATH；② 新增"可选参数"时，**不传参数的老调用路径必须逐字节等价**，
+      这样 12 个既有入口零风险；③ 显式指定（`FFMPEG_BIN`）够了就用、不够就报错，**不要悄悄换掉用户的选择**；
+      ④ 一个"值为空就穿过去"的守卫（`case … in *[!0-9]*)`）等于没有守卫。
