@@ -207,8 +207,12 @@ if errorlevel 1 (
     exit /b 1
 )
 :ENC_SCORE
-set "DEL=0"
-for /f "usebackq delims=" %%R in (`"%FFPROBE_PATH%" -v error -select_streams v:0 -show_entries stream^=bit_rate -of csv^=p^=0 "%OUT%"`) do set "DEL=%%R"
+rem Delivered bitrate via lib\common.bat probe_field, not a for-backtick: the
+rem ffprobe path is usually "C:\Program Files\ffmpeg\bin\ffprobe.exe" and a
+rem variable-expanded program path cannot survive a for-backtick (bare -> the
+rem space splits it; quoted -> cmd /c eats the line's last quote). The helper
+rem uses an ordinary quoted command line redirected to a temp file.
+call "%REPO%\lib\common.bat" probe_field "%OUT%" stream=bit_rate DEL
 if not defined DEL set "DEL=0"
 if exist "%JS%" goto ENC_READ
 echo vmaf  %TAG% ^(delivered %DEL% bps^)

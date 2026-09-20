@@ -878,3 +878,47 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       ② 症状会随 cwd 变形的路径 bug，必须**换 cwd 复测**（仓库根 / `test\bat` / 任意目录各一次），
       否则会被"碰巧能跑"骗过去；③ 调用方用一句**兜底文案**替子调用失败背锅（这里把 `call` 失败
       说成 "not on PATH"）会大幅拉长排查时间，错误出口应只陈述本层能确定的事实。
+
+41. **`for /f` 反引号里的程序路径（L19）+ bench_calib 探测改走 probe_source（2026-09-20，用户报障）**：
+    * **现象（用户原样报回）**：仓库根执行 `.\test\bat\bench_calib.bat "F:\👍 看电影学英语…\The.Princess.Diaries.2.2004.mp4"`
+      → **三行** `'C:\Program' is not recognized as an internal or external command`，
+      然后 `ERROR: ffprobe failed / pixel count overflow on this source.`
+    * **根因**：三行 `for /f "usebackq delims=" %%W in (`%FFPROBE_PATH% -v error … ")`。
+      `for /f` 反引号里的命令是**交给子 `cmd /c` 执行**的，而变量展开的**程序路径**在那里两种写法都不安全：
+      **裸写** → `C:\Program Files\ffmpeg\bin\ffprobe.exe` 在空格处被切断，cmd 于是去找 `C:\Program`；
+      **加引号** → `cmd /c` 的引号规则（「行首是引号时，剥掉首个引号与该行**最后一个**引号」）会吃掉
+      末尾参数的收尾引号。三行全失败 → `SW`/`SH`/`SS` 全空 → 落到 `:NO_VIDEO`，而那句文案只说
+      ffprobe 失败，**又一次**把引号/路径问题说成工具链问题（与第 40 条同源：兜底文案替子调用失败背锅）。
+    * **同轮揪出的第二处（更隐蔽）**：`:ONE` 里读产物码率的第 161 行**已经**给路径加了引号，看似"修过"，
+      实则正是上面第二种情形。它不会报错，只会**静默**把 `delivered` 记成 0 —— 即「看起来能跑完、
+      数字全错」的形态，比必崩的那三行更难发现。
+    * **修法（本仓库唯一经真机验证过的形态）**：探测一律走「常规命令行 + 重定向到临时文件」，
+      再用 `for /f "usebackq"` 读文件（2026-09-17 重构前的逐字段探测就是这个写法）。具体：
+      ① `test\bat\bench_calib.bat` 源探测改为一次 `call … probe_source`（**3 → 1** 个 ffprobe 进程），
+      从 `P_streams.stream.0.width|height` 与 `P_format.duration` 取值（duration 用
+      `for /f "delims=."` 取整数部分再 `/2` 得 `SS`，与 sh 侧 `cut -d.` 等价）；
+      ② `lib\common.bat` 新增 **`:probe_field`**（`<文件> <show_entries 串> <输出变量>`：常规命令行 +
+      临时文件 + `for /f "usebackq"` 读回），供读**产物**上的标量用；
+      ③ `bench_calib.bat :ONE` 的 delivered 与 `soft_pair_calib.bat` 的对应行都改调 `probe_field`
+      （后者是孪生缺陷，一并修；`nvenc_pair_calib.bat` 里的裸 `ffprobe` 靠 PATH 解析、程序名不是变量，
+      不受影响）。
+    * **顺带修掉 `:ONE` 里两个静默失败**：① 原来是 `if not exist "%JS%" ( … popd & if errorlevel 1 … )`
+      —— 括号块内 `%ERRORLEVEL%` 在**解析时**就展开（拿到的是块之前的旧值），而 `popd` 之后 errorlevel
+      也已不是编码器的值；改为 `goto ONE_SCORE` 形态，在**块外、popd 之前**取 `%errorlevel%`
+      （与 `soft_pair_calib.bat` 的 scorer 同款）；② 再补一条**产物判据**（`if not exist "%JS%"` → 明确报错），
+      因为 ffmpeg 的 rc 从来不能证明产物存在（负 rc 对 `if errorlevel` 不可见）。
+    * **新增 lint L19（反引号里的程序路径）**：`for /f` 反引号内被执行的**程序名**不得是 `%VAR%` 展开。
+      只查「程序名」这一个 token，故 PATH 解析的 `ffprobe` / `powershell` 仍合法。
+      **召回已实测**：把 `HEAD:test/bat/bench_calib.bat`（未修版）临时落到 `test\bat\` 下，L19 精确报出
+      **4 处**（85/86/87 用户报的三行 + 161 那处静默的）；删掉探针文件即复原。
+      selftest 26 → **29 例**（L19 两例 recall：裸写 / 加引号；一例 precision：裸 `ffprobe` + `powershell`）。
+    * **键名与取值实证**（沙箱内用与 `probe_source` 逐字相同的 ffprobe 形式核对片源）：
+      `streams.stream.0.width=1280`（数字**不带**引号）、`format.duration="6787.778000"`（**带**引号，
+      靠 `%%~b` 剥）、`streams.stream.0.bit_rate="N/A"`；`6787/2=3393` 与 sh 侧一致。
+      另用 2s 夹具实跑一次 libvmaf，确认 bat 里读取的键路径 `pooled_metrics.vmaf.mean` 确实存在
+      （mean=95.41 → `floor(mean*10)`=954），即 `:ONE` 的推荐判定链路可用。
+    * **本轮基线**：`lint 27 PASS / 0 FAIL / 5 WARN`（静态 20 + 对等 7）、`selftest 29 cases / 0 FAIL`。
+      **仍待用户真机双击**（沙箱无 cmd.exe，cmd 语义静态验证不了）。
+    * **教训（可复用）**：① **不要用 `for /f` 反引号去跑变量展开的程序路径** —— 加不加引号都会在
+      「路径含空格」这个最普通的情况下崩；要跑就重定向到临时文件再读；② 「看起来加了引号」不等于安全，
+      `cmd /c` 的引号剥离规则与直觉相反；③ **静默失败比崩溃危险** —— 161 行那处不报错、只把数字写成 0。

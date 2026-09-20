@@ -18,6 +18,7 @@ if /I "%~1"=="extract"               goto extract
 if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
 if /I "%~1"=="probe_source"          goto probe_source
+if /I "%~1"=="probe_field"           goto probe_field
 if /I "%~1"=="check_isvideo"          goto check_isvideo
 echo 未知函数: %~1
 exit /b 1
@@ -196,3 +197,36 @@ set "PS_RC=%ERRORLEVEL%"
 for /f "usebackq tokens=1,* delims==" %%a in ("%PS_TMP%") do set "P_%%a=%%~b"
 del "%PS_TMP%" 2>nul
 exit /b %PS_RC%
+
+:probe_field
+rem 取单个标量并回填变量: call ... probe_field <文件> <show_entries 串> <输出变量名>
+rem   等价于一条 ffprobe -select_streams v:0 -show_entries <串> -of csv=p=0,
+rem   但**绝不**用 for /f 反引号去跑 ffprobe: 程序路径多为
+rem   "C:\Program Files\ffmpeg\bin\ffprobe.exe", 而反引号里的命令由子 cmd /c 执行,
+rem   变量展开的程序路径两种写法都不安全:
+rem     裸写   `%FFPROBE_PATH% -v error ...` -> 空格截断 -> cmd 报
+rem            'C:\Program' 不是内部或外部命令 (用户 2026-09-20 报障)
+rem     加引号 `"%FFPROBE_PATH%" -v error ...` -> cmd /c 的引号剥离规则
+rem            ("首字符是引号时, 剥掉首个引号与命令行最后一个引号") 会吃掉
+rem            末尾参数的收尾引号, 只要路径里有空格就同样散架
+rem   所以改成常规命令行重定向到临时文件(此处无引号剥离问题), 再用
+rem   for /f "usebackq" 读文件 —— 本仓库 2026-09-17 重构前一直在用、经真机验证的写法。
+rem   返回 ffprobe 的退出码; 变量=第一条输出行, 取不到时变量被清空。
+rem   注意: 同 probe_source, 本函数不 setlocal -- 输出变量必须对调用方可见。
+set "PF_FILE=%~2"
+set "PF_ENT=%~3"
+set "PF_OUT=%~4"
+if not defined PF_OUT exit /b 1
+if not defined PF_FILE exit /b 1
+if not defined PF_ENT exit /b 1
+if not defined FFPROBE_PATH (
+    echo [probe_field] FFPROBE_PATH not set by caller
+    exit /b 1
+)
+set "%PF_OUT%="
+set "PF_TMP=%TEMP%\ffmpeg_bat_pfield_%RANDOM%%RANDOM%.tmp"
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries %PF_ENT% -of csv=p=0 "%PF_FILE%" > "%PF_TMP%" 2>nul
+set "PF_RC=%ERRORLEVEL%"
+for /f "usebackq delims=" %%a in ("%PF_TMP%") do if not defined %PF_OUT% set "%PF_OUT%=%%a"
+del "%PF_TMP%" 2>nul
+exit /b %PF_RC%

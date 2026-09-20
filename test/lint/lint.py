@@ -1081,6 +1081,62 @@ def check_repo_anchor(inv):
            % (ANCHOR_UP2, checked))
 
 
+# ---------------------------------------------------------------- L19
+# `for /f ... in (`cmd`)` is executed by a CHILD cmd /c, and a
+# variable-expanded PROGRAM PATH cannot be written safely there:
+#   * bare    `%FFPROBE_PATH% -v error ...` -- the space in
+#     "C:\Program Files\ffmpeg\bin\ffprobe.exe" splits the command line and cmd
+#     answers "'C:\Program' is not recognized as an internal or external
+#     command". bench_calib.bat did precisely that on 2026-09-20 (user report):
+#     three such lines, then its own guard blamed ffprobe with
+#     "ffprobe failed / pixel count overflow on this source";
+#   * quoted  `"%FFPROBE_PATH%" -v error ...` -- cmd /c's quote rule ("if the
+#     line starts with a quote, strip that one and the LAST quote on the line")
+#     removes the closing quote of the final argument, so the line breaks as
+#     soon as any path contains a space.
+# The repo convention is therefore: run the tool from an ordinary (quoted)
+# command line redirected to a temp file, then read that file with
+# `for /f "usebackq"` -- exactly what lib\common.bat :probe_source and
+# :probe_field do, and how every probe was written before the 2026-09-17
+# refactor. Only a path-expanded FIRST token is flagged, so PATH-resolved
+# `ffprobe` / `powershell` backtick commands stay legal.
+# (Only the backtick form is checked: with usebackq a single-quoted string is a
+# literal, not a command.)
+BACKTICK_CMD_RE = re.compile(r"`([^`]*)`")
+VAR_TOKEN_RE = re.compile(r"^%[A-Za-z_][A-Za-z0-9_]*%$")
+
+
+def check_backtick_program(inv):
+    bads, inspected = [], 0
+    for f in inv["all_bat"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        for i, ln in enumerate(lf_lines(t), 1):
+            s = ln.strip()
+            if s.lower().startswith(("rem", "::")):
+                continue
+            for m in BACKTICK_CMD_RE.finditer(ln):
+                cmd = m.group(1).strip()
+                if not cmd:
+                    continue
+                inspected += 1
+                prog = cmd.split()[0].strip("\"'")
+                if VAR_TOKEN_RE.match(prog):
+                    bads.append("%s:%d runs %s from inside a for-backtick - a "
+                                "variable-expanded program path cannot carry a "
+                                "space there; redirect to a temp file and read "
+                                "it with for /f \"usebackq\" (lib\\common.bat "
+                                ":probe_field)" % (f, i, prog))
+    if bads:
+        for m in bads[:8]:
+            bad("L19", m)
+    else:
+        ok("L19", "no for-backtick runs a variable-expanded program path "
+                  "(%d backtick command(s) inspected)" % inspected)
+
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1542,6 +1598,7 @@ def main():
         check_stream_map(inv)
         check_moov_front(inv)
         check_repo_anchor(inv)
+        check_backtick_program(inv)
 
     if not args.lint_only:
         print("---- parity ----")

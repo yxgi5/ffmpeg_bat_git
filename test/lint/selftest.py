@@ -345,6 +345,49 @@ CASES = [
         "exit /b 2\n",
         set(), {"L18"},
     ),
+    (
+        "L19: a for-backtick running a variable-expanded program path is caught",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "set \"FFPROBE_PATH=%FF_BIN%\\ffprobe.exe\"\n"
+        "for /f \"usebackq delims=\" %%W in (`%FFPROBE_PATH% -v error "
+        "-select_streams v:0 -show_entries stream=width -of csv=p=0 "
+        "\"%SRC%\"`) do set \"SW=%%W\"\n"
+        "exit /b 0\n",
+        {"L19"}, set(),
+    ),
+    (
+        "L19: the quoted `\"%FFPROBE_PATH%\" ...` form is caught too",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "set \"FFPROBE_PATH=%FF_BIN%\\ffprobe.exe\"\n"
+        "for /f \"usebackq delims=\" %%R in (`\"%FFPROBE_PATH%\" -v error "
+        "-select_streams v:0 -show_entries stream=bit_rate -of csv=p=0 "
+        "\"%OUT%\"`) do set \"DEL=%%R\"\n"
+        "exit /b 0\n",
+        {"L19"}, set(),
+    ),
+    (
+        "L19 precision: PATH-resolved tools (bare ffprobe / powershell) are legal",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "for /f \"usebackq delims=\" %%W in (`ffprobe -v error -select_streams "
+        "v:0 -show_entries stream=width -of csv=p=0 \"%SRC%\"`) do set \"SW=%%W\"\n"
+        "for /f \"usebackq delims=\" %%V in (`powershell -NoProfile -Command "
+        "\"(Get-Content -Raw '%JS%' | ConvertFrom-Json).pooled_metrics.vmaf.mean\"`) "
+        "do set \"VM=%%V\"\n"
+        "exit /b 0\n",
+        set(), {"L19"},
+    ),
 ]
 
 
@@ -401,6 +444,7 @@ def run_checks(inv):
     lint.check_stream_map(inv)
     lint.check_moov_front(inv)
     lint.check_repo_anchor(inv)
+    lint.check_backtick_program(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

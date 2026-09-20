@@ -82,9 +82,24 @@ set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 "%FFMPEG_PATH%" -hide_banner -filters 2>nul | findstr /c:"libvmaf" >nul || goto NO_VMAF
 "%FFMPEG_PATH%" -hide_banner -encoders 2>nul | findstr /c:"%ENC%" >nul || goto NO_ENC
 
-for /f "usebackq delims=" %%W in (`%FFPROBE_PATH% -v error -select_streams v:0 -show_entries stream^=width -of csv^=p^=0 "%SRC%"`) do set "SW=%%W"
-for /f "usebackq delims=" %%H in (`%FFPROBE_PATH% -v error -select_streams v:0 -show_entries stream^=height -of csv^=p^=0 "%SRC%"`) do set "SH=%%H"
-for /f "usebackq delims=." %%D in (`%FFPROBE_PATH% -v error -show_entries format^=duration -of csv^=p^=0 "%SRC%"`) do set /a SS=%%D/2
+rem Source geometry and duration come from lib\common.bat probe_source (one
+rem ffprobe per run), NOT from `for /f ... in (`%FFPROBE_PATH% ...`)`: a
+rem for-backtick command is handed to a child cmd /c, where a variable-expanded
+rem PROGRAM PATH cannot be written safely -
+rem   bare   -> the space in "C:\Program Files\..." splits the command line and
+rem             cmd answers "'C:\Program' is not recognized as an internal or
+rem             external command" (user report, 2026-09-20);
+rem   quoted -> cmd /c's quote rule strips the first and the LAST quote of the
+rem             line, so the closing quote of the final argument disappears.
+rem Redirecting to a temp file and reading it with for /f "usebackq" is the
+rem only form this repo has ever run on a real machine (see :probe_source).
+call "%REPO%\lib\common.bat" probe_source "%SRC%"
+set "PSRC_RC=%ERRORLEVEL%"
+if not "%PSRC_RC%"=="0" goto NO_VIDEO
+set "SW=%P_streams.stream.0.width%"
+set "SH=%P_streams.stream.0.height%"
+set "SS="
+for /f "delims=." %%D in ("%P_format.duration%") do set /a SS=%%D/2
 if not defined SW goto NO_VIDEO
 if not defined SH goto NO_VIDEO
 if not defined SS goto NO_VIDEO
@@ -157,19 +172,36 @@ set "BR=%~1"
 set "TAG=%W2%x%H2%_%BR%"
 set "OUT=%WORK%\%TAG%.mp4"
 if not exist "%OUT%" "%FFMPEG_PATH%" -y -hide_banner -loglevel error -ss %SS% -t %LEN% -i "%SRC%" -vf "%PREP%" -c:v %ENC% -preset %PSET% -b:v %BR% -an "%OUT%" || ( exit /b 1 )
-set "DEL="
-for /f "usebackq delims=" %%R in (`"%FFPROBE_PATH%" -v error -select_streams v:0 -show_entries stream^=bit_rate -of csv^=p^=0 "%OUT%"`) do set "DEL=%%R"
+rem Delivered bitrate of our own output: same rule as above, so this goes
+rem through lib\common.bat probe_field (quoted command line + temp file)
+rem instead of a for-backtick, which cannot carry a program path with a space.
+call "%REPO%\lib\common.bat" probe_field "%OUT%" stream=bit_rate DEL
 if not defined DEL set "DEL=0"
 rem NOTE: log_path must stay RELATIVE (a C:/ absolute path breaks the
 rem filtergraph parser) and the reference leg needs the SAME -ss/-t as
 rem the encode leg, or libvmaf pairs frames from different offsets.
 set "JS=%WORK%\%TAG%.json"
-if not exist "%JS%" (
-    pushd "%WORK%" || ( exit /b 1 )
-    "%FFMPEG_PATH%" -hide_banner -loglevel error -i "%TAG%.mp4" -ss %SS% -t %LEN% -i "%SRC%" -filter_complex "[1:v]%PREP%[sref];[0:v][sref]libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%TAG%.json" -f null -
-    popd
-    if errorlevel 1 ( exit /b 1 )
+if exist "%JS%" goto ONE_SCORE
+pushd "%WORK%" || ( exit /b 1 )
+"%FFMPEG_PATH%" -hide_banner -loglevel error -i "%TAG%.mp4" -ss %SS% -t %LEN% -i "%SRC%" -filter_complex "[1:v]%PREP%[sref];[0:v][sref]libvmaf=model=version=%MODEL%:log_fmt=json:log_path=%TAG%.json" -f null -
+rem Read the status BEFORE popd, and outside any ( ) block: inside a block
+rem %ERRORLEVEL% is expanded when the block is PARSED, so it would report
+rem whatever ran before the block instead of the encoder. (Same lesson as the
+rem soft_pair_calib.bat scorer.)
+set "VRC=%errorlevel%"
+popd
+if not "%VRC%"=="0" (
+    echo   vmaf leg failed for %TAG% ^(rc=%VRC%^)
+    exit /b 1
 )
+rem The .json is the artifact this leg exists to produce; ffmpeg's own rc never
+rem proves an artifact exists (a negative rc is invisible to `if errorlevel`),
+rem so judge on the file as well.
+if not exist "%JS%" (
+    echo   vmaf leg produced no log for %TAG%
+    exit /b 1
+)
+:ONE_SCORE
 set "VM="
 for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content -Raw '%JS%' | ConvertFrom-Json).pooled_metrics.vmaf.mean"`) do set "VM=%%V"
 if not defined VM set "VM=0"
@@ -196,7 +228,8 @@ echo ERROR: source video not found or not given.
 pause
 exit /b 2
 :NO_VIDEO
-echo ERROR: ffprobe failed / pixel count overflow on this source.
+echo ERROR: could not read video geometry/duration from the source.
+echo        (no video stream, unreadable file, or pixel count overflow)
 pause
 exit /b 2
 :NO_FFMPEG
