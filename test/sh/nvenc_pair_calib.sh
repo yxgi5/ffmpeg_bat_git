@@ -59,7 +59,16 @@ if [ -z "$SRC" ]; then
     printf 'enter the full path of a video file: '
     read -r SRC
 fi
-[ -n "$SRC" ] && [ -f "$SRC" ] || { echo "ERROR: source video not found or not given"; exit 2; }
+# Accept a Windows path (F:\... / F:/...) directly; the helper comes from
+# lib/common.sh, which is optional on purpose (this script is copyable to a bare
+# remote box that has no repo around it).
+if declare -F normalize_source_path >/dev/null 2>&1; then
+    SRC="$(normalize_source_path "$SRC")"
+fi
+[ -n "$SRC" ] && [ -f "$SRC" ] || {
+    echo "ERROR: source video not found or not given"
+    echo "       tried: [$SRC]"
+    exit 2; }
 
 SW=$("$FP" -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
 DUR=$("$FP" -v error -show_entries format=duration -of csv=p=0 "$SRC" < /dev/null | tr -d '\r' | cut -d. -f1)

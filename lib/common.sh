@@ -364,8 +364,33 @@ _ff_try() {
     return 1
 }
 
+# 内部: 常见安装前缀(逐个打印候选 ffmpeg 路径)。
+# Windows 侧的路径**由 cygpath 生成**, 不硬写 /c/... :
+#   MSYS2 / Git Bash : /c/Program Files/ffmpeg/bin
+#   Cygwin           : /cygdrive/c/Program Files/ffmpeg/bin   (Cygwin 根本没有 /c)
+# 2026-09-20 用户报的"两个 shell 行为不一致"就出在这里: 同一条硬写的 /c/... 在
+# MSYS2 命中、在 Cygwin 必然落空, 于是 Cygwin 直接报 no ffmpeg with the libvmaf
+# filter was found, 而 MSYS2 却找到了(随后倒在别的检查上, 见该日文档记录)。
+_ff_known_prefixes() {
+    local w u
+    if command -v cygpath >/dev/null 2>&1; then
+        for w in 'C:\Program Files\ffmpeg\bin' 'C:\ffmpeg\bin' \
+                 'C:\Program Files (x86)\ffmpeg\bin'; do
+            u="$(cygpath -u "$w" 2>/dev/null)" || continue
+            [ -n "$u" ] && printf '%s\n' "$u/ffmpeg" "$u/ffmpeg.exe"
+        done
+    fi
+    # 没有 cygpath 时的兜底字面量(保持改造前行为)
+    printf '%s\n' "/c/Program Files/ffmpeg/bin/ffmpeg.exe" "/c/ffmpeg/bin/ffmpeg.exe"
+    for u in /opt/ffmpeg/*/bin/ffmpeg; do
+        [ -x "$u" ] && printf '%s\n' "$u"
+    done
+    printf '%s\n' /usr/local/bin/ffmpeg /usr/bin/ffmpeg
+}
+
 function find_ffmpeg() {
-    local fl="" en="" cand repo_root
+    local fl="" en="" cand repo_root d oldifs
+    local dirs=()
     while [ $# -gt 0 ]; do
         case "$1" in
             --need-filter)  fl="$fl ${2:-}"; shift 2 ;;
@@ -392,11 +417,28 @@ function find_ffmpeg() {
     for cand in "$repo_root/ffmpeg/bin/ffmpeg" "$repo_root/ffmpeg/bin/ffmpeg.exe"; do
         _ff_try "$cand" "$fl" "$en" && return 0
     done
-    _ff_try "$(command -v ffmpeg 2>/dev/null || true)" "$fl" "$en" && return 0
-    for cand in /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg \
-                "/c/Program Files/ffmpeg/bin/ffmpeg.exe"; do
-        _ff_try "$cand" "$fl" "$en" && return 0
+
+    # PATH 必须**逐项**看, 不能只问 command -v: 它只回第一个命中, 而"第一个"经常
+    # 正是缺能力那个(MSYS2 的 /mingw64/bin 8.1、Cygwin 的 /usr/bin 7.1.1 都没有
+    # libvmaf), 后面那个能用的构建于是永远轮不到 —— 2026-09-20 两个 shell 报错
+    # 不同, 根子就在这里。先收进数组再遍历: PATH 条目含空格时(C:\Program Files\
+    # ...), 先拼成字符串再按空格切会把它切断。
+    oldifs="$IFS"; IFS=":"
+    for d in $PATH; do
+        [ -n "$d" ] && dirs+=("$d")
     done
+    IFS="$oldifs"
+    # ${arr[@]+"${arr[@]}"} 是 set -u 下空数组的安全写法(兼容 bash 4.3)
+    for d in ${dirs[@]+"${dirs[@]}"}; do
+        _ff_try "$d/ffmpeg" "$fl" "$en" && return 0
+        _ff_try "$d/ffmpeg.exe" "$fl" "$en" && return 0
+    done
+
+    # ---- 阶段三: 常见安装前缀(Windows 侧路径由 cygpath 生成, Cygwin 也命中) ----
+    while IFS= read -r cand; do
+        _ff_try "$cand" "$fl" "$en" && return 0
+    done < <(_ff_known_prefixes)
+    _ff_note "已试遍 PATH 各项与常见前缀, 没有满足要求的 ffmpeg"
     return 1
 }
 
@@ -415,4 +457,31 @@ function find_ffprobe() {
 
 function ffmpeg_build_id() {
     "$1" -hide_banner -version 2>/dev/null | awk 'NR==1{print $3; exit}'
+}
+
+# ================================================================
+# 源文件路径归一化 (2026-09-20)
+#
+# 把 Windows 风格路径(F:\a\b 或 F:/a/b)转成当前 shell 能 stat 的形式。
+#
+# 背景(用户报障): 在 MSYS2 里执行
+#     test/sh/bench_calib.sh `cygpath "F:\👍 看电影学英语…\The.Princess.Diaries.2.2004.mp4"`
+# 得到的是 "ERROR: source video not found" —— 不打印路径, 看着像工具链坏了。可能
+# 是 cygpath 没装/不是那一个, 也可能是终端粘贴时把路径编码改掉了; 而当时工具既不肯
+# 直接吃 Windows 路径, 也不说它到底拿到了什么。现在两条都补上:
+#   ① Windows 路径直接可用(有 cygpath 就转; 没有就原样返回, 纯 Linux 机器不涉及);
+#   ② 调用方在报错时把试过的路径原样打出来(见各工具的 "tried: [...]" 行),
+#      空串 / 带 CR / 编码错, 一眼可辨。
+# ================================================================
+function normalize_source_path() {
+    local p="${1:-}" u
+    case "$p" in
+        [A-Za-z]:[\\/]*)
+            if command -v cygpath >/dev/null 2>&1; then
+                u="$(cygpath -u "$p" 2>/dev/null)"
+                [ -n "$u" ] && { printf '%s' "$u"; return 0; }
+            fi
+            ;;
+    esac
+    printf '%s' "$p"
 }

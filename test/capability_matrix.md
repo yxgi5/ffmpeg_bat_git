@@ -99,22 +99,37 @@
   | A/C `/opt` master | ✅ |
   | A/C 默认 4.4.2 | ❌ |
 
-  → `bench_calib` / `soft_pair_calib` / `nvenc_pair_calib` **只能**在原生 gyan full 或 `/opt` master 下跑。
+  → `bench_calib` / `soft_pair_calib` / `nvenc_pair_calib` **只能**在原生 gyan full 或 `/opt` master 下跑（`.sh` 侧现在会自己找到它，见下条）。
   `check_env` 两种模式现在都会打印 `filt libvmaf : yes/NO`，别再靠猜。
 * **两族现在都会自己挑一个"够用"的构建（2026-09-20）**：上面这张 shell → ffmpeg 的错位表，
   过去只写在文档里，工具本身并不知道 —— 于是 MSYS2 用户跑 sh 侧 calib 必然得到
   `no libvmaf filter`，而机器上明明装着 gyan full。现在：
   * `.sh`：`lib/common.sh` 的 **`find_ffmpeg [--need-filter <名>] [--need-encoder <名>]`**
-    按 `FFMPEG_BIN/FFMPEG > 仓库内 ffmpeg/bin > PATH > /opt/ffmpeg/*/bin,/usr/local/bin,/usr/bin,
-    C:\Program Files\ffmpeg\bin` 逐级找，**跳过**不含所需能力的候选（跳过的每个都会在标准错误里
-    说明"缺少什么"）；显式指定的 `FFMPEG_BIN`/`FFMPEG` 若不够用，只报错、不换别的构建。
-    `find_ffprobe <ffmpeg>` 取同目录的 ffprobe（尊重 `FFPROBE`），`ffmpeg_build_id` 打版本串。
-  * `.bat`：`lib/common.bat` 的 `:find_ffmpeg` 多了可选第 3 参数（能力名，如 `libvmaf`），
-    语义与 sh 侧一致（显式指定优先、不够用就报错不换）。**不传第 3 参数时行为与改造前逐字节一致**，
-    12 个编码入口都不传。
+    按 `FFMPEG_BIN/FFMPEG > 仓库内 ffmpeg/bin > PATH 的每一项 > 常见前缀` 逐级找，**跳过**不含所需能力的
+    候选（跳过的每个都会在标准错误里说明"缺少什么"）；显式指定的 `FFMPEG_BIN`/`FFMPEG` 若不够用，
+    只报错、不换别的构建。
+    * PATH 必须**逐项遍历**：`command -v ffmpeg` 只给第一个命中，而本机 PATH 首位恰好就是没 libvmaf 的那个
+      —— 后面能用的构建永远轮不到。
+    * 常见前缀由 `cygpath` 生成（`C:\Program Files\ffmpeg\bin` → `/c/...` 或 `/cygdrive/c/...`）。
+      **硬写 `/c/...` 在 Cygwin 必然落空**：Cygwin 没有 `/c` 挂载点（只有 `/cygdrive/c`，另有 `/proc/cygdrive`），
+      而 MSYS2 没有 `/cygdrive` —— 这就是「同一条命令在 MSYS2 报 `ERROR: source video not found`、
+      在 Cygwin 报 `ERROR: no ffmpeg with the libvmaf filter was found`」的直接原因（两个报错都各错一半）。
+    * `normalize_source_path <路径>`（`lib/common.sh`）让 calib 族**直接吃 Windows 路径**
+      （`F:\dir\file.mp4`），有 `cygpath` 才转 POSIX、没有则原样返回（纯函数，可安全用于纯 Linux）；
+      源文件检查失败时会打印 `tried: [...]`，不再让人猜"这条 shell 到底收到了什么"。
+    * `find_ffprobe <ffmpeg>` 取同目录的 ffprobe（尊重 `FFPROBE`），`ffmpeg_build_id` 打版本串。
+  * `.bat`：**没有能力筛选**（2026-09-20 当天加过 `:ff_satisfies` + 第 3 参数，同日**整体回退**）。
+    回退原因：`:ff_satisfies` 写成 `"%1\ffmpeg.exe"`，而调用方传进来的是**已带引号**的 `%FFBIN%`
+    → 展开成 `""C:\Program Files\ffmpeg\bin"\ffmpeg.exe"` → cmd 取首 token 得到**空程序名** →
+    报 `'' is not recognized…`，又被该行尾部的 `2>nul` 吞掉 → **每个候选都被判"缺少能力"**。
+    何况本机 ffmpeg 不在 PATH 上，走的是 `C:\Program Files\ffmpeg\bin` 兜底，这道门对本机毫无作用。
+    开发沙箱跑不了 `cmd.exe`（Bash / PowerShell 两条路都被硬拦），盲改不划算 —— 于是 `:find_ffmpeg`
+    回到 `环境变量 > 仓库内 ffmpeg\bin > PATH(where) > C:\Program Files\ffmpeg\bin`。
+    写法陷阱已固化为 lint **L21**（引号里不得再嵌参数展开）。
   * 灰度对照（本机，2026-09-20 实测）：`/mingw64/bin/ffmpeg`(8.1) 无 libvmaf、Cygwin 7.1.1 无 libvmaf、
-    `C:\Program Files\ffmpeg\bin`(gyan full 2025-05-01) 有 libvmaf —— 定位器在 PATH 命中前两个时会跳过并
-    落到第三个（`[find_ffmpeg] 跳过 … 缺少 filter:libvmaf`）。
+    `C:\Program Files\ffmpeg\bin`(gyan full 2025-05-01) 有 libvmaf —— sh 侧定位器会跳过前两个并落到第三个
+    （`[find_ffmpeg] 跳过 … 缺少 filter:libvmaf`）。已实证：MSYS2 与 Cygwin **两个真实运行时**都选中了它
+    （分别是 `/c/Program Files/ffmpeg/bin/ffmpeg` 与 `/cygdrive/c/Program Files/ffmpeg/bin/ffmpeg`）。
 
 ## 6. 未验证 / 待补清单（诚实记录）
 

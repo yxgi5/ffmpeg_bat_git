@@ -1139,11 +1139,10 @@ def check_backtick_program(inv):
 
 # ---------------------------------------------------------------- L20
 FF_REQ_WHITELIST = {
-    # check_env.{sh,bat} 是"环境盘点"工具: 它们故意报告 PATH 上那个 ffmpeg 有没有
-    # libvmaf(以及各构建的分布), 不是 libvmaf 的消费者。这两处 find_ffmpeg 只是
-    # 拿一个"待盘点的对象", 不参与能力筛选。
+    # check_env.sh 是"环境盘点"工具: 它故意报告 PATH 上那个 ffmpeg 有没有
+    # libvmaf(以及各构建的分布), 不是 libvmaf 的消费者。它拿到的那个对象
+    # 只是"待盘点的东西", 不参与能力筛选。
     "test/sh/check_env.sh",
-    "test/bat/check_env.bat",
 }
 
 
@@ -1152,18 +1151,27 @@ def _norm_path(f):
 
 
 def check_ffmpeg_requirement(inv):
-    """A tool that hard-requires libvmaf must not simply trust PATH.
+    """A .sh tool that hard-requires libvmaf must not simply trust PATH.
 
-    Both families resolve the binary through a shared find_ffmpeg
-    (lib/common.sh / lib/common.bat). The sh one takes
-    --need-filter/--need-encoder and skips builds that lack them; the bat one
-    takes the requirement as its third argument and, when the candidate from
-    PATH cannot do the job, keeps looking down the fallback list. The point is
-    the same on both sides: on a Windows box an MSYS2 shell resolves `ffmpeg`
-    to /mingw64/bin 8.1, which has no libvmaf, while the gyan full build sits
-    further down the list - a plain PATH lookup then fails with a misleading
-    "this ffmpeg build has no libvmaf filter" on a machine that has one.
-    Both families hit that class within one day (2026-09-20), hence the rule.
+    All three calib tools resolve the binary through lib/common.sh's find_ffmpeg,
+    which takes --need-filter/--need-encoder and skips builds that lack them.
+    That matters on a Windows box: an MSYS2 shell resolves `ffmpeg` to
+    /mingw64/bin 8.1 and a Cygwin shell to /usr/bin 7.1.1 - neither has libvmaf -
+    while the gyan full build sits further down the search order. A plain PATH
+    lookup fails there with a misleading "this ffmpeg build has no libvmaf
+    filter" on a machine that has one (2026-09-20).
+
+    Scope note (same day): the .bat half of this rule was removed again. A
+    capability argument was added to lib/common.bat's :find_ffmpeg and to both
+    calib .bat tools, but it was built as "%1\\ffmpeg.exe" while the caller
+    passes an already-quoted %FFBIN% - see L21 - so it mis-detected every
+    candidate, and it was the only change between the last working run of
+    test\\bat\\bench_calib.bat and the silent exit the user reported right after.
+    With no cmd.exe in the dev sandbox there is no way to verify cmd quoting
+    behaviour, so the gate was reverted rather than debugged blind. On this
+    machine it could not have helped anyway: C:\\Program Files\\ffmpeg\\bin is not
+    on PATH at all, so the `where ffmpeg.exe` branch never selects it. If the
+    bat side is ever revisited it needs "%~1\\ffmpeg.exe" and a real cmd run.
     """
     bads, inspected = [], []
     for f in inv["test_sh"]:
@@ -1182,33 +1190,65 @@ def check_ffmpeg_requirement(inv):
             bads.append("%s requires libvmaf but does not resolve ffmpeg with "
                         "it - use find_ffmpeg --need-filter libvmaf from "
                         "lib/common.sh instead of trusting PATH" % f)
-    for f in inv["test_bat"]:
-        p = os.path.join(ROOT, f)
-        if not os.path.isfile(p):
-            continue
-        _, t = read_text(p)
-        code = [ln for ln in lf_lines(t)
-                if not ln.strip().lower().startswith(("rem", "::"))]
-        if not any("libvmaf" in ln for ln in code):
-            continue
-        if _norm_path(f) in FF_REQ_WHITELIST:
-            continue
-        calls = [ln for ln in code if "find_ffmpeg" in ln]
-        if not calls:
-            # nvenc_pair_calib.bat deliberately requires ffmpeg on PATH
-            # (its header says so), so it is not a find_ffmpeg caller at all.
-            continue
-        inspected.append(f)
-        if not any("libvmaf" in ln for ln in calls):
-            bads.append("%s calls find_ffmpeg without the capability argument "
-                        "while requiring libvmaf - pass it as the third "
-                        "argument: call ... find_ffmpeg <outvar> libvmaf" % f)
     if bads:
         for m in bads[:8]:
             bad("L20", m)
     else:
-        ok("L20", "libvmaf consumers resolve ffmpeg with the capability "
-                  "argument (%d tool(s) inspected)" % len(inspected))
+        ok("L20", "libvmaf consumers resolve ffmpeg with --need-filter "
+                  "(%d .sh tool(s) inspected)" % len(inspected))
+
+
+# ---------------------------------------------------------------- L21
+_QUOTED_ARG = re.compile(r'"(?P<pct>%{1,2})(?P<digit>[0-9])')
+
+
+def check_quoted_arg_expansion(inv):
+    """Never nest an argument expansion inside another pair of quotes.
+
+    %1 already carries whatever quotes the caller wrote, so
+
+        "%1\\ffmpeg.exe"
+
+    is not "quoted path + suffix". With a caller of `call :x "%FFBIN%"` it
+    expands to
+
+        ""C:\\Program Files\\ffmpeg\\bin"\\ffmpeg.exe"
+
+    and cmd's first-token rule reads the program name as the empty string.
+    Write "%~1\\ffmpeg.exe" instead - the ~ strips the caller's quotes.
+
+    Not hypothetical: this sat in lib/common.bat's :ff_satisfies behind a
+    `2>nul`, so the failure was invisible and every candidate was reported as
+    lacking the capability, including the one that has it. Found 2026-09-20
+    while chasing the silent exit of test\\bat\\bench_calib.bat; the whole
+    bat-side capability gate was then reverted (see L20's note).
+    A pure "%1" (verbatim pass-through) and "%~1" both stay legal.
+    """
+    bads, inspected = [], 0
+    for f in inv["all_bat"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        for n, ln in enumerate(lf_lines(t), 1):
+            if ln.strip().lower().startswith(("rem", "::")):
+                continue
+            inspected += 1
+            for m in _QUOTED_ARG.finditer(ln):
+                if ln[m.end():m.end() + 1] == '"':
+                    continue          # "%1" - verbatim, correct
+                bads.append("%s:%d nests an argument expansion in quotes - "
+                            "found \"%s%s\"; write \"%%~%s...\" instead, the ~ "
+                            "strips the quotes the caller already passed"
+                            % (f, n, m.group("pct"), m.group("digit"),
+                               m.group("digit")))
+                break
+    if bads:
+        for m in bads[:8]:
+            bad("L21", m)
+    else:
+        ok("L21", "no argument expansion is nested inside quotes "
+                  "(%d .bat line(s) inspected)" % inspected)
 
 
 # ---------------------------------------------------------------- tables
@@ -1677,6 +1717,7 @@ def main():
         check_repo_anchor(inv)
         check_backtick_program(inv)
         check_ffmpeg_requirement(inv)
+        check_quoted_arg_expansion(inv)
 
     if not args.lint_only:
         print("---- parity ----")

@@ -71,7 +71,13 @@ if [ -z "${SRC:-}" ]; then
     printf 'drag a video file here, or enter its full path: '
     read -r SRC
 fi
-[ -n "$SRC" ] && [ -f "$SRC" ] || { echo "ERROR: source video not found"; exit 2; }
+SRC="$(normalize_source_path "$SRC")"
+[ -n "$SRC" ] && [ -f "$SRC" ] || {
+    echo "ERROR: source video not found"
+    echo "       tried: [$SRC]"
+    echo "       a Windows path (F:\\dir\\file.mkv) is accepted directly here, no cygpath needed;"
+    echo "       the brackets show exactly what this shell received."
+    exit 2; }
 
 SW=$("$FP" -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')
 SH=$("$FP" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$SRC" < /dev/null | tr -d '\r')

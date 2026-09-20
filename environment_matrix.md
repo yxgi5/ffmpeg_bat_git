@@ -923,7 +923,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       「路径含空格」这个最普通的情况下崩；要跑就重定向到临时文件再读；② 「看起来加了引号」不等于安全，
       `cmd /c` 的引号剥离规则与直觉相反；③ **静默失败比崩溃危险** —— 161 行那处不报错、只把数字写成 0。
 
-42. **两族 ffmpeg 定位器按"能力"筛构建 + L20（2026-09-20，用户报障）**：
+42. **两族 ffmpeg 定位器按"能力"筛构建 + L20（2026-09-20，用户报障；.bat 半边同日回退，见 43）**：
     * **现象（用户原样报回）**：MSYS2 MINGW64 里
       `test/sh/bench_calib.sh \`cygpath "F:\👍 看电影学英语…\The.Princess.Diaries.2.2004.mp4"\``
       → `ERROR: this ffmpeg build has no libvmaf filter`。
@@ -943,7 +943,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       ② `test/sh/{bench_calib,nvenc_pair_calib,soft_pair_calib}.sh` 改走它，并把所有调用点写成 `"$FF"`/`"$FP"`。
       两个 pair 工具是「有则用、无则退回 PATH 裸 ffmpeg」（它们设计上可单独拷到裸机跑），
       所以是 `[ -r lib/common.sh ] && .` + `declare -F find_ffmpeg` 判断。
-      ③ `lib/common.bat` 的 `:find_ffmpeg` 增加可选第 3 参数（能力名）：命中候选不满足时**继续往兜底目录找**
+      ③ **【本项已于同日整体回退，见第 43 条；此处保留原始记录】** `lib/common.bat` 的 `:find_ffmpeg` 增加可选第 3 参数（能力名）：命中候选不满足时**继续往兜底目录找**
       （`FFMPEG_BIN` 显式指定则只报告不换）；新增内部子程序 `:ff_satisfies`（`-filters` 先查、`-encoders` 再查，
       **只判 findstr 命中与否，不看 ffmpeg 退出码** —— 负 AVERROR 对 `if errorlevel` 不可见，见第 39 条）。
       **不传第 3 参数时行为与改造前逐字节一致**，12 个编码入口都不传、零额外开销（calib 族多 1~2 次 `-filters`）。
@@ -966,10 +966,70 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **注意**：沙箱的 bash 对**原生 exe 不做 POSIX→Windows 参数转换**（`ffprobe /tmp/x` 报 No such file，
       而 `C:/Users/…/Temp/x` 正常），所以验证时必须显式用 `WORK=C:/Users/…/Temp/…`；真实 MSYS2 里
       这条转换是生效的（`cygpath` 出来的 `/f/…` 能直接喂给原生 ffmpeg）。
-    * **本轮基线**：`lint 28 PASS / 0 FAIL / 5 WARN`（静态 21 + 对等 7）、`selftest 34 cases / 0 FAIL`。
+    * **本轮基线**：`lint 28 PASS / 0 FAIL / 5 WARN`（静态 21 + 对等 7）、`selftest 34 cases / 0 FAIL`。**【后被第 43 条更新为 29 PASS / 35 cases】**
       **仍待用户真机验证**（沙箱无 cmd.exe）：双击 `test\bat\bench_calib.bat` 与 `soft_pair_calib.bat`
       应看到 `[find_ffmpeg] …` 相关输出正常、无 NO_VMAF。
     * **教训（可复用）**：① **"环境事实写在文档里"不等于工具知道它** —— 同一台机器多套 ffmpeg 时，
       凡是有硬能力依赖的工具都必须自己筛，不能信 PATH；② 新增"可选参数"时，**不传参数的老调用路径必须逐字节等价**，
       这样 12 个既有入口零风险；③ 显式指定（`FFMPEG_BIN`）够了就用、不够就报错，**不要悄悄换掉用户的选择**；
       ④ 一个"值为空就穿过去"的守卫（`case … in *[!0-9]*)`）等于没有守卫。
+43. **bat 侧定位器整体回退 + MSYS2/Cygwin 差异查清 + L21（2026-09-20 晚，同轮收尾）**：
+    * **现象（用户报障）**：在仓库根执行 `.\test\bat\bench_calib.bat "<F 盘电影>"`，
+      **同一行命令连打三遍、随即回到提示符** —— 没有错误文本，也没有 `pause` 的 `Press any key`，即**静默退出**。
+      用户当场裁断：**「我觉得还是参考 e34a21c 版本。」**
+    * **排查**：`git diff e34a21c..HEAD` 显示第 42 条那轮对 bat 侧**只做了一件事** ——
+      `lib/common.bat :find_ffmpeg` 加能力筛选 + 两个 calib bat 传第 3 参数。逐行静态审查 `bench_calib.bat`
+      （`:ONE` 的 `if exist "%JS%" goto ONE_SCORE`、`:NO_REPO` 的 `if not exist "%REPO%\lib\common.bat"`、
+      `@echo off`、`chcp 65001` 重入守卫）**未找到任何会吞掉输出的结构** —— 这些行与 e34a21c 逐字相同。
+      于是**锁定 `:ff_satisfies` 的 `"%1\ffmpeg.exe"` 为唯一的本机行为变化**：调用方传进来的是**已带引号**的
+      `%FFBIN%`（`C:\Program Files\ffmpeg\bin` 含空格，不加引号传不过去），被再套一层引号后展开成
+      `""C:\Program Files\ffmpeg\bin"\ffmpeg.exe"` → cmd 取首 token 得到**空程序名** → `'' is not recognized…`，
+      而那一行尾部挂着 `2>nul` → 错误被彻底吞掉 → **每个候选都被判"缺少能力"**。
+      何况本机 ffmpeg 根本不在 PATH 上、走的是 `C:\Program Files\ffmpeg\bin` 兜底，**这道门对本机毫无作用**。
+    * **处理（按用户裁断整体回退）**：`lib/common.bat`、`test/bat/bench_calib.bat`、`test/bat/soft_pair_calib.bat`
+      回到 e34a21c 行为 —— 逐文件 `git diff e34a21c` **过滤掉 rem 行后输出为空**；只在原处留一段解释性注释，
+      写清"这个参数为什么没了、将来要重做必须写 `"%~1\ffmpeg.exe"`"。能力筛选**只留在 `.sh` 侧**。
+      **诚实标注**：这是"消除唯一嫌疑"而非"已证实根因" —— 开发沙箱里 `cmd.exe` 从 Bash 与 PowerShell
+      两条路都被硬拦（`Invoking cmd.exe from Bash bypasses all command validation`），`Start-Process` 又因
+      环境变量字典键冲突失败，**本轮无法自行验证任何 cmd 语义**，故必须真机双击复核。
+    * **用户两问的事实核证**：
+      ① **MSYS2 的 ffmpeg 确实无 libvmaf**（实测，非推测）：`ffmpeg -buildconf` 里 `vmaf` 命中 **0** 次；
+      41 个 `--enable-lib*` 中没有 libvmaf；`/d/msys64/mingw64/bin/*vmaf*` 不存在；pacman 本地库只有
+      `mingw-w64-x86_64-ffmpeg-8.1-1`、**没有 libvmaf 包**。Cygwin 的 7.1.1 同样无 libvmaf
+      （且连 libx264/libx265 都没有）。→ 第 42 条那句「`[find_ffmpeg] 跳过 … 缺少 filter:libvmaf`」**判据正确**。
+      ② **Cygwin 与 MSYS2 的差异 = 挂载点 + PATH 首项的正交差别**：MSYS2 有 `/c /d /f`（**无 `/cygdrive`**），
+      Cygwin 只有 `/cygdrive/{c,d,f}`（**无 `/c`**，虽有默认的 `/proc/cygdrive`）；PATH 首项分别是
+      `/mingw64/bin` 与 `/usr/bin` 前的那一串。于是第 42 条里**硬写的**候选
+      `"/c/Program Files/ffmpeg/bin/ffmpeg.exe"` 在 MSYS2 命中、在 Cygwin **必然落空** → 两个 shell 报出不同的错：
+      MSYS2 =「跳过 /mingw64/bin/ffmpeg」+ `ERROR: source video not found`；
+      Cygwin =「跳过 /usr/bin/ffmpeg」+ `ERROR: no ffmpeg with the libvmaf filter was found.`
+      —— **两个报错各错一半**：机器上有合格构建，而且 `cygpath` 在 MSYS2 里明明解析成功。
+    * **sh 侧修法（本轮代码主体，`lib/common.sh`）**：
+      ① 定位器第二阶段**逐项遍历 PATH**（`command -v ffmpeg` 只给第一个命中，而本机 PATH 首位恰是不合格那个）；
+      ② 常见前缀改由 **`cygpath` 生成**（`_ff_known_prefixes`）—— Cygwin 拿到 `/cygdrive/c/…`、MSYS2 拿到 `/c/…`；
+      ③ 新增纯函数 `normalize_source_path`：**直接接受 Windows 路径**（盘符前缀 `X:\` 或 `X:/`，有 `cygpath`
+      才转 POSIX、否则原样返回，故纯 Linux 上也安全），`test/sh/{bench_calib,nvenc_pair_calib}.sh` 改走它，
+      源文件检查失败时打印 `tried: [...]`。另：`set -u` 下空数组要写 `${arr[@]+"${arr[@]}"}`，否则展开即报 unbound。
+    * **实测（沙箱内，两个真实运行时）**：`find_ffmpeg --need-filter libvmaf` 在 MSYS2 得
+      `/c/Program Files/ffmpeg/bin/ffmpeg`、在 Cygwin 得 `/cygdrive/c/Program Files/ffmpeg/bin/ffmpeg`
+      —— **都落到唯一可用的 gyan full**，且两处都先打印「跳过 … 缺少 filter:libvmaf」；
+      `normalize_source_path "F:\👍 看电影学英语\…"` 两处都得到 `FOUND`。
+      **沙箱特有限制（非真机问题）**：沙箱**禁用了 MSYS/Cygwin 的 POSIX→Windows 参数改写** —— 同一个 Cygwin 里
+      Windows 形式路径进 ffprobe 得到 `1280`、POSIX 形式报 `No such file or directory`。故沙箱内端到端只能传
+      Windows 形式路径；真机上这条改写是生效的。
+    * **新增 lint L21（引号里不得再嵌参数展开）**：拦 `"%1\…"` 这种"给已展开参数再套引号"的写法；
+      `"%~1\…"`（剥引号修饰符）与右引号**紧随** `%1` 之后的 `"%1"`（原样传递）两种合法形态不报。
+      **召回已实测**：把**未修复的 `HEAD:` 版 `lib/common.bat`** 临时落到 `test/bat/zz_probe_old.bat`，
+      L21 精确报出 `:191` 与 `:193` 两处，随即删除、`git status` 干净。
+      L20 收窄为**只管 `.sh` 侧**（bat 半边门已撤），白名单由 `test/{sh,bat}/check_env.*` 改为 `test/sh/check_env.sh`。
+      selftest 34 → **35 例**（删 bat 侧 L20 两例；新增 L21 recall 一例 + precision 两例）。
+    * **本轮基线**：`lint 29 PASS / 0 FAIL / 5 WARN`、`selftest 35 cases / 0 FAIL`。
+      **待用户真机验证**：① 双击 `test\bat\bench_calib.bat "<F 盘电影>"` 应恢复（五个头行 + 5 个梯点 + `RECOMMENDATION`）；
+      ② `test\bat\soft_pair_calib.bat` 的 delivered 列不再恒为 0；③ MSYS2 / Cygwin 各跑一次
+      `test/sh/bench_calib.sh "F:\👍…mp4"`（**直接传 Windows 路径、不用 cygpath**）应能落到 gyan full 并跑完 5 个梯点。
+    * **教训（可复用）**：① **"加引号更安全"是错觉** —— 给一个**已经带引号**传进来的参数再套引号会得到空程序名，
+      而 `2>nul` 会把它变成一条看起来很合理的错误结论（"缺少能力"）；② **两个 shell 的挂载点不同**
+      （Cygwin 无 `/c`、MSYS2 无 `/cygdrive`），任何硬写盘符前缀的候选列表都必须用 `cygpath` 生成；
+      ③ `command -v` **只给第一个命中**，多候选场景必须自己遍历 PATH；
+      ④ 工具报错**必须把"自己收到了什么"打出来**（`tried: [...]`），否则用户与开发者只能互相猜；
+      ⑤ 沙箱验证不了的东西（cmd 语义）**不要盲改** —— 回退到已知可用版本 + 用 lint 把踩过的坑固化，比继续猜划算。

@@ -74,12 +74,17 @@ if not defined SRC (
 if not defined SRC goto NO_SRC
 if not exist "%SRC%" goto NO_SRC
 
-rem the third argument (libvmaf) makes find_ffmpeg skip candidates that lack it:
-rem when this .bat is launched from an MSYS2 terminal, cmd inherits a PATH whose
-rem first ffmpeg.exe is D:\msys64\mingw64\bin 8.1 (no libvmaf), while the gyan full
-rem build sits lower in the list - without the requirement the tool reported NO_VMAF
-rem on a machine that has a perfectly good build. Same rule as test/sh/bench_calib.sh.
-call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN libvmaf
+rem find_ffmpeg takes NO capability argument (a bat-side gate was added on
+rem 2026-09-20 and reverted the same day). It built its command line as
+rem   "%1\ffmpeg.exe"      caller passes an already-quoted %FFBIN%
+rem = ""C:\Program Files\ffmpeg\bin"\ffmpeg.exe" -> the program name parses to the
+rem empty string, and the 2>nul on that line hid the resulting error, so every
+rem candidate looked incapable. It is the only behaviour change between the last
+rem working run and the silent exit reported right after it, so instead of
+rem debugging cmd quoting blind (no cmd.exe in the dev sandbox) the gate is gone.
+rem Capability-based selection stays on the .sh side, where find_ffmpeg can walk
+rem the fallback list: test/sh/bench_calib.sh uses --need-filter libvmaf.
+call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_FFMPEG
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"

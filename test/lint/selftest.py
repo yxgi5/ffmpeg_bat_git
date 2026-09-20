@@ -398,7 +398,8 @@ CASES = [
         {"L20"}, set(),
     ),
     (
-        "L20: a .bat calling find_ffmpeg without the capability argument is caught",
+        "L21: an argument expansion nested inside quotes is caught "
+        "(the :ff_satisfies shape)",
         "test/bat/probe_calib.bat", True,
         "@echo off\n"
         ":main\n"
@@ -406,14 +407,17 @@ CASES = [
         "set \"REPO=%~dp0..\\..\"\n"
         "call \"%REPO%\\lib\\common.bat\" find_ffmpeg FF_BIN\n"
         "if errorlevel 1 goto NO_FFMPEG\n"
-        "set \"FFMPEG_PATH=%FF_BIN%\\ffmpeg.exe\"\n"
-        "\"%FFMPEG_PATH%\" -hide_banner -filters 2>nul | "
-        "findstr /c:\"libvmaf\" >nul || goto NO_VMAF\n"
+        "call :ff_satisfies \"%FF_BIN%\"\n"
+        "if not errorlevel 1 exit /b 0\n"
+        "exit /b 1\n"
+        ":ff_satisfies\n"
+        "\"%1\\ffmpeg.exe\" -hide_banner -filters 2>nul | "
+        "findstr /c:\"libvmaf\" >nul\n"
         "exit /b 0\n",
-        {"L20"}, set(),
+        {"L21"}, set(),
     ),
     (
-        "L20 precision: the capability-aware forms on both sides are legal",
+        "L20 precision: a capability-aware .sh lookup is legal",
         "test/sh/probe_calib.sh", False,
         "#!/bin/bash\n"
         "FF=\"$(find_ffmpeg --need-filter libvmaf)\" || exit 2\n"
@@ -422,18 +426,32 @@ CASES = [
         set(), {"L20"},
     ),
     (
-        "L20 precision: the bat capability argument is legal",
+        "L21 precision: a quoted path built from a %VAR% is legal",
         "test/bat/probe_calib.bat", True,
         "@echo off\n"
         ":main\n"
         "setlocal\n"
         "set \"REPO=%~dp0..\\..\"\n"
-        "call \"%REPO%\\lib\\common.bat\" find_ffmpeg FF_BIN libvmaf\n"
+        "call \"%REPO%\\lib\\common.bat\" find_ffmpeg FF_BIN\n"
         "if errorlevel 1 goto NO_FFMPEG\n"
         "\"%FF_BIN%\\ffmpeg.exe\" -hide_banner -filters 2>nul | "
         "findstr /c:\"libvmaf\" >nul || goto NO_VMAF\n"
         "exit /b 0\n",
-        set(), {"L20"},
+        set(), {"L21", "L20"},
+    ),
+    (
+        "L21 precision: \"%~1\" (quote-stripping) and a verbatim \"%1\" are legal",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "call :probe \"%1\"\n"
+        "exit /b 0\n"
+        ":probe\n"
+        "\"%~1\\ffmpeg.exe\" -hide_banner -filters 2>nul | "
+        "findstr /c:\"libvmaf\" >nul\n"
+        "exit /b 0\n",
+        set(), set(),
     ),
     (
         "L20 precision: check_env is an inventory tool, not a libvmaf consumer",
@@ -504,6 +522,7 @@ def run_checks(inv):
     lint.check_repo_anchor(inv)
     lint.check_backtick_program(inv)
     lint.check_ffmpeg_requirement(inv)
+    lint.check_quoted_arg_expansion(inv)
     return {cid for cid, _ in lint.FAIL}
 
 
