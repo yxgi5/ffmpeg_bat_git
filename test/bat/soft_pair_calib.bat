@@ -215,7 +215,13 @@ rem ffprobe path is usually "C:\Program Files\ffmpeg\bin\ffprobe.exe" and a
 rem variable-expanded program path cannot survive a for-backtick (bare -> the
 rem space splits it; quoted -> cmd /c eats the line's last quote). The helper
 rem uses an ordinary quoted command line redirected to a temp file.
-call "%REPO%\lib\common.bat" probe_field "%OUT%" stream=bit_rate DEL
+call "%REPO%\lib\common.bat" probe_field "%OUT%" vbr DEL
+rem fbr = container average, as a fallback for containers without a
+rem per-stream rate (a silent 0 is worse than a coarse number).
+if not defined DEL call "%REPO%\lib\common.bat" probe_field "%OUT%" fbr DEL
+rem ffprobe prints a literal N/A when a container carries no per-stream
+rem rate; that is a miss, not a number (mirrors the sh side's case guard).
+for /f "delims=0123456789" %%i in ("%DEL%") do set "DEL="
 if not defined DEL set "DEL=0"
 if exist "%JS%" goto ENC_READ
 echo vmaf  %TAG% ^(delivered %DEL% bps^)

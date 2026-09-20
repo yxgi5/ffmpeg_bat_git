@@ -44,6 +44,20 @@
 #   - on Windows/MSYS the log_path must be RELATIVE (a drive-letter colon
 #     breaks filter-arg parsing), hence the cwd-relative logs/ paths.
 set -u
+# An unquoted command substitution is the classic way to lose a path that
+# contains spaces: `cygpath "F:\my dir\a.mp4"` outside quotes gets
+# word-split, so $1 becomes "/c/f/my" and the rest of the path lands in
+# $2..$n. Say that out loud instead of reporting "source video not found".
+if [ "$#" -gt 1 ]; then
+    echo "ERROR: too many arguments ($#) - the source path looks split on spaces."
+    echo "       arg1: [$1]"
+    echo "       arg2: [$2]"
+    echo "       quote the substitution, or pass the Windows path directly:"
+    echo "         test/sh/soft_pair_calib.sh \"\$(cygpath \"F:\\dir\\a.mp4\")\""
+    echo "         test/sh/soft_pair_calib.sh \"F:\\dir\\a.mp4\""
+    exit 1
+fi
+
 MODE="${1:-full}"
 # Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
 # lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
@@ -168,6 +182,7 @@ for key in "${!SRC[@]}"; do
                     || { echo "encode FAIL $tag"; continue; }
             fi
             delivered=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate -of csv=p=0 "$out")
+            case "$delivered" in ''|*[!0-9]*) delivered=$("$FP" -v error -show_entries format=bit_rate -of csv=p=0 "$out") ;; esac
             if [ ! -s "$js" ]; then
                 echo "vmaf  $tag (delivered ${delivered}bps)"
                 # log_path is deliberately cwd-relative: an absolute path

@@ -46,6 +46,20 @@ if [ -n "$SRC_ARG" ]; then SRC="$SRC_ARG"; else SRC="${2:-}"; fi
 if [ -n "$CAP_ARG" ]; then CAP="$CAP_ARG"; else CAP="${3:-0}"; fi
 if [ -n "$LEN_ARG" ]; then LEN="$LEN_ARG"; else LEN="${4:-30}"; fi
 
+# An unquoted command substitution is the classic way to lose a path that
+# contains spaces: `cygpath "F:\my dir\a.mp4"` outside quotes gets
+# word-split, so $1 becomes "/c/f/my" and the rest of the path lands in
+# $2..$n. Say that out loud instead of reporting "source video not found".
+if [ "$#" -gt 4 ]; then
+    echo "ERROR: too many arguments ($#) - the source path looks split on spaces."
+    echo "       arg1: [$1]"
+    echo "       arg2: [$2]"
+    echo "       quote the substitution, or pass the Windows path directly:"
+    echo "         test/sh/bench_calib.sh \"\$(cygpath \"F:\\dir\\a.mp4\")\""
+    echo "         test/sh/bench_calib.sh \"F:\\dir\\a.mp4\""
+    exit 1
+fi
+
 case "$CODEC" in
     avc) CSV_NAME="bitrate_table_avc.csv";  ENC="libx264";   PSET="fast" ;;
     hevc) CSV_NAME="bitrate_table_hevc.csv"; ENC="libx265";  PSET="fast" ;;
@@ -75,6 +89,10 @@ SRC="$(normalize_source_path "$SRC")"
 [ -n "$SRC" ] && [ -f "$SRC" ] || {
     echo "ERROR: source video not found"
     echo "       tried: [$SRC]"
+    if [ "$#" -gt 1 ]; then
+        echo "       $# arguments were given, so the path may have been split on spaces;"
+        echo "       quote the substitution or pass the Windows path directly."
+    fi
     echo "       a Windows path (F:\\dir\\file.mkv) is accepted directly here, no cygpath needed;"
     echo "       the brackets show exactly what this shell received."
     exit 2; }
@@ -129,6 +147,10 @@ encode_ladder() {
         local del vm js
         del=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate \
               -of csv=p=0 "$out" < /dev/null | tr -d '\r')
+        # mp4 carries a per-stream rate, other containers (mkv) do not - fall
+        # back to the container average rather than reporting a silent 0.
+        case "$del" in ''|*[!0-9]*) del=$("$FP" -v error -show_entries \
+              format=bit_rate -of csv=p=0 "$out" < /dev/null | tr -d '\r') ;; esac
         case "$del" in ''|*[!0-9]*) del=0 ;; esac
         js="$tag.json"
         if [ ! -f "$WORK/$js" ]; then

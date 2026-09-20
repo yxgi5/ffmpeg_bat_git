@@ -1033,3 +1033,44 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       ③ `command -v` **只给第一个命中**，多候选场景必须自己遍历 PATH；
       ④ 工具报错**必须把"自己收到了什么"打出来**（`tried: [...]`），否则用户与开发者只能互相猜；
       ⑤ 沙箱验证不了的东西（cmd 语义）**不要盲改** —— 回退到已知可用版本 + 用 lint 把踩过的坑固化，比继续猜划算。
+44. **bat 的 `delivered` 恒为 0：cmd 把 `=` 也当参数分隔符 + lint L22（2026-09-20，用户真机报障）**：
+    * **现象（用户原样报回）**：按裁断回退后双击 `test\bat\bench_calib.bat "<F 盘电影>"` —— **工具恢复了**
+      （`source/encode/table/vmaf/work` 五头行齐全、5 个梯点全跑完、`RECOMMENDATION: smallest ladder point with
+      VMAF>=95 is 2039817 bps (VMAF 95.443768)` 也对），但**每一行的 `delivered` 都是 0**，而同一行的
+      `vmaf=87.045285 / 90.221466 / 93.442421 / 95.443768 / 96.377556` 完全正常。
+    * **定位**：`delivered` 的唯一来源是
+      `call "%REPO%\lib\common.bat" probe_field "%OUT%" stream=bit_rate DEL`。
+      `:probe_field` 从 `%~4` 取**输出变量名**，而 **cmd 切分批处理参数 `%1..%9` 时把等号也当分隔符**
+      → 该行实际切成 `%2=<文件> %3=stream %4=bit_rate %5=DEL` → 它把结果写进一个叫 `bit_rate` 的变量，
+      调用方读的 `DEL` **从未被赋值** → 紧接的 `if not defined DEL set "DEL=0"` 兜成 0。
+      **为什么 `:probe_source` 没同样中招**：它的路径参数带引号（引号内部不切分），而 `probe_field` 的
+      `stream=bit_rate` 是**裸的**。**:probe_field 是 `e34a21c` 当天新增、从未在真机跑过的子过程**
+      （开发沙箱跑不了 `cmd.exe`），所以静态审查不可能发现 —— 这一条只能靠真机双击。
+    * **实测证据**：同一批产物**绕开 cmd** 直接问 ffprobe：
+      `-show_entries stream=bit_rate` → `736259`（`1280x720_679939.mp4`）、`2916820`（`1280x720_2719757.mp4`）
+      —— **数就在那儿**，只是没被读出来。
+    * **修法**：show_entries 串收到 `:probe_field` **内部按关键词展开**，外部只传不含 `=` 的单词：
+      `vbr` = 视频流码率（`stream=bit_rate`）、`fbr` = 容器平均码率（`format=bit_rate`）。两个调用方都改成
+      `probe_field "%OUT%" vbr DEL`，取不到时再退 `fbr` —— **实测 mkv 的 `stream=bit_rate` 是字面量 `N/A`、
+      `format=bit_rate` 是 `568346`**，证明这条回退不是死代码。ffprobe 给 `N/A` 时按"没取到"处理
+      （`for /f "delims=0123456789" %%i in ("%DEL%") do set "DEL="`，与 sh 侧 `case ''|*[!0-9]*)` 对等）；
+      sh 侧三个工具同步加 `fbr` 回退，两族算法保持一致。
+    * **新增 lint L22（`call` 的参数里不得出现裸等号）**：引号内的 `=` 合法（`call :x "opt=1"`，引号内不切分）。
+      **召回已用真文件验证**：把 `HEAD` 版 `test/bat/bench_calib.bat` 临时落到 `test/bat/`，L22 精确报出
+      `:188`（就是那一行），随即删除。`--list` 补上 **L21**（上一轮漏了，本轮发现）并更正 L20 文案；
+      selftest **35 → 38 例**（L22 recall 一例 + precision 两例）。
+    * **顺带修掉用户实际踩到的那个坑**：那条
+      `test/sh/bench_calib.sh \`cygpath "F:\…"\``（**反引号外没加引号**）会被 shell 按空格**分词**，
+      `$1` 只拿到 `/cygdrive/f/👍`（MSYS2 下是 `/f/👍`）—— 上一轮新加的 `tried: [...]` 正是把这个事实
+      直接印了出来（诊断第一次上场就立了功）。现在三个 sh 工具都有参数个数守卫/提示：
+      **"too many arguments … the source path looks split on spaces"**，并给出两种正确写法
+      （`"$(cygpath \"F:\\dir\\a.mp4\")"` 或直接传 `"F:\dir\a.mp4"`）；`bench_calib.sh` 的
+      "source video not found" 也会在 `$# > 1` 时提示"路径可能被空格拆开了"。
+    * **本轮基线**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 38 cases / 0 FAIL`。
+      **待用户真机验证**：双击 `test\bat\bench_calib.bat "<F 盘电影>"`，`delivered` 应出现真实数字
+      （本机同产物量级 ≈ 736k / 907k / 1360k / 2040k / 2917k），`soft_pair_calib.bat` 的 delivered 列同理。
+    * **教训（可复用）**：① **cmd 的参数分隔符不止空格** —— 逗号、分号、**等号**都算；要传"带等号的值"
+      必须加引号，或改成关键词让被调用方展开；② **"新增的辅助函数"是最危险的地方** —— 它没有历史行为可对照，
+      又恰好在沙箱验证不到（`cmd.exe` 被拦）→ 新增 `.bat` 子过程必须留出真机验证的余地，并把踩过的写法
+      固化成 lint 规则；③ 一个**看起来合理**的兜底（`set "DEL=0"`）会把"从未取到值"伪装成"值是 0"，
+      排查时应先问"这个 0 是谁写的"；④ 报错要带上"自己收到了什么"（`tried: [...]`）—— 这条原则本轮立功。

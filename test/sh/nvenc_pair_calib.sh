@@ -54,6 +54,20 @@ fi
 "$FF" -hide_banner -encoders 2>/dev/null | grep -q " hevc_nvenc " \
     || { echo "ERROR: no hevc_nvenc in $FF"; exit 2; }
 
+# An unquoted command substitution is the classic way to lose a path that
+# contains spaces: `cygpath "F:\my dir\a.mp4"` outside quotes gets
+# word-split, so $1 becomes "/c/f/my" and the rest of the path lands in
+# $2..$n. Say that out loud instead of reporting "source video not found".
+if [ "$#" -gt 1 ]; then
+    echo "ERROR: too many arguments ($#) - the source path looks split on spaces."
+    echo "       arg1: [$1]"
+    echo "       arg2: [$2]"
+    echo "       quote the substitution, or pass the Windows path directly:"
+    echo "         test/sh/nvenc_pair_calib.sh \"\$(cygpath \"F:\\dir\\a.mp4\")\""
+    echo "         test/sh/nvenc_pair_calib.sh \"F:\\dir\\a.mp4\""
+    exit 1
+fi
+
 SRC="${1:-}"
 if [ -z "$SRC" ]; then
     printf 'enter the full path of a video file: '
@@ -99,6 +113,10 @@ score_point() {
     fi
     del=$("$FP" -v error -select_streams v:0 -show_entries stream=bit_rate \
           -of csv=p=0 "$out" < /dev/null | tr -d '\r')
+    # containers without a per-stream rate fall back to the average, so the
+    # column is never a silent 0 (same rule as test/sh/bench_calib.sh).
+    case "$del" in ''|*[!0-9]*) del=$("$FP" -v error -show_entries \
+          format=bit_rate -of csv=p=0 "$out" < /dev/null | tr -d '\r') ;; esac
     case "$del" in ''|*[!0-9]*) del=0 ;; esac
     # log_path must stay RELATIVE: an absolute path breaks the
     # filtergraph parser on Windows (drive colon = separator).

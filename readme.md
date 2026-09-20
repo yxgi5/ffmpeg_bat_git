@@ -145,8 +145,8 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 
 | 层 | 命令 | 本机最近一轮（2026-09-20，Win11 + MSYS2 + RTX） |
 |----|------|--------------------------------------------|
-| ① 静态 + 对等 | `python3 test/lint/lint.py` | `29 PASS / 0 FAIL / 5 WARN`，退出码 0 |
-| ① 检查器自测 | `python3 test/lint/selftest.py` | `35 cases / 0 FAIL` |
+| ① 静态 + 对等 | `python3 test/lint/lint.py` | `30 PASS / 0 FAIL / 5 WARN`，退出码 0 |
+| ① 检查器自测 | `python3 test/lint/selftest.py` | `38 cases / 0 FAIL` |
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
 

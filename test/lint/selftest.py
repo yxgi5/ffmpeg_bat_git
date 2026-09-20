@@ -464,6 +464,46 @@ CASES = [
         "fi\n",
         set(), {"L20"},
     ),
+    (
+        "L22: a bare '=' in a call argument list is caught "
+        "(the :probe_field shape that printed delivered=0)",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "set \"OUT=C:\\Temp\\x.mp4\"\n"
+        "call \"%REPO%\\lib\\common.bat\" probe_field \"%OUT%\" stream=bit_rate DEL\n"
+        "if not defined DEL set \"DEL=0\"\n"
+        "exit /b 0\n",
+        {"L22"}, set(),
+    ),
+    (
+        "L22 precision: a keyword argument is safe",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"REPO=%~dp0..\\..\"\n"
+        "set \"OUT=C:\\Temp\\x.mp4\"\n"
+        "call \"%REPO%\\lib\\common.bat\" probe_field \"%OUT%\" vbr DEL\n"
+        "if not defined DEL set \"DEL=0\"\n"
+        "exit /b 0\n",
+        set(), {"L22", "L21", "L20", "L19"},
+    ),
+    (
+        "L22 precision: a quoted '=' is split-safe and legal",
+        "test/bat/probe_calib.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "call :probe \"opt=1\"\n"
+        "exit /b 0\n"
+        ":probe\n"
+        "echo %~1\n"
+        "exit /b 0\n",
+        set(), {"L22"},
+    ),
 ]
 
 
@@ -523,6 +563,7 @@ def run_checks(inv):
     lint.check_backtick_program(inv)
     lint.check_ffmpeg_requirement(inv)
     lint.check_quoted_arg_expansion(inv)
+    lint.check_call_arg_equals(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

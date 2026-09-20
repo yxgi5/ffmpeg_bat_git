@@ -185,7 +185,18 @@ if not exist "%OUT%" "%FFMPEG_PATH%" -y -hide_banner -loglevel error -ss %SS% -t
 rem Delivered bitrate of our own output: same rule as above, so this goes
 rem through lib\common.bat probe_field (quoted command line + temp file)
 rem instead of a for-backtick, which cannot carry a program path with a space.
-call "%REPO%\lib\common.bat" probe_field "%OUT%" stream=bit_rate DEL
+rem The key is a WORD, never "stream=bit_rate": cmd splits batch arguments
+rem on the equals sign too, so the old spelling made %4 - the output variable
+rem NAME - become bit_rate, and DEL was never set. Symptom: five ladder points
+rem with real vmaf but delivered=0 (user report, 2026-09-20). vbr = video
+rem stream bitrate, fbr = container average. lint L22 now blocks the old form.
+call "%REPO%\lib\common.bat" probe_field "%OUT%" vbr DEL
+rem Fallback for containers that carry no per-stream rate: the container
+rem average is still a truthful "delivered", and a silent 0 is worse.
+if not defined DEL call "%REPO%\lib\common.bat" probe_field "%OUT%" fbr DEL
+rem ffprobe prints a literal N/A when a container carries no per-stream
+rem rate; that is a miss, not a number (mirrors the sh side's case guard).
+for /f "delims=0123456789" %%i in ("%DEL%") do set "DEL="
 if not defined DEL set "DEL=0"
 rem NOTE: log_path must stay RELATIVE (a C:/ absolute path breaks the
 rem filtergraph parser) and the reference leg needs the SAME -ss/-t as

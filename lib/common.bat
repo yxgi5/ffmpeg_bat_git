@@ -4,7 +4,7 @@ rem lib\common.bat - 公共子程序库 (P1 重构)
 rem 用法: call "%~dp0lib\common.bat" <函数名> [参数...]
 rem   函数的实际参数从 %2 开始 ( %1 为函数名)
 rem   find_ffmpeg: 四级回退定位 ffmpeg/ffprobe (FFMPEG_BIN > 仓库内 > PATH > 默认目录)
-rem                 可选第 3 参数 = 必需能力名(如 libvmaf): 命中候选不满足时继续往下列兜底目录找
+rem                 本函数**不做能力筛选**(2026-09-20 同日回退, 原因见下方 :find_ffmpeg 注释)
 rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
 rem   call 跨文件共享环境: 函数内 set 的变量(非 setlocal 内)对调用方可见
 rem 注意: 本文件必须保持 CRLF 行尾, 勿用会剥 CR 的编辑器保存
@@ -206,9 +206,20 @@ del "%PS_TMP%" 2>nul
 exit /b %PS_RC%
 
 :probe_field
-rem 取单个标量并回填变量: call ... probe_field <文件> <show_entries 串> <输出变量名>
-rem   等价于一条 ffprobe -select_streams v:0 -show_entries <串> -of csv=p=0,
-rem   但**绝不**用 for /f 反引号去跑 ffprobe: 程序路径多为
+rem 取单个标量并回填变量: call ... probe_field <文件> <条目关键词> <输出变量名>
+rem   **参数里绝不含 "="** —— cmd 切分批处理参数 %1..%9 时把**等号也当分隔符**,
+rem   所以 `probe_field "%OUT%" stream=bit_rate DEL` 实际被切成
+rem     %2=<文件>  %3=stream  %4=bit_rate  %5=DEL
+rem   于是"输出变量名"成了 bit_rate, 而调用方读的 DEL 从未被赋值 -> 静默 delivered=0
+rem   (用户 2026-09-20 真机报障: 五点全跑完、vmaf 正常, 唯独 delivered 恒为 0;
+rem    开发沙箱跑不了 cmd.exe, 静态审查查不出来 —— 只能靠这条规则挡住).
+rem   因此 show_entries 串改在本函数内部按**关键词**展开, 外部只传一个不含 "=" 的单词;
+rem   lint L22 拦截任何"call 的参数里出现裸等号"的写法. 关键词:
+rem     vbr = 视频流码率   (stream=bit_rate)
+rem     fbr = 容器平均码率 (format=bit_rate)
+rem   新关键词按需在这里加, **不要**改成让调用方传 show_entries 串.
+rem   返回 ffprobe 的退出码; 取不到值时输出变量被清空.
+rem   **绝不**用 for /f 反引号去跑 ffprobe: 程序路径多为
 rem   "C:\Program Files\ffmpeg\bin\ffprobe.exe", 而反引号里的命令由子 cmd /c 执行,
 rem   变量展开的程序路径两种写法都不安全:
 rem     裸写   `%FFPROBE_PATH% -v error ...` -> 空格截断 -> cmd 报
@@ -216,24 +227,35 @@ rem            'C:\Program' 不是内部或外部命令 (用户 2026-09-20 报�
 rem     加引号 `"%FFPROBE_PATH%" -v error ...` -> cmd /c 的引号剥离规则
 rem            ("首字符是引号时, 剥掉首个引号与命令行最后一个引号") 会吃掉
 rem            末尾参数的收尾引号, 只要路径里有空格就同样散架
-rem   所以改成常规命令行重定向到临时文件(此处无引号剥离问题), 再用
-rem   for /f "usebackq" 读文件 —— 本仓库 2026-09-17 重构前一直在用、经真机验证的写法。
-rem   返回 ffprobe 的退出码; 变量=第一条输出行, 取不到时变量被清空。
-rem   注意: 同 probe_source, 本函数不 setlocal -- 输出变量必须对调用方可见。
+rem   改成常规命令行重定向到临时文件(此处无引号剥离问题), 再用
+rem   for /f "usebackq" 读文件 —— 本仓库 2026-09-17 重构前一直在用、经真机验证的写法.
+rem   注意: 同 probe_source, 本函数不 setlocal -- 输出变量必须对调用方可见.
 set "PF_FILE=%~2"
-set "PF_ENT=%~3"
+set "PF_KEY=%~3"
 set "PF_OUT=%~4"
 if not defined PF_OUT exit /b 1
 if not defined PF_FILE exit /b 1
-if not defined PF_ENT exit /b 1
+if not defined PF_KEY exit /b 1
 if not defined FFPROBE_PATH (
     echo [probe_field] FFPROBE_PATH not set by caller
+    exit /b 1
+)
+set "PF_ENT="
+if /I "%PF_KEY%"=="vbr" set "PF_ENT=stream=bit_rate"
+if /I "%PF_KEY%"=="fbr" set "PF_ENT=format=bit_rate"
+if not defined PF_ENT (
+    echo [probe_field] unknown key "%PF_KEY%" ^(vbr^|fbr^)
     exit /b 1
 )
 set "%PF_OUT%="
 set "PF_TMP=%TEMP%\ffmpeg_bat_pfield_%RANDOM%%RANDOM%.tmp"
 "%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries %PF_ENT% -of csv=p=0 "%PF_FILE%" > "%PF_TMP%" 2>nul
 set "PF_RC=%ERRORLEVEL%"
-for /f "usebackq delims=" %%a in ("%PF_TMP%") do if not defined %PF_OUT% set "%PF_OUT%=%%a"
+rem 累加用固定名 PF_VAL: do 子句里出现 %变量% 会在**解析时**冻结, 固定名最省心
+set "PF_VAL="
+for /f "usebackq delims=" %%a in ("%PF_TMP%") do if not defined PF_VAL set "PF_VAL=%%a"
+rem 取不到值又不吭声最害人: rc 非 0 时至少把 rc 与文件回显一行
+if not defined PF_VAL if not "%PF_RC%"=="0" echo [probe_field] ffprobe rc=%PF_RC% on "%PF_FILE%" ^(%PF_KEY%^)
 del "%PF_TMP%" 2>nul
+set "%PF_OUT%=%PF_VAL%"
 exit /b %PF_RC%

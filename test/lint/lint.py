@@ -1251,6 +1251,60 @@ def check_quoted_arg_expansion(inv):
                   "(%d .bat line(s) inspected)" % inspected)
 
 
+# ---------------------------------------------------------------- L22
+_CALL_LINE = re.compile(r'\bcall\b\s+(?:"[^"]*"|\S+)?\s*(?P<rest>.*)$', re.IGNORECASE)
+_QUOTED_SEG = re.compile(r'"[^"]*"')
+
+
+def check_call_arg_equals(inv):
+    """Never put a bare '=' inside a `call` argument list.
+
+    cmd does not only split a batch argument list on spaces: commas, semicolons
+    **and equals signs** are separators too. So
+
+        call "%REPO%\\lib\\common.bat" probe_field "%OUT%" stream=bit_rate DEL
+
+    arrives as  %2=<file>  %3=stream  %4=bit_rate  %5=DEL. The callee takes the
+    NAME of its output variable from %4, so it writes into a variable called
+    bit_rate and the DEL the caller reads is never set.
+
+    Not hypothetical: that exact line shipped in both test\\bat\\bench_calib.bat
+    and test\\bat\\soft_pair_calib.bat on 2026-09-20 - :probe_field was new and
+    had never run on a real machine - and it printed a delivered column of 0 for
+    all five ladder points while vmaf looked perfectly healthy. The dev sandbox
+    cannot run cmd.exe, so no static review could have caught it (user report).
+    Pass a KEYWORD and let the callee expand it to the show_entries string.
+
+    A quoted argument such as `call :x "opt=1"` is split-safe and stays legal.
+    """
+    bads, inspected = [], 0
+    for f in inv["all_bat"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        for n, ln in enumerate(lf_lines(t), 1):
+            if ln.strip().lower().startswith(("rem", "::")):
+                continue
+            m = _CALL_LINE.search(ln)
+            if not m:
+                continue
+            inspected += 1
+            rest = _QUOTED_SEG.sub(" ", m.group("rest"))
+            if "=" in rest:
+                tok = [w for w in rest.split() if "=" in w]
+                bads.append("%s:%d passes a bare '=' in a call argument - "
+                            "found %s; cmd splits batch arguments on '=', so the "
+                            "callee's %%-numbers shift and the output variable is "
+                            "never set (quote it, or pass a keyword instead)"
+                            % (f, n, tok[0] if tok else "="))
+    if bads:
+        for m in bads[:8]:
+            bad("L22", m)
+    else:
+        ok("L22", "no call passes a bare '=' in its argument list "
+                  "(%d .bat line(s) inspected)" % inspected)
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1684,8 +1738,12 @@ def main():
         print("         L18 anchor vars (REPO/SELF_DIR) defined before use, "
               "test\\bat self-anchored")
         print("         L19 no for-backtick runs a variable-expanded program path")
-        print("         L20 libvmaf consumers resolve ffmpeg with the "
-              "capability argument")
+        print("         L20 .sh libvmaf consumers resolve ffmpeg with "
+              "--need-filter")
+        print("         L21 no argument expansion nested inside quotes "
+              "(write \"%~1\", not \"%1\")")
+        print("         L22 no bare '=' in a call argument list "
+              "(cmd splits batch arguments on it)")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1718,6 +1776,7 @@ def main():
         check_backtick_program(inv)
         check_ffmpeg_requirement(inv)
         check_quoted_arg_expansion(inv)
+        check_call_arg_equals(inv)
 
     if not args.lint_only:
         print("---- parity ----")

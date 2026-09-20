@@ -28,7 +28,7 @@
 python3 test/lint/lint.py              # 全部
 python3 test/lint/lint.py --lint-only  # 只做静态检查
 python3 test/lint/lint.py --parity-only# 只做对等检查
-python3 test/lint/selftest.py          # 检查检查器自己（35 个用例）
+python3 test/lint/selftest.py          # 检查检查器自己（38 个用例）
 
 # ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
 bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T25）
@@ -169,6 +169,7 @@ test/
 | L20 | **libvmaf 消费者必须带能力要求去定位 ffmpeg**（**只管 `.sh` 侧**，2026-09-20 修订）：`test/sh/*.sh` 里凡是要 libvmaf 的（非注释行出现 `libvmaf`），必须有一行同时出现 `find_ffmpeg` / `--need-filter` / `libvmaf`。白名单：`test/sh/check_env.sh`（环境盘点工具，报告 libvmaf 有无所用，自带的 `find_ffmpeg` 只是挑一个"待盘点对象"） | **2026-09-20 实际缺口（用户报障）**：用户在 MSYS2 MINGW64 里跑 `test/sh/bench_calib.sh` 得到 `ERROR: this ffmpeg build has no libvmaf filter`，而**同一台机器**上 `C:\Program Files\ffmpeg\bin` 的 gyan full（2025-05-01）是带 libvmaf 的 —— 缺的不是工具链，是 sh 侧**一律信 PATH**：MSYS2 的 `/mingw64/bin/ffmpeg` 是 8.1、无 libvmaf，却排在 PATH 前面（`test/capability_matrix.md` 早写明「同一台机器三种 shell 解析到三个不同 ffmpeg」，但 sh 侧从没有对应机制）。bat 侧同一个坑换了个形态：从 MSYS2 终端跑 `.bat` 时 cmd 继承的 PATH 同样把 `/mingw64/bin` 排在前面 → `find_ffmpeg` 选中它 → NO_VMAF。两族同一天各踩一次，故立此规则。**bat 半边同日回退**：曾要求 `.bat` 调用行带第 3 参数（能力名）并在 `lib/common.bat` 里加 `:ff_satisfies` 子过程，但那个子过程正是 L21 的形态 —— 对**每一个**候选都判「缺少能力」；而且本机 ffmpeg 根本不在 PATH 上（走的是兜底目录），这道门对本机毫无作用。cmd 语义在开发沙箱里无法验证（`cmd.exe` 被拦），盲改不划算，故**整体回退**，能力筛选只留在 `.sh` 侧，写法陷阱改由 L21 永久拦截 |
 | L19 | **反引号里的程序路径**：`for /f` 反引号内被执行的**程序名**不得是 `%VAR%` 展开（不得出现 `` `%FFPROBE_PATH% ...` ``，也不得出现 `` `"%FFPROBE_PATH%" ...` ``）；程序路径必须走「常规命令行 + 重定向到临时文件」，再由 `for /f "usebackq"` 读文件 | **2026-09-20 实际缺口（用户报障，与 L18 同一次）**：`bench_calib.bat` 三行 `` for /f ... in (`%FFPROBE_PATH% -v error ...`) `` → cmd 打印三次 `'C:\Program' is not recognized as an internal or external command`（`C:\Program Files\ffmpeg\bin\ffprobe.exe` 在空格处被切断），紧接着工具自己的兜底文案又把它解释成「ffprobe failed / pixel count overflow on this source」。**同一文件第 161 行**还有更隐蔽的一处：它在反引号里给路径**加了**引号，看似"已经修过"，实则撞上 `cmd /c` 的引号剥离规则（「行首是引号时，剥掉首个引号与**该行最后一个**引号」）→ 末尾参数的收尾引号被吃掉，路径含空格时同样散架，而且它**静默**把 delivered 记成 0。`nvenc_pair_calib.bat` 里的裸 `ffprobe`（PATH 解析，程序名不是变量）不受影响，也不该被报 |
 | L21 | **引号里不得再嵌参数展开**：`.bat` 里不得把「**已经带引号**传进来的参数」再套一层引号（`"%1\ffmpeg.exe"` 这种）。合法形态只有两种：`"%~1\path"`（剥引号修饰符）与 `"%1"`（右引号**紧跟在** `%1` 之后，表示原样照传） | **2026-09-20 实际缺口（与 L20 的 bat 半边回退同源）**：`lib/common.bat` 新加的 `:ff_satisfies` 写成 `"%1\ffmpeg.exe" -hide_banner -filters 2>nul`，而调用方传进来的是**带引号**的 `%FFBIN%`（`C:\Program Files\ffmpeg\bin` 含空格，不加引号传不过去）→ 展开成 `""C:\Program Files\ffmpeg\bin"\ffmpeg.exe"`，cmd 取首 token 得到**空程序名**，报 `'' is not recognized as an internal or external command`，而该行尾部挂着 `2>nul` → 错误被彻底吞掉 → **任何**候选都被判成「缺少能力」。这个坑极隐蔽（表面看是「加引号更安全」），故固化成规则 |
+| L22 | **`call` 的参数里不得出现裸等号**：给批处理传参时，`=` 与空格/逗号/分号一样是**分隔符**，所以 `call ... probe_field "%OUT%" stream=bit_rate DEL` 会被切成 `%2=<文件> %3=stream %4=bit_rate %5=DEL` —— 被调用方从 `%4` 取"输出变量名"，于是它写进一个叫 `bit_rate` 的变量，而调用方读的 `DEL` **从未被赋值**。要传"带等号的值"就**加引号**（`call :x "opt=1"`，引号内不切），更好的是改成**关键词**、由被调用方内部展开（`vbr` / `fbr`） | **2026-09-20 实际缺口（用户真机报障，与 L19/L20/L21 同一现场）**：`lib/common.bat` 的 `:probe_field` 是 `e34a21c` 当天新增、**从未在真机跑过**的子过程（沙箱无 `cmd.exe`），两个调用方都写成了 `probe_field "%OUT%" stream=bit_rate DEL` → 五个梯点全跑完、`vmaf` 完全健康（87.04→96.38），**`delivered` 一列恒为 0**。静态审查查不出来，只有真机能暴露。修法：show_entries 串收到 `:probe_field` 内部按关键词展开（`vbr`=视频流码率 / `fbr`=容器平均码率，后者兼作回退，因为容器无 per-stream 码率时 ffprobe 返回字面量 `N/A`），并让 lint 拦住老写法。**召回已用真文件验证**：把 `HEAD` 版 `bench_calib.bat` 临时落到 `test/bat/`，L22 精确报出 `:188` |
 
 **L09 的做法值得单独说明**：它把「脚本语法」和「数据逃逸」区分开，而不是见 `&` 就报。
 
@@ -205,15 +206,17 @@ test/
 ### 2.3 检查器自测（`lint/selftest.py`）
 
 **一个只会输出「全部干净」的检查器是没有价值的——它可能只是瞎了。**
-`selftest.py` 用 35 个合成小仓库同时验证两个方向：
+`selftest.py` 用 38 个合成小仓库同时验证两个方向：
 
-* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17/L18/L19/L20/L21 各一例起，
+* **recall**：已知有问题的写法**必须**被报出来（L01/L04/L06/L07/L08/L09/L13/L15/L16/L17/L18/L19/L20/L21/L22 各一例起，
   其中 L15 三例：吞掉 ffmpeg 失败的入口、`if errorlevel 1` 这种**看不见负退出码**的守卫、
   忽略失败子调用的清单 wrapper；L17 一例：remux 出口漏了 `+faststart`；
   L18 三例：读了 `%REPO%` 却从未赋值、锚定赋值出现在首次使用**之后**、`test\bat` 工具没有
   `%~dp0..\..` 自锚定；L19 两例：`for /f` 反引号里裸写 `%FFPROBE_PATH%`、以及给它套普通
   双引号（两种写法都不可靠，见 L19 行）；L20 一例：`.sh` 要 libvmaf 却信 PATH；
   L21 一例：给已展开的参数再套引号（`"%1\ffmpeg.exe"`，正是 `:ff_satisfies` 的形态）；
+  L22 一例：`call` 的参数里出现裸等号（`probe_field "%OUT%" stream=bit_rate DEL` ——
+  正是把 `delivered` 打成 0 的那一行）；
 * **precision**：已知正确的写法**必须不报**，其中 8 例正是开发过程中真实出现过的假阳性
   （`%VAR:"=%` 引号计数、`endlocal & set` 字面量、`%%~zA` 循环修饰符、
   `set /p` 覆盖、安全的 `set VAR=%QVAR%` 惯用法、带失败传播的入口尾部、
@@ -222,7 +225,9 @@ test/
   PowerShell，程序名不是变量，合法）、L20 两例（`--need-filter libvmaf` 的 `.sh`、
   白名单里的 `check_env` 盘点工具——它报告 libvmaf 的有无，不消费它）与 L21 两例
   （`"%FF_BIN%\ffmpeg.exe"`——路径来自变量、变量自身已带引号，合法；`"%~1\ffmpeg.exe"`
-  剥引号形式与右引号紧随 `%1` 之后的原样传递，也都合法）。
+  剥引号形式与右引号紧随 `%1` 之后的原样传递，也都合法）与 L22 两例
+  （关键词形态 `probe_field "%OUT%" vbr DEL`、以及被引号包住的 `call :probe "opt=1"`
+  —— 引号内不切分，两种都合法）。
 
 ### 2.4 退出码
 
@@ -517,7 +522,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-20）**：`lint 29 PASS / 0 FAIL / 5 WARN`、`selftest 35 cases / 0 FAIL`。
+> **当前基线（2026-09-20）**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 38 cases / 0 FAIL`。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。
