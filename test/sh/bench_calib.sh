@@ -20,6 +20,8 @@
 #     source  : video file; prompted if omitted
 #     max_h   : cap encoding height (e.g. 1080). 0 = keep source size
 #     seconds : segment length, default 30
+#     A source path whose command substitution lost its quotes (the shell then
+#     splits it on spaces) is glued back automatically - it says so when it does.
 #
 #   Env knobs:
 #     WORK=<path>  output dir; default $TMPDIR/ffmpeg_bench_calib_<codec>
@@ -37,27 +39,39 @@ REPO="${REPO:-$(cd "$SELF_DIR/../.." && pwd)}"
 # shellcheck source=../../lib/common.sh
 . "$REPO/lib/common.sh"
 
-CODEC="${1:-hevc}"
-case "$CODEC" in
-    avc|hevc|av1) ;;
-    *) CODEC="hevc"; SRC_ARG="$1"; CAP_ARG="$2"; LEN_ARG="$3" ;;
+# --- 参数 ---------------------------------------------------------------
+# 反引号或 $( ) 形式的命令替换写在引号外面时, shell 会把它打印的整条路径按空格切开,
+# 于是一条 source 变成好几个参数 —— 典型就是 cygpath "F:\a b\c.mp4" 外面忘了加引号。
+# 这里不报错, 而是把「拼起来确实存在的」最长前缀片段粘回一条路径
+# (rejoin_split_path, lib/common.sh), 让这个习惯照样能用。
+# source 之后剩下的参数依次是 max_h / seconds。
+CODEC="hevc"
+ARGV=("$@")
+NEXT=0
+case "${ARGV[0]:-}" in
+    avc|hevc|av1) CODEC="${ARGV[0]}"; NEXT=1 ;;
 esac
-if [ -n "$SRC_ARG" ]; then SRC="$SRC_ARG"; else SRC="${2:-}"; fi
-if [ -n "$CAP_ARG" ]; then CAP="$CAP_ARG"; else CAP="${3:-0}"; fi
-if [ -n "$LEN_ARG" ]; then LEN="$LEN_ARG"; else LEN="${4:-30}"; fi
 
-# An unquoted command substitution is the classic way to lose a path that
-# contains spaces: `cygpath "F:\my dir\a.mp4"` outside quotes gets
-# word-split, so $1 becomes "/c/f/my" and the rest of the path lands in
-# $2..$n. Say that out loud instead of reporting "source video not found".
-if [ "$#" -gt 4 ]; then
-    echo "ERROR: too many arguments ($#) - the source path looks split on spaces."
-    echo "       arg1: [$1]"
-    echo "       arg2: [$2]"
-    echo "       quote the substitution, or pass the Windows path directly:"
-    echo "         test/sh/bench_calib.sh \"\$(cygpath \"F:\\dir\\a.mp4\")\""
-    echo "         test/sh/bench_calib.sh \"F:\\dir\\a.mp4\""
+SRC=""
+GLUED=""
+if [ "${#ARGV[@]}" -gt "$NEXT" ]; then
+    rejoin_split_path "${ARGV[@]:$NEXT}"
+    SRC="$REJOIN_PATH"
+    NEXT=$((NEXT + REJOIN_N))
+    [ "$REJOIN_N" -gt 1 ] && GLUED="yes"
+fi
+CAP="0"
+LEN="30"
+if [ "${#ARGV[@]}" -gt "$NEXT" ]; then CAP="${ARGV[$NEXT]}"; NEXT=$((NEXT + 1)); fi
+if [ "${#ARGV[@]}" -gt "$NEXT" ]; then LEN="${ARGV[$NEXT]}"; NEXT=$((NEXT + 1)); fi
+if [ "${#ARGV[@]}" -gt "$NEXT" ]; then
+    echo "ERROR: too many arguments ($#)."
+    echo "       usage: test/sh/bench_calib.sh [avc|hevc|av1] [source] [max_h] [seconds]"
     exit 1
+fi
+if [ -n "$GLUED" ]; then
+    echo "note: the shell had split the source path on spaces ($# arguments); glued back to"
+    echo "      [$SRC]"
 fi
 
 case "$CODEC" in
@@ -89,10 +103,7 @@ SRC="$(normalize_source_path "$SRC")"
 [ -n "$SRC" ] && [ -f "$SRC" ] || {
     echo "ERROR: source video not found"
     echo "       tried: [$SRC]"
-    if [ "$#" -gt 1 ]; then
-        echo "       $# arguments were given, so the path may have been split on spaces;"
-        echo "       quote the substitution or pass the Windows path directly."
-    fi
+    [ -d "$SRC" ] && echo "       that is a directory, not a video file"
     echo "       a Windows path (F:\\dir\\file.mkv) is accepted directly here, no cygpath needed;"
     echo "       the brackets show exactly what this shell received."
     exit 2; }

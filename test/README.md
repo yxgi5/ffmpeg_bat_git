@@ -62,6 +62,16 @@ test\bat\bench_calib.bat <source>          # 双击，默认 hevc
 test\bat\bench_calib.bat av1 <source> 1080 # 带编码器与高度上限
 ```
 
+> **source 被 shell 切成几段也能跑**（2026-09-20 加）：路径若来自**没加引号**的命令替换
+> （``test/sh/bench_calib.sh `cygpath "F:\a b\c.mp4"` ``），shell 会把它按空格拆成好几个参数 ——
+> `tried: [...]` 会显示成 `[/cygdrive/f/👍]`。`test/sh/bench_calib.sh` 与
+> `test/sh/nvenc_pair_calib.sh` 现在走 `lib/common.sh` 的 **`rejoin_split_path()`**：
+> 把「拼起来确实存在的」最长前缀片段粘回一条路径，并打印一行
+> `note: the shell had split the source path on spaces … glued back to [...]`（**不静默**）；
+> 只有**粘不回去**时才报 `ERROR: source video not found` + `tried: [...]` 并附诊断。
+> 注意 `test/sh/soft_pair_calib.sh` 收的是 **MODE**（`full|1080|probe`）而不是路径 ——
+> 它校验 MODE，没有这层粘回逻辑。
+
 做法：取片源中段一段（默认 30s），按查表值 T 的 **T/4 → T 五点码率梯**，用该编码器的
 **软件编码器**（libx264 fast / libx265 fast / libsvtav1 p8——与码率表同基准，见
 `environment_matrix.md` 第 27 条）编码，libvmaf 直接对照源片本身（参照腿与编码腿做同样的

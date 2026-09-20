@@ -16,7 +16,9 @@
 #   test/py/nvenc_pair_solve.py on the work dir afterwards.
 #
 #   Usage:  bash test/sh/nvenc_pair_calib.sh [source]
-#     source  : video file; prompted if omitted
+#     source  : video file; prompted if omitted. If an unquoted command
+#               substitution split the path on spaces, the pieces are glued
+#               back automatically (it says so when it happens).
 #
 #   Work dir: ${TMPDIR:-/tmp}/ffmpeg_bat_nvenc_pair  (safe to delete)
 #   Exit code: 0 = results.csv written; 2 = setup error
@@ -54,21 +56,33 @@ fi
 "$FF" -hide_banner -encoders 2>/dev/null | grep -q " hevc_nvenc " \
     || { echo "ERROR: no hevc_nvenc in $FF"; exit 2; }
 
-# An unquoted command substitution is the classic way to lose a path that
-# contains spaces: `cygpath "F:\my dir\a.mp4"` outside quotes gets
-# word-split, so $1 becomes "/c/f/my" and the rest of the path lands in
-# $2..$n. Say that out loud instead of reporting "source video not found".
+# 反引号或 $( ) 形式的命令替换写在引号外面时, shell 会把整条路径按空格切开, 于是一条
+# source 变成好几个参数(典型: cygpath "F:\a b\c.mp4" 外面忘了加引号)。有 lib/common.sh
+# 时把最长前缀粘回去(rejoin_split_path); 该库是可选的(本脚本要能拷到裸机上跑), 没有它
+# 就只能按单参数处理。
+SRC="${1:-}"
+GLUED=""
 if [ "$#" -gt 1 ]; then
-    echo "ERROR: too many arguments ($#) - the source path looks split on spaces."
-    echo "       arg1: [$1]"
-    echo "       arg2: [$2]"
-    echo "       quote the substitution, or pass the Windows path directly:"
-    echo "         test/sh/nvenc_pair_calib.sh \"\$(cygpath \"F:\\dir\\a.mp4\")\""
-    echo "         test/sh/nvenc_pair_calib.sh \"F:\\dir\\a.mp4\""
-    exit 1
+    if [ "$(type -t rejoin_split_path)" = "function" ]; then
+        rejoin_split_path "$@"
+        SRC="$REJOIN_PATH"
+        [ "$REJOIN_N" -gt 1 ] && GLUED="yes"
+        if [ "$#" -gt "$REJOIN_N" ]; then
+            echo "ERROR: too many arguments ($#)."
+            echo "       usage: test/sh/nvenc_pair_calib.sh [source]"
+            exit 1
+        fi
+    else
+        echo "ERROR: too many arguments ($#)."
+        echo "       usage: test/sh/nvenc_pair_calib.sh [source]"
+        exit 1
+    fi
+fi
+if [ -n "$GLUED" ]; then
+    echo "note: the shell had split the source path on spaces ($# arguments); glued back to"
+    echo "      [$SRC]"
 fi
 
-SRC="${1:-}"
 if [ -z "$SRC" ]; then
     printf 'enter the full path of a video file: '
     read -r SRC

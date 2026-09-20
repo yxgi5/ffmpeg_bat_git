@@ -485,3 +485,37 @@ function normalize_source_path() {
     esac
     printf '%s' "$p"
 }
+
+# ================================================================
+# rejoin_split_path <片段> [更多片段...]
+#   「路径在 unquoted 命令替换里被 shell 按空格切开」的补救。典型触发:
+#     把 cygpath "F:\a b\c.mp4" 这类命令替换写在引号外面(反引号或 $( ) 都一样)。
+#   它打印的整条路径被 word-split, $1 只剩 "/cygdrive/f/a", 其余落到 $2..$n。
+#   这里把「最长的、拼起来确实是一个已存在文件的」前缀片段粘回一条路径, 让调用方继续跑,
+#   而不是以 "source video not found" 收场 —— 那种报错会把人引向错误方向。
+#   结果: REJOIN_PATH(原样, 调用方仍要过 normalize_source_path)、REJOIN_N(跨度)。
+#   真粘了(REJOIN_N > 1)返回 0, 没粘返回 1。
+# ================================================================
+REJOIN_PATH=""
+REJOIN_N=1
+function rejoin_split_path() {
+    local first="${1:-}" n=$# i=0 cur="" t="" fbest="" fn=0 dbest="" dn=0
+    REJOIN_PATH="$first"; REJOIN_N=1
+    [ "$n" -eq 0 ] && return 1
+    while [ "$i" -lt "$n" ]; do
+        if [ "$i" -eq 0 ]; then cur="$1"; else cur="$cur $1"; fi
+        shift
+        t="$cur"
+        # 片段可能是 Windows 形式(F:\...), test -f 认不出来时换算成 POSIX 再试
+        if [ ! -f "$t" ] && [ ! -d "$t" ] && [ "$(type -t normalize_source_path)" = "function" ]; then
+            t="$(normalize_source_path "$cur")"
+        fi
+        if [ -f "$t" ]; then fbest="$cur"; fn=$((i + 1))
+        elif [ -d "$t" ]; then dbest="$cur"; dn=$((i + 1))
+        fi
+        i=$((i + 1))
+    done
+    if [ "$fn" -gt 1 ]; then REJOIN_PATH="$fbest"; REJOIN_N="$fn"; return 0; fi
+    if [ "$dn" -gt 1 ]; then REJOIN_PATH="$dbest"; REJOIN_N="$dn"; return 0; fi
+    return 1
+}

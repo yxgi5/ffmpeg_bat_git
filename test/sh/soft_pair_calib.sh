@@ -44,21 +44,20 @@
 #   - on Windows/MSYS the log_path must be RELATIVE (a drive-letter colon
 #     breaks filter-arg parsing), hence the cwd-relative logs/ paths.
 set -u
-# An unquoted command substitution is the classic way to lose a path that
-# contains spaces: `cygpath "F:\my dir\a.mp4"` outside quotes gets
-# word-split, so $1 becomes "/c/f/my" and the rest of the path lands in
-# $2..$n. Say that out loud instead of reporting "source video not found".
+# NOTE (2026-09-20): 本脚本收的是 MODE, 不是 source 路径 —— 素材是下载/放进工作目录的。
+# 上一条 "the source path looks split on spaces" 守卫是从 bench_calib.sh 抄过来的, 放在这里
+# 是错的: 它会把一个拼错的 mode 说成"路径被空格切开", 把排查方向带偏。已删除, 改为真正
+# 校验 MODE, 多余的参数也要报出来。
+MODE="${1:-full}"
+case "$MODE" in
+    full|1080|probe) ;;
+    *) echo "ERROR: unknown mode [$MODE] - expected full | 1080 | probe"; exit 1 ;;
+esac
 if [ "$#" -gt 1 ]; then
-    echo "ERROR: too many arguments ($#) - the source path looks split on spaces."
-    echo "       arg1: [$1]"
-    echo "       arg2: [$2]"
-    echo "       quote the substitution, or pass the Windows path directly:"
-    echo "         test/sh/soft_pair_calib.sh \"\$(cygpath \"F:\\dir\\a.mp4\")\""
-    echo "         test/sh/soft_pair_calib.sh \"F:\\dir\\a.mp4\""
+    echo "ERROR: too many arguments ($#) - this script takes one mode only."
+    echo "       usage: test/sh/soft_pair_calib.sh [full|1080|probe]"
     exit 1
 fi
-
-MODE="${1:-full}"
 # Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
 # lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
 # skipping candidates that lack libvmaf. Plain PATH lookup is not enough on Windows:

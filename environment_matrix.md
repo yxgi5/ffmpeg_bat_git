@@ -1074,3 +1074,46 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       又恰好在沙箱验证不到（`cmd.exe` 被拦）→ 新增 `.bat` 子过程必须留出真机验证的余地，并把踩过的写法
       固化成 lint 规则；③ 一个**看起来合理**的兜底（`set "DEL=0"`）会把"从未取到值"伪装成"值是 0"，
       排查时应先问"这个 0 是谁写的"；④ 报错要带上"自己收到了什么"（`tried: [...]`）—— 这条原则本轮立功。
+45. **sh 工具的 source 参数被 shell 按空格切开后能自愈（`rejoin_split_path`）+ 三处配套修正（2026-09-20 晚，用户报障）**：
+
+    **现象**：用户按自己的习惯在 Cygwin / MSYS2 里跑
+
+        test/sh/bench_calib.sh `cygpath "F:\👍 看电影学英语…\The.Princess.Diaries.2.2004.mp4"` 0 30
+
+    ——**反引号外没有引号**——工具报 `ERROR: source video not found`。上一轮刚加的 `tried: [...]`
+    诊断第一次上场就给出了答案：`tried: [/cygdrive/f/👍]` + `4 arguments were given`。
+    **文件一直在，是参数被 shell 按空格切成了 4 份**（`cygpath` 本身没问题，实测 `test -f` 为真）。
+    这类报错最坏的地方是会把人引向"路径不存在/编码不对"，而真因在调用方的引号上。
+
+    **修法**：`lib/common.sh` 新增纯函数 **`rejoin_split_path`** —— 把「拼起来确实是**一个已存在
+    文件/目录**的**最长**前缀片段」粘回一条路径（片段可能是 Windows 形式，`test -f` 认不出来时再用
+    `normalize_source_path` 换算一次），结果放 `REJOIN_PATH`（原样，调用方仍要归一化）与
+    `REJOIN_N`（跨了几个参数），真粘了返回 0。消费端：
+      * `test/sh/bench_calib.sh`：参数解析从「按位置取 `$1..$4`」改为**数组游标式**（`ARGV` + `NEXT`），
+        于是 `[codec] source [max_h] [seconds]` 里 source 占了几个参数、后面接什么都**不再写死**；
+      * `test/sh/nvenc_pair_calib.sh`：同样处理，但该库对它**是可选**的（本脚本要能拷到裸机跑）——
+        没有 `lib/common.sh` 时退化为单参数 + 明确报错。
+    粘成功时打印 `note: the shell had split the source path on spaces (N arguments); glued back to [...]`
+    ——**不静默**；只有粘不回去才走原来的 `tried: [...]` 报错路径。
+
+    **实测**（两条互证的证据）：
+      * **真实 MSYS2**（`/d/msys64/usr/bin/bash.exe`）里跑用户那条**原样**命令 → `source :` 打印的是
+        **完整路径**（说明粘回生效）、选中 gyan full、5 个梯点全出、拟合 + `RECOMMENDATION`、`rc=0`；
+      * **沙箱 Git Bash** 下手工模拟两种切法：4 片段（纯路径）与 6 参数（路径 + `0 1`）都**精确粘回**整条路径
+        （`REJOIN_N`=4），`codec` 在前的形态也正确；负例（文件不存在 / 给了目录 / 参数真的太多 / 未知 mode）
+        文案各自准确。
+
+    **顺带修掉一个我自己引入的错误**：`test/sh/soft_pair_calib.sh` 收的是 **MODE**（`full|1080|probe`），
+    **根本没有 source 参数** —— 上一轮却把 bench 的"路径被空格切开"守卫**整段抄**了进去。那会把一个拼错的
+    mode 说成"路径被空格切开"，属于**主动误导**。现已删除，改为真正校验 MODE（未知 mode / 多余参数各自
+    报错），`probe` 仍正常通过。
+
+    **教训**：① 「报错文案」和「守卫逻辑」一样有适用条件 —— **跨脚本抄守卫会把正确的逻辑变成错误的诊断**
+    （参数语义一变，同一句话就从"提示"变成"误导"）；② 用户在 CLI 里的操作习惯（不加引号的命令替换）几乎
+    无法靠提醒纠正，与其反复提醒，不如**让工具自愈并说明一行**，只在真救不回来时才报错；③ 报错必须打印
+    "自己收到了什么" —— **这条连续两轮立功**（先是 `tried: [...]` 钉死"路径被切开"，再是 `arg1/arg2`）；
+    ④ 沙箱 Git Bash **不给原生 exe 做 POSIX→Windows 参数改写**（连正常加引号的写法也一样报
+    `No such file or directory`），所以端到端的"通过"证据只能取自**真实 MSYS2**，不能拿沙箱 Git Bash 当反例。
+
+    * **本轮基线**：`lint 30 PASS / 0 FAIL / 5 WARN`（静态 `L01–L22` 共 23 条 + 对等 `P01–P07` 共 7 条）、
+      `selftest 38 cases / 0 FAIL`（本轮**无新增 lint 规则**：这个坑在调用方的命令行里，脚本无法自检）。
