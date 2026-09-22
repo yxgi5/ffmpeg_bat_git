@@ -942,6 +942,21 @@ def check_fail_propagation(inv):
 STREAM_MAP_TOKENS = ("-map 0:v", "-map 0:a?", "-map 0:s?", "-c:s mov_text",
                      "-map_metadata 0", "-map_chapters 0")
 
+# 2026-09-22: ffmpeg_dvd_hevc.{bat,sh} is exempted from the "-c:s mov_text" token
+# ONLY. DVD subtitles are run-length **bitmap** streams (dvd_subtitle); ffmpeg
+# refuses to convert them, with literally
+#   "Subtitle encoding currently only possible from text to text or bitmap to
+#    bitmap"
+# so mov_text is not a style choice here, it is impossible. The entry keeps
+# every other token (-map 0:v / -map 0:a? / -map 0:s? / -map_metadata 0 /
+# -map_chapters 0) and carries `-c:s copy` for mkv, which is the lossless
+# equivalent. Do NOT extend this exemption to a text-subtitle entry: there
+# mov_text really is the right answer.
+STREAM_MAP_EXEMPT = {
+    "ffmpeg_dvd_hevc.bat": ("-c:s mov_text",),
+    "ffmpeg_dvd_hevc.sh": ("-c:s mov_text",),
+}
+
 
 def check_stream_map(inv):
     bads = []
@@ -957,7 +972,9 @@ def check_stream_map(inv):
             body = "\n".join(ln for ln in lf_lines(t)
                              if not ln.strip().lower().startswith(("rem", "#")))
             checked += 1
-            missing = [tok for tok in STREAM_MAP_TOKENS if tok not in body]
+            exempt = STREAM_MAP_EXEMPT.get(f, ())
+            missing = [tok for tok in STREAM_MAP_TOKENS
+                       if tok not in body and tok not in exempt]
             if missing:
                 bads.append("%s: lacks %s - ffmpeg default selection keeps only 1 video "
                             "+ 1 audio, so extra audio/subtitle tracks are dropped"

@@ -84,6 +84,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
+| `ffmpeg_dvd_hevc.bat` | HEVC NVENC | **DVD-Video** 专用：ISO / `VIDEO_TS` 目录 / 光驱 → HEVC MKV。需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出 |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
 
@@ -121,6 +122,26 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 - **Linux 的 QSV 硬解只在 master 构建上生效**：发行版 ffmpeg（如 4.4.2）遇到 `-hwaccel qsv` 会**静默回退软解**（不报错，但滤镜像素格式仍是源格式），实际是「软解+硬编」；显式要求硬件设备才报 `Device setup failed for decoder`。想要名实相符的全硬解链路，请把 `/opt/ffmpeg/.../bin` 前置到 `PATH`
 - 清单兼容 CRLF 与 UTF-8 BOM（记事本直接存即可）
 
+## DVD-Video 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
+
+普通视频脚本**不能**直接拿来压 DVD，四个坑（均为实测）：
+
+1. 裸 `-i` 喂 ISO **不报错**——ffmpeg 把 UDF 镜像当 MPEG-PS 糊乱解开，实测只得到 ~130s / 110504 帧的废品（正片其实 55 分钟）。必须 `-f dvdvideo -title N`
+2. `-c:s mov_text` 遇到 DVD 位图字幕必然失败：`Subtitle encoding currently possible only from text to text or bitmap to bitmap`
+3. 就算改成 `copy`，**mp4 也只保留 1 条**字幕（实测 300s 片段：mkv 2 条、mp4 1 条）→ 要全留必须 MKV
+4. DVD 大量内容是 3:2 pulldown 的 23.976p，按 29.97 编码白扔 20% 码率 → 默认做 IVTC
+
+```
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                :: 自动挑时长最长的 title 当正片
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO" D:\out 5       :: 指定输出目录 + 只压 title 5
+set MODE=ALL && ffmpeg_dvd_hevc.bat "D:\xxx.ISO" :: 每个 title 各出一个文件
+SET SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat ...   :: 按第 7 章切成两段(前編/後編)
+```
+
+开关：`EXT`（mkv/mp4）、`FILT`（IVTC/BWDIF/NONE）、`VFILT_EXTRA`（追加滤镜，**本脚本默认不改 SAR、不裁边**）、`AUDIO`（copy/aac）、`MODE`（AUTO/TITLE/ALL）、`SPLIT_CHAPTER`、`EXTRA_TITLES`、`VBITRATE`（bit/s 裸数字）。`.sh` 侧同名环境变量，另加 `VENC=libx265` 可走软编。
+
+两个刻意的设计：**不动 SAR、不裁边**（DVD 宽高比要同时看 IFO 与 MPEG-2 序列头，同一张盘两者都可能不一致，没有通用写法，故让 ffmpeg 透传原始 SAR；确要修填 `VFILT_EXTRA=setsar=32:27`）；**不猜测分界章号**（每张盘不同，默认 `SPLIT_CHAPTER=0` 不切）。
+
 ## ffmpeg 依赖怎么找
 
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
@@ -149,6 +170,15 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | ① 检查器自测 | `python3 test/lint/selftest.py` | `38 cases / 0 FAIL` |
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
+
+2026-09-22 新增 `ffmpeg_dvd_hevc.{bat,sh}` 后重跑：静态层仍是 `30 PASS / 0 FAIL / 5 WARN`、
+检查器自测 `38 cases / 0 FAIL`。该条目在 lint 的 L16（流映射统一性）上被登记为**部分豁免**：
+只豁免 `-c:s mov_text` 一项，理由是 DVD 字幕是位图流、ffmpeg 根本拒绝转换（见上文），
+其余 5 项 token 全部保留。豁免表 `STREAM_MAP_EXEMPT` 写在 `test/lint/lint.py` 里并注明"不得
+扩展到文本字幕条目"。
+
+`.sh` 侧已在本机 Git Bash 实跑通过（30s 的 title 5，IVTC 后 727 帧 / 23.976p，SAR 原样透传，
+AC3 无损保留）；`.bat` 侧**只能静态验证**（沙箱跑不了 `cmd.exe`），首次使用请双击试一个短 title。
 
 > **冒烟为什么是"数分钟"**：墙钟时间 ≈ 入口调用次数 × 单次入口成本，与片长几乎无关。
 > 2026-09-17 把 `lib/common.sh` 的源探测从「7 个 helper 各起一条 ffprobe」（一次入口

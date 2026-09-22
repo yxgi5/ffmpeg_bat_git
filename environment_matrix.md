@@ -1156,3 +1156,34 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       ② 工具打出的配置头必须与产物一致，否则它在替错误背书；③ 两族数字不一致时**先量产物**
       （时长/帧数），再怀疑算法 —— 本次一量就定案；④ 「在沙箱里跑不通」不等于真机跑不通，
       反过来也一样（Cygwin 路径改写缺失最初被归给沙箱，真机证明是 Cygwin 本身）。
+
+47. **新增 DVD-Video 入口 `ffmpeg_dvd_hevc.{bat,sh}` + lint L16 部分豁免（2026-09-22，用户改走 HEVC 归档路线）**：
+    * **起因**：最初的需求是「把 DVD ISO 重压后仍产出可播放的 DVD ISO」，实测结论是**走不通**——
+      DVD-Video 规范只认 MPEG-2 Video + AC3/PCM/LPCM，HEVC/H.264/AV1 塞进 `VIDEO_TS` 就不是 DVD；
+      而 `genisoimage` / `mkisofs` / UltraISO 只是 ISO9660+UDF **文件系统打包器**，不生成也不修补
+      IFO / BUP / VOBU 扇区指针 / NAV PACK，中间那环必须 `dvdauthor` / DVDStyler / MuxMan。
+      且 **NVENC 不支持 MPEG-2 编码**（只能解码），该路线只能 CPU 软编。用户因此改为转 HEVC 归档。
+    * **四个"不报错的废品"坑（全部实测）**：
+      ① 裸 `-i` 喂 ISO：ffmpeg 把 UDF 镜像当 MPEG-PS 糊乱解开，得到 **~130.66s / 110504 帧**
+      （正片实为 55 分钟），且只有 1 音轨 1 字幕 → 现有 `ffmpeg_hevc_nvenc.*` 直接喂 ISO 会静默产出废品。
+      必须 `-f dvdvideo -title N`。② `-c:s mov_text` 遇 DVD 位图字幕必失败
+      （`...only possible from text to text or bitmap to bitmap`）。③ 就算改成 `copy`，
+      **mp4 也只保留 1 条**字幕（300s 片段实测：mkv 2 条 / mp4 1 条，差约 60KB）→ 全留必须 MKV。
+      ④ 该盘是 **3:2 pulldown 的 23.976p**（`fieldmatch+decimate` 后 1199→960 帧，比值 0.8007），
+      按 29.97 编码白扔 20% 码率 → 默认 IVTC。
+    * **title 编号不连续（新的环境事实）**：该盘 **缺 title 2**，最早写的扫描循环"读不到就 break"，
+      于是只看到 84s 的 title 1，把 55 分钟正片（title 3）整个跳过 —— **产物看起来完全正常**。
+      两族统一改为**容忍连续缺失 5 次**才收尾（`MISS_MAX`）。
+    * **码率单位坑**：`lookup_bitrate` 返回 1272042，`/2` = 636021 是 **bit/s 裸数字**；
+      写成 `636k` 会被当成 **636 Mbps**，NVENC 直接 `InitializeEncoder failed: invalid param (8)`。
+      两族都加了注释说明，与 `ffmpeg_hevc_nvenc.*` 同口径。
+    * **通用化取舍**：**不动 SAR、不裁边**（DVD 宽高比要同时看 IFO 与 MPEG-2 序列头，同一张盘
+      两者都可能不一致 —— 该盘 IFO 写 16:9、序列头写 4:3 —— 没有通用写法，故让 ffmpeg 透传原始
+      SAR；确要修填 `VFILT_EXTRA`）。**不猜测分界章号**（每张盘不同，默认 `SPLIT_CHAPTER=0` 不切）。
+    * **lint L16 部分豁免**：该条目只豁免 `-c:s mov_text` 一项（位图字幕转不了文本是硬事实），
+      其余 5 项 token 全保留；豁免表 `STREAM_MAP_EXEMPT` 写在 `test/lint/lint.py` 并注明
+      "不得扩展到文本字幕条目"。同时为满足 L11/L15 重构了两族的命令拼装
+      （`.sh` 用 `CMD` 数组且 `-i` 必须在 `-c:v` 之前；`.bat` 用 `%RUN_COM%` 裸行 + 负退出码守卫）。
+    * **本机验证**：`.sh` 侧在 Git Bash 实跑通过（30s 的 title 5：727 帧 / 23.976p、SAR 8:9 原样透传、
+      AC3 无损、约 11 倍速）；**`.bat` 侧只能静态验证**（沙箱无法调用 `cmd.exe`），首次使用请双击试短 title。
+    * **基线**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 38 cases / 0 FAIL`（新增条目后重跑）。
