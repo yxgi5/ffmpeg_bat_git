@@ -132,15 +132,62 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 4. DVD 大量内容是 3:2 pulldown 的 23.976p，按 29.97 编码白扔 20% 码率 → 默认做 IVTC
 
 ```
-ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                :: 自动挑时长最长的 title 当正片
-ffmpeg_dvd_hevc.bat "D:\xxx.ISO" D:\out 5       :: 指定输出目录 + 只压 title 5
-set MODE=ALL && ffmpeg_dvd_hevc.bat "D:\xxx.ISO" :: 每个 title 各出一个文件
-SET SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat ...   :: 按第 7 章切成两段(前編/後編)
+ffmpeg_dvd_hevc.bat <源> [输出目录] [title号]
+
+  源        ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱(如 E:；.sh 侧为 /dev/sr0)
+  输出目录  省略 = <源所在目录>\HEVC_OUT
+  title号   给了这个就等价于 MODE=TITLE，只处理这一条
 ```
 
-开关：`EXT`（mkv/mp4）、`FILT`（IVTC/BWDIF/NONE）、`VFILT_EXTRA`（追加滤镜，**本脚本默认不改 SAR、不裁边**）、`AUDIO`（copy/aac）、`MODE`（AUTO/TITLE/ALL）、`SPLIT_CHAPTER`、`EXTRA_TITLES`、`VBITRATE`（bit/s 裸数字）。`.sh` 侧同名环境变量，另加 `VENC=libx265` 可走软编。
+```
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 自动挑时长最长的 title 当正片
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO" D:\out 5         :: 指定输出目录 + 只压 title 5
+set MODE=ALL && ffmpeg_dvd_hevc.bat "D:\xxx.ISO"  :: 每个 title 各出一个文件
+set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两段(前編/後編)
+```
 
-两个刻意的设计：**不动 SAR、不裁边**（DVD 宽高比要同时看 IFO 与 MPEG-2 序列头，同一张盘两者都可能不一致，没有通用写法，故让 ffmpeg 透传原始 SAR；确要修填 `VFILT_EXTRA=setsar=32:27`）；**不猜测分界章号**（每张盘不同，默认 `SPLIT_CHAPTER=0` 不切）。
+`.sh` 侧开关是同名环境变量（`MODE=ALL ./ffmpeg_dvd_hevc.sh ...`），另加 `VENC=libx265` 可走软编。
+
+### 参数说明
+
+开关写在**调用脚本之前**（脚本内部按固定配置读一次）。cmd 不区分大小写，`set` / `SET` 均可。
+
+| 开关 | 取值 | 默认 | 作用 |
+| --- | --- | --- | --- |
+| `MODE` | `AUTO` / `TITLE` / `ALL` | `AUTO` | `AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE`；`ALL` 每个 title 各出一个文件 |
+| `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE` |
+| `EXT` | `mkv` / `mp4` | `mkv` | **建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码 |
+| `FILT` | `IVTC` / `BWDIF` / `NONE` | `IVTC` | `IVTC`＝3:2 pulldown 还原 23.976p（动画/电影 DVD 多是这种）；`BWDIF`＝只去交错、保留 29.97p；`NONE`＝原样编码 |
+| `VFILT_EXTRA` | 滤镜串 | 空 | 追加到滤镜链末尾。**默认不改 SAR、不裁边**；确要修填 `setsar=32:27` / `crop=704:480:8:0,setsar=40:33` |
+| `AUDIO` | `copy` / `aac` | `copy` | `copy`＝原样保留 AC3（零损失、最快）；mp4 下强制 `aac` |
+| `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切 |
+| `EXTRA_TITLES` | 空格分隔的 title 号 | 空 | 正片之外额外再导出的 title，例 `1 4 5` |
+| `VBITRATE` | 裸数字（bit/s） | 空 | 空＝查 `lib\bitrate_table_hevc.csv` 再把结果 `/2`（推荐）；填了就覆盖。**单位是 bit/s，别写 `636k`**——会被当成 636 Mbps 把 NVENC 顶回去 |
+| `VENC`（仅 `.sh`） | `hevc_nvenc` / `libx265` | `hevc_nvenc` | 无 N 卡时走软编 |
+
+两个刻意的设计：**不动 SAR、不裁边**（DVD 宽高比要同时看 IFO 与 MPEG-2 序列头，同一张盘两者都可能不一致，没有通用写法，故让 ffmpeg 透传原始 SAR）；**不猜测分界章号**（每张盘不同，默认 `SPLIT_CHAPTER=0` 不切）。
+
+### 输出包含原盘的哪些段？
+
+以实测的那张盘（`人妻かすみさん` 前編+後編，`MODE=AUTO`）为例：
+
+| | 内容 |
+| --- | --- |
+| **进入成片的** | title 3 —— 全盘最长的 PGC（3304s）＝ **视频全部** ＋ **2 条 AC3 立体声全部** ＋ **2 条 DVD 位图字幕全部** ＋ **16 个章节标记全部** |
+| **没有进入成片的** | title 1(84s) / 4(66s) / 5(30s) / 6(70s) / 7(130s)——探针显示均为「1 视频 + 1 AC3、无字幕」的短片（菜单/警告/予告类）；以及菜单域(VMGM)与 `IFO`/`BUP`/`NAV PACK` 等 DVD 导航结构本身 |
+
+要点：
+
+- **一条 title 出一个文件**，`MODE=AUTO` 只挑一条，其余 title 默认丢弃——想要就 `MODE=ALL` 或 `EXTRA_TITLES`。
+- **章节不会丢**：`-map_chapters 0` 把 title 的章节点原样写进 MKV（实测 16 个，与源盘 15 个 cell 边界逐一对得上）。所以「前編/後編」这类分段信息仍在文件里，`SPLIT_CHAPTER` 只是**按它切文件**。该盘实测分界在**第 7 章**（第 1–6 章＝前編，第 7–16 章＝後編，各约 27.5 分钟；边界处 1640–1651s 画面全黑、1652s 起换篇），即 `SPLIT_CHAPTER=7`。
+- **分辨率与 SAR 透传**，不裁边、不改宽高比，字幕/音轨条数不变。
+- 成片时间轴相对源盘**整体缩到 1000/1001（0.1%）**，这是 `dvdvideo` 的 DVD 时钟换算；实测**每一章都按同一比值 0.999001 缩放**，所以是均匀缩放、**不是丢段**。
+- 该盘 title 3 的**音频本身止于 3241.8s**：末尾约 60s 只有画面没有音轨。因为音频是 `-c:a copy` 原样拷贝（ffmpeg 不会平白丢掉 60s 的包），且这段画面实测平均亮度 YAVG≈25（正片同口径是 163），属**源盘自身的极暗收尾画面**，不是转码造成的。
+
+### 已知现象（不是错误）
+
+- `[dvdvideo @ ...] libdvdnav: Unable to open device file <路径>.ISO.` —— **误报**：libdvdnav 先按物理光驱试开、失败后才落到 ISO 文件读取。看到它而产物完整即正常。
+- 进度行末尾的 `time=` 可能**冻住不动**（同时 `frame=`/`size=` 正常增长）—— ffmpeg 的显示瑕疵。判定完整性请看 `ffprobe` 输出，勿信这一格（详见 `environment_matrix.md` 第 49 条）。
 
 `.bat` 侧另有四个坑，只有真机跑才暴露（2026-09-22 首轮实跑修复，详见 `environment_matrix.md` 第 48 条）：
 
@@ -194,6 +241,10 @@ AC3 无损保留）。
 **两次完整实跑**：title 5（30s，727 帧、8.3 倍速）与 **MODE=AUTO 全片**（自动跳过缺失的
 title 2、选中 3304s 的 title 3、输出约 1 Mbps 的 MKV）。首次真机运行的静默退出正是靠这条
 通路定位的（根因见 `environment_matrix.md` 第 49 条）。
+
+用户随后在**自己的机器上双击实跑**同一条命令并成功（rc=0）：产物
+`HEVC_OUT\….mkv` 为 **401 754 057 字节，与沙箱实跑逐字节同尺寸** —— NVENC 在固定参数下
+是确定性的，可用来交叉比对两次运行是否等价。
 
 > **冒烟为什么是"数分钟"**：墙钟时间 ≈ 入口调用次数 × 单次入口成本，与片长几乎无关。
 > 2026-09-17 把 `lib/common.sh` 的源探测从「7 个 helper 各起一条 ffprobe」（一次入口
