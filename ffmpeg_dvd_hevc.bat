@@ -151,7 +151,8 @@ rem dvdvideo 解复用器依赖 libdvdread/libdvdnav，精简构建没有
 "%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
 if errorlevel 1 (
     echo [错误] 这份 ffmpeg 没有 dvdvideo 解复用器
-    echo        需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)
+    echo        需要带 libdvdread + libdvdnav 的构建（gyan.dev full build 有）
+    echo        实测命令: ffmpeg -demuxers ^| findstr /i dvdvideo
     exit /b 1
 )
 
@@ -244,9 +245,8 @@ rem ---------------------------- 组滤镜链 ----------------------------
 set VFILT=
 if "%FILT%"=="IVTC" set VFILT=fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate
 if "%FILT%"=="BWDIF" set VFILT=bwdif=mode=1
-if defined VFILT_EXTRA (
-    if defined VFILT (set VFILT=%VFILT%,%VFILT_EXTRA%) else (set VFILT=%VFILT_EXTRA%)
-)
+if defined VFILT_EXTRA if defined VFILT set VFILT=%VFILT%,%VFILT_EXTRA%
+if defined VFILT_EXTRA if not defined VFILT set VFILT=%VFILT_EXTRA%
 set VFOPT=
 if defined VFILT set VFOPT=-vf "%VFILT%"
 
@@ -274,7 +274,11 @@ goto RUN_ALL
 :RUN_ALL
 rem 一个 title 失败不立刻退出: 后面的分段/特典还要跑完, 但退出码必须真的传出去
 set FAILED=
-if defined VFILT (echo 滤镜链: %VFILT%) else (echo 滤镜链: [无])
+rem 不用 if(...)else(...) 包住 %VFILT%: 值里一旦出现 ASCII 右括号就会提前关块。
+rem 先落进普通变量再 echo, 块外单行 if 不参与括号计数。
+set "VF_SHOW=[无]"
+if defined VFILT set "VF_SHOW=%VFILT%"
+echo 滤镜链: %VF_SHOW%
 echo.
 
 if "%MODE%"=="ALL" goto DO_ALL
@@ -340,8 +344,8 @@ rem 真失败一路落到 exit /b 0。改成"不等于 0"的字符串比较兜�
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
-    echo 常见原因: 1) -c:s 处理不了位图字幕  2) MP4 下 AC3 没转成 AAC
-    echo           3) NVIDIA 驱动过旧/hevc_nvenc 不可用
+    echo 常见原因: [1] -c:s 处理不了位图字幕  [2] MP4 下 AC3 没转成 AAC
+    echo            [3] NVIDIA 驱动过旧 / hevc_nvenc 不可用
     exit /b 1
 )
 exit /b 0

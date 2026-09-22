@@ -166,6 +166,7 @@ SET SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat ...   :: 按第 7 章切成两段(前
 | 清单 BOM | `.bat` 侧 `for /f` 读带 BOM 清单尚未实测（记事本存 UTF-8 无 BOM 时不触发）；`.sh` 侧已兼容 |
 | 交互 stdin | 双击后手输不受影响；只有「文件重定向喂 stdin + `chcp 65001`」这一组合读不到（`.bat` 的 UTF-8 守卫所致，非缺陷） |
 | 修改 `.bat` 时的 set 写法 | 值为「已带引号的路径 / 整条命令行」的变量，**一律用非包装写法** `set VAR=值`；包装写法 `set "VAR=值"` 会与值内引号配对闭合，使后续路径段落裸露、被 `&`/`()` 截断 |
+| 块内参数里的裸 `)` | 多行 `( ... )` 块中，**参数文本里未转义的 `)` 会提前关闭该块**（`^( ^)` 转义、全角 `（）`、`[1]`、双引号内、`for %%A in (...)`、`\|\| ( ... )` 均安全）。后果极隐蔽：紧跟其后的语句脱离块、变成**无条件执行**的顶层语句 —— `ffmpeg_dvd_hevc.bat` 首跑就是这样静默 `exit /b 1` 的（打印两行后直接回提示符、零报错）。静态由 **L23** 拦截，实验记录见 `environment_matrix.md` 第 49 条 |
 
 ## 验证状态
 
@@ -178,14 +179,21 @@ SET SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat ...   :: 按第 7 章切成两段(前
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
 
-2026-09-22 新增 `ffmpeg_dvd_hevc.{bat,sh}` 后重跑：静态层仍是 `30 PASS / 0 FAIL / 5 WARN`、
-检查器自测 `40 cases / 0 FAIL`。该条目在 lint 的 L16（流映射统一性）上被登记为**部分豁免**：
-只豁免 `-c:s mov_text` 一项，理由是 DVD 字幕是位图流、ffmpeg 根本拒绝转换（见上文），
-其余 5 项 token 全部保留。豁免表 `STREAM_MAP_EXEMPT` 写在 `test/lint/lint.py` 里并注明"不得
-扩展到文本字幕条目"。
+2026-09-22 新增 `ffmpeg_dvd_hevc.{bat,sh}` 后重跑：静态层 `31 PASS / 0 FAIL / 5 WARN`、
+检查器自测 `49 cases / 0 FAIL`（新增 L23 + 9 条用例）。该条目在 lint 的 L16（流映射统一性）上被
+登记为**部分豁免**：只豁免 `-c:s mov_text` 一项，理由是 DVD 字幕是位图流、ffmpeg 根本拒绝转换
+（见上文），其余 5 项 token 全部保留。豁免表 `STREAM_MAP_EXEMPT` 写在 `test/lint/lint.py` 里并
+注明"不得扩展到文本字幕条目"。
 
 `.sh` 侧已在本机 Git Bash 实跑通过（30s 的 title 5，IVTC 后 727 帧 / 23.976p，SAR 原样透传，
-AC3 无损保留）；`.bat` 侧**只能静态验证**（沙箱跑不了 `cmd.exe`），首次使用请双击试一个短 title。
+AC3 无损保留）。
+
+`.bat` 侧**已改为真机等价实跑**：开发沙箱现在可以用
+`python 造一个 stdin 脚本 → cmd < script.txt > log.txt` 驱动 `cmd.exe` 交互模式执行批处理，
+控制流与双击完全一致（只有输出编码受限于无真实控制台）。`ffmpeg_dvd_hevc.bat` 因此完成了
+**两次完整实跑**：title 5（30s，727 帧、8.3 倍速）与 **MODE=AUTO 全片**（自动跳过缺失的
+title 2、选中 3304s 的 title 3、输出约 1 Mbps 的 MKV）。首次真机运行的静默退出正是靠这条
+通路定位的（根因见 `environment_matrix.md` 第 49 条）。
 
 > **冒烟为什么是"数分钟"**：墙钟时间 ≈ 入口调用次数 × 单次入口成本，与片长几乎无关。
 > 2026-09-17 把 `lib/common.sh` 的源探测从「7 个 helper 各起一条 ffprobe」（一次入口

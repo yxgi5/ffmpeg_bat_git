@@ -108,6 +108,99 @@ CASES = [
         set(), {"L07"},
     ),
     (
+        "L23: ')' in echo text inside a multi-line block is caught",
+        "blockparen.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if errorlevel 1 (\n"
+        "    echo need libdvdread (gyan.dev full build has it)\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        {"L23"}, set(),
+    ),
+    (
+        "L23: '1) ... 2) ...' list inside a block is caught",
+        "blocklist.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    echo reasons: 1) bitmap subs 2) ac3\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        {"L23"}, set(),
+    ),
+    (
+        "L23 precision: full-width （） and [1] inside a block stay silent",
+        "blockfull.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    echo need libdvdread （gyan.dev full build 有）\n"
+        "    echo reasons: [1] subs  [2] ac3\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: for %%A in (list) inside a block stays silent",
+        "blockfor.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    for %%A in (a b) do echo %%A\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: balanced if (...) else (...) inside a block stays silent",
+        "blockifelse.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    if defined Y (set A=1) else (set A=2)\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: '1)' usage line at top level stays silent",
+        "toplevelparen.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "echo usage: 1) drag a file  2) or type a path\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: quoted parens inside a block stay silent",
+        "blockquote.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    call :sub \"abc (x) def\"\n"
+        ")\n"
+        "exit /b 0\n"
+        ":sub\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: caret-escaped ^( ^) inside a block stay silent",
+        "blockcaret.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    echo unknown key ^(vbr^|fbr^)\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: `cmd || ( ... )` group inside a block stays silent",
+        "blockor.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X (\n"
+        "    pushd \"%TEMP%\" || ( endlocal & exit /b 1 )\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
         "L08: wrapped set referencing a quoted variable is caught",
         "wrapped.bat", True,
         "@echo off\n:main\nsetlocal\n"
@@ -581,6 +674,7 @@ def run_checks(inv):
     lint.check_ffmpeg_requirement(inv)
     lint.check_quoted_arg_expansion(inv)
     lint.check_call_arg_equals(inv)
+    lint.check_block_paren_text(inv)
     return {cid for cid, _ in lint.FAIL}
 
 

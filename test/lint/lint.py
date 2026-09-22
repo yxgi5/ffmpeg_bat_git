@@ -1346,6 +1346,124 @@ def check_call_arg_equals(inv):
         ok("L22", "no call passes a bare '=' in its argument list "
                   "(%d .bat line(s) inspected)" % inspected)
 
+# ---------------------------------------------------------------- L23
+# An unquoted ')' inside a multi-line ( ) block closes that block EARLY.
+#
+# Verified against real cmd.exe on 2026-09-22 with a dozen minimal batches.
+# The rule cmd follows, as far as the evidence goes:
+#   * rem lines, labels and "quoted spans"  -> parens are immune
+#   * a lone '(' in argument text           -> immune (does NOT open a group)
+#   * for %%A in (list) do                  -> immune (cmd special-cases for)
+#   * ')' anywhere else in argument text    -> closes the enclosing block NOW
+#   * balanced ( ... ) else ( ... ) on one line -> fine (that IS if syntax)
+#
+# Why it matters: when the offending line is what was meant to be the block's
+# last line, the statement that follows LEAVES the block and becomes a
+# top-level command that runs UNCONDITIONALLY. The batch then dies with rc=1,
+# and because the closing ')' swallowed the compiler's view of the block, the
+# error lines inside it never print - the failure is completely silent.
+#
+# That is exactly what ffmpeg_dvd_hevc.bat did on its first real run:
+#
+#     if errorlevel 1 (
+#         echo [错误] 这份 ffmpeg 没有 dvdvideo 解复用器
+#         echo        需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)
+#         exit /b 1        <- now top level: runs even when the check passes
+#     )
+#
+# User symptom: two normal lines ("ffmpeg    : ...", "源        : ...") and
+# then straight back to the prompt, no error at all. L05 cannot see it - L05
+# skips echo lines (line 195) and compares whole-file totals, and those totals
+# are balanced. L07 cannot see it either. Diagnosed only by running the file.
+#
+# Fixes that are always safe: write （全角括号） or [1] [2] [3] instead, or move
+# the text out of the block into a plain variable first.
+_PAREN_AFTER_KW = re.compile(r'(?i)(\b(else|in)|\|\||&&)\s*$')
+_PAREN_IF_HEAD = re.compile(r'(?i)^\s*(if|for)\b')
+_PAREN_PURE_CLOSE = re.compile(r'^\)+\s*$')
+_PAREN_CLOSE_ELSE = re.compile(r'^(\)+)\s*else\s*(\(+)\s*$')
+
+
+def _paren_strip_quoted(s):
+    """Neutralise everything cmd does NOT count as a block delimiter.
+
+    * "quoted spans"          -> parens are literal
+    * ^^ ^( ^)                -> caret escaping; verified immune on real cmd
+                                 (`echo escaped ^(vbr^|fbr^) here` inside a
+                                 block runs both the echo and the following
+                                 lines - repo already relies on this in
+                                 lib\\common.bat and test\\bat\\*_calib.bat)
+    """
+    s = re.sub(r'"[^"]*"', '""', s)
+    s = s.replace("^^", "\x00")
+    s = s.replace("^(", "\x01").replace("^)", "\x02")
+    return s
+
+
+def _paren_legit_opens(text):
+    """Count '(' that sit at a *command* position, i.e. the ones cmd really
+    treats as group openers: start of line, after `else`, after `in`, after
+    `||` / `&&`, right after another ')' and the first '(' of an `if <cond> (`
+    head. `pushd "%X%" || ( endlocal & exit /b 1 )` inside a block is a real
+    repo pattern (test\\bat\\nvenc_pair_calib.bat) and verified safe."""
+    n = 0
+    for m in re.finditer(r'\(', text):
+        before = text[:m.start()].rstrip()
+        if before == "":
+            n += 1
+        elif _PAREN_AFTER_KW.search(before):
+            n += 1
+        elif before.endswith(")"):
+            n += 1
+        elif _PAREN_IF_HEAD.match(before) and "(" not in before:
+            n += 1
+    return n
+
+
+def check_block_paren_text(inv):
+    hits, inspected, blocks = [], 0, 0
+    for f in inv["all_bat"]:
+        p = os.path.join(ROOT, f)
+        if not os.path.isfile(p):
+            continue
+        _, t = read_text(p)
+        depth = 0
+        for n, ln in enumerate(lf_lines(t), 1):
+            s = ln.strip()
+            if not s or s.lower().startswith(("rem", "::")) or s.startswith(":"):
+                continue
+            body = _paren_strip_quoted(s)
+            if depth > 0:
+                inspected += 1
+            m = _PAREN_PURE_CLOSE.match(body)
+            if m:
+                depth = max(0, depth - len(body.strip()))
+                continue
+            m = _PAREN_CLOSE_ELSE.match(body)
+            if m:
+                depth = max(0, depth + len(m.group(2)) - len(m.group(1)))
+                continue
+            if depth > 0:
+                surplus = body.count(")") - _paren_legit_opens(body)
+                if surplus > 0:
+                    hits.append("%s:%d closes its enclosing ( ) block early - "
+                                "%d unquoted ')' beyond the group openers; the "
+                                "statement after this line becomes top-level and "
+                                "runs unconditionally (silent rc=1). Use full-width "
+                                "（）/[1] instead: %s"
+                                % (f, n, surplus, s[:60]))
+            trail = re.search(r'\(+$', body)
+            if trail:
+                depth += len(trail.group(0))
+                blocks += 1
+    if hits:
+        for m in hits[:8]:
+            bad("L23", m)
+    else:
+        ok("L23", "no unquoted ')' in argument text inside a multi-line block "
+                  "(%d in-block lines inspected, %d block opener(s))"
+                  % (inspected, blocks))
+
 # ---------------------------------------------------------------- tables
 def load_table(name):
     rows = []
@@ -1785,6 +1903,8 @@ def main():
               "(write \"%~1\", not \"%1\")")
         print("         L22 no bare '=' in a call argument list "
               "(cmd splits batch arguments on it)")
+        print("         L23 no unquoted ')' in argument text inside a multi-line "
+              "( ) block (it closes the block early -> silent rc=1)")
         print("parity : P01 entry inventory  P02 encoder->table  P03 exit contract")
         print("         P04 table sanity  P05 lookup equivalence  P06 harness")
         print("         expectations  P07 encoder parameter drift")
@@ -1818,6 +1938,7 @@ def main():
         check_ffmpeg_requirement(inv)
         check_quoted_arg_expansion(inv)
         check_call_arg_equals(inv)
+        check_block_paren_text(inv)
 
     if not args.lint_only:
         print("---- parity ----")
