@@ -138,8 +138,14 @@ if not defined FF (
 )
 set FP=%FF:ffmpeg.exe=ffprobe.exe%
 echo ffmpeg    : %FF%
-echo 源        : %SRC%
+echo 源        : "%SRC%"
+rem 探针结果先落到 %WORK% 下的临时文件, 再用 for /f "usebackq" 回读。
+rem **不要**把回读写成 set /p 配脱字符小于号: 脱字符会把小于号转成字面量参数,
+rem set /p 随即退化成"从键盘读一行", 整个脚本静默卡住等人按键
+rem (2026-09-22 用户报障: 打印完"源"就再无输出)。本仓库真机验证过的读法是
+rem for /f "usebackq" 读文件, 见 lib\common.bat 的 probe_source / probe_field。
 if not defined WORK set "WORK=%TEMP%"
+if not defined WORK set "WORK=%SELF_DIR%"
 
 rem dvdvideo 解复用器依赖 libdvdread/libdvdnav，精简构建没有
 "%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
@@ -153,12 +159,13 @@ if not exist "%OUTDIR%" md "%OUTDIR%"
 
 rem -------------------------- 选定要处理的 title --------------------------
 if "%MODE%"=="TITLE" goto HAVE_TITLE
-if "%MODE%"=="ALL" goto DO_ALL
+if "%MODE%"=="ALL" goto ALL_TIER
 
 rem MODE=AUTO: 扫所有 title，挑时长最长的
 rem 不能"读不到就收尾": DVD 的 title 编号**不连续**(本盘实测缺 title 2，
 rem 一收尾就只看到 84s 的 title 1，而 55 分钟正片是 title 3)。
 rem 改成连续缺失 5 次才收尾。
+echo 正在扫描所有 title（逐条开镜像探测，请稍等；读不到的会自动跳过）...
 set BESTD=0
 set DVD_TITLE=
 set MISS=0
@@ -169,6 +176,9 @@ if not defined TW goto AUTO_MISS
 set MISS=0
 for /f "tokens=1 delims=." %%A in ("%TD%") do set TDI=%%A
 if not defined TDI set TDI=0
+rem 时长读不到时 ffprobe 会给 "N/A" —— 非纯数字一律当 0, 否则下面
+rem 的 if gtr 会因 "N/A was unexpected at this time." 当场打断批处理
+for /f "delims=0123456789" %%B in ("%TDI%") do set TDI=0
 if %TDI% gtr %BESTD% (
     set BESTD=%TDI%
     set DVD_TITLE=%N%
@@ -176,6 +186,7 @@ if %TDI% gtr %BESTD% (
     set SRC_H=%TH%
     set SRC_DUR=%TD%
 )
+echo   title %N%: %TW%x%TH%  %TDI%s
 goto AUTO_NEXT
 :AUTO_MISS
 set /a MISS=%MISS%+1
@@ -192,6 +203,17 @@ if not defined DVD_TITLE (
 echo 自动选定: title %DVD_TITLE%（共 %BESTD%s，最长）
 goto HAVE_TITLE
 
+:ALL_TIER
+rem MODE=ALL: 同一张 DVD 上各 title 分辨率一致, 用 title 1 定码率档位即可。
+rem 原实现直接 goto DO_ALL 会整段跳过码率计算, VBITRATE 为空 -> -b:v 是空值
+rem -> 每个 title 都在 ffmpeg 处失败(2026-09-22 静态审查发现, 与 .sh 侧对齐)。
+call :PROBE 1 SRC_W SRC_H SRC_DUR
+if not defined SRC_W (
+    echo [错误] 读不到 title 1，检查源路径 / 是否受 CSS 保护
+    exit /b 1
+)
+goto HAVE_TITLE
+
 :HAVE_TITLE
 if not defined SRC_W call :PROBE %DVD_TITLE% SRC_W SRC_H SRC_DUR
 if not defined SRC_W (
@@ -204,7 +226,11 @@ set /a SRC_PIX=%SRC_W%*%SRC_H%
 rem ---------------------------- 算目标码率 ----------------------------
 if defined VBITRATE goto HAVE_BIT
 set "BIT="
-if not exist "%SELF_DIR%lib\common.bat" goto NO_TABLE
+if not exist "%SELF_DIR%lib\common.bat" (
+    echo [错误] 找不到 lib\common.bat，查不了码率表。
+    echo        要么把仓库放完整，要么手工给码率: set VBITRATE=636021
+    exit /b 2
+)
 call "%SELF_DIR%lib\common.bat" lookup_bitrate %SRC_PIX% BIT bitrate_table_hevc.csv
 if not defined BIT (
     echo [错误] %SRC_PIX% 不在码率表范围内
@@ -246,24 +272,30 @@ set SMAP=-map 0:s:0?
 goto RUN_ALL
 
 :RUN_ALL
+rem 一个 title 失败不立刻退出: 后面的分段/特典还要跑完, 但退出码必须真的传出去
+set FAILED=
 if defined VFILT (echo 滤镜链: %VFILT%) else (echo 滤镜链: [无])
 echo.
 
 if "%MODE%"=="ALL" goto DO_ALL
 
 rem 切分用 goto 而不是 if(...) 块: 块内 %CE% 会在解析时就被展开, 拿不到刚算的值
+rem 前缀一律用双引号包住: 源文件名可能含空格与小括号(实测那张盘叫
+rem "[DVDISO](18禁アニメ) ...「過ちの夜 」+後編「確かめ合う気持ち」"), 不包的话
+rem call :ENC 会按空格把它切成好几个参数, OUTN 与章节号全部错位。
 if %SPLIT_CHAPTER% gtr 0 goto DO_SPLIT
-call :ENC %DVD_TITLE% %PREFIX% 0 0
-if errorlevel 1 exit /b 1
+call :ENC %DVD_TITLE% "%PREFIX%" 0 0
+if errorlevel 1 set FAILED=1
 goto AFTER_SPLIT
 :DO_SPLIT
 set /a CE=%SPLIT_CHAPTER%-1
-call :ENC %DVD_TITLE% %PREFIX%_part1 1 %CE%
-if errorlevel 1 exit /b 1
-call :ENC %DVD_TITLE% %PREFIX%_part2 %SPLIT_CHAPTER% 0
-if errorlevel 1 exit /b 1
+call :ENC %DVD_TITLE% "%PREFIX%_part1" 1 %CE%
+if errorlevel 1 set FAILED=1
+call :ENC %DVD_TITLE% "%PREFIX%_part2" %SPLIT_CHAPTER% 0
+if errorlevel 1 set FAILED=1
 :AFTER_SPLIT
-for %%T in (%EXTRA_TITLES%) do call :ENC_EXTRA %%T %PREFIX%_title%%T
+if defined EXTRA_TITLES for %%T in (%EXTRA_TITLES%) do call :ENC_EXTRA %%T "%PREFIX%_title%%T"
+if errorlevel 1 set FAILED=1
 goto DONE
 
 :DO_ALL
@@ -273,8 +305,8 @@ set MISS=0
 call :PROBE %N% TW TH TD
 if not defined TW goto NEXT_MISS
 set MISS=0
-call :ENC %N% %PREFIX%_title%N% 0 0
-if errorlevel 1 exit /b 1
+call :ENC %N% "%PREFIX%_title%N%" 0 0
+if errorlevel 1 set FAILED=1
 goto NEXT_STEP
 :NEXT_MISS
 set /a MISS=%MISS%+1
@@ -298,7 +330,7 @@ set "CHOP="
 if not "%CS%"=="0" set CHOP=-chapter_start %CS%
 if not "%CE%"=="0" set CHOP=%CHOP% -chapter_end %CE%
 echo ------------------------------------------------------------
-echo ^> title %T% ^-^> %OUTN%.%EXT%   %CHOP%
+echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
 set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% %CHOP% -i "%SRC%" -map 0:v -map 0:a? %SMAP% %VFOPT% -c:v %VENC% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
 %RUN_COM%
@@ -317,8 +349,8 @@ exit /b 0
 :ENC_EXTRA
 set "T=%~1"
 set "OUTN=%~2"
-echo ^> 附加 title %T% ^-^> %OUTN%.%EXT%
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:v -map 0:a? -vf "%VFILT%" -c:v %VENC% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
+echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:v -map 0:a? %VFOPT% -c:v %VENC% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
 %RUN_COM%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
@@ -329,7 +361,9 @@ exit /b 0
 
 rem =========================================================================
 rem  子过程 PROBE  title  ->  &1=宽  &2=高  &3=时长
-rem  用临时文件落盘再 set /p 读取，避开 for /f 对含 & ( ) 路径的转义坑
+rem  用临时文件落盘再回读，避开 for /f 反引号对含空格/与号/小括号路径的转义坑
+rem  （绝不能用 for /f 反引号直接跑 ffprobe：程序路径含空格，两种写法都会被
+rem    cmd 的引号剥离规则吃掉收尾引号，见 lib\common.bat 的长注释）
 rem =========================================================================
 :PROBE
 set "%~2="
@@ -341,7 +375,12 @@ for /f "usebackq tokens=1,2 delims=," %%A in ("%WORK%\_p1.txt") do (
     set "%~2=%%A"
     set "%~3=%%B"
 )
-if exist "%WORK%\_p2.txt" set /p "%~4=" ^< "%WORK%\_p2.txt"
+rem 回读时长必须用 for /f "usebackq" —— 本仓库真机验证过的写法。
+rem 曾经的写法是 set /p "变量=" 配一个脱字符小于号，以为那是重定向；
+rem 实际 cmd 的脱字符只是把小于号转成字面量参数，于是 set /p 变成
+rem "从键盘读一行"，脚本在第一次探针处就静默卡死(2026-09-22 用户报障)。
+if exist "%WORK%\_p2.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p2.txt") do set "%~4=%%A"
+del "%WORK%\_p1.txt" "%WORK%\_p2.txt" 2>nul
 exit /b 0
 
 :DONE
@@ -351,6 +390,9 @@ echo  输出目录: %OUTDIR%
 if not defined SRC_DUR goto DONE_END
 if not defined VBITRATE goto DONE_END
 for /f "tokens=1 delims=." %%A in ("%SRC_DUR%") do set DI=%%A
+if not defined DI set DI=0
+rem 同 :AUTO_LOOP: "N/A" 之类的非数字会让 set /a 报 Missing operator
+for /f "delims=0123456789" %%B in ("%DI%") do set DI=0
 rem VBITRATE 默认来自查表, 是裸 bit/s；被手工覆盖成 "636k" / "2m" 时换算回来
 set "VBN=%VBITRATE%"
 if /i "%VBITRATE:~-1%"=="k" set /a VBN=%VBITRATE:~0,-1%*1000
@@ -361,4 +403,8 @@ set /a EST_KB=%VBN%/1000
 echo  体积估算: 视频 ~%EST_KB%kbps x %DI%s ≈ %EST_MB% MB（另加音频）
 :DONE_END
 echo ============================================================
+if defined FAILED (
+    echo [失败] 至少一个 title 编码失败
+    exit /b 1
+)
 exit /b 0

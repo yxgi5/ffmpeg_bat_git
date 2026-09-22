@@ -1187,3 +1187,39 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **本机验证**：`.sh` 侧在 Git Bash 实跑通过（30s 的 title 5：727 帧 / 23.976p、SAR 8:9 原样透传、
       AC3 无损、约 11 倍速）；**`.bat` 侧只能静态验证**（沙箱无法调用 `cmd.exe`），首次使用请双击试短 title。
     * **基线**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 38 cases / 0 FAIL`（新增条目后重跑）。
+
+48. **`ffmpeg_dvd_hevc.bat` 首轮真机运行修复（2026-09-22，用户报障「打印完『源』就没反应」）**：
+    四个缺陷全部属于「不报错的坏结果」；其中第一个只有真机跑才暴露，静态审查只能查出后三个。
+    * **① `set /p` 配脱字符小于号不是重定向（本次报障的根因）**。原写法
+      `if exist "文件" set /p "变量=" ^< "文件"` —— cmd 里脱字符只是把 `<` 转成**字面量参数**，
+      并不产生输入重定向；于是 `set /p` 退化成"从 stdin 读一行"，而交互运行下 stdin 就是键盘。
+      表现：打印完 `源 : ...` 之后**再无任何输出**，脚本静静等人按键，看着像卡死/无反应。
+      改成 `for /f "usebackq"` 读临时文件 —— 即本仓库 2026-09-17 重构后一直在用的真机验证写法
+      （`lib\common.bat` 的 `probe_source` / `probe_field` 长注释里已记录这条结论）。
+    * **② `call :ENC` 的前缀没加引号**。`PREFIX=%~n1` 取自源文件名，实测那张盘叫
+      `[DVDISO](18禁アニメ) 人妻かすみさん 前編「過ちの夜 」+後編「確かめ合う気持ち」`，含空格与小括号。
+      不加引号时 `call :ENC 3 <前缀> 0 0` 会按空格把它切成 `%~2/%~3/%~4...`：OUTN 只剩
+      `[DVDISO](18禁アニメ)`，而 `%~3/%~4` 变成 `人妻かすみさん` / `前編「過ちの夜`，
+      进而拼出 `-chapter_start 人妻かすみさん -chapter_end 前編「過ちの夜` 这种必然失败的命令行。
+      全部调用点改为 `"%PREFIX%"` / `"%PREFIX%_title%N%"`。
+    * **③ `MODE=ALL` 整段跳过码率计算**。原实现 `if "%MODE%"=="ALL" goto DO_ALL` 直接进编码循环，
+      `SRC_PIX` / `VBITRATE` 从未计算 → `-b:v` 是空值 → 每个 title 都在 ffmpeg 处失败。
+      改为一律先走 `:ALL_TIER`，用 title 1 定码率档位（与 `.sh` 侧 `probe_title 1` 对齐）。
+    * **④ `goto NO_TABLE` 指向不存在的标签**。`lib\common.bat` 缺失时会打印
+      "找不到批处理标签 - NO_TABLE" 并中断；改成内联报错 + `exit /b 2`，
+      并提示可手工 `set VBITRATE=636021` 绕过。
+    * **顺带加固（同类「静默/难查」问题）**：探针时长可能是 `N/A`（非纯数字），会让
+      `if %TDI% gtr` 当场报 "N/A was unexpected at this time." 打断批处理 → 两处都补了
+      `for /f "delims=0123456789" ... do set X=0` 的数字净化；`:ENC_EXTRA` 的空滤镜链
+      从 `-vf ""` 改成 `%VFOPT%`；用 `if defined EXTRA_TITLES` 包住 `for`（避免 `for %%T in ()`）；
+      前缀相关的提示行加引号；AUTO 扫描增加"正在扫描…"与逐条 `title N: WxH  Ns` 回显
+      （扫描要开十几次镜像，原先全程无输出，极易被当成卡死）；单个 title 失败不再立刻退出
+      （后面的分段/特典继续跑完），失败状态用 `FAILED` 兜到结尾统一返回 `exit /b 1`。
+    * **静态校验手段**（沙箱跑不了 `cmd.exe`，这是能查的极限）：另写了一段小程序抽取全部
+      `goto` / `call :label` 与 `:label` 交叉比对，并检查行尾（CRLF）与括号配对 ——
+      ① 以外的三个缺陷正是靠它抓出来的。基线 `lint 30 PASS / 0 FAIL / 5 WARN`、
+      `selftest 38 cases / 0 FAIL`。
+    * **`.sh` 孪生版不受影响**：它用命令替换取探针结果、路径全量加引号，
+      `MODE=ALL` 本来就先探 title 1。本轮只动 `.bat`（另把 `.sh` 的 git 索引模式补成 100755）。
+    * **仍未真机验证**：修复后的 `.bat` **没有**再经用户实跑，首次使用仍建议先
+      `ffmpeg_dvd_hevc.bat "<ISO>" <输出目录> 5` 只压一个短 title 验证链路。
