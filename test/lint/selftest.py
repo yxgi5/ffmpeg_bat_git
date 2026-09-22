@@ -91,6 +91,23 @@ CASES = [
         {"L07"}, set(),
     ),
     (
+        "L07: unresolved label via `goto LABEL` (no colon) is caught too",
+        "gotolabel.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if defined X goto NOSUCH\n"
+        "exit /b 0\n",
+        {"L07"}, set(),
+    ),
+    (
+        "L07 precision: `goto X` written as echo text into a generated .bat stays silent",
+        "genlabel.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        ">>\"%TEMP%\\z.bat\" echo if defined ZG goto zmain\n"
+        ">>\"%TEMP%\\z.bat\" echo :zmain\n"
+        "exit /b 0\n",
+        set(), {"L07"},
+    ),
+    (
         "L08: wrapped set referencing a quoted variable is caught",
         "wrapped.bat", True,
         "@echo off\n:main\nsetlocal\n"

@@ -1217,8 +1217,17 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       （后面的分段/特典继续跑完），失败状态用 `FAILED` 兜到结尾统一返回 `exit /b 1`。
     * **静态校验手段**（沙箱跑不了 `cmd.exe`，这是能查的极限）：另写了一段小程序抽取全部
       `goto` / `call :label` 与 `:label` 交叉比对，并检查行尾（CRLF）与括号配对 ——
-      ① 以外的三个缺陷正是靠它抓出来的。基线 `lint 30 PASS / 0 FAIL / 5 WARN`、
-      `selftest 38 cases / 0 FAIL`。
+      ① 以外的三个缺陷正是靠它抓出来的（其中 `goto NO_TABLE` 一处在 lint 里另有缺口，见下条）。
+      基线 `lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 40 cases / 0 FAIL`。
+    * **顺带补掉 lint 的 L07 缺口**：原正则写的是 `\b(?:call|goto)\s+:…`，**只认带冒号的
+      `goto :LABEL`**，而 `goto LABEL`（不带冒号）才是命令行里最常见的写法 —— 上面那个
+      `goto NO_TABLE` 就是这样一路通过 lint 的（L07 一直是 PASS）。改成 `goto` 冒号可选
+      （`call` 仍要求冒号：不带冒号那是在调脚本文件，不是标签），并跳过**行首带重定向前缀的
+      echo 行** —— `>>"gen.bat" echo … goto zmain` 是把 goto 当**文本**写进另一个文件，
+      不是本文件的跳转（加固后 `smoke_special_chars.bat` 的 4 处 z4~z7 生成行曾误报，
+      新增 `_bat_effective_cmd()` 剥掉行首重定向前缀解决）。selftest 同步从 38 例增加到
+      40 例：1 条**召回**（无冒号 goto 指向不存在的标签必须报）+ 1 条**精确性**
+      （echo 生成文本形式的 goto 必须保持沉默）。
     * **`.sh` 孪生版不受影响**：它用命令替换取探针结果、路径全量加引号，
       `MODE=ALL` 本来就先探 title 1。本轮只动 `.bat`（另把 `.sh` 的 git 索引模式补成 100755）。
     * **仍未真机验证**：修复后的 `.bat` **没有**再经用户实跑，首次使用仍建议先

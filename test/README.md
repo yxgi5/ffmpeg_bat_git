@@ -537,7 +537,8 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-20）**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 38 cases / 0 FAIL`。
+> **当前基线（2026-09-22）**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 40 cases / 0 FAIL`
+> （L07 于本轮加固为「`goto` 冒号可选 + 跳过 echo 生成文本」，用例 38 → 40）。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。

@@ -213,6 +213,21 @@ def check_bat_syntax_shape(inv):
 
 
 # ---------------------------------------------------------------- L07
+def _bat_effective_cmd(line):
+    """剥掉行首的重定向前缀后返回剩下的命令头。
+    `>>"file" echo if defined ZG goto zmain` 这类行是把 `goto ...` 当**文本**写进
+    另一个(生成的)bat 里, 不是本文件执行的跳转; 只看 strip() 后的开头会把它们
+    误判成未解析标签(2026-09-22 加固 L07 时实测: smoke_special_chars.bat 的 4 处
+    `z4/z5/z6/z7.bat` 生成行全是这种误报)。
+    """
+    s = line.strip()
+    while True:
+        m = re.match(r'^\d?(?:>>?|<<?)\s*("[^"]*"|\S+)\s*', s)
+        if not m:
+            return s
+        s = s[m.end():]
+
+
 def check_bat_labels(inv):
     """call :label / goto label must resolve, and every helper call into
     lib/common.bat must name a function that the dispatcher actually knows."""
@@ -237,13 +252,22 @@ def check_bat_labels(inv):
             if m:
                 labels.add(m.group(1).lower())
         for i, ln in enumerate(lines, 1):
-            s = ln.strip()
-            if s.lower().startswith("rem"):
+            s = _bat_effective_cmd(ln)
+            if s.lower().startswith(("rem", "echo")):
                 continue
-            for m in re.finditer(r"\b(?:call|goto)\s+:([A-Za-z_][A-Za-z0-9_]*)", s):
+            # call 必须带冒号 —— 不带冒号是调脚本文件, 不是标签;
+            # goto 的两种写法都合法, 而且 `goto LABEL`(不带冒号)才是最常见的形式。
+            # 原正则只认带冒号的那种, 于是 `goto NO_TABLE` 指向不存在的标签能一路
+            # 通过 lint(2026-09-22 实测: ffmpeg_dvd_hevc.bat 里就是这么漏过去的,
+            # 真机一跑才会打出"找不到批处理标签 - NO_TABLE"然后中断)。
+            for m in re.finditer(r"\bcall\s+:([A-Za-z_][A-Za-z0-9_]*)", s):
                 tgt = m.group(1).lower()
                 if tgt not in labels and tgt not in BUILTIN_LABELS:
                     missing.append("%s:%d -> :%s" % (f, i, m.group(1)))
+            for m in re.finditer(r"\bgoto\s+:?([A-Za-z_][A-Za-z0-9_]*)", s):
+                tgt = m.group(1).lower()
+                if tgt not in labels and tgt not in BUILTIN_LABELS:
+                    missing.append("%s:%d -> goto %s" % (f, i, m.group(1)))
             for m in re.finditer(r'call\s+"[^"]*common\.bat"\s+([A-Za-z_][A-Za-z0-9_]*)', s):
                 helpers.append((f, i, m.group(1)))
     for f, i, h in helpers:

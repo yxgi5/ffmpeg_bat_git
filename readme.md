@@ -174,12 +174,12 @@ SET SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat ...   :: 按第 7 章切成两段(前
 | 层 | 命令 | 本机最近一轮（2026-09-20，Win11 + MSYS2 + RTX） |
 |----|------|--------------------------------------------|
 | ① 静态 + 对等 | `python3 test/lint/lint.py` | `30 PASS / 0 FAIL / 5 WARN`，退出码 0 |
-| ① 检查器自测 | `python3 test/lint/selftest.py` | `38 cases / 0 FAIL` |
+| ① 检查器自测 | `python3 test/lint/selftest.py` | `40 cases / 0 FAIL` |
 | ② sh 冒烟 | `bash test/sh/smoke_all.sh` | `PASS=22 FAIL=0 SKIP=4`，`rc=0` |
 | ③ 能力报告 | `bash test/sh/check_env.sh [--probe]` | 列出本机可用入口与原因 |
 
 2026-09-22 新增 `ffmpeg_dvd_hevc.{bat,sh}` 后重跑：静态层仍是 `30 PASS / 0 FAIL / 5 WARN`、
-检查器自测 `38 cases / 0 FAIL`。该条目在 lint 的 L16（流映射统一性）上被登记为**部分豁免**：
+检查器自测 `40 cases / 0 FAIL`。该条目在 lint 的 L16（流映射统一性）上被登记为**部分豁免**：
 只豁免 `-c:s mov_text` 一项，理由是 DVD 字幕是位图流、ffmpeg 根本拒绝转换（见上文），
 其余 5 项 token 全部保留。豁免表 `STREAM_MAP_EXEMPT` 写在 `test/lint/lint.py` 里并注明"不得
 扩展到文本字幕条目"。
