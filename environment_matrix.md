@@ -1381,21 +1381,39 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       `lib/common.bat` 的 `:cover_map`。各探一次 **lavfi 假源 + `-f null -` 输出**（不碰用户文件），
       认就填 `COVER_MAP` / `COVERMAP`，不认就置空 —— **只丢封面，绝不让整条编码失败**；每个入口进程只探一次。
       注意它与 `find_ffmpeg` 的语义**相反**：那个是「不够用就报错」，这个是「不够用就降级」。
-    * **copy / encode 分流**（`-c:v copy -c:v:0 <编码器>`）：让封面走 **copy** 进 mp4 的 `covr` atom，
-      只有第 0 路主视频被重编码 —— 既避开第 51 条的「封面被当第二路视频流编码」，也不用管封面在第几路。
-      **代价与陷阱**：copy 流会吃下**未加作用域的编码参数** —— 实测只有 `-profile:v`（不带 `:0`）会**致命**
-      （`Error setting up codec context options`），`-preset/-tune/-rc/-b:v/-g/-keyint_min/-pix_fmt/-sws_flags/-color_*` 都安全。
-      所以 profile 一律写 **`-profile:v:0`**；Cygwin 入口的 `-vf` 同理改 **`-filter:v:0`**（`-vf:0` 仍会打到 copy 流）。
-      另：**`-c:v:disp:attached_pic` 对输出流无效**（封面照样送编码器）→ 编码器必须用**下标**写法 `-c:v:0`。
-    * **改动面**：17 个编码出口（10 个 `.sh` + 7 个 `.bat`）加 `-c:v copy -c:v:0 <编码器>`、profile 改 `:0`、
-      映射串加 `${COVER_MAP[@]}` / `%COVERMAP%`；两族 `lib/common.*` 各加闸门；
-      `ffmpeg_copy_to_mp4.*`（remux）**不动** —— 它本来就是 copy，封面一直在（第 51 条已记）。
-    * **回归网**：lint **L16 扩写** —— 编码类必须 ①引用封面映射变量 ②有 `-c:v copy` + `-c:v:0` 配对
-      ③不得出现未加作用域的 `-profile:v`；`lib/common.*` 必须定义那个字面量；remux 与 DVD 入口按白名单豁免。
+    * **copy / encode 分流 —— 按输出流号写，不用全局 `-c:v copy`（2026-09-28 二次修订，用户报）**：
+      封面走 **copy** 进 mp4 的 `covr` atom，只有第 0 路主视频被重编码：
+      `-c:v:0 <编码器>` + 由 lib 变量下发的 `-c:v:1 copy -c:v:2 copy`（封面槽位）。
+      * **第一版用的是 `-c:v copy -c:v:0 <编码器>`**（视频默认复制，再用 `:0` 把主视频改回编码器）。
+        能跑通，但 ffmpeg **必报一行**
+        `[vost#0:0] Multiple -codec/-c/... options specified for stream 0, only the last option
+        '-codec:v:0 hevc_nvenc' will be used.` —— 同一条流被两个 `-c` 命中，结果全靠「后写的赢」，
+        而且命令里同时出现 `copy` 和编码器本身就是误导（用户就是看到那行 `-c:v copy` 来问「是不是没在编码」）。
+        改成**按流号**写之后两条指令互不重叠：警告消失，也不再有「顺序写反整片变复制」的隐患。
+      * **坑：`-c:v:disp:attached_pic copy` 实测不生效** —— 输出流的 `disposition` 是在**选完编码器之后**
+        才从输入流拷过来的，匹配时还没有，封面拿不到 copy，直接回到
+        `Could not find tag for codec h264 in stream #1` 的**写 0 字节**事故。别再试这条路。
+      * **槽位上限 2 张封面**（`-c:v:1` / `-c:v:2`）。实测（合成 mkv，gyan 8.0-dev）：
+        1 张 → 原样进 `covr`；2 张 → 两张都原样（与旧 `-c:v copy` 产物字节数一致）；
+        **没有封面** → 这两条匹配不到任何流，ffmpeg **静默忽略**（rc=0，产物与不加时一致）；
+        第 3 张及以后不再受保护（会被当普通视频重编码）。真实片源几乎不会出现 3 张封面。
+      * **代价与陷阱**：copy 流会吃下**未加作用域的编码参数** —— 实测只有 `-profile:v`（不带 `:0`）会**致命**
+        （`Error setting option profile to value main` / `Error setting up codec context options`），
+        `-preset/-tune/-rc/-b:v/-g/-keyint_min/-pix_fmt/-sws_flags/-color_*` 都安全。
+        所以 profile 一律写 **`-profile:v:0`**；Cygwin 入口的 `-vf` 同理改 **`-filter:v:0`**（`-vf:0` 仍会打到 copy 流）。
+    * **改动面**：17 个编码出口（10 个 `.sh` + 7 个 `.bat`）编码器写 `-c:v:0 <编码器>`、profile 改 `:0`、
+      映射串加 `${COVER_MAP[@]}` / `%COVERMAP%`（**变量里同时带封面映射与 `-c:v:1 copy -c:v:2 copy`**，
+      闸门不认 `disp:` 时整个变量为空，映射与复制一起消失，不会留下「只映射不复制」的半截状态）；
+      两族 `lib/common.*` 各加闸门；`ffmpeg_copy_to_mp4.*`（remux）**不动** —— 它本来就是 copy，封面一直在（第 51 条已记）。
+      **remux 里的 `-c:v copy` 是合法的**（它不重编码，全局复制就是它的本分）—— 现在 lint 明确只禁编码出口。
+    * **回归网**：lint **L16 扩写** —— 编码类必须 ①**不得出现未加流号的 `-c:v copy`** ②引用封面映射变量
+      ③有 `-c:v:0 <编码器>` ④不得出现未加作用域的 `-profile:v`；`lib/common.*` 必须同时定义封面映射字面量
+      与 `-c:v:1 copy`；remux 与 DVD 入口按白名单豁免（remux 的 `-c:v copy` 不报）。
       **顺手修掉一个长期假判据**：旧的「第一个 `-c:v`」正则现在会抓到位字面量 `copy`，
       P02 会误报「编码器挂了好几张表」、P07 只比了 1 个编码器 → 改成优先认 `-c:v:0`（`encoder_of` / `profile_of`）。
-      基线：lint **31 PASS / 0 FAIL / 5 WARN**、selftest **56 cases / 0 FAIL**
-      （新增 5 条：两族漏引用封面映射、未加作用域的 profile、库定义被删）。
+      基线：lint **31 PASS / 0 FAIL / 5 WARN**、selftest **59 cases / 0 FAIL**
+      （新增 8 条：两族漏引用封面映射、未加作用域的 profile、库映射定义被删、**库只映射不复制**、
+      **编码出口残留全局 `-c:v copy`**、remux 保留 `-c:v copy` 不误报）。
     * **实测**（自造素材 `cover.mkv` = h264 + aac + mjpeg `attached_pic`，320×240 3s）：`.sh` 与 `.bat` 真入口各跑一遍
       —— 封面以 `attached_pic=1` 进输出、mp4 写出 `covr` atom；无封面素材输出与改动前一致；
       封面只有 1 个 packet 走 copy（bat 侧实测 5904 B），主视频正常重编码，`ERRORLEVEL:0`。

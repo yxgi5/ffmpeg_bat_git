@@ -263,7 +263,10 @@ exit /b %PF_RC%
 
 :cover_map
 rem 封面(attached picture)保留能力门: call ... cover_map   (无参数, 用 %FFMPEG_PATH%)
-rem   调用后读全局 COVERMAP: "-map 0:v:disp:attached_pic?" 或空串(退回丢封面)。
+rem   调用后读全局 COVERMAP: "-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"
+rem   或空串(退回丢封面)。封面复制**按输出流号**下发, 不用全局 -c:v copy ——
+rem   后者会和 `-c:v:0 <编码器>` 撞在同一条流上, ffmpeg 必报 Multiple -codec 警告
+rem   (详见 lib\common.sh 同名注释)。
 rem   与 lib\common.sh 的 cover_map_gate 同义同判据, 完整来龙去脉写在那边的注释里。
 rem   要点:
 rem     * `disp:` 说明符是 ffmpeg 7.1(2024-09)才加入的; 老构建视为语法错误,
@@ -280,6 +283,6 @@ if not defined FFMPEG_PATH (
     exit /b 0
 )
 "%FFMPEG_PATH%" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 -t 0.04 -map 0:v:disp:attached_pic? -f null - >nul 2>nul
-if "%ERRORLEVEL%"=="0" set "COVERMAP=-map 0:v:disp:attached_pic?"
+if "%ERRORLEVEL%"=="0" set "COVERMAP=-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"
 if not defined COVERMAP echo [cover] 本 ffmpeg 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面
 exit /b 0

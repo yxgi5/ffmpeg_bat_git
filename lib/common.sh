@@ -591,12 +591,26 @@ function src_stamp() {
 # `-map 0:v` 会把这条流也当成输出视频送去重编码, 而 mp4 只允许把封面存成
 # mjpeg/png/bmp -> `Could not find tag for codec hevc in stream #1`
 # -> 整部片子写 0 字节(用户 2026-09-28 报的 2h13m 事故)。
-# 所以编码入口现在拆成两条映射:
+# 所以编码入口拆成两条映射:
 #   -map 0:V                     主视频(排除 attached picture; lint L16 钉住)
-#   -map 0:v:disp:attached_pic?  封面: 单独映射, 由 -c:v copy 原样带进 mp4 的 covr
-# 并且视频默认改成复制、只对 `:0`(主视频)重编码 —— 这样封面**不必写索引**,
-# 有几张封面都不会张冠李戴:
-#   -c:v copy -c:v:0 <编码器> -profile:v:0 main -preset ... 
+#   -map 0:v:disp:attached_pic?  封面: 单独映射, 排在主视频之后
+# 复制动作**按输出流号**下发(封面槽位 = 1 / 2), 主视频只被 `-c:v:0` 命中:
+#   -c:v:0 <编码器> -profile:v:0 main -preset ... -c:v:1 copy -c:v:2 copy
+#
+# 2026-09-28 修订: 上一版用的是**不带流号**的 `-c:v copy`(视频默认复制, 再靠
+#   `-c:v:0` 把主视频改回编码器)。能跑通, 但 ffmpeg 必报一行
+#     [vost#0:0] Multiple -codec/-c/... options specified for stream 0,
+#                only the last option '-codec:v:0 ...' will be used.
+#   同一条流被两个 -c 命中, 结果全靠"后写的赢" —— 顺序一旦写反, 整片就变成复制,
+#   而命令里同时出现 copy 和编码器本身就是让人误判的写法(用户 2026-09-28 报)。
+#   改成按流号写之后两条指令互不重叠: 警告消失, 也没有顺序隐患。
+#   代价: 复制指令要写死槽位号。实测(gyan ffmpeg 8.0-dev, 2026-09-28, 合成 mkv):
+#     1 张封面 -> mjpeg 原样进 covr; 2 张 -> 两张都原样;
+#     没有封面 -> `-c:v:1 copy -c:v:2 copy` 匹配不到任何流, ffmpeg 静默忽略(rc=0);
+#     第 3 张及以后不再受保护(会被当普通视频重编码)。真实片源几乎不会有 3 张封面。
+#   不要用 `-c:v:disp:attached_pic copy`: 实测**不生效** —— 输出流的 disposition
+#   是在选完编码器之后才从输入流拷贝过来的, 匹配时还没有, 封面拿不到 copy, 直接
+#   回到 "Could not find tag for codec h264 in stream #1" 的写 0 字节事故。
 #
 # 能力门: `disp:` 说明符是 **ffmpeg 7.1 (2024-09, commit 0c9fe2b232)** 才加入的。
 # 老构建把它当语法错误(`Trailing garbage after stream specifier`), 而且**结尾的
@@ -607,7 +621,7 @@ function src_stamp() {
 # 与 find_ffmpeg 的 L20 能力筛选是**两种语义**: 那边"不够就报错, 不悄悄换构建",
 # 这边"不够就丢掉封面, 不让编码失败" —— 别把两者合并。
 # ================================================================
-COVER_MAP=(-map "0:v:disp:attached_pic?")
+COVER_MAP=(-map "0:v:disp:attached_pic?" -c:v:1 copy -c:v:2 copy)
 _COVER_CHECKED=""
 
 function cover_map_gate() {

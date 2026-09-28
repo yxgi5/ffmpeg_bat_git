@@ -43,7 +43,7 @@ COMMON_BAT = "\n".join([
     ":cover_map",
     'rem fixture: the entry-facing cover-map definition (lint L16 checks the literal',
     'rem lives in the two lib files; the real one probes the build, see lib\\common.sh)',
-    'set "COVERMAP=-map 0:v:disp:attached_pic?"',
+    'set "COVERMAP=-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"',
     "exit /b 0",
 ])
 
@@ -360,13 +360,13 @@ CASES = [
     ),
     (
         "L16 precision: a fully wired .sh entry "
-        "(cover map + copy pairing) stays silent",
+        "(cover map + index-scoped copy) stays silent",
         "ffmpeg_probe.sh", False,
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
         "cover_map_gate ffmpeg\n"
-        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
         "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
         "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
@@ -419,7 +419,7 @@ CASES = [
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "cover_map_gate ffmpeg\n"
-        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
         "CMD+=(-map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
         "-map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
@@ -437,7 +437,7 @@ CASES = [
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "cover_map_gate ffmpeg\n"
-        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v high)\n"
+        "CMD+=(-c:v:0 libx264 -profile:v high)\n"
         "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
         "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
@@ -458,7 +458,7 @@ CASES = [
         "set \"FFMPEG_PATH=C:\\ffmpeg\\ffmpeg.exe\"\n"
         "call \"%~dp0lib\\common.bat\" cover_map\n"
         "set RUN_COM=\"%FFMPEG_PATH%\" -hide_banner\n"
-        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:v:0 libx264 -profile:v:0 high\n"
+        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v:0 libx264 -profile:v:0 high\n"
         "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? %COVERMAP% "
         "-c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
@@ -478,7 +478,7 @@ CASES = [
         "setlocal\n"
         "set \"FFMPEG_PATH=C:\\ffmpeg\\ffmpeg.exe\"\n"
         "set RUN_COM=\"%FFMPEG_PATH%\" -hide_banner\n"
-        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:v:0 libx264 -profile:v:0 high\n"
+        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v:0 libx264 -profile:v:0 high\n"
         "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? "
         "-c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
@@ -496,7 +496,7 @@ CASES = [
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "cover_map_gate ffmpeg\n"
-        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
         "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
         "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
@@ -508,6 +508,63 @@ CASES = [
         "exit 0\n",
         {"L16"}, {"L03", "L15"},
         [("lib/common.sh", "#!/bin/bash\nCOVER_MAP=()\n", False)],
+    ),
+    (
+        "L16: a lib that maps the cover but never says copy is caught",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+        [("lib/common.sh",
+          "#!/bin/bash\nCOVER_MAP=(-map \"0:v:disp:attached_pic?\")\n", False)],
+    ),
+    (
+        "L16: a bare `-c:v copy` in an encoder entry is caught "
+        "(it collides with -c:v:0 on stream 0)",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+    ),
+    (
+        "L16 precision: the remux keeps its bare `-c:v copy` (no re-encode there)",
+        "ffmpeg_copy_to_mp4.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "CMD+=(-i \"$ABS_NAME\")\n"
+        "CMD+=(-c:v copy -c:a copy)\n"
+        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "-map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        set(), {"L03", "L15", "L16"},
     ),
     (
         "L17: a remux entry that leaves moov behind mdat is caught",

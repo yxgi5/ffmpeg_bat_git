@@ -133,7 +133,7 @@ if [ "$SRC_FRAMERATE" -gt 31 ]; then
     echo "DOWN TARGET FRAME RATE TO 30"
 fi
 
-CMD+=(-c:v copy -c:v:0 libx265 -profile:v:0 main -preset fast -b:v "$TARGET_BITRATE")
+CMD+=(-c:v:0 libx265 -profile:v:0 main -preset fast -b:v "$TARGET_BITRATE")
 CMD+=(-pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709)
 CMD+=(-g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2)
 cover_map_gate ffmpeg

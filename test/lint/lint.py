@@ -1015,18 +1015,30 @@ STREAM_MAP_EXEMPT = {
 # 用户要求: "如果有封面的尽可能保留封面"。上一轮把 `-map 0:v` 改成 `-map 0:V`, 片子
 # 不再因为海报而写 0 字节, 但封面本身也一并被排除了。这一轮把它**单独映射**回来:
 #   -map 0:V                      主视频(排除 attached picture)
-#   -map <封面>                    由 lib 的能力门提供
-#   -c:v copy -c:v:0 <编码器>      视频默认复制 -> 封面原样进 mp4 的 covr, 无需写索引
-# 三条必须**成对**出现, 这是本规则新增的断言:
-#   * 只加封面映射、忘了 `-c:v copy -c:v:0`  -> 封面又会被送去重编码 -> 回到 0 字节事故;
-#   * 只改成 `-c:v copy -c:v:0`、没加封面映射 -> 封面静默丢失(功能白做, 不报错);
+#   -map <封面>                    由 lib 的能力门提供(排在主视频之后 -> 输出流号 1/2)
+#   -c:v:0 <编码器>                主视频: 只有第 0 路被重编码
+#   -c:v:1 copy -c:v:2 copy       封面槽位: 原样复制, 由同一个 lib 变量下发
+#
+# 2026-09-28 二次修订(用户报): 上一版用**不带流号**的 `-c:v copy` 当"视频默认复制",
+# 再靠 `-c:v:0 <编码器>` 把主视频改回编码器。能跑通, 但同一条流被两个 -c 命中,
+# ffmpeg 必报
+#   [vost#0:0] Multiple -codec/-c/... options specified for stream 0, only the
+#              last option '-codec:v:0 ...' will be used.
+# 结果全靠"后写的赢": 命令里同时出现 copy 与编码器, 既误导人(用户就是看到那行
+# `-c:v copy` 来问"是不是没在编码"), 又埋着"顺序一写反整片变复制"的坑。
+# 所以本规则新增第一条断言: **编码出口不许出现未加流号的 `-c:v copy`**。
+# 其余断言:
+#   * 没有 `-c:v:0`                          -> 主视频不被编码, 或封面被当主视频;
+#   * 引用了封面映射却没有封面复制指令        -> 封面被重编码 -> 回到 0 字节事故;
 #   * 未限定的 `-profile:v`                  -> 会被套到 copy 流上, ffmpeg 报
 #     `Error setting option profile to value main` /
-#     `[vost#0:1/copy] Error setting up codec context options` 后失败。
-# 映射语法本身只定义在两个 lib 里(引用 + 定义分开检查), 入口引用的是变量 ——
+#     `[vost#0:1/copy] Error setting up codec context options` 后失败
+#     (实测: 未限定的 -preset/-b:v 打在 copy 流上是安全的, 只有 profile 致命)。
+# 映射与复制指令都只定义在两个 lib 里(引用 + 定义分开检查), 入口引用的是变量 ——
 # 这样"语法要改"只改一处, 而 lint 仍然能静态钉住两族都没漏。
 COVER_MAP_REF = {"bat": "%COVERMAP%", "sh": "COVER_MAP[@]"}
 COVER_MAP_LITERAL = "0:v:disp:attached_pic"
+COVER_COPY_LITERAL = "-c:v:1 copy"
 COVER_MAP_LIB = ("lib/common.sh", "lib/common.bat")
 
 # 例外(各有硬理由, 不许扩散):
@@ -1069,14 +1081,18 @@ def check_stream_map(inv):
                             % (f, ", ".join(missing)))
             # ---- 封面映射 + 成对约定 (2026-09-28, 见上方 COVER_MAP_* 注释) ----
             if f not in COVER_MAP_SKIP:
-                if COVER_MAP_REF[fam] not in body:
+                if re.search(r"-c:v\s+copy", body):
+                    bads.append("%s: 出现未加流号的 `-c:v copy` —— 它会和 `-c:v:0 "
+                                "<编码器>` 撞在同一条流上, ffmpeg 报 Multiple -codec "
+                                "警告且语义全靠\"后写的赢\"; 封面请走 lib 变量里的 "
+                                "`-c:v:1 copy -c:v:2 copy`" % f)
+                elif COVER_MAP_REF[fam] not in body:
                     bads.append("%s: 没有引用封面映射 %s —— 带 mkv 海报的源会静默丢封面"
-                                "(视频默认 copy + 只编码 :0 的写法也就白改了)"
                                 % (f, COVER_MAP_REF[fam]))
-                elif "-c:v copy" not in body or "-c:v:0" not in body:
-                    bads.append("%s: 引用了封面映射, 却没有成对的 `-c:v copy -c:v:0 "
-                                "<编码器>` —— 封面会被当成第二路视频重编码, mp4 存不下, "
-                                "整条转码写 0 字节" % f)
+                elif "-c:v:0" not in body:
+                    bads.append("%s: 编码器没有限定到主视频(缺 `-c:v:0 <编码器>`) —— "
+                                "封面会被当成第二路视频重编码, mp4 存不下, 整条转码写 "
+                                "0 字节" % f)
                 elif re.search(r"-profile:v\s", body):
                     bads.append("%s: `-profile:v` 没有限定到主视频(应写 `-profile:v:0`) —— "
                                 "未限定的 profile 会被套到封面那条 copy 流上, ffmpeg 报 "
@@ -1093,8 +1109,8 @@ def check_stream_map(inv):
                                 "would silently drop the cover art it keeps today; remux "
                                 "entries must keep `%s`"
                                 % (f, other_video, other_video, want_video))
-    # 封面映射的**定义**在两个 lib 里各一份; 文件不存在(如 lint 自测的合成仓库)
-    # 就跳过, 只检查真实存在的那些。
+    # 封面映射 + 封面复制指令的**定义**在两个 lib 里各一份; 文件不存在(如 lint
+    # 自测的合成仓库)就跳过, 只检查真实存在的那些。
     for rel in COVER_MAP_LIB:
         p = os.path.join(ROOT, rel)
         if not os.path.isfile(p):
@@ -1103,13 +1119,18 @@ def check_stream_map(inv):
         if COVER_MAP_LITERAL not in libtext:
             bads.append("%s: 没有定义封面映射(%s) —— 入口引用到的变量会是空的, "
                         "封面从此静默丢失" % (rel, COVER_MAP_LITERAL))
+        if COVER_COPY_LITERAL not in libtext:
+            bads.append("%s: 没有定义封面复制指令(%s) —— 封面映射回来了却没有 copy, "
+                        "会被当第二路视频重编码, mp4 存不下, 整条写 0 字节"
+                        % (rel, COVER_COPY_LITERAL))
     if bads:
         for m in bads[:8]:
             bad("L16", m)
     else:
         ok("L16", "all %d mp4 entries (both families) keep every stream "
                   "(-map 0:V/-map 0:a?/-map 0:s? + mov_text; %d encoder entries also map "
-                  "the cover back in with the paired `-c:v copy -c:v:0`; the 2 remux entries "
+                  "the cover back in and copy it by stream index (-c:v:0 <enc> + "
+                  "-c:v:1/-c:v:2 copy, no bare -c:v copy); the 2 remux entries "
                   "keep -map 0:v, which already carries it)"
                   % (checked, checked - len(COVER_MAP_SKIP)))
 
@@ -1789,9 +1810,10 @@ def check_entry_inventory(inv):
 
 # ---------------------------------------------------------------- P02
 # ---------------------------------------------------------------- 编码器提取
-# 2026-09-28: 编码入口的写法改成 `-c:v copy -c:v:0 <编码器>` —— 视频默认走复制,
-# 只对第 0 路(主视频)重编码, 于是单独映射进来的封面(attached picture)能被原样
-# 复制进 mp4 的 covr, 且封面有几张都不必写索引。
+# 2026-09-28: 编码入口的写法是 `-c:v:0 <编码器>` + 封面槽位 `-c:v:1 copy -c:v:2 copy`
+# —— 只对第 0 路(主视频)重编码, 单独映射进来的封面(attached picture)按流号原样
+# 复制进 mp4 的 covr。
+# (上一版曾用 `-c:v copy -c:v:0 <编码器>`, 两条指令撞在同一条流上, 已废弃, L16 拦。)
 # **必须先找 `-c:v:0`**: 沿用"第一个 -c:v"的老写法抓到的是字面量 `copy`, P02/P07
 # 会拿 copy 当编码器名互相"对比" —— 一句没有意义的 PASS, 比报错更坏。
 def encoder_of(text):

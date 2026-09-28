@@ -178,7 +178,7 @@ IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认)
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
-if defined BIT set RUN_COM=%RUN_COM% -c:v copy -c:v:0 libx265 -profile:v:0 main -preset fast -b:v %BIT% -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
+if defined BIT set RUN_COM=%RUN_COM% -c:v:0 libx265 -profile:v:0 main -preset fast -b:v %BIT% -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
 echo RUN_COM2:%RUN_COM%
 
 echo.

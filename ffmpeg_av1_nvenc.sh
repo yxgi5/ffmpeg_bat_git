@@ -153,7 +153,7 @@ if [ "$SRC_FRAMERATE" -gt 31 ]; then
     echo "DOWN TARGET FRAME RATE TO 30"
 fi
 
-CMD+=(-c:v copy -c:v:0 av1_nvenc -preset p4 -tune:v hq -rc cbr -b:v "$TARGET_BITRATE")
+CMD+=(-c:v:0 av1_nvenc -preset p4 -tune:v hq -rc cbr -b:v "$TARGET_BITRATE")
 CMD+=(-g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2)
 cover_map_gate ffmpeg
 CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+"${COVER_MAP[@]}"} -c:s mov_text -map_metadata 0 -map_chapters 0)
