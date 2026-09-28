@@ -126,16 +126,17 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 CMD=(ffmpeg -hide_banner -threads 0 -v verbose)
 CMD+=(-hwaccel cuvid -hwaccel_output_format cuda)
 CMD+=(-i "$ABS_NAME")
-CMD+=(-vf "hwdownload, format=nv12")
+CMD+=(-filter:v:0 "hwdownload, format=nv12")
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)
     echo "DOWN TARGET FRAME RATE TO 30"
 fi
 
-CMD+=(-c:v hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v "$TARGET_BITRATE")
+CMD+=(-c:v copy -c:v:0 hevc_nvenc -profile:v:0 main -preset p4 -tune:v hq -rc cbr -b:v "$TARGET_BITRATE")
 CMD+=(-g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2)
-CMD+=(-map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0)
+cover_map_gate ffmpeg
+CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+"${COVER_MAP[@]}"} -c:s mov_text -map_metadata 0 -map_chapters 0)
 CMD+=(-rtbufsize 120m -max_muxing_queue_size 1024 -n "$TARGET_FILE")
 
 printf 'RUN_COM:'

@@ -178,7 +178,7 @@ test/
 | L13 | `exit` / `exit /b` 取值在白名单内（bat `0,1,2,3,5`；sh 另允许 `8,9`） | 让 §5.2 的退出码契约不漂移 |
 | L14 | `test/` 下的 `.sh` 在 **git 索引**里必须是 `100755`（读 `git ls-files -s`，不读文件系统） | Windows 上 `core.fileMode=false`，pull 出来丢执行位 |
 | L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`。**且 `.bat` 入口的守卫必须是「负数安全」的**（`if not "%X%"=="0"` 或 `%X% NEQ 0`，`X` = `%ERRORLEVEL%` 或紧接着从它赋值的变量），不允许用 `if errorlevel N` | **2026-09-17 实际缺口（两层）**：① `.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）；② 改成 `if errorlevel 1` 后**仍然没修好**——它是**带符号比较**，而 Windows 版 ffmpeg 失败时返回**负** AVERROR（本机 `av1_qsv` 退出码 **-40 / Function not implemented**），`-40 >= 1` 不成立 → 守卫不触发 → 依旧落到 `exit /b 0`。用户正是在复跑探针时看到 `rc=0 but no real output (0B) \| ERRORLEVEL:-40` 才揪出来的。L13 只查取值词表，查不出「失败路径根本不可达」 |
-| L16 | **流映射一致性**：每个 mp4 出口（两族 21 个 `ffmpeg_*`）都必须带 `-map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`，且**视频映射按出口类型区分**：编码类必须 `-map 0:V`，remux 两族必须 `-map 0:v`（两边写反都报 FAIL） | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露。<br>**2026-09-28 实际缺口（用户报障「前一个命令失败，后一个命令成功」）**：编码类的 `-map 0:v` 会把 **mkvmerge 写入的封面图**（attached picture）当成第二路输出视频流送进编码器，而 mp4 只能把封面存成 mjpeg/png/bmp → `Could not find tag for codec hevc in stream #1, codec not currently supported in container` → `Could not write header … Invalid argument` → **0 字节、整条白跑**（用户那份 2h13m 的 mkv 第 4 条流就是 `mjpeg (attached pic)`，ffprobe `attached_pic=1`）。改 `-map 0:V` 修掉，共 19 文件 21 处。remux 两族**不能**跟着改：它们 `-c:v copy`，mp4 存得下复制过来的 mjpeg 封面（实测输出 3 条流全在、`attached_pic=1`），改成 `0:V` 反而会把今天还在的封面悄悄丢掉 |
+| L16 | **流映射一致性**：每个 mp4 出口（两族 21 个 `ffmpeg_*`）都必须带 `-map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`，且**视频映射按出口类型区分**：编码类必须 `-map 0:V`，remux 两族必须 `-map 0:v`（两边写反都报 FAIL）；**且编码类必须"保留封面"**：① 引用封面映射变量（`.sh` 的 `${COVER_MAP[@]}` / `.bat` 的 `%COVERMAP%`）② 必须有 `-c:v copy` 与 `-c:v:0` 的配对 ③ 不得出现未加作用域的 `-profile:v`（会打死 copy 流）；`lib/common.{sh,bat}` 必须定义那个封面映射字面量（remux 与 DVD 入口按白名单豁免） | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露。<br>**2026-09-28 实际缺口（用户报障「前一个命令失败，后一个命令成功」）**：编码类的 `-map 0:v` 会把 **mkvmerge 写入的封面图**（attached picture）当成第二路输出视频流送进编码器，而 mp4 只能把封面存成 mjpeg/png/bmp → `Could not find tag for codec hevc in stream #1, codec not currently supported in container` → `Could not write header … Invalid argument` → **0 字节、整条白跑**（用户那份 2h13m 的 mkv 第 4 条流就是 `mjpeg (attached pic)`，ffprobe `attached_pic=1`）。改 `-map 0:V` 修掉，共 19 文件 21 处。remux 两族**不能**跟着改：它们 `-c:v copy`，mp4 存得下复制过来的 mjpeg 封面（实测输出 3 条流全在、`attached_pic=1`），改成 `0:V` 反而会把今天还在的封面悄悄丢掉。<br>**2026-09-28 同日，用户追加要求「如果有封面的尽可能保留封面呗」**：`0:V` 只是"别炸"，封面本身还是丢了。真正保留封面的写法是「**复制默认 + 只编码主视频**」—— `-c:v copy -c:v:0 libx264`，配 `-map 0:v:disp:attached_pic?`（按 **disposition** 选流，**几层封面都能一起选中**，也不用去数封面在第几路）。`disp:` 是 ffmpeg 7.1+ 才有的说明符，老构建视为**语法错误**、结尾的 `?` 救不了 → 两族各加一个**能力闸门**（`.sh` 的 `cover_map_gate` / `.bat` 的 `:cover_map`：lavfi 假源探一次，不认就只丢封面、绝不让整条编码失败）。copy 流会吃下未加作用域的编码参数，实测**只有 `-profile:v` 致命**（`Error setting up codec context options`）→ profile 一律写 `-profile:v:0`，Cygwin 入口的 `-vf` 同理改 `-filter:v:0`。详见 `environment_matrix.md` 第 52/53 条 |
 | L17 | **moov 前置**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）必须带 `-movflags +faststart` | **2026-09-17 用户要求**：默认 mp4 把索引 `moov` 写在 `mdat` **之后**，播放器要拿到文件末尾才能起播（大文件拷走/边下边播时很难受）。实测同一夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**（ffmpeg 就地搬索引，日志里是 `Starting second pass: moving the moov atom to the beginning of the file`）。当前只管 remux 两个出口，11 个编码入口仍是默认布局（等用户裁定是否一并前置） |
 | L18 | **锚定变量**：凡是读 `%REPO%` / `%SELF_DIR%` 的 `.bat`，必须在**首次读取之前**赋值；且 `test\bat\` 下的工具必须用 `%~dp0..\..` 自锚定 | **2026-09-20 实际缺口（用户报障）**：`bench_calib.bat` 里 `call "%REPO%\lib\common.bat"` 的 `REPO` **从未定义** → 路径塌缩成 `"\lib\common.bat"`（盘根路径）→ 任何 cwd 下都报 `The system cannot find the path specified.`，而调用方把它伪装成「ffmpeg/ffprobe not on PATH」。更早一版是 `"%SELF_DIR%lib\common.bat"`（`SELF_DIR` 同样未定义）→ 退化为**相对路径**，只在 cwd = 仓库根时碰巧可用。两类症状不同（一个必崩、一个看运气），根因同源 |
 | L20 | **libvmaf 消费者必须带能力要求去定位 ffmpeg**（**只管 `.sh` 侧**，2026-09-20 修订）：`test/sh/*.sh` 里凡是要 libvmaf 的（非注释行出现 `libvmaf`），必须有一行同时出现 `find_ffmpeg` / `--need-filter` / `libvmaf`。白名单：`test/sh/check_env.sh`（环境盘点工具，报告 libvmaf 有无所用，自带的 `find_ffmpeg` 只是挑一个"待盘点对象"） | **2026-09-20 实际缺口（用户报障）**：用户在 MSYS2 MINGW64 里跑 `test/sh/bench_calib.sh` 得到 `ERROR: this ffmpeg build has no libvmaf filter`，而**同一台机器**上 `C:\Program Files\ffmpeg\bin` 的 gyan full（2025-05-01）是带 libvmaf 的 —— 缺的不是工具链，是 sh 侧**一律信 PATH**：MSYS2 的 `/mingw64/bin/ffmpeg` 是 8.1、无 libvmaf，却排在 PATH 前面（`test/capability_matrix.md` 早写明「同一台机器三种 shell 解析到三个不同 ffmpeg」，但 sh 侧从没有对应机制）。bat 侧同一个坑换了个形态：从 MSYS2 终端跑 `.bat` 时 cmd 继承的 PATH 同样把 `/mingw64/bin` 排在前面 → `find_ffmpeg` 选中它 → NO_VMAF。两族同一天各踩一次，故立此规则。**bat 半边同日回退**：曾要求 `.bat` 调用行带第 3 参数（能力名）并在 `lib/common.bat` 里加 `:ff_satisfies` 子过程，但那个子过程正是 L21 的形态 —— 对**每一个**候选都判「缺少能力」；而且本机 ffmpeg 根本不在 PATH 上（走的是兜底目录），这道门对本机毫无作用。cmd 语义在开发沙箱里无法验证（`cmd.exe` 被拦），盲改不划算，故**整体回退**，能力筛选只留在 `.sh` 侧，写法陷阱改由 L21 永久拦截 |
@@ -232,6 +232,9 @@ test/
   L21 一例：给已展开的参数再套引号（`"%1\ffmpeg.exe"`，正是 `:ff_satisfies` 的形态）；
   L22 一例：`call` 的参数里出现裸等号（`probe_field "%OUT%" stream=bit_rate DEL` ——
   正是把 `delivered` 打成 0 的那一行）；
+  L16 四例（同日两批）：remux 被改成 `0:V` 会丢掉它本来保留的封面；编码类停止映射封面
+  （`.sh` 与 `.bat` 各一例）；编码类把封面映射与**未加作用域**的 `-profile:v` 配在一起；
+  以及「`lib/` 里的封面映射字面量被删」；
 * **precision**：已知正确的写法**必须不报**，其中 8 例正是开发过程中真实出现过的假阳性
   （`%VAR:"=%` 引号计数、`endlocal & set` 字面量、`%%~zA` 循环修饰符、
   `set /p` 覆盖、安全的 `set VAR=%QVAR%` 惯用法、带失败传播的入口尾部、
@@ -537,10 +540,12 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 
 （本节记录各机器上的真实运行结果，用于回归对照。）
 
-> **当前基线（2026-09-28）**：`lint 31 PASS / 0 FAIL / 5 WARN`、`selftest 51 cases / 0 FAIL`
-> （用例增长史：38 → 40（L07 加固）→ 49（新增 L23）→ **51**（L16 增加两条：编码类残留
+> **当前基线（2026-09-28）**：`lint 31 PASS / 0 FAIL / 5 WARN`、`selftest 56 cases / 0 FAIL`
+> （用例增长史：38 → 40（L07 加固）→ 49（新增 L23）→ 51（L16 增加两条：编码类残留
 > `-map 0:v` 必须被抓、remux 被改成 `-map 0:V` 必须被抓 —— 2026-09-28 封面图事故，
-> 详见 `environment_matrix.md` 第 51 条）。
+> 详见 `environment_matrix.md` 第 51 条）→ **56**（L16 再加五条：两族编码类漏映射封面、
+> 编码类带未加作用域的 `-profile:v`、库里的封面映射字面量被删、以及一条 precision ——
+> 同日晚些时候用户追加要求「有封面的尽可能保留」，详见第 52/53 条）。
 > 「哪台机器能跑哪个入口」「哪个构建带哪些编码器/vmaf」的权威表格见
 > **[`capability_matrix.md`](capability_matrix.md)**（含 A/B/C/D 全机、B 机三套 ffmpeg 构建、
 > 编码/解码两个维度、已验证/未验证标注）。

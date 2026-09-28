@@ -1368,3 +1368,63 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **附带踩到的坑（记一笔）**：Windows 文件系统**大小写不敏感** —— 我用 `cyg_v.mp4` / `cyg_V.mp4`
       存两组对照产物，第二次运行直接**覆盖**了第一次（`md5` 一致才发现）。在 Windows 上做 A/B 对照，
       文件名**不能只差大小写**。
+
+52. **封面尽量保留：`-map 0:v` → `0:V` 只是「别让它炸」，真正的保留是「复制默认 + 只编码主视频」（2026-09-28，用户追加要求「如果有封面的尽可能保留封面呗」）**：
+    * **需求**：第 51 条把封面从编码流里摘出去，代价是封面不进输出（等于丢封面）。用户要求「有封面的尽量留住」。
+    * **能用的唯一写法**：`-map 0:v:disp:attached_pic?` —— 按 **disposition** 选流。实测排除了两条路：
+      按 `mimetype` / `filename` 元数据匹配不行；「先选全部再排除」也不行。
+      **关键收益**：不用数封面在第几路，**几层封面都能一起选中**。
+    * **`disp:` 是 ffmpeg 7.1（2024-09）才加入的说明符**：老构建把它当**语法错误**，结尾的 `?`
+      （本意「匹配不到就忽略」）**救不了语法错误** → 整条命令直接失败。本仓库记录过的环境
+      （gyan full / MSYS2 8.1 / Cygwin 7.1.1 / A·C 机 `/opt` master）都 ≥ 7.1，但**不能假设用户机器也是**。
+    * **两族各加了一个「能力闸门」**（对称实现）：`lib/common.sh` 的 `cover_map_gate` /
+      `lib/common.bat` 的 `:cover_map`。各探一次 **lavfi 假源 + `-f null -` 输出**（不碰用户文件），
+      认就填 `COVER_MAP` / `COVERMAP`，不认就置空 —— **只丢封面，绝不让整条编码失败**；每个入口进程只探一次。
+      注意它与 `find_ffmpeg` 的语义**相反**：那个是「不够用就报错」，这个是「不够用就降级」。
+    * **copy / encode 分流**（`-c:v copy -c:v:0 <编码器>`）：让封面走 **copy** 进 mp4 的 `covr` atom，
+      只有第 0 路主视频被重编码 —— 既避开第 51 条的「封面被当第二路视频流编码」，也不用管封面在第几路。
+      **代价与陷阱**：copy 流会吃下**未加作用域的编码参数** —— 实测只有 `-profile:v`（不带 `:0`）会**致命**
+      （`Error setting up codec context options`），`-preset/-tune/-rc/-b:v/-g/-keyint_min/-pix_fmt/-sws_flags/-color_*` 都安全。
+      所以 profile 一律写 **`-profile:v:0`**；Cygwin 入口的 `-vf` 同理改 **`-filter:v:0`**（`-vf:0` 仍会打到 copy 流）。
+      另：**`-c:v:disp:attached_pic` 对输出流无效**（封面照样送编码器）→ 编码器必须用**下标**写法 `-c:v:0`。
+    * **改动面**：17 个编码出口（10 个 `.sh` + 7 个 `.bat`）加 `-c:v copy -c:v:0 <编码器>`、profile 改 `:0`、
+      映射串加 `${COVER_MAP[@]}` / `%COVERMAP%`；两族 `lib/common.*` 各加闸门；
+      `ffmpeg_copy_to_mp4.*`（remux）**不动** —— 它本来就是 copy，封面一直在（第 51 条已记）。
+    * **回归网**：lint **L16 扩写** —— 编码类必须 ①引用封面映射变量 ②有 `-c:v copy` + `-c:v:0` 配对
+      ③不得出现未加作用域的 `-profile:v`；`lib/common.*` 必须定义那个字面量；remux 与 DVD 入口按白名单豁免。
+      **顺手修掉一个长期假判据**：旧的「第一个 `-c:v`」正则现在会抓到位字面量 `copy`，
+      P02 会误报「编码器挂了好几张表」、P07 只比了 1 个编码器 → 改成优先认 `-c:v:0`（`encoder_of` / `profile_of`）。
+      基线：lint **31 PASS / 0 FAIL / 5 WARN**、selftest **56 cases / 0 FAIL**
+      （新增 5 条：两族漏引用封面映射、未加作用域的 profile、库定义被删）。
+    * **实测**（自造素材 `cover.mkv` = h264 + aac + mjpeg `attached_pic`，320×240 3s）：`.sh` 与 `.bat` 真入口各跑一遍
+      —— 封面以 `attached_pic=1` 进输出、mp4 写出 `covr` atom；无封面素材输出与改动前一致；
+      封面只有 1 个 packet 走 copy（bat 侧实测 5904 B），主视频正常重编码，`ERRORLEVEL:0`。
+
+53. **`lib/common.bat` 的中文注释有「错位预算」：喂给 stdin 被重定向的 cmd 时，累积到约 1 KB 就会让行读取器错位（2026-09-28，做第 52 条的回归时误撞）**：
+    * **现象**：给 `lib/common.bat` 加完 `:cover_map`（10 行中文注释）后，用沙箱里唯一可行的
+      `cmd < driver.cmd` 跑单元测试，突然报 `****** B A T C H   R E C U R S I O N  exceeds STACK limits ******`
+      （`Recursion Count=340, Stack Usage=90 percent`），`COVERMAP` 拿不到值。
+    * **查法（可复用）**：`echo on` 之后看**被错位执行的是哪一行** —— 实际打印出 `...>gate 同义同判据, ...`，
+      即 `rem 与 lib\common.sh 的 cover_map_gate ...` 被**从中间切开**，切剩的尾巴**被当成命令执行**。
+      再用 `>>hit.txt echo 标记` 插桩：标记只走到「注释区之前」，且**文件只被进入 1 次**（排除「自我重入」这条思路）。
+    * **定位结果**：不是某一行、也不是某几个特殊字符（`()` `:` `%` 反引号 `"` `\` 单独删掉都还是挂），
+      而是**累积**：`PREFIX + 前 3 行中文注释` 过，**加第 4 行就挂**；换成 20 行 `rem 汉×40`（14726 B）反而**过**，
+      纯 ASCII 填充到 13356 B 也**过**。⇒ 判据既不是文件字节数、也不是多字节密度，
+      而是 **UTF-8 字节被按 CP936 解码后让 cmd 行读取器的位置漂移**（`。`/`——` 这类末字节 ≥0x81 的字符紧跟 CR 时最危险）。
+    * **真实路径不受影响**：入口的守卫区（前 21 行，纯 ASCII）先 `chcp 65001 >nul`、再
+      `cmd /c call "%~f0" %*` 起**全新 cmd**，此后整份文件都按 UTF-8 读 → 漂移不发生。
+      实测：`cmd < driver.cmd` 里 `call` 真入口 `ffmpeg_libx264.bat` 跑 `bcover.mkv`，封面正常、`ERRORLEVEL:0`（见第 52 条）。
+      **决定性对照**：文件型 wrapper（先 `chcp 65001` 再 `call`）**过**；同一个 wrapper **不 chcp** 也**过**；
+      只有「**stdin 被重定向** 且 **非 UTF-8**」的 cmd 才挂。
+    * **纪律（写下来免得重踩）**：
+      1. 别把 `lib\common.bat` 直接当被调方喂给 `cmd <`，也**别用** `cmd /c call lib\common.bat` —— 两种都会踩。
+         **沙箱里给 `.bat` 做单元测试，一律走「文件型 wrapper + `cmd /c "<wrapper>.bat"`」。**
+      2. `lib\common.bat` 有一条**隐式契约**：读它的 cmd 进程必须已经是 UTF-8。真实调用方都靠守卫区保证；
+         **已知例外**：`test\bat\smoke_ffmpeg.bat` 是纯 ASCII、**没有** chcp，仍在 936 控制台下于第 100 行
+         `call ...lib\common.bat find_ffmpeg` —— 它过是因为 `:find_ffmpeg` 在文件**前段**、漂移还没累积起来。
+         **以后往 `lib\common.bat` 前段加中文注释，要当心这条例外。**
+      3. 这与既有知识同属一个家族：lint **L04**（守卫区必须纯 ASCII）、
+         `smoke_special_chars.bat` 的 **`Z2e = noRead (chcp 65001 eats the redirected stdin)`**，
+         以及入口第 5 行那句「an in-file chcp can misalign that reader」。
+    * **可能的后续**：加一条 lint（凡 `call ...\lib\common.bat` 的 `.bat` 必须先有 `chcp 65001` + 守卫重启）。
+      本轮**没加** —— 真实调用方全都守着，而 `smoke_ffmpeg.bat` 这个例外会让规则误报。

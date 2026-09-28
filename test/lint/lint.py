@@ -1011,6 +1011,37 @@ STREAM_MAP_EXEMPT = {
     "ffmpeg_dvd_hevc.sh": ("-c:s mov_text",),
 }
 
+# 2026-09-28: 封面(attached picture)保留。
+# 用户要求: "如果有封面的尽可能保留封面"。上一轮把 `-map 0:v` 改成 `-map 0:V`, 片子
+# 不再因为海报而写 0 字节, 但封面本身也一并被排除了。这一轮把它**单独映射**回来:
+#   -map 0:V                      主视频(排除 attached picture)
+#   -map <封面>                    由 lib 的能力门提供
+#   -c:v copy -c:v:0 <编码器>      视频默认复制 -> 封面原样进 mp4 的 covr, 无需写索引
+# 三条必须**成对**出现, 这是本规则新增的断言:
+#   * 只加封面映射、忘了 `-c:v copy -c:v:0`  -> 封面又会被送去重编码 -> 回到 0 字节事故;
+#   * 只改成 `-c:v copy -c:v:0`、没加封面映射 -> 封面静默丢失(功能白做, 不报错);
+#   * 未限定的 `-profile:v`                  -> 会被套到 copy 流上, ffmpeg 报
+#     `Error setting option profile to value main` /
+#     `[vost#0:1/copy] Error setting up codec context options` 后失败。
+# 映射语法本身只定义在两个 lib 里(引用 + 定义分开检查), 入口引用的是变量 ——
+# 这样"语法要改"只改一处, 而 lint 仍然能静态钉住两族都没漏。
+COVER_MAP_REF = {"bat": "%COVERMAP%", "sh": "COVER_MAP[@]"}
+COVER_MAP_LITERAL = "0:v:disp:attached_pic"
+COVER_MAP_LIB = ("lib/common.sh", "lib/common.bat")
+
+# 例外(各有硬理由, 不许扩散):
+#   * 两个 remux 入口用 `-map 0:v`: 它们不重编码, mp4 存得下复制来的 jpeg 封面,
+#     封面本来就在 —— 再加一条封面映射只会把同一张图映射两次。
+#   * 两个 dvd 入口: dvdvideo 源的流表里不存在封面(既没有 attached picture, 也没有
+#     附件流), 而且它的 VFILT/VENC_ARGS 拼装方式与通用入口不同 —— 不为一个不存在的
+#     场景去改一条已经验证过的路径。
+COVER_MAP_SKIP = {
+    "ffmpeg_copy_to_mp4.bat": "remux: -map 0:v 已经带上封面, 再加一条会重复映射",
+    "ffmpeg_copy_to_mp4.sh": "remux: -map 0:v 已经带上封面, 再加一条会重复映射",
+    "ffmpeg_dvd_hevc.bat": "dvdvideo 源没有封面流",
+    "ffmpeg_dvd_hevc.sh": "dvdvideo 源没有封面流",
+}
+
 
 def check_stream_map(inv):
     bads = []
@@ -1036,6 +1067,20 @@ def check_stream_map(inv):
                 bads.append("%s: lacks %s - ffmpeg default selection keeps only 1 video "
                             "+ 1 audio, so extra audio/subtitle tracks are dropped"
                             % (f, ", ".join(missing)))
+            # ---- 封面映射 + 成对约定 (2026-09-28, 见上方 COVER_MAP_* 注释) ----
+            if f not in COVER_MAP_SKIP:
+                if COVER_MAP_REF[fam] not in body:
+                    bads.append("%s: 没有引用封面映射 %s —— 带 mkv 海报的源会静默丢封面"
+                                "(视频默认 copy + 只编码 :0 的写法也就白改了)"
+                                % (f, COVER_MAP_REF[fam]))
+                elif "-c:v copy" not in body or "-c:v:0" not in body:
+                    bads.append("%s: 引用了封面映射, 却没有成对的 `-c:v copy -c:v:0 "
+                                "<编码器>` —— 封面会被当成第二路视频重编码, mp4 存不下, "
+                                "整条转码写 0 字节" % f)
+                elif re.search(r"-profile:v\s", body):
+                    bads.append("%s: `-profile:v` 没有限定到主视频(应写 `-profile:v:0`) —— "
+                                "未限定的 profile 会被套到封面那条 copy 流上, ffmpeg 报 "
+                                "Error setting up codec context options 后失败" % f)
             elif other_video in body:
                 if want_video == STREAM_MAP_VIDEO:
                     bads.append("%s: uses `%s` - that maps the mkv cover (attached "
@@ -1048,13 +1093,25 @@ def check_stream_map(inv):
                                 "would silently drop the cover art it keeps today; remux "
                                 "entries must keep `%s`"
                                 % (f, other_video, other_video, want_video))
+    # 封面映射的**定义**在两个 lib 里各一份; 文件不存在(如 lint 自测的合成仓库)
+    # 就跳过, 只检查真实存在的那些。
+    for rel in COVER_MAP_LIB:
+        p = os.path.join(ROOT, rel)
+        if not os.path.isfile(p):
+            continue
+        _, libtext = read_text(p)
+        if COVER_MAP_LITERAL not in libtext:
+            bads.append("%s: 没有定义封面映射(%s) —— 入口引用到的变量会是空的, "
+                        "封面从此静默丢失" % (rel, COVER_MAP_LITERAL))
     if bads:
         for m in bads[:8]:
             bad("L16", m)
     else:
         ok("L16", "all %d mp4 entries (both families) keep every stream "
-                  "(-map 0:V/-map 0:a?/-map 0:s? + mov_text; the 2 remux entries keep "
-                  "-map 0:v to preserve covers)" % checked)
+                  "(-map 0:V/-map 0:a?/-map 0:s? + mov_text; %d encoder entries also map "
+                  "the cover back in with the paired `-c:v copy -c:v:0`; the 2 remux entries "
+                  "keep -map 0:v, which already carries it)"
+                  % (checked, checked - len(COVER_MAP_SKIP)))
 
 
 # ---------------------------------------------------------------- L17
@@ -1731,6 +1788,32 @@ def check_entry_inventory(inv):
 
 
 # ---------------------------------------------------------------- P02
+# ---------------------------------------------------------------- 编码器提取
+# 2026-09-28: 编码入口的写法改成 `-c:v copy -c:v:0 <编码器>` —— 视频默认走复制,
+# 只对第 0 路(主视频)重编码, 于是单独映射进来的封面(attached picture)能被原样
+# 复制进 mp4 的 covr, 且封面有几张都不必写索引。
+# **必须先找 `-c:v:0`**: 沿用"第一个 -c:v"的老写法抓到的是字面量 `copy`, P02/P07
+# 会拿 copy 当编码器名互相"对比" —— 一句没有意义的 PASS, 比报错更坏。
+def encoder_of(text):
+    m = re.search(r"-c:v:0\s+(\S+)", text)
+    if m:
+        return m.group(1).strip('"')
+    m = re.search(r"-c:v\s+(\S+)", text)   # 旧写法 / dvd 入口的 $VENC_NAME|%VENC% 形态
+    return m.group(1).strip('"') if m else None
+
+
+# 同理: profile 现在限定到主视频 `-profile:v:0`。老写法只该出现在 dvd 那种
+# 没有 copy 流的入口里 —— 未限定的 `-profile:v` 一旦和 copy 流共存, ffmpeg 会以
+# `Error setting option profile to value main` / `Error setting up codec context
+# options` 直接失败(L16 会拦)。
+def profile_of(text):
+    for pat in (r"-profile:v:0\s+([a-z0-9]+)", r"-profile:v\s+([a-z0-9]+)"):
+        m = re.search(pat, text)
+        if m:
+            return m.group(1)
+    return None
+
+
 def table_of(text):
     """Which bitrate table a script actually uses.
 
@@ -1756,23 +1839,14 @@ def check_encoder_table_mapping(inv):
         p = os.path.join(ROOT, f)
         _, t = read_text(p)
         tbl = table_of(t)
-        enc = None
-        m = re.search(r"CMD\+=\(-c:v\s+(\S+)", t)
-        if m:
-            enc = m.group(1)
-        else:
-            for m in re.finditer(r"-c:v\s+([a-z0-9_]+)", t):
-                enc = m.group(1)
+        enc = encoder_of(t)
         if enc and tbl:
             mapping.setdefault(enc, set()).add(tbl)
     for f in inv["root_bat"]:
         p = os.path.join(ROOT, f)
         _, t = read_text(p)
         tbl = table_of(t)
-        enc = None
-        m = re.search(r"-c:v\s+([a-z0-9_]+)", t)
-        if m:
-            enc = m.group(1)
+        enc = encoder_of(t)
         if enc and tbl:
             mapping.setdefault(enc, set()).add(tbl)
     for enc, tbls in sorted(mapping.items()):
@@ -1873,12 +1947,8 @@ def check_encoder_params(inv):
         prof = None
         preset = None
         pix = None
-        m = re.search(r"-c:v\s+([a-z0-9_]+)", text)
-        if m:
-            enc = m.group(1)
-        m = re.search(r"-profile:v\s+([a-z0-9]+)", text)
-        if m:
-            prof = m.group(1)
+        enc = encoder_of(text)
+        prof = profile_of(text)
         m = re.search(r"-preset\s+([a-z0-9]+)", text)
         if m:
             preset = m.group(1)
@@ -1891,17 +1961,17 @@ def check_encoder_params(inv):
     for f in inv["root_sh"]:
         p = os.path.join(ROOT, f)
         _, t = read_text(p)
-        m = re.search(r"CMD\+=\(-c:v\s+([a-z0-9_]+)", t)
-        if not m:
+        enc = encoder_of(t)
+        if not enc:
             continue
-        sh_map[m.group(1)] = parse(t, "sh")[1:]
+        sh_map[enc] = parse(t, "sh")[1:]
     for f in inv["root_bat"]:
         p = os.path.join(ROOT, f)
         _, t = read_text(p)
-        m = re.search(r"-c:v\s+([a-z0-9_]+)", t)
-        if not m:
+        enc = encoder_of(t)
+        if not enc:
             continue
-        bat_map[m.group(1)] = parse(t, "bat")[1:]
+        bat_map[enc] = parse(t, "bat")[1:]
     bads, warned = [], []
     for enc in sorted(set(sh_map) & set(bat_map)):
         s, b = sh_map[enc], bat_map[enc]

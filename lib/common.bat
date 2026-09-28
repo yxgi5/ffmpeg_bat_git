@@ -20,6 +20,7 @@ if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
 if /I "%~1"=="probe_source"          goto probe_source
 if /I "%~1"=="probe_field"           goto probe_field
+if /I "%~1"=="cover_map"            goto cover_map
 if /I "%~1"=="check_isvideo"          goto check_isvideo
 echo 未知函数: %~1
 exit /b 1
@@ -259,3 +260,26 @@ if not defined PF_VAL if not "%PF_RC%"=="0" echo [probe_field] ffprobe rc=%PF_RC
 del "%PF_TMP%" 2>nul
 set "%PF_OUT%=%PF_VAL%"
 exit /b %PF_RC%
+
+:cover_map
+rem 封面(attached picture)保留能力门: call ... cover_map   (无参数, 用 %FFMPEG_PATH%)
+rem   调用后读全局 COVERMAP: "-map 0:v:disp:attached_pic?" 或空串(退回丢封面)。
+rem   与 lib\common.sh 的 cover_map_gate 同义同判据, 完整来龙去脉写在那边的注释里。
+rem   要点:
+rem     * `disp:` 说明符是 ffmpeg 7.1(2024-09)才加入的; 老构建视为语法错误,
+rem       结尾的 `?` 救不了解析错误 -> 先探一次: 不支持只丢封面, 绝不让编码失败。
+rem     * 探测走 lavfi 假源 + nul 输出, 不碰用户文件; 每个入口进程只探一次(CM_DONE)。
+rem     * rc 判据用 %ERRORLEVEL% 的**字符串**比较: Windows ffmpeg 的失败码是负
+rem       AVERROR, `if errorlevel N` 按有符号比较看不见(本仓库硬契约)。
+rem     * 本函数不 setlocal —— COVERMAP / CM_DONE 必须对调用方可见。
+if defined CM_DONE exit /b 0
+set "CM_DONE=1"
+set "COVERMAP="
+if not defined FFMPEG_PATH (
+    echo [cover] FFMPEG_PATH not set by caller
+    exit /b 0
+)
+"%FFMPEG_PATH%" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 -t 0.04 -map 0:v:disp:attached_pic? -f null - >nul 2>nul
+if "%ERRORLEVEL%"=="0" set "COVERMAP=-map 0:v:disp:attached_pic?"
+if not defined COVERMAP echo [cover] 本 ffmpeg 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面
+exit /b 0

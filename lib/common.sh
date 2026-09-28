@@ -580,3 +580,43 @@ function src_stamp() {
     if sz="$(stat -c '%s' "$1" 2>/dev/null)" && [ -n "$sz" ]; then printf '%s' "$sz"; return 0; fi
     wc -c < "$1" 2>/dev/null | tr -d ' \r'
 }
+
+# ================================================================
+# COVER_MAP / cover_map_gate  ——  封面(attached picture)保留能力门 (2026-09-28)
+#
+# 用户要求: "如果有封面的尽可能保留封面"。
+#
+# 为什么不能只写 `-map 0:v`: mkvmerge 写进 mkv 的海报是一条**流**, 不是附件
+#   Stream #0:3: Video: mjpeg (attached_pic=1)
+# `-map 0:v` 会把这条流也当成输出视频送去重编码, 而 mp4 只允许把封面存成
+# mjpeg/png/bmp -> `Could not find tag for codec hevc in stream #1`
+# -> 整部片子写 0 字节(用户 2026-09-28 报的 2h13m 事故)。
+# 所以编码入口现在拆成两条映射:
+#   -map 0:V                     主视频(排除 attached picture; lint L16 钉住)
+#   -map 0:v:disp:attached_pic?  封面: 单独映射, 由 -c:v copy 原样带进 mp4 的 covr
+# 并且视频默认改成复制、只对 `:0`(主视频)重编码 —— 这样封面**不必写索引**,
+# 有几张封面都不会张冠李戴:
+#   -c:v copy -c:v:0 <编码器> -profile:v:0 main -preset ... 
+#
+# 能力门: `disp:` 说明符是 **ffmpeg 7.1 (2024-09, commit 0c9fe2b232)** 才加入的。
+# 老构建把它当语法错误(`Trailing garbage after stream specifier`), 而且**结尾的
+# `?` 救不了解析错误** —— 于是"保留封面"会变成"整片失败", 这是坏交易。
+# 这里探一次: 支持就填 COVER_MAP, 不支持就清空并提示一行(退回"丢封面"的旧行为)。
+# 探测用 lavfi 假源 + null 输出: 不碰用户文件, 每个脚本进程只探一次, 且探的正是
+# 本入口马上要用的那个 `ffmpeg`(sh 编码入口目前都直接调 PATH 上的 ffmpeg)。
+# 与 find_ffmpeg 的 L20 能力筛选是**两种语义**: 那边"不够就报错, 不悄悄换构建",
+# 这边"不够就丢掉封面, 不让编码失败" —— 别把两者合并。
+# ================================================================
+COVER_MAP=(-map "0:v:disp:attached_pic?")
+_COVER_CHECKED=""
+
+function cover_map_gate() {
+    [ -n "$_COVER_CHECKED" ] && return 0
+    _COVER_CHECKED=1
+    local ff="${1:-ffmpeg}"
+    "$ff" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 \
+        -t 0.04 -map "0:v:disp:attached_pic?" -f null - >/dev/null 2>&1 && return 0
+    COVER_MAP=()
+    printf '[cover] %s 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面\n' "$ff" >&2
+    return 0
+}

@@ -40,6 +40,11 @@ COMMON_BAT = "\n".join([
     "exit /b 0",
     ":lookup_bitrate",
     "exit /b 0",
+    ":cover_map",
+    'rem fixture: the entry-facing cover-map definition (lint L16 checks the literal',
+    'rem lives in the two lib files; the real one probes the build, see lib\\common.sh)',
+    'set "COVERMAP=-map 0:v:disp:attached_pic?"',
+    "exit /b 0",
 ])
 
 # ---------------------------------------------------------------- the cases
@@ -354,14 +359,17 @@ CASES = [
         {"L16"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13", "L15"},
     ),
     (
-        "L16 precision: a fully mapped .sh entry stays silent",
+        "L16 precision: a fully wired .sh entry "
+        "(cover map + copy pairing) stays silent",
         "ffmpeg_probe.sh", False,
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
-        "CMD+=(-map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
-        "-map_chapters 0)\n"
-        "CMD+=(-c:v libx264 \"$TARGET_FILE\")\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
         "\"${CMD[@]}\"\n"
         "if [ $? -ne 0 ]; then\n"
         "    echo -e \"Convert failed\"\n"
@@ -404,6 +412,102 @@ CASES = [
         "fi\n"
         "exit 0\n",
         {"L16"}, {"L03", "L15", "L17"},
+    ),
+    (
+        "L16: an encoder entry that stopped mapping the cover is caught",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "-map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+    ),
+    (
+        "L16: the cover map paired with an unscoped -profile:v is caught",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+    ),
+    (
+        "L16 precision: a fully wired .bat entry stays silent",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"FFMPEG_PATH=C:\\ffmpeg\\ffmpeg.exe\"\n"
+        "call \"%~dp0lib\\common.bat\" cover_map\n"
+        "set RUN_COM=\"%FFMPEG_PATH%\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:v:0 libx264 -profile:v:0 high\n"
+        "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? %COVERMAP% "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "%RUN_COM%\n"
+        "set \"FB_RC=%ERRORLEVEL%\"\n"
+        "if not \"%FB_RC%\"==\"0\" (\n"
+        "    echo Convert failed! rc=%FB_RC%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L01", "L02", "L04", "L05", "L06", "L07", "L13", "L15", "L16"},
+    ),
+    (
+        "L16: a .bat encoder entry that stopped mapping the cover is caught",
+        "ffmpeg_probe.bat", True,
+        "@echo off\n"
+        ":main\n"
+        "setlocal\n"
+        "set \"FFMPEG_PATH=C:\\ffmpeg\\ffmpeg.exe\"\n"
+        "set RUN_COM=\"%FFMPEG_PATH%\" -hide_banner\n"
+        "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:v:0 libx264 -profile:v:0 high\n"
+        "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "%RUN_COM%\n"
+        "set \"FB_RC=%ERRORLEVEL%\"\n"
+        "if not \"%FB_RC%\"==\"0\" (\n"
+        "    echo Convert failed! rc=%FB_RC%\n"
+        "    exit /b 1\n"
+        ")\n"
+        "exit /b 0\n",
+        {"L16"}, {"L01", "L02", "L04", "L05", "L06", "L07", "L13", "L15"},
+    ),
+    (
+        "L16: a lib that no longer defines the cover map is caught",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v copy -c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+        [("lib/common.sh", "#!/bin/bash\nCOVER_MAP=()\n", False)],
     ),
     (
         "L17: a remux entry that leaves moov behind mdat is caught",
@@ -719,11 +823,15 @@ def main():
     print("lint selftest: %d cases" % len(CASES))
     print("")
     try:
-        for name, fname, crlf, content, must, must_not in CASES:
+        for case in CASES:
+            # 前 6 项固定; 可选的第 7 项是"额外文件"列表 [(相对路径, 文本, crlf), ...],
+            # 只给需要动 lib/ 的用例用(如"lib 里的封面映射定义被删掉了")
+            name, fname, crlf, content, must, must_not = case[:6]
+            extra = list(case[6]) if len(case) > 6 else []
             root = tempfile.mkdtemp(prefix="lint_selftest_")
             try:
                 build(root, [("lib/common.bat", COMMON_BAT, True),
-                             (fname, content, crlf)])
+                             (fname, content, crlf)] + extra)
                 lint.ROOT = root
                 fired = run_checks(make_inv(root))
             finally:
