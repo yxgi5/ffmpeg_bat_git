@@ -1393,17 +1393,38 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       * **坑：`-c:v:disp:attached_pic copy` 实测不生效** —— 输出流的 `disposition` 是在**选完编码器之后**
         才从输入流拷过来的，匹配时还没有，封面拿不到 copy，直接回到
         `Could not find tag for codec h264 in stream #1` 的**写 0 字节**事故。别再试这条路。
-      * **槽位上限 2 张封面**（`-c:v:1` / `-c:v:2`）。实测（合成 mkv，gyan 8.0-dev）：
-        1 张 → 原样进 `covr`；2 张 → 两张都原样（与旧 `-c:v copy` 产物字节数一致）；
-        **没有封面** → 这两条匹配不到任何流，ffmpeg **静默忽略**（rc=0，产物与不加时一致）；
-        第 3 张及以后不再受保护（会被当普通视频重编码）。真实片源几乎不会出现 3 张封面。
+      * **槽位号不能写死 —— 由源流表算出（2026-09-28 三次修订）**。`-map 0:V` 把所有非封面
+        视频排在前 `m` 路、封面排在 `[m, m+n)`（`m` = 非封面视频路数，`n` = 封面数），
+        所以「第几张封面在第几路」**不是常数**。写死 1/2 在 `m ≥ 2` 时整体错位（实测，合成 mkv：
+        **2 路视频 + 2 张封面 → 槽位 1 打在第 2 路视频上（它被悄悄复制、根本没转码），槽位 2 打在
+        第 1 张封面，第 2 张封面没人管 → 被送进编码器 →
+        `Could not find tag for codec h264 in stream #4, codec not currently supported in container`
+        → rc=127、0 字节** —— 和第 51 条要防的是同一个事故）。
+        于是闸门加第 ② 步：跑一次 ffprobe 数流
+        （`-show_entries stream=codec_name,codec_type -show_entries stream_disposition=attached_pic
+        -of csv=p=0`，按 `,video,` / `,video,1` 计数），生成 `-c:v:m copy … -c:v:(m+n-1) copy`。
+        **探测不可用（没 ffprobe / 源打不开）就退回写死的 1、2**，不比改之前差。
+        实测四例：1 视频+2 封面 → `-c:v:1 -c:v:2`；**2 视频+2 封面 → `-c:v:2 -c:v:3`（正确）**；
+        无封面 → 只留 `-map`（`?` 匹配不到，静默忽略，rc=0）；源不存在 → 退回 1、2。
+        封面张数上限的问题随之消失。
+        **注意 ffprobe 的 csv 列序是 `codec_name,codec_type,attached_pic`**（与 `-show_entries`
+        里写的顺序无关），解析别按请求顺序写。
+        一次 ffprobe 约 0.5 s（Windows 上含 exe 启动），相对整片转码可忽略。
       * **代价与陷阱**：copy 流会吃下**未加作用域的编码参数** —— 实测只有 `-profile:v`（不带 `:0`）会**致命**
         （`Error setting option profile to value main` / `Error setting up codec context options`），
         `-preset/-tune/-rc/-b:v/-g/-keyint_min/-pix_fmt/-sws_flags/-color_*` 都安全。
         所以 profile 一律写 **`-profile:v:0`**；Cygwin 入口的 `-vf` 同理改 **`-filter:v:0`**（`-vf:0` 仍会打到 copy 流）。
     * **改动面**：17 个编码出口（10 个 `.sh` + 7 个 `.bat`）编码器写 `-c:v:0 <编码器>`、profile 改 `:0`、
-      映射串加 `${COVER_MAP[@]}` / `%COVERMAP%`（**变量里同时带封面映射与 `-c:v:1 copy -c:v:2 copy`**，
+      映射串加 `${COVER_MAP[@]}` / `%COVERMAP%`（**变量里同时带封面映射与按流表算出的 `-c:v:n copy`**，
       闸门不认 `disp:` 时整个变量为空，映射与复制一起消失，不会留下「只映射不复制」的半截状态）；
+      **入口零改动** —— 数流只在两族 `lib/common.*` 里做（`.sh` 读 `$ABS_NAME`、`.bat` 读 `%SRC_FILE%`，
+      两族调用点都在源文件名就绪之后）。
+      * **`.bat` 侧两个坑（本轮实测撞出来的）**：① **括号块内不能出现半角 `)`** —— 中文注释里写
+        `(需 ffmpeg 7.1 或更高)`、echo 文本里带括号，那个 `)` 会**提前终止块**，后面的行全被当成
+        命令执行（刷一屏「不是内部或外部命令」）。故 `:cover_map` 一律用 `goto` 不用块；块外注释
+        随便写，一旦进块括号就用全角。② **别用 `find` / `findstr` 计数** —— PATH 里一旦有
+        Git Bash / MSYS2 的 `/usr/bin`，`find` 会变成 **GNU find**（实测把 `",video,"` 当路径扫全盘，
+        刷一屏 Permission denied 且巨慢）。改成 `for /f` 逐行解析 + 延迟扩展递增。
       两族 `lib/common.*` 各加闸门；`ffmpeg_copy_to_mp4.*`（remux）**不动** —— 它本来就是 copy，封面一直在（第 51 条已记）。
       **remux 里的 `-c:v copy` 是合法的**（它不重编码，全局复制就是它的本分）—— 现在 lint 明确只禁编码出口。
     * **回归网**：lint **L16 扩写** —— 编码类必须 ①**不得出现未加流号的 `-c:v copy`** ②引用封面映射变量

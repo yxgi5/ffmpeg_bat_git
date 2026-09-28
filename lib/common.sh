@@ -604,10 +604,14 @@ function src_stamp() {
 #   同一条流被两个 -c 命中, 结果全靠"后写的赢" —— 顺序一旦写反, 整片就变成复制,
 #   而命令里同时出现 copy 和编码器本身就是让人误判的写法(用户 2026-09-28 报)。
 #   改成按流号写之后两条指令互不重叠: 警告消失, 也没有顺序隐患。
-#   代价: 复制指令要写死槽位号。实测(gyan ffmpeg 8.0-dev, 2026-09-28, 合成 mkv):
-#     1 张封面 -> mjpeg 原样进 covr; 2 张 -> 两张都原样;
-#     没有封面 -> `-c:v:1 copy -c:v:2 copy` 匹配不到任何流, ffmpeg 静默忽略(rc=0);
-#     第 3 张及以后不再受保护(会被当普通视频重编码)。真实片源几乎不会有 3 张封面。
+#   代价: 复制指令要**按输出流号**写。而流号不是常数 —— `-map 0:V` 把所有非封面视频
+#   排在前 m 路, 封面排在 [m, m+n):
+#       实测 2026-09-28 (合成 mkv): 单视频 + 2 张封面 -> 槽位 1、2 正确;
+#       **2 路视频 + 2 张封面 -> 写死的 1、2 整体错位: 一个打到第 2 路视频上(它被
+#       悄悄复制、根本没转码), 第 2 张封面没人管 -> 被送进编码器 ->
+#       `Could not find tag for codec h264 in stream #4` -> rc=127 写 0 字节**。
+#       这正是本文件上面那段注释要防的事故, 等于换个姿势又踩一次。
+#   所以复制下标**由流表算**, 不写死: 见 cover_map_gate 的第 ② 步。
 #   不要用 `-c:v:disp:attached_pic copy`: 实测**不生效** —— 输出流的 disposition
 #   是在选完编码器之后才从输入流拷贝过来的, 匹配时还没有, 封面拿不到 copy, 直接
 #   回到 "Could not find tag for codec h264 in stream #1" 的写 0 字节事故。
@@ -621,16 +625,38 @@ function src_stamp() {
 # 与 find_ffmpeg 的 L20 能力筛选是**两种语义**: 那边"不够就报错, 不悄悄换构建",
 # 这边"不够就丢掉封面, 不让编码失败" —— 别把两者合并。
 # ================================================================
-COVER_MAP=(-map "0:v:disp:attached_pic?" -c:v:1 copy -c:v:2 copy)
+COVER_MAP=(-map "0:v:disp:attached_pic?")
 _COVER_CHECKED=""
+_COVER_OK=1
 
 function cover_map_gate() {
-    [ -n "$_COVER_CHECKED" ] && return 0
-    _COVER_CHECKED=1
     local ff="${1:-ffmpeg}"
-    "$ff" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 \
-        -t 0.04 -map "0:v:disp:attached_pic?" -f null - >/dev/null 2>&1 && return 0
-    COVER_MAP=()
-    printf '[cover] %s 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面\n' "$ff" >&2
+    # ① 能力门: `disp:` 说明符要 ffmpeg 7.1+。判据与文件无关 -> 进程内只探一次。
+    if [ -z "$_COVER_CHECKED" ]; then
+        _COVER_CHECKED=1
+        if ! "$ff" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 \
+             -t 0.04 -map "0:v:disp:attached_pic?" -f null - >/dev/null 2>&1; then
+            _COVER_OK=0
+            printf '[cover] %s 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面\n' "$ff" >&2
+        fi
+    fi
+    if [ "$_COVER_OK" != 1 ]; then COVER_MAP=(); return 0; fi
+
+    # ② 流表门: 数出 `-map 0:V` 命中几路(m)和有几张封面(n), 封面的输出下标 = [m, m+n)。
+    #    每次调用都重算 —— 一个入口进程可能连着处理多个文件, 流表不能跨文件复用。
+    COVER_MAP=(-map "0:v:disp:attached_pic?")
+    local src="${ABS_NAME:-$SRC_FILE}"
+    local probe vt na m i
+    probe=$(ffprobe -v error -show_entries stream=codec_name,codec_type \
+                    -show_entries stream_disposition=attached_pic -of csv=p=0 "$src" 2>/dev/null | tr -d '\r')
+    vt=$(printf '%s\n' "$probe" | grep -c ',video,')
+    na=$(printf '%s\n' "$probe" | grep -c ',video,1$')
+    if [ -z "$vt" ] || [ "$vt" -le 0 ]; then
+        COVER_MAP+=(-c:v:1 copy -c:v:2 copy)   # 探测不可用: 退回写死槽位(1~2 张)
+        return 0
+    fi
+    [ "$na" -le 0 ] && return 0                # 无封面: 只留 -map(? 匹配不到, 静默忽略)
+    m=$((vt - na)); [ "$m" -lt 1 ] && m=1
+    for ((i = m; i < vt; i++)); do COVER_MAP+=(-c:v:$i copy); done
     return 0
 }

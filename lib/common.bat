@@ -263,10 +263,10 @@ exit /b %PF_RC%
 
 :cover_map
 rem 封面(attached picture)保留能力门: call ... cover_map   (无参数, 用 %FFMPEG_PATH%)
-rem   调用后读全局 COVERMAP: "-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"
-rem   或空串(退回丢封面)。封面复制**按输出流号**下发, 不用全局 -c:v copy ——
-rem   后者会和 `-c:v:0 <编码器>` 撞在同一条流上, ffmpeg 必报 Multiple -codec 警告
-rem   (详见 lib\common.sh 同名注释)。
+rem   调用后读全局 COVERMAP: "-map 0:v:disp:attached_pic?" 后面跟若干 "-c:v:<n> copy",
+rem   n 由源流表算出(见下); 或空串(退回丢封面)。封面复制**按输出流号**下发, 不用
+rem   全局 -c:v copy —— 后者会和 `-c:v:0 <编码器>` 撞在同一条流上, ffmpeg 必报
+rem   Multiple -codec 警告(详见 lib\common.sh 同名注释)。
 rem   与 lib\common.sh 的 cover_map_gate 同义同判据, 完整来龙去脉写在那边的注释里。
 rem   要点:
 rem     * `disp:` 说明符是 ffmpeg 7.1(2024-09)才加入的; 老构建视为语法错误,
@@ -274,15 +274,68 @@ rem       结尾的 `?` 救不了解析错误 -> 先探一次: 不支持只丢�
 rem     * 探测走 lavfi 假源 + nul 输出, 不碰用户文件; 每个入口进程只探一次(CM_DONE)。
 rem     * rc 判据用 %ERRORLEVEL% 的**字符串**比较: Windows ffmpeg 的失败码是负
 rem       AVERROR, `if errorlevel N` 按有符号比较看不见(本仓库硬契约)。
+rem     * 复制下标 = [m, m+n): m = `-map 0:V` 命中的路数, n = 封面数。**不能写死** ——
+rem       2 路视频 + 2 张封面的实测里写死的 1、2 会整体错位, 第 2 张封面被送进编码器
+rem       -> `Could not find tag for codec h264 in stream #4` -> 整条写 0 字节。
+rem     * ffprobe 输出先落临时文件再计数: 本仓库硬契约 —— 绝不用 for /f 反引号直接跑
+rem       ffprobe(它的路径常含空格, 子 cmd /c 的引号剥离会把命令拦腰截断)。
+rem     * 一律用 goto, 不写括号块。两个坑: ① 块内 set 出来的值在同一块里读不到
+rem       (解析期就展开了); ② **块内任何半角右括号都会提前终止块** —— 中文注释或
+rem       echo 文本里写"(需 ffmpeg 7.1 或更高)"这种, 那个 ) 会把块拦腰截断,
+rem       后面的行全被当成命令执行(实测报一串"不是内部或外部命令")。
+rem       块外注释随便写; 一旦进块, 括号一律用全角。
 rem     * 本函数不 setlocal —— COVERMAP / CM_DONE 必须对调用方可见。
+rem       (计数那几行例外: 用 setlocal + `endlocal & set` 把结果带回来。)
 if defined CM_DONE exit /b 0
 set "CM_DONE=1"
 set "COVERMAP="
-if not defined FFMPEG_PATH (
-    echo [cover] FFMPEG_PATH not set by caller
-    exit /b 0
-)
+if not defined FFMPEG_PATH goto cover_noff
 "%FFMPEG_PATH%" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 -t 0.04 -map 0:v:disp:attached_pic? -f null - >nul 2>nul
-if "%ERRORLEVEL%"=="0" set "COVERMAP=-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"
-if not defined COVERMAP echo [cover] 本 ffmpeg 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面
+if not "%ERRORLEVEL%"=="0" goto cover_nodisp
+set "COVERMAP=-map 0:v:disp:attached_pic?"
+set "CM_VT=0"
+set "CM_NA=0"
+set "CM_TMP=%TEMP%\ffbat_cover_%RANDOM%.tmp"
+if not defined FFPROBE_PATH goto cover_noprobe
+if not defined SRC_FILE goto cover_noprobe
+rem 计数**纯 bat**, 不用 find/findstr: PATH 里一旦有 Git Bash / MSYS2 的 /usr/bin,
+rem `find` 就变成 GNU find —— 实测它把 ",video," 当路径扫全盘, 刷一屏
+rem Permission denied 还巨慢。逐行解析 + 延迟扩展递增。
+rem csv 行尾带 CR, 所以 attached_pic 只比首字符 —— %%B 形如 "1<CR>"。
+"%FFPROBE_PATH%" -v error -show_entries stream=codec_name,codec_type -show_entries stream_disposition=attached_pic -of csv=p=0 %SRC_FILE% > "%CM_TMP%" 2>nul
+setlocal enabledelayedexpansion
+for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
+    for /f "tokens=2,3 delims=," %%A in ("%%L") do (
+        if "%%A"=="video" (
+            set /a CM_VT=!CM_VT!+1
+            set "CM_B=%%B"
+            if "!CM_B:~0,1!"=="1" set /a CM_NA=!CM_NA!+1
+        )
+    )
+)
+endlocal & set "CM_VT=%CM_VT%" & set "CM_NA=%CM_NA%"
+:cover_noprobe
+del "%CM_TMP%" 2>nul
+if "%CM_VT%"=="" goto cover_fallback
+if "%CM_VT%"=="0" goto cover_fallback
+if "%CM_NA%"=="0" goto cover_done
+set /a CM_M=%CM_VT%-%CM_NA%
+if %CM_M% LSS 1 set CM_M=1
+set /a CM_I=%CM_M%
+:cover_loop
+if %CM_I% GEQ %CM_VT% goto cover_done
+set "COVERMAP=%COVERMAP% -c:v:%CM_I% copy"
+set /a CM_I+=1
+goto cover_loop
+:cover_noff
+echo [cover] FFMPEG_PATH not set by caller
+exit /b 0
+:cover_nodisp
+echo [cover] 本 ffmpeg 不认 disp: 流说明符 —— 需 ffmpeg 7.1 或更高; 本次运行不保留封面
+set "COVERMAP="
+exit /b 0
+:cover_fallback
+rem 探测不可用 —— 没有 ffprobe 或源探测失败: 退回写死槽位, 至少覆盖 1~2 张封面
+set "COVERMAP=%COVERMAP% -c:v:1 copy -c:v:2 copy"
+:cover_done
 exit /b 0
