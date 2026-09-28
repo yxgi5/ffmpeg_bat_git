@@ -963,8 +963,38 @@ def check_fail_propagation(inv):
 # (ffmpeg_copy_to_mp4.{bat,sh}) did not until 2026-09-17, found by the user
 # asking what `-map 0:v` was doing there. This rule pins the set for EVERY
 # mp4-producing entry in both families.
-STREAM_MAP_TOKENS = ("-map 0:v", "-map 0:a?", "-map 0:s?", "-c:s mov_text",
+STREAM_MAP_TOKENS = ("-map 0:a?", "-map 0:s?", "-c:s mov_text",
                      "-map_metadata 0", "-map_chapters 0")
+
+# 2026-09-28: the VIDEO token is no longer the same for every exit.
+# User report: `./ffmpeg_hevc_nvenc.sh "<mkv>"` died with
+#   [mp4 @ ...] Could not find tag for codec hevc in stream #1, codec not
+#              currently supported in container
+#   [out#0/mp4] Could not write header (incorrect codec parameters ?): Invalid argument
+#   Nothing was written into output file, because at least one of its streams
+#              received no packets.
+# while the same command with the -map options deleted succeeded. Root cause is
+# the source, not the encode: that mkv carries an mkvmerge cover as stream #0:3
+# (`Video: mjpeg (attached pic)`). `-map 0:v` selects video streams INCLUDING
+# attached pictures, so the poster became a SECOND output video stream and was
+# re-encoded to hevc - and mp4 can only store an attached picture as
+# mjpeg/png/bmp, so the header write failed and zero bytes were written.
+# `-map 0:V` (capital V = video streams that are NOT attached pictures) is the
+# fix. Verified on the offending file with BOTH ffmpeg builds in use here
+# (gyan 8.0-dev / sandbox: rc=0, 119980 B; cygwin 7.1.1: rc=0, 302862 B) and
+# the failure reproduced on both (`0:v` -> rc=69 / rc=234). Both builds accept
+# the V specifier. The dropped poster is a real but small trade: BEFORE the fix
+# such a source produced no output at all.
+STREAM_MAP_VIDEO = "-map 0:V"
+
+# Exception: the two remux entries keep `-map 0:v`. They do not re-encode
+# (-c:v copy -c:a copy), and mp4 *can* store a copied mjpeg/png poster, so
+# there the attached picture survives today - measured on the same cover-art
+# mkv: output kept 4 streams (h264 + 2 aac + mjpeg). Rewriting them to 0:V
+# would silently drop a poster that the remux keeps right now. The distinction
+# is re-encode vs copy, not style - do NOT "unify" it without re-measuring.
+STREAM_MAP_VIDEO_KEEP_ATTACHED = {"ffmpeg_copy_to_mp4.bat": "-map 0:v",
+                                  "ffmpeg_copy_to_mp4.sh": "-map 0:v"}
 
 # 2026-09-22: ffmpeg_dvd_hevc.{bat,sh} is exempted from the "-c:s mov_text" token
 # ONLY. DVD subtitles are run-length **bitmap** streams (dvd_subtitle); ffmpeg
@@ -972,7 +1002,7 @@ STREAM_MAP_TOKENS = ("-map 0:v", "-map 0:a?", "-map 0:s?", "-c:s mov_text",
 #   "Subtitle encoding currently only possible from text to text or bitmap to
 #    bitmap"
 # so mov_text is not a style choice here, it is impossible. The entry keeps
-# every other token (-map 0:v / -map 0:a? / -map 0:s? / -map_metadata 0 /
+# every other token (-map 0:V / -map 0:a? / -map 0:s? / -map_metadata 0 /
 # -map_chapters 0) and carries `-c:s copy` for mkv, which is the lossless
 # equivalent. Do NOT extend this exemption to a text-subtitle entry: there
 # mov_text really is the right answer.
@@ -997,18 +1027,34 @@ def check_stream_map(inv):
                              if not ln.strip().lower().startswith(("rem", "#")))
             checked += 1
             exempt = STREAM_MAP_EXEMPT.get(f, ())
-            missing = [tok for tok in STREAM_MAP_TOKENS
+            want_video = STREAM_MAP_VIDEO_KEEP_ATTACHED.get(f, STREAM_MAP_VIDEO)
+            other_video = (STREAM_MAP_VIDEO if want_video != STREAM_MAP_VIDEO
+                           else "-map 0:v")
+            missing = [tok for tok in (want_video,) + STREAM_MAP_TOKENS
                        if tok not in body and tok not in exempt]
             if missing:
                 bads.append("%s: lacks %s - ffmpeg default selection keeps only 1 video "
                             "+ 1 audio, so extra audio/subtitle tracks are dropped"
                             % (f, ", ".join(missing)))
+            elif other_video in body:
+                if want_video == STREAM_MAP_VIDEO:
+                    bads.append("%s: uses `%s` - that maps the mkv cover (attached "
+                                "picture) as a second output video stream and re-encodes "
+                                "it, which mp4 cannot store (`Could not find tag for codec "
+                                "... in stream #1`), so the whole run writes 0 bytes; use "
+                                "`%s`" % (f, other_video, want_video))
+                else:
+                    bads.append("%s: uses `%s` - the remux does not re-encode, so `%s` "
+                                "would silently drop the cover art it keeps today; remux "
+                                "entries must keep `%s`"
+                                % (f, other_video, other_video, want_video))
     if bads:
         for m in bads[:8]:
             bad("L16", m)
     else:
         ok("L16", "all %d mp4 entries (both families) keep every stream "
-                  "(-map 0:v/-map 0:a?/-map 0:s? + mov_text)" % checked)
+                  "(-map 0:V/-map 0:a?/-map 0:s? + mov_text; the 2 remux entries keep "
+                  "-map 0:v to preserve covers)" % checked)
 
 
 # ---------------------------------------------------------------- L17

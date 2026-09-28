@@ -335,7 +335,7 @@ if not "%CS%"=="0" set CHOP=-chapter_start %CS%
 if not "%CE%"=="0" set CHOP=%CHOP% -chapter_end %CE%
 echo ------------------------------------------------------------
 echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% %CHOP% -i "%SRC%" -map 0:v -map 0:a? %SMAP% %VFOPT% -c:v %VENC% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% %CHOP% -i "%SRC%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VENC% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
 %RUN_COM%
 rem 负退出码陷阱: Windows ffmpeg 失败时返回负的 AVERROR 值, 而 cmd 的
@@ -354,7 +354,7 @@ exit /b 0
 set "T=%~1"
 set "OUTN=%~2"
 echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:v -map 0:a? %VFOPT% -c:v %VENC% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:V -map 0:a? %VFOPT% -c:v %VENC% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
 %RUN_COM%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (

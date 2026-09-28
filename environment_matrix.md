@@ -738,7 +738,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **`-map` 盘点结论**：12 个编码入口（两族）**都已带**
       `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`；
       **只有 remux 族（`ffmpeg_copy_to_mp4` 两族）没有 `-map`** → 默认选流只留 1 视频 + 1 音频，
-      多音轨/字幕会被丢掉。**用户裁定：与编码入口完全一致** → 两族 remux 已补齐 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`。实测（双音轨 eng/chi + srt 的 mkv）：改动前输出 1 视频 + 1 音频，改动后 **4 条流全保留**（2 音轨 + 字幕转 mov_text），rc=0。新增 lint **L16** 把该集合钉死（两族 19 个 mp4 出口；把 remux 的 map 行注释掉即报 FAIL，已实测召回）。
+      多音轨/字幕会被丢掉。**用户裁定：与编码入口完全一致** → 两族 remux 已补齐 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`。实测（双音轨 eng/chi + srt 的 mkv）：改动前输出 1 视频 + 1 音频，改动后 **4 条流全保留**（2 音轨 + 字幕转 mov_text），rc=0。新增 lint **L16** 把该集合钉死（两族 19 个 mp4 出口；把 remux 的 map 行注释掉即报 FAIL，已实测召回）。**（2026-09-28 修订：编码类出口的视频映射已改为 `-map 0:V`，remux 两族保留 `-map 0:v` —— 见第 51 条）**
     * **打包坑**：仓库根目录躺着 **4.3 GB 测试片**（`input_4k25.mov` 1.9G 等），
       已被 `.gitignore` 忽略、未被跟踪（`git status` 干净）。给远端投包时**必须 `--exclude`**，
       否则包体 4.5 GB、传输中途断裂（`tar: Unexpected EOF`），还会误判成"远端跑挂了"。
@@ -1329,3 +1329,42 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       与**「输出包含原盘的哪些段」**小节，并把 `libdvdnav: Unable to open device file`
       与 `time=` 冻住两个"看着像错误"的现象写进**已知现象**。此前开关只有一句流水账、
       且**完全没有**说明输出覆盖范围 —— 用户提问点正是这个缺口。
+
+51. **封面图（attached picture）让编码入口整条失败：`-map 0:v` 把它当第二路视频流重新编码（2026-09-28，用户报障「前一个命令失败，后一个命令成功」）**：
+    * **现象**：用户跑 `./ffmpeg_hevc_nvenc.sh "<mkv>"`，banner 与码率查表都正常，ffmpeg 一路跑到
+      `[vost#0:1/hevc_nvenc] Created video stream from input stream 0:3` 才崩：
+      `[mp4] Could not find tag for codec hevc in stream #1, codec not currently supported in container`
+      → `Could not write header (incorrect codec parameters ?): Invalid argument`
+      → `Nothing was written into output file, because at least one of its streams received no packets.`
+      同一条命令**把 `-map …` 那段全删掉就成功**（`frame= 4049 … speed=15.2x`）——这就是用户递过来的对照。
+    * **根因在源、不在编码**：该 mkv 的**第 4 条流是 mkvmerge 写入的封面**（attachment 形式的
+      `Video: mjpeg … (attached pic)`，`ffprobe` 报 `attached_pic=1`）。`-map 0:v` 选的是
+      **含 attached picture** 的视频流 → 封面被当成**第二路输出视频流**并送 `hevc_nvenc` 重新编码；
+      而 mp4 只能把 attached picture 存成 **mjpeg/png/bmp**（写 `covr` atom），header 写不进去 →
+      **0 字节、整部电影白跑**。
+      「删掉 `-map` 就成功」不代表删掉是对的：ffmpeg 默认选流**排除** attached picture，
+      但同时**只保留 1 视频 + 1 音频** —— 那次成功的代价是丢掉第二音轨/字幕/章节（见第 30、37 条）。
+    * **修法**：编码类出口的视频映射 `-map 0:v` → **`-map 0:V`**（大写 V = 不含 attached picture 的视频流），
+      共 **19 个文件 21 处**（两族 12 个编码入口 + `ffmpeg_dvd_hevc` 的 4 处）。两套 ffmpeg 都支持该说明符。
+    * **remux 两族（`ffmpeg_copy_to_mp4.{sh,bat}`）保持 `-map 0:v`，这是有意的例外**：它们
+      `-c:v copy` 不重新编码，mp4 **能**放下复制过来的 mjpeg 封面 —— 实测同一素材输出 **3 条流全在**
+      （h264 + aac + mjpeg，`attached_pic=1`）。改成 `0:V` 会**悄悄丢掉今天还在的封面**。
+      判据是「重编码 vs 复制」，不是风格统一，改前请重新量。
+    * **实测数据**（用户那份 2h13m 的 mkv，`-t 1` 短跑；沙箱 gyan 8.0-dev 与 Cygwin 7.1.1 各一遍）：
+
+      | 写法 | gyan 8.0-dev | Cygwin 7.1.1 | 产物 |
+      |---|---|---|---|
+      | `-map 0:v` | rc=69，`Could not find tag for codec hevc in stream #1` | rc=234，同族错误（那次换成 `mpeg4` 编码器复现） | **0 字节** |
+      | `-map 0:V` | rc=0 | rc=0（302 862 B） | 主视频 + 2 音轨，封面不进输出 |
+
+      另用**自造素材**（`testsrc` + `anullsrc` 3s，再 `-attach cover.jpg -metadata:s:t:0
+      mimetype=image/jpeg` 造出 `attached_pic=1` 的 mkv）跑真入口：旧写法 rc≠0、0 字节；
+      `ffmpeg_hevc_nvenc.sh`（已修）**rc=0 / 21 487 B / hevc+aac**；`ffmpeg_copy_to_mp4.sh`
+      **rc=0 / 3 条流（封面在）**。这条自造素材的做法可直接复用做回归。
+    * **回归网**：lint **L16 重写** —— 编码类必须 `-map 0:V`、remux 必须 `-map 0:v`，
+      两边写反都报 FAIL（错误信息直接引「0 字节」症状）；`selftest` 增 2 条用例
+      （`ffmpeg_probe.sh` 残留 `0:v` 必须被抓、`ffmpeg_copy_to_mp4.sh` 被改成 `0:V` 必须被抓），
+      共 **51 cases / 0 FAIL**。
+    * **附带踩到的坑（记一笔）**：Windows 文件系统**大小写不敏感** —— 我用 `cyg_v.mp4` / `cyg_V.mp4`
+      存两组对照产物，第二次运行直接**覆盖**了第一次（`md5` 一致才发现）。在 Windows 上做 A/B 对照，
+      文件名**不能只差大小写**。

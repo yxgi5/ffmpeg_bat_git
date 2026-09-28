@@ -191,5 +191,5 @@ bash test/sh/check_env.sh                # 秒级静态预筛
 | `ffmpeg_h264_vaapi.sh` / `hevc_vaapi.sh` | Linux + `/dev/dri` | A / C |
 | `ffmpeg_hevc_nvenc_cygwin.sh` | Cygwin + NVIDIA | B（Cygwin shell） |
 | `ffmpeg_copy_to_mp4.*` / `repack_from_list.*` | 只要 ffmpeg/ffprobe | 全部 |
-| （全部 mp4 出口） | 带 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text …`，多音轨/字幕不再被默认选流丢弃（lint L16 钉住） | 全部 |
+| （全部 mp4 出口） | 带 `-map 0:a? -map 0:s? -c:s mov_text …`，多音轨/字幕不再被默认选流丢弃（lint L16 钉住）；**视频映射分两类**：编码类 `-map 0:V`（排除封面图等 attached picture，否则 mp4 装不下重编码后的封面 → 0 字节失败），remux 两族 `-map 0:v`（复制路径保留封面） | 全部 |
 | `bench_calib.*` / `soft_pair_calib.*` / `nvenc_pair_calib.*` | **libvmaf** | B（原生 gyan）/ A、C（`/opt` master） |

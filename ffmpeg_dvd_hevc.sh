@@ -257,7 +257,7 @@ enc() {
     local CMD=(ff_run -y -hide_banner -v error -stats
                -f dvdvideo -title "$t" ${chop[@]+"${chop[@]}"})
     CMD+=(-i "$SRC")
-    CMD+=(-map 0:v -map 0:a? ${SMAP[@]+"${SMAP[@]}"})
+    CMD+=(-map 0:V -map 0:a? ${SMAP[@]+"${SMAP[@]}"})
     [ -n "$VFILT" ] && CMD+=(-vf "$VFILT")
     CMD+=(-c:v "$VENC_NAME")
     CMD+=(${VENC_ARGS[@]+"${VENC_ARGS[@]}"}
@@ -283,7 +283,7 @@ enc_extra() {
     local CMD=(ff_run -y -hide_banner -v error -stats
                -f dvdvideo -title "$t")
     CMD+=(-i "$SRC")
-    CMD+=(-map 0:v -map 0:a?)
+    CMD+=(-map 0:V -map 0:a?)
     [ -n "$VFILT" ] && CMD+=(-vf "$VFILT")
     CMD+=(-c:v "$VENC_NAME")
     CMD+=(${VENC_ARGS[@]+"${VENC_ARGS[@]}"} ${AENC[@]+"${AENC[@]}"}

@@ -270,7 +270,7 @@ CASES = [
         ":main\n"
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
-        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "echo RUN_COM4:%RUN_COM%\n"
         "%RUN_COM%\n"
         "echo ERRORLEVEL:%ERRORLEVEL%\n"
@@ -284,7 +284,7 @@ CASES = [
         ":main\n"
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
-        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
         "set \"FB_RC=%ERRORLEVEL%\"\n"
         "if not \"%FB_RC%\"==\"0\" (\n"
@@ -301,7 +301,7 @@ CASES = [
         ":main\n"
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
-        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
         "if errorlevel 1 (\n"
         "    echo Convert failed! rc=%ERRORLEVEL%\n"
@@ -317,7 +317,7 @@ CASES = [
         ":main\n"
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
-        "set RUN_COM=%RUN_COM% -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
         "if %ERRORLEVEL% NEQ 0 (\n"
         "    echo Convert failed! rc=%ERRORLEVEL%\n"
@@ -359,7 +359,7 @@ CASES = [
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
-        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
         "-map_chapters 0)\n"
         "CMD+=(-c:v libx264 \"$TARGET_FILE\")\n"
         "\"${CMD[@]}\"\n"
@@ -369,6 +369,41 @@ CASES = [
         "fi\n"
         "exit 0\n",
         set(), {"L03", "L15", "L16"},
+    ),
+    (
+        "L16: an encoder entry still mapping the attached picture (-map 0:v) is caught",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "-map_chapters 0)\n"
+        "CMD+=(-c:v libx264 \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+    ),
+    (
+        "L16: rewriting the remux entry to -map 0:V would drop its cover art",
+        "ffmpeg_copy_to_mp4.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "CMD+=(-i \"$ABS_NAME\")\n"
+        "CMD+=(-c:v copy -c:a copy)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "-map_chapters 0)\n"
+        "CMD+=(-movflags +faststart)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15", "L17"},
     ),
     (
         "L17: a remux entry that leaves moov behind mdat is caught",
