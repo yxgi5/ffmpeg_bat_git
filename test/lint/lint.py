@@ -1041,6 +1041,12 @@ COVER_MAP_LITERAL = "0:v:disp:attached_pic"
 COVER_COPY_LITERAL = "-c:v:1 copy"
 COVER_MAP_LIB = ("lib/common.sh", "lib/common.bat")
 
+# 位图字幕(2026-09-28): mp4 只能装 mov_text, 位图字幕一进 `-c:s mov_text` 就 EINVAL,
+# 整片写 0 字节。排除指令 `-map -0:s:<i>` 由 lib 的闸门产出并**随封面变量一起下发**
+# (入口零改动), 所以 lib 里那份位图名单是本规则的命根子 —— 名单被删 = 又变 0 字节。
+# 判据仍取一个字面量(黑名单里最典型、也是用户片源里实测到的那个: 蓝光 PGS)。
+SUB_BITMAP_LITERAL = "hdmv_pgs_subtitle"
+
 # 例外(各有硬理由, 不许扩散):
 #   * 两个 remux 入口用 `-map 0:v`: 它们不重编码, mp4 存得下复制来的 jpeg 封面,
 #     封面本来就在 —— 再加一条封面映射只会把同一张图映射两次。
@@ -1097,6 +1103,19 @@ def check_stream_map(inv):
                     bads.append("%s: `-profile:v` 没有限定到主视频(应写 `-profile:v:0`) —— "
                                 "未限定的 profile 会被套到封面那条 copy 流上, ffmpeg 报 "
                                 "Error setting up codec context options 后失败" % f)
+                else:
+                    # 负映射 `-map -0:s:<i>` 是 ffmpeg 里少数**讲究顺序**的指令:
+                    # 它只排除"已经映射进来"的流, 必须排在 `-map 0:s?` 之后才生效。
+                    # 闸门把它和封面指令一起塞在同一个变量里(入口因此零改动), 于是
+                    # 变量的位置就成了硬约束 —— 挪到 -map 0:s? 前面, 位图字幕排除
+                    # 直接失效, 又回到整片 0 字节。
+                    i_sub = body.find("-map 0:s?")
+                    i_ref = body.find(COVER_MAP_REF[fam])
+                    if i_sub >= 0 and i_ref >= 0 and i_ref < i_sub:
+                        bads.append("%s: %s 排在 `-map 0:s?` 之前 —— 变量里的负映射 "
+                                    "`-map -0:s:<i>` 只排除已映射的流, 顺序反了就失效, "
+                                    "位图字幕会把整条转码打成 0 字节"
+                                    % (f, COVER_MAP_REF[fam]))
             elif other_video in body:
                 if want_video == STREAM_MAP_VIDEO:
                     bads.append("%s: uses `%s` - that maps the mkv cover (attached "
@@ -1123,6 +1142,11 @@ def check_stream_map(inv):
             bads.append("%s: 没有定义封面复制指令(%s) —— 封面映射回来了却没有 copy, "
                         "会被当第二路视频重编码, mp4 存不下, 整条写 0 字节"
                         % (rel, COVER_COPY_LITERAL))
+        if SUB_BITMAP_LITERAL not in libtext:
+            bads.append("%s: 没有定义位图字幕名单(%s) —— mp4 装不下位图字幕, 排除指令 "
+                        "`-map -0:s:<i>` 会跟着消失, 带 PGS / dvd_subtitle 的源一跑就 "
+                        "EINVAL 写 0 字节(实测用户清单里 14 个这样的文件)"
+                        % (rel, SUB_BITMAP_LITERAL))
     if bads:
         for m in bads[:8]:
             bad("L16", m)
@@ -1131,7 +1155,9 @@ def check_stream_map(inv):
                   "(-map 0:V/-map 0:a?/-map 0:s? + mov_text; %d encoder entries also map "
                   "the cover back in and copy it by stream index (-c:v:0 <enc> + "
                   "-c:v:1/-c:v:2 copy, no bare -c:v copy); the 2 remux entries "
-                  "keep -map 0:v, which already carries it)"
+                  "keep -map 0:v, which already carries it). the gate variable sits "
+                  "after -map 0:s?, so the bitmap-subtitle exclusions it carries "
+                  "(-map -0:s:<i>) still take effect"
                   % (checked, checked - len(COVER_MAP_SKIP)))
 
 

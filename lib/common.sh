@@ -625,6 +625,28 @@ function src_stamp() {
 # 与 find_ffmpeg 的 L20 能力筛选是**两种语义**: 那边"不够就报错, 不悄悄换构建",
 # 这边"不够就丢掉封面, 不让编码失败" —— 别把两者合并。
 # ================================================================
+# ---- 位图字幕(2026-09-28): mp4 装不下, 必须排除, 否则整片 0 字节 ----
+# 入口都用 `-c:s mov_text`。文本字幕(ass / subrip / mov_text / webvtt)能转, 位图
+# 字幕转不了 —— ffmpeg 以 EINVAL 收尾, **整部片子写 0 字节**:
+#   [sost#0:2/mov_text] Subtitle encoding currently only possible from
+#                       text to text or bitmap to bitmap
+# 这不是理论风险: 实测扫用户 838 条转码清单(657 个可访问), **14 个带
+# hdmv_pgs_subtitle**(Chernobyl 全 5 集、花と蛇 8 部等) —— 现有一跑就是 0 字节。
+# DVD ISO 更狠: 7 个样本全部带 dvd_subtitle, 且裸 -i 喂 ISO 时 ffmpeg 把 UDF 当
+# MPEG-PS 胡乱揭开, 有的连字幕都看不见却照样产出半截废品(详见 ffmpeg_dvd_hevc.sh)。
+#
+# 排除手段是**负映射** `-map -0:s:<i>`(i = 该字幕在 subtitle 里的 per-type 下标),
+# 而不是一刀切的 `-map -0:s`: 实测 Chernobyl.E01 = PGS + ass + subrip, 一刀切会把
+# 能救的两条文本字幕一起丢掉, 按条排除则产物里仍有 2 条 mov_text。
+# 位置也有讲究: 负映射必须排在 `-map 0:s?` **之后**才生效, 而入口把本变量正好插在
+# `-map 0:s?` 与 `-c:s mov_text` 之间 —— 所以这事能塞进 COVER_MAP 里, 17 个入口
+# 依然零改动(代价: 本变量现在是"闸门产出的附加流指令", 不只是封面映射)。
+#
+# 位图集合是**封闭**的(DVD / 蓝光 / DivX / DVB 四种来源), 所以列**黑名单**而不是
+# 白名单: 没列出的字幕一律维持原行为(ass / subrip 照常进 mov_text), 不会因为漏列
+# 而白白丢字幕; 真冒出新的位图字幕也只是回到"跑失败"这个已知状态, 不会静默出错。
+_SUB_BITMAP="hdmv_pgs_subtitle dvd_subtitle xsub dvb_subtitle"
+
 COVER_MAP=(-map "0:v:disp:attached_pic?")
 _COVER_CHECKED=""
 _COVER_OK=1
@@ -640,15 +662,44 @@ function cover_map_gate() {
             printf '[cover] %s 不认 disp: 流说明符(需 ffmpeg 7.1 或更高) —— 本次运行不保留封面\n' "$ff" >&2
         fi
     fi
-    if [ "$_COVER_OK" != 1 ]; then COVER_MAP=(); return 0; fi
 
-    # ② 流表门: 数出 `-map 0:V` 命中几路(m)和有几张封面(n), 封面的输出下标 = [m, m+n)。
-    #    每次调用都重算 —— 一个入口进程可能连着处理多个文件, 流表不能跨文件复用。
-    COVER_MAP=(-map "0:v:disp:attached_pic?")
+    # ② 流表门: 一次 ffprobe 同时办两件事 —— 算封面的输出下标, 以及挑出 mp4 装不下
+    #    的位图字幕。每次调用都重算 —— 一个入口进程可能连着处理多个文件, 流表不能
+    #    跨文件复用。
+    COVER_MAP=()
+    [ "$_COVER_OK" = 1 ] && COVER_MAP=(-map "0:v:disp:attached_pic?")
     local src="${ABS_NAME:-$SRC_FILE}"
-    local probe vt na m i
+    local probe vt na m i si idx codec type
     probe=$(ffprobe -v error -show_entries stream=codec_name,codec_type \
                     -show_entries stream_disposition=attached_pic -of csv=p=0 "$src" 2>/dev/null | tr -d '\r')
+
+    # ②a 位图字幕 -> 负映射逐条排除。**不看 ① 的 disp: 能力**: 老 ffmpeg 一样死在这。
+    if [ -n "$probe" ]; then
+        si=0
+        while IFS=, read -r codec type _; do
+            # DVD-Video 的导航包(只在 ISO / VOB 里有, 实测 192 个 mpg/m2ts 片源 0 命中,
+            # 不会误报): 说明这是 DVD 源, 而通用入口不带 `-f dvdvideo`, ffmpeg 会把
+            # UDF 镜像当 MPEG-PS 胡乱揭开 —— 不报错, 但时长和内容都不对, 产物是废品。
+            # 只提示, 不改行为: 真要转 DVD 请走 ffmpeg_dvd_hevc.sh。
+            if [ "$codec" = "dvd_nav_packet" ]; then
+                printf '[dvd] %s 是 DVD-Video(ISO / VOB) —— 本入口不带 -f dvdvideo, 会被当 MPEG-PS 胡乱揭开(不报错但内容不对), 请改用 ffmpeg_dvd_hevc.sh\n' \
+                    "$(basename "$src")" >&2
+                continue
+            fi
+            [ "$type" = "subtitle" ] || continue
+            idx=$si; si=$((si + 1))
+            case " $_SUB_BITMAP " in
+                *" $codec "*)
+                    COVER_MAP+=(-map "-0:s:$idx")
+                    printf '[sub] %s 含位图字幕 %s —— mp4 装不下, 本次不保留该条(要保留请出 mkv)\n' \
+                        "$(basename "$src")" "$codec" >&2
+                    ;;
+            esac
+        done <<< "$probe"
+    fi
+
+    # ②b 封面: 数出 `-map 0:V` 命中几路(m)和有几张封面(n), 输出下标 = [m, m+n)。
+    if [ "$_COVER_OK" != 1 ]; then return 0; fi
     vt=$(printf '%s\n' "$probe" | grep -c ',video,')
     na=$(printf '%s\n' "$probe" | grep -c ',video,1$')
     if [ -z "$vt" ] || [ "$vt" -le 0 ]; then

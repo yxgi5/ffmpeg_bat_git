@@ -43,9 +43,21 @@ COMMON_BAT = "\n".join([
     ":cover_map",
     'rem fixture: the entry-facing cover-map definition (lint L16 checks the literal',
     'rem lives in the two lib files; the real one probes the build, see lib\\common.sh)',
+    'rem the bitmap-subtitle blacklist has to live here too (L16 checks it): dropping',
+    'rem it silently restores the 0-byte crash on pgs / dvd_subtitle sources',
+    'set "CM_BITMAP=hdmv_pgs_subtitle dvd_subtitle xsub dvb_subtitle"',
     'set "COVERMAP=-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"',
     "exit /b 0",
 ])
+
+# 一份"全乎"的 lib/common.sh 夹具: 封面映射 + 按流号 copy + 位图字幕名单都在。
+# 用来把 L16 的新断言(位图名单 / 变量位置)单独隔离出来测 —— 少了哪样就是哪样报错,
+# 不至于被别的缺失项掩盖。
+GATE_LIB_SH = (
+    "#!/bin/bash\n"
+    "COVER_MAP=(-map \"0:v:disp:attached_pic?\" -c:v:1 copy -c:v:2 copy)\n"
+    "_SUB_BITMAP=\"hdmv_pgs_subtitle dvd_subtitle xsub dvb_subtitle\"\n"
+)
 
 # ---------------------------------------------------------------- the cases
 # ("id", "file", crlf, content, {check ids that MUST fire}, {ids that must NOT})
@@ -547,6 +559,69 @@ CASES = [
         "fi\n"
         "exit 0\n",
         {"L16"}, {"L03", "L15"},
+    ),
+    (
+        "L16: a lib that dropped the bitmap-subtitle list is caught "
+        "(pgs / dvd_subtitle sources would write 0 bytes again)",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+        # 封面映射 + copy 都在, 唯独位图名单没了 —— 排除指令也就没了
+        [("lib/common.sh",
+          "#!/bin/bash\n"
+          "COVER_MAP=(-map \"0:v:disp:attached_pic?\" -c:v:1 copy -c:v:2 copy)\n",
+          False)],
+    ),
+    (
+        "L16: the gate variable parked BEFORE `-map 0:s?` is caught "
+        "(the negative map -map -0:s:i only unmaps already-mapped streams)",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} -map 0:s? "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        {"L16"}, {"L03", "L15"},
+        [("lib/common.sh", GATE_LIB_SH, False)],
+    ),
+    (
+        "L16 precision: a fully wired entry with a complete lib stays silent",
+        "ffmpeg_probe.sh", False,
+        "#!/bin/bash\n"
+        "CMD=(ffmpeg -hide_banner)\n"
+        "cover_map_gate ffmpeg\n"
+        "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
+        "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
+        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "CMD+=(-n \"$TARGET_FILE\")\n"
+        "\"${CMD[@]}\"\n"
+        "if [ $? -ne 0 ]; then\n"
+        "    echo -e \"Convert failed\"\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        set(), {"L03", "L15", "L16"},
+        [("lib/common.sh", GATE_LIB_SH, False)],
     ),
     (
         "L16 precision: the remux keeps its bare `-c:v copy` (no re-encode there)",

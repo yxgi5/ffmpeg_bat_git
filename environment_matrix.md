@@ -1467,3 +1467,31 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
          以及入口第 5 行那句「an in-file chcp can misalign that reader」。
     * **可能的后续**：加一条 lint（凡 `call ...\lib\common.bat` 的 `.bat` 必须先有 `chcp 65001` + 守卫重启）。
       本轮**没加** —— 真实调用方全都守着，而 `smoke_ffmpeg.bat` 这个例外会让规则误报。
+
+54. **位图字幕（`hdmv_pgs_subtitle` / `dvd_subtitle`）让编码入口整条失败：`-c:s mov_text` 只能吃文本字幕（2026-09-28，用户给了 7 个 DVD ISO 样本后实测确认）**：
+    * **现象**：带位图字幕的源一进编码入口就
+      `[sost#0:2/mov_text] Subtitle encoding currently only possible from text to text or bitmap to bitmap`
+      → rc = **-22 (EINVAL)**、**0 字节**。和第 51 条（封面）是同一种死法。
+    * **不是理论风险**：扫用户 838 条转码清单（657 个可访问）→ **14 个带 `hdmv_pgs_subtitle`**
+      （Chernobyl 全 5 集、花と蛇 8 部、新金瓶梅 EP01）；用户给的 7 个 DVD ISO **全部**带 `dvd_subtitle`。
+      即现存清单里有 14 个文件一跑就是 0 字节。
+    * **修法**：lib 的闸门在数流时顺手找出位图字幕，按 **per-type 下标**发负映射
+      `-map -0:s:<i>` 排除掉，随 `COVER_MAP` / `%COVERMAP%` 一起下发 → **17 个入口零改动**。
+      * 用**下标**而不是一刀切 `-map -0:s`：实测 `Chernobyl.E01` = PGS + ass + subrip，
+        一刀切会把能救的两条文本字幕一起丢掉；按条排除后产物里仍有 2 条 `mov_text`。
+      * **顺序是硬约束**：负映射只排除「已经映射进来」的流，必须排在 `-map 0:s?` **之后**。
+        入口把闸门变量正好插在 `-map 0:s?` 与 `-c:s mov_text` 之间，所以能塞进去；
+        lint **L16** 新增「变量必须排在 `-map 0:s?` 之后」钉住这个顺序。
+      * 位图名单用**黑名单**（`hdmv_pgs_subtitle dvd_subtitle xsub dvb_subtitle`，来源封闭：
+        蓝光 / DVD / DivX / DVB）。没列到的一律维持原行为 —— 不会因为漏列而白白丢字幕，
+        真冒出新位图也只是回到「跑失败」这个已知状态，不会静默出错。
+    * **顺带加的提示**：流表里出现 `dvd_nav_packet`（只在 DVD-Video 的 ISO / VOB 里有，
+      实测 192 个 mpg/mpeg/vob/m2ts 片源 **0 命中**，不误报）时打一行 `[dvd]` ——
+      通用入口不带 `-f dvdvideo`，ffmpeg 会把 UDF 镜像当 MPEG-PS 胡乱揭开，**不报错但内容/时长不对**。
+      只提示不改行为；真要转 DVD 走 `ffmpeg_dvd_hevc.sh`（那条线本来就是 mkv + `-c:s copy`，装得下位图字幕）。
+    * **代价 / 已知取舍**：mp4 装不下位图字幕是容器限制，所以「保住文件」和「保住 PGS」只能二选一。
+      现在选前者（丢 PGS、留文本字幕）。要保 PGS 就得换 mkv —— 没做，因为整条流水线的产物都是 mp4。
+    * **回归**：lint **31 PASS / 0 FAIL / 5 WARN**；selftest **62 cases / 0 FAIL**（原 59，
+      新增：lib 丢位图名单被抓、变量排在 `-map 0:s?` 之前被抓、完整接线保持静默）。
+      端到端：`bash ffmpeg_libx264.sh` 跑裁出来的 PGS 样本 → 命令行带 `-map -0:s:0`，
+      rc=0，产物 h264 + aac + 2 条 mov_text（ass / subrip 保住）。
