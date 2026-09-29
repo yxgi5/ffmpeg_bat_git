@@ -56,21 +56,26 @@ echo 由 andreas 编写
 echo ============================================================
 
 # ---------- 前置检查 ----------
-if ! check_command "ffmpeg"; then
-    echo -e "\033[41;36mffmpeg command not found!\033[0m"
+# 与 .bat 侧同一套定位顺序(见 lib/common.sh 的 find_ffmpeg):
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+# 不能只问 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个(MSYS2 命中
+# /mingw64/bin 8.1、Cygwin 命中 /usr/bin 7.1.1), 后面那个能用的构建于是永远轮不到
+if ! FF="$(find_ffmpeg)"; then
+    echo -e "\033[41;36m找不到 ffmpeg\033[0m"
+    echo "可用 FFMPEG_BIN=<目录> 或 FFMPEG=<可执行文件> 指定"
     exit 1
 fi
-if ! check_command "ffprobe"; then
-    echo -e "\033[41;36mffprobe command not found!\033[0m"
+if ! FP="$(find_ffprobe "$FF")"; then
+    echo -e "\033[41;36m找不到 ffprobe\033[0m"
+    echo "可用 FFPROBE=<可执行文件> 指定"
     exit 1
 fi
-
-# ff_run / fp_run 要求 FF / FP 已设好; 允许用环境变量覆盖, 与 bat 侧的查找顺序对齐
-FF="${FFMPEG:-$(command -v ffmpeg)}"
-FP="${FFPROBE:-$(command -v ffprobe)}"
 export FF FP
+echo "ffmpeg   : $FF ($(ffmpeg_build_id "$FF"))"
 
-if ! ffmpeg -hide_banner -demuxers 2>/dev/null | grep -qi "dvdvideo"; then
+# dvdvideo 解复用器依赖 libdvdread/libdvdnav, 精简构建没有。
+# 必须用上面定位到的 $FF 来问: 用裸 ffmpeg 会变成"检查 PATH 里那份, 却跑 $FF 那份"
+if ! "$FF" -hide_banner -demuxers 2>/dev/null | grep -qi "dvdvideo"; then
     echo -e "\033[41;36m这份 ffmpeg 没有 dvdvideo 解复用器\033[0m"
     echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
     exit 1
@@ -92,12 +97,15 @@ if [ -z "$OUTDIR" ]; then
     OUTDIR="$(cd "$(dirname "$SRC")" 2>/dev/null && pwd)/HEVC_OUT"
     [ -n "$OUTDIR" ] || OUTDIR="./HEVC_OUT"
 fi
-PREFIX="$(basename "${SRC%.*}")"
+# 允许调用方用 PREFIX= 覆盖(与 .bat 侧 if not defined PREFIX 同口径)
+PREFIX="${PREFIX:-$(basename "${SRC%.*}")}"
 [ -n "$PREFIX" ] || PREFIX="dvd"
 
 # EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
 # EXT=mp4  只能 HEVC + AAC + 1 条字幕, 且 AC3 必须重编码
 EXT="${EXT:-mkv}"
+# 归一成小写: 输出文件后缀是直接取 $EXT 拼的, 不归一的话 EXT=MP4 会产出 ".MP4"
+EXT="${EXT,,}"
 
 # AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
 #            保留 25p; 源已是 23.976p -> 不加滤镜。判读不到帧率就按高度猜(576/288=PAL,
@@ -123,11 +131,15 @@ AUDIO="${AUDIO:-copy}"
 # MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片
 # MODE=TITLE  只处理 DVD_TITLE 指定的一条
 MODE="${MODE:-ALL}"
+# 位置参数优先; 没给位置参数、但环境里设了 DVD_TITLE 也切 TITLE(与 .bat 侧
+# `if defined DVD_TITLE set MODE=TITLE` 对齐 —— 否则这个变量会被静默忽略)
 if [ "$#" -ge 3 ]; then
     DVD_TITLE="$3"
-    MODE="TITLE"
 fi
 DVD_TITLE="${DVD_TITLE:-}"
+if [ -n "$DVD_TITLE" ]; then
+    MODE="TITLE"
+fi
 
 # SPLIT_CHAPTER=N  按第 N 章把正片切成两段(如前編/後編), 0 = 不切
 #   第 1 段 = 第 1 章到第 N-1 章, 第 2 段 = 第 N 章到结尾
