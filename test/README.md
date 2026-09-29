@@ -421,6 +421,25 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 * **深测**（`--probe` / `PROBE`）：再建一个 3 秒小片，把每个候选入口真跑一遍，
   报真实退出码，失败时**附 `run.log` 的末条错误**（两族同样的呈现方式）。数十秒。
 
+> ⚠️ **`.sh` 侧请在 MSYS2 **MINGW64** 下跑，不要在 Cygwin 下跑**（2026-09-29 实测）。
+> 深测的第一步是用 `libx264` 造那张 3 秒探针片，而 Cygwin 的 ffmpeg 7.1.1 **不带
+> `libx264` / `libx265`**（快查里就是 `enc libx264 : NO`）。后果不是「libx264 入口 FAIL」，
+> 而是探针片根本造不出来 —— 整份深测以 `FATAL: cannot build the probe clip` 收场，
+> **一条结果都没有**。同一台机器换 MINGW64（`/mingw64/bin/ffmpeg` 8.1，软编齐全），
+> 同一条命令是 `ok=12 / fail=3`，`ffmpeg_libx264` / `ffmpeg_libx265` /
+> `convert_from_list_libx265` 三条全 `PROBE-OK`。
+>
+> ```bash
+> MSYSTEM=MINGW64 bash -lc 'cd /d/repos/ffmpeg_bat_git && bash test/sh/check_env.sh --probe'
+> ```
+>
+> 两个附带细节：MSYS2 的路径是 `/d/...`（**没有** `/cygdrive` 前缀，那是 Cygwin 的写法）；
+> 且**必须带 `-l`**，否则 PATH 里没有 coreutils，连 `dirname` 都找不到，脚本会误报
+> `repo not found`。另有一条**走不通的绕法**：给报告单独指定 `FFMPEG=` 只能改变**报告自己**
+> 用的构建，入口脚本仍会按自己的规则挑中 PATH 上的那个 —— 于是出现「报告用 gyan full、
+> 入口用 Cygwin 7.1.1」的混合态，libx264/libx265 被判 `PROBE-FAIL rc=1 | [libopenh264 …]`，
+> 看起来像入口坏了，其实是两个构建对不上。**不要在 Cygwin 里跑深测。**
+
 状态词表（两族**完全一致**，两份报告可以直接逐行对比）：
 
 | 状态 | 含义 |
@@ -429,6 +448,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 | `NO-ENCODER` | 这个 ffmpeg 构建里没有该编码器 |
 | `NO-DEVICE` | 编码器有，但本机没有可用设备/GPU |
 | `N/A-OS` | 该入口在当前系统无意义（VAAPI 是 Linux 内核 API） |
+| `N/A-INPUT` | 入口本身没问题，但**这份报告喂不了它**：输入不是普通视频文件（ISO 镜像 / VIDEO_TS 目录 / 光驱盘符）。快查与深测**都列出**它，深测只标 `skipped` 而不真跑 —— 用 3 秒 mp4 小片探它必然失败，那条假 FAIL 会混进真 FAIL 里稀释报告 |
 | `UNKNOWN` | 静态判断不了 → 用深测决定 |
 | `PROBE-OK` / `PROBE-FAIL` | 深测真跑的结果：两族都要求 **rc=0 且 `run.log` 里没有 `Conversion failed`**，bat 侧另外要求**真实输出文件**存在且 >4096 字节；失败行带 rc 与 `run.log` 末条错误 |
 | `NO-ENTRY` | 仓库里没有这个文件 |
