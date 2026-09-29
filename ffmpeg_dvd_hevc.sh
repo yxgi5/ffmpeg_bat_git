@@ -135,12 +135,22 @@ echo "OUTDIR : $OUTDIR"
 # =========================================================================
 probe_title() {
     local t="$1" wh dur
+    # 关键: libdvdread 的抱怨("CHECK_VALUE failed in src/nav_read.c" 之类)在这个
+    # 构建里是打到**标准输出**的, 2>/dev/null 挡不住 —— 它比真正的数值先出现, 于是
+    # 后面 awk '{print $3}' 取到的是 "failed", 时长算成 0, AUTO 模式一个 title 都选不中
+    # (实测: 2026-09-29 这台机器上的 master build, 报 "一个 title 都没读到")。
+    # 按形状过滤, 只留数值行并取最后一行 —— 与 .bat 侧 for /f 的"后读到的覆盖前面的"
+    # 行为对齐, 两族结果才一致。
+    # 按字段取, 不用行级正则: csv=p=0 打出来是 "720,576," 这种带尾逗号的形式,
+    # tr 完变成 "720 576 " 有尾空格, 行级 ^...$ 匹配不上(实测踩过)
     wh="$(fp_run -v error -f dvdvideo -title "$t" \
           -select_streams v:0 -show_entries stream=width,height \
-          -of csv=p=0 "$SRC" 2>/dev/null | tr ',' ' ')"
+          -of csv=p=0 "$SRC" 2>/dev/null \
+          | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1, $2}' | tail -1)"
     [ -n "$wh" ] || return 1
     dur="$(fp_run -v error -f dvdvideo -title "$t" \
-           -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/null)"
+           -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/null \
+           | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
     [ -n "$dur" ] || return 1
     printf '%s %s\n' "$wh" "$dur"
 }
