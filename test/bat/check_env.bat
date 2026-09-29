@@ -19,6 +19,11 @@ rem   OK           usable here (static evidence, or rc=0 from PROBE)
 rem   NO-ENCODER   the ffmpeg build has no such encoder
 rem   NO-DEVICE    encoder exists but this machine has no usable GPU
 rem   N/A-OS       entry is meaningless on Windows (VAAPI is a Linux API)
+rem   N/A-INPUT    entry itself is fine, but this report cannot feed it: its
+rem                 input contract is NOT a plain video file (ISO image /
+rem                 VIDEO_TS dir / drive letter). Feeding it the 3s mp4 probe
+rem                 clip can only fail, so PROBE lists it as skipped instead of
+rem                 minting a false FAIL that dilutes the real ones.
 rem   UNKNOWN      static check cannot decide -> rerun with /probe
 rem   PROBE-OK     PROBE ran it and it produced a real output file
 rem   PROBE-FAIL   PROBE ran it and it failed: non-zero rc, or rc=0 with
@@ -82,6 +87,7 @@ if not exist "%FF%" goto NO_FF
 set "COUNT_OK=0"
 set "COUNT_NO=0"
 set "COUNT_UNK=0"
+set "COUNT_NA=0"
 set "P_OK=0"
 set "P_FAIL=0"
 
@@ -138,9 +144,17 @@ del /q "%TMPREQ%" >nul 2>&1
 >> "%TMPREQ%" echo ffmpeg_av1_nvenc.bat^|av1_nvenc^|nvidia^|AV1 NVENC needs Ada RTX 40 or newer
 >> "%TMPREQ%" echo ffmpeg_copy_to_mp4.bat^|-^|none^|remux only - no encoder involved
 
+rem ---- the one entry this report cannot feed. It is not judged by encoder /
+rem device (it encodes with the software encoder like any other), it is judged
+rem by its INPUT: an ISO image / VIDEO_TS dir / drive letter, never a video
+rem file. Listed in BOTH tables so QUICK and DEEP stay 1:1 (before this, DEEP
+rem globbed ffmpeg_*.bat and silently had 13 rows against QUICK's 12). ----
+set "DVD_ENTRY=ffmpeg_dvd_hevc.bat"
+
 echo ---- entries ----
 call :hdr
 for /f "usebackq tokens=1-4 delims=|" %%a in ("%TMPREQ%") do call :classify "%%a" "%%b" "%%c" "%%d"
+call :na_input "%DVD_ENTRY%"
 call :wrapper convert_from_list_cuda.bat ffmpeg_hevc_nvenc.bat
 call :wrapper convert_from_list_libx265.bat ffmpeg_libx265.bat
 call :wrapper convert_from_list_qsv.bat ffmpeg_hevc_qsv.bat
@@ -167,10 +181,14 @@ rem copy_to_mp4 is a remuxer: it refuses mp4-in/mp4-out and writes the
 rem output next to the input, so it probes with a .mkv-named copy (same
 rem fixture trick as smoke case T5). Everything else is an encoder entry.
 for %%f in ("%REPO%\ffmpeg_*.bat") do (
-    if /I "%%~nxf"=="ffmpeg_copy_to_mp4.bat" (
-        call :probe_entry "%%~nxf" remux
+    if /I "%%~nxf"=="%DVD_ENTRY%" (
+        call :pskip "%%~nxf"
     ) else (
-        call :probe_entry "%%~nxf" enc
+        if /I "%%~nxf"=="ffmpeg_copy_to_mp4.bat" (
+            call :probe_entry "%%~nxf" remux
+        ) else (
+            call :probe_entry "%%~nxf" enc
+        )
     )
 )
 for %%f in ("%REPO%\convert_from_list_*.bat") do call :probe_list "%%~nxf" enc
@@ -184,6 +202,7 @@ echo ==== summary ====
 echo entries usable ^(OK^): %COUNT_OK%
 echo entries not usable here: %COUNT_NO%   ^(NO-ENCODER / NO-DEVICE / N/A-OS / NO-ENTRY^)
 echo entries needing PROBE: %COUNT_UNK%
+echo entries not probed here: %COUNT_NA%   ^(N/A-INPUT - input is not a video file^)
 if defined DOPROBE echo probe results: ok=%P_OK% fail=%P_FAIL%
 echo.
 echo NOTE: a status here is a statement about THIS machine, not about the
@@ -362,12 +381,39 @@ call :pad "%~1"
 echo %PAD% %~2 %~3
 if "%~1"=="OK" set /a COUNT_OK+=1
 if "%~1"=="UNKNOWN" set /a COUNT_UNK+=1
-if not "%~1"=="OK" if not "%~1"=="UNKNOWN" set /a COUNT_NO+=1
+if "%~1"=="N/A-INPUT" set /a COUNT_NA+=1
+rem N/A-INPUT is NOT "not usable here": it is "not testable HERE". Counting it
+rem under COUNT_NO would report a healthy entry next to the truly broken ones.
+if not "%~1"=="OK" if not "%~1"=="UNKNOWN" if not "%~1"=="N/A-INPUT" set /a COUNT_NO+=1
 exit /b 0
 
 :pad
 set "PAD=%~1            "
 set "PAD=%PAD:~0,12%"
+exit /b 0
+
+rem :na_input <entry> - the QUICK row for an entry this report cannot feed.
+rem Deliberately NOT run through :classify: that judges by encoder + device, and
+rem this entry is unremarkable on both (software HEVC). What makes it untestable
+rem here is the INPUT contract - an ISO image / VIDEO_TS dir / drive letter -
+rem which the 3s mp4 probe clip can never satisfy. Running it anyway produced a
+rem constant false PROBE-FAIL that sat in the same table as the genuine ones.
+:na_input
+if not exist "%REPO%\%~1" (
+    call :emit NO-ENTRY "%~1" "file missing from the repo"
+    exit /b 0
+)
+call :emit N/A-INPUT "%~1" "input is an ISO / VIDEO_TS dir / drive letter - not a video file"
+exit /b 0
+
+rem :pskip <entry> - the DEEP twin of the QUICK N/A-INPUT row. Listed so the two
+rem tables stay 1:1, but neither run nor counted: COUNT_NA already holds this
+rem entry from the QUICK table, and probing it would only spend a title scan
+rem that is guaranteed to end in "no title could be read".
+:pskip
+if not exist "%REPO%\%~1" exit /b 0
+call :pad N/A-INPUT
+echo %PAD% %~1 skipped - not a video file input, needs an ISO / VIDEO_TS dir
 exit /b 0
 
 :have

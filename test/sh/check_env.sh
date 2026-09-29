@@ -21,6 +21,11 @@
 #     NO-DEVICE    encoder exists but this machine has no usable device/GPU
 #     NO-FFMPEG    ffmpeg not found at all
 #     N/A-OS       entry is meaningless on this OS (e.g. VAAPI on Windows)
+#     N/A-INPUT    entry itself is fine, but this report cannot feed it: its
+#                  input contract is NOT a plain video file (ISO image /
+#                  VIDEO_TS dir / drive letter). Feeding it the 3s mp4 probe
+#                  clip can only fail, so --probe lists it as skipped instead
+#                  of minting a false FAIL that dilutes the real ones.
 #     UNKNOWN      static check cannot decide -> run with --probe
 #     PROBE-OK     --probe ran it and it worked
 #     PROBE-FAIL   --probe ran it and it returned non-zero
@@ -183,6 +188,25 @@ ffmpeg_copy_to_mp4.sh|-|none|remux only, no encoder involved
 EOF
 }
 
+# The one entry this report cannot feed. It is not judged by encoder + device
+# (it encodes with the software encoder like any other) but by its INPUT: an
+# ISO image / VIDEO_TS dir / drive letter, never a video file. Listed in BOTH
+# tables so QUICK and DEEP stay 1:1 - before this, DEEP globbed ffmpeg_*.sh
+# and silently carried one more row than QUICK. Twin of :na_input in the .bat
+# script, so both reports count it the same way.
+DVD_ENTRY=ffmpeg_dvd_hevc.sh
+
+na_input() {   # na_input <entry>
+    if [ ! -f "$REPO/$1" ]; then
+        printf '%-12s %-30s %s\n' "NO-ENTRY" "$1" "file missing from the repo"
+        COUNT_NO=$((COUNT_NO+1))
+        return
+    fi
+    printf '%-12s %-30s %s\n' "N/A-INPUT" "$1" \
+        "input is an ISO / VIDEO_TS dir / drive letter - not a video file"
+    COUNT_NA=$((COUNT_NA+1))
+}
+
 # Wrapper entries call one of the above; their status is inherited.
 wrapper_target() {   # wrapper_target <file> -> the ffmpeg_*.sh it invokes
     grep -o 'ffmpeg_[a-z0-9_]*\.sh' "$REPO/$1" 2>/dev/null | head -1
@@ -239,7 +263,7 @@ printf '%-12s %-30s %s\n' "STATUS" "ENTRY" "NOTE"
 printf '%-12s %-30s %s\n' "------------" "------------------------------" "------------------------------------"
 
 STATUS_OF_ENTRY=""
-COUNT_OK=0; COUNT_NO=0; COUNT_UNK=0
+COUNT_OK=0; COUNT_NO=0; COUNT_UNK=0; COUNT_NA=0
 while IFS= read -r spec; do
     [ -z "$spec" ] && continue
     entry="${spec%%|*}"
@@ -272,6 +296,8 @@ while IFS= read -r spec; do
         *) COUNT_NO=$((COUNT_NO+1)) ;;
     esac
 done < <(entry_requirements)
+
+na_input "$DVD_ENTRY"
 
 # wrappers inherit the status of the entry they drive
 for w in convert_from_list_cuda.sh convert_from_list_libx265.sh convert_from_list_qsv.sh repack_from_list.sh; do
@@ -343,6 +369,14 @@ if [ "$PROBE" = 1 ]; then
         mkdir -p "$d"; cp -f "$TINY" "$d/clip.mp4"
         lf="$d/run.log"; rm -f "$d/clip-compressed.mp4"
         case "$b" in
+            "$DVD_ENTRY")
+                # DEEP twin of the QUICK N/A-INPUT row: listed so the two tables
+                # stay 1:1, but neither run nor counted - COUNT_NA already holds
+                # it from the QUICK table, and probing it would only spend a title
+                # scan guaranteed to end in "no title could be read".
+                printf '%-12s %-30s %s\n' "N/A-INPUT" "$b" \
+                    "skipped - not a video file input, needs an ISO / VIDEO_TS dir"
+                continue ;;
             convert_from_list_*|repack_from_list.sh)
                 # These take a LIST FILE, not a clip. The list holds an ABSOLUTE
                 # path: with a relative name the entry canonicalises it itself and
@@ -391,6 +425,7 @@ echo "==== summary ===="
 echo "entries usable (OK): $COUNT_OK"
 echo "entries not usable here: $COUNT_NO   (NO-ENCODER / NO-DEVICE / N/A-OS / NO-ENTRY)"
 echo "entries needing --probe: $COUNT_UNK"
+echo "entries not probed here: $COUNT_NA   (N/A-INPUT - input is not a video file)"
 [ "$PROBE" = 1 ] && echo "probe results: ok=$p_ok fail=$p_fail"
 echo
 echo "NOTE: a status here is a statement about THIS machine, not about the"
