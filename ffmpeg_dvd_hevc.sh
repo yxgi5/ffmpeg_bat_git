@@ -58,11 +58,15 @@ echo ============================================================
 # ---------- 前置检查 ----------
 # 与 .bat 侧同一套定位顺序(见 lib/common.sh 的 find_ffmpeg):
 #   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
-# 不能只问 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个(MSYS2 命中
-# /mingw64/bin 8.1、Cygwin 命中 /usr/bin 7.1.1), 后面那个能用的构建于是永远轮不到
-if ! FF="$(find_ffmpeg)"; then
-    echo -e "\033[41;36m找不到 ffmpeg\033[0m"
-    echo "可用 FFMPEG_BIN=<目录> 或 FFMPEG=<可执行文件> 指定"
+# 不能只问 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个。
+# dvdvideo 解复用器依赖 libdvdread/libdvdnav, 精简构建没有 —— 用 --need-demuxer 让
+# 定位阶段就跳过不带它的构建(本机实测: PATH 上 ubuntu 4.4.2 没有, /opt 下的 master
+# build 有, 于是自动落到 /opt 那份, 不必写死路径)。
+# 选中的那份由 ff_report 在标准错误上醒目回显。
+if ! FF="$(find_ffmpeg --need-demuxer dvdvideo)"; then
+    echo -e "\033[41;36m找不到带 dvdvideo 解复用器的 ffmpeg\033[0m"
+    echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
+    echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
     exit 1
 fi
 if ! FP="$(find_ffprobe "$FF")"; then
@@ -71,15 +75,6 @@ if ! FP="$(find_ffprobe "$FF")"; then
     exit 1
 fi
 export FF FP
-echo "ffmpeg   : $FF ($(ffmpeg_build_id "$FF"))"
-
-# dvdvideo 解复用器依赖 libdvdread/libdvdnav, 精简构建没有。
-# 必须用上面定位到的 $FF 来问: 用裸 ffmpeg 会变成"检查 PATH 里那份, 却跑 $FF 那份"
-if ! "$FF" -hide_banner -demuxers 2>/dev/null | grep -qi "dvdvideo"; then
-    echo -e "\033[41;36m这份 ffmpeg 没有 dvdvideo 解复用器\033[0m"
-    echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
-    exit 1
-fi
 
 # ============================ 配置区 ============================
 # ---------- 输入 ----------

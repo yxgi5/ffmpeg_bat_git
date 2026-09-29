@@ -515,6 +515,20 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
   **不能只信 `command -v`**：它只回第一个命中，而 MSYS2 的 `/mingw64/bin` 8.1、Cygwin 的 `/usr/bin` 7.1.1 常常正是缺能力的那个，
   `dvdvideo` 检查也用定位到的这份 ffmpeg 来做（否则会变成“检查 PATH 里那份、却跑另一份”）
 
+两族定位成功后都会**醒目回显**最终选定的路径与版本串（`.sh` 走标准错误，`.bat` 直接 `echo`），形如：
+
+```
+============================================================
+ 使用 ffmpeg : /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg
+ 版本       : N-117740-g7f51cf75c6-20241110
+============================================================
+```
+
+`find_ffmpeg` 还能按能力筛：`--need-filter <名>` / `--need-encoder <名>` / `--need-demuxer <名>`，
+缺哪项就在查找阶段**跳过**那个候选（诊断走标准错误）。`ffmpeg_dvd_hevc.sh` 用的是 `--need-demuxer dvdvideo`：
+本机 PATH 上的 Ubuntu 4.4.2 没有 dvdvideo，于是自动落到 `/opt` 下的 master build，**不用写死路径**。
+显式指定（`FFMPEG_BIN` / `FFMPEG`）仍然无条件优先——能力不足只报错、不悄悄换掉。
+
 ## 已知边界与注意事项
 
 | 项 | 说明 |

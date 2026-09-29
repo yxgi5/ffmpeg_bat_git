@@ -152,6 +152,19 @@ if not defined FFBIN (
 )
 if "%FFBIN:~-1%"=="\" set "FFBIN=%FFBIN:~0,-1%"
 set "%FF_OUT%=%FFBIN%"
+rem 醒目回显最终选定的 ffmpeg(与 .sh 侧 ff_report 同义): 定位过程一堆诊断很容易盖过
+rem 真正被采用的那个, 用户问"到底用的哪个 ffmpeg"时看的就是这块牌子。
+rem 版本串走"先写临时文件再 for /f usebackq 回读" —— 本机真机验证过的读法; 不写成
+rem for /f 反引号直接跑 %FFBIN%\ffmpeg.exe(那样是变量展开的程序路径, lint L21 会拦)
+set "FF_SHOW=%FFBIN%\ffmpeg.exe"
+set "FF_VER="
+if defined TEMP "%FF_SHOW%" -hide_banner -version > "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
+if defined TEMP if exist "%TEMP%\ffmpeg_bat_ffver.tmp" for /f "usebackq tokens=3" %%v in ("%TEMP%\ffmpeg_bat_ffver.tmp") do if not defined FF_VER set "FF_VER=%%v"
+if defined TEMP del "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
+echo ============================================================
+echo  使用 ffmpeg : %FF_SHOW%
+if defined FF_VER echo  版本       : %FF_VER%
+echo ============================================================
 exit /b 0
 
 :check_isvideo
