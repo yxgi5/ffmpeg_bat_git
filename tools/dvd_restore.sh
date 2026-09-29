@@ -16,6 +16,8 @@
 #                    反向(缺 IFO)与整组 IFO/BUP 全丢请改用 tools/dvd_repair.sh
 #    DEEP=1          校验阶段把 ISO 解开逐字节比对(最稳, 但要额外读写一份 1.x GB)
 #    CHECK=0         跳过结构检查(不建议; 检查项见下)
+#    ALLOW_GAP=1     VOB 编号断号时(那一整段的音视频真没了)不拦, 照样出镜像。
+#                    默认拦下并退出; 同名的开关在 dvd_shrink.sh / dvd_to_data_iso.sh 里同义
 #
 #  为什么不能"打个 iso 就完事"——四条实测踩坑:
 #    1) 输出 ISO 不能落在源目录里面。mkisofs 是先扫目录树再造镜像, ISO 正在被写、
@@ -195,12 +197,28 @@ if [ "${CHECK:-1}" != "0" ]; then
         i=1
         while [ "$i" -le "$max" ]; do
             if [ ! -f "$VTS/VTS_${g}_${i}.VOB" ]; then
-                warn "缺 VTS_${g}_${i}.VOB(编号断号) —— 这一段的音视频真没了, 补不出来"
+                warn "缺 VTS_${g}_${i}.VOB(编号断号)"
                 gap_n=$((gap_n + 1))
             fi
             i=$((i + 1))
         done
     done
+
+    # 断号不是小毛病: 那一整段的音视频真没了, 任何工具都补不出来(tools/dvd_repair.sh
+    # 遇到它也只报告)。默认停下 —— 否则镜像看着正常、校验也过, 播到缺的那段才断,
+    # 而那时候盘已经刻完了。确实要带着缺口出镜像就给 ALLOW_GAP=1, 命令直接打在报错里。
+    if [ "$gap_n" -gt 0 ]; then
+        if [ "${ALLOW_GAP:-0}" = "1" ]; then
+            warn "共 $gap_n 段 VOB 缺失 —— ALLOW_GAP=1, 继续打包; 出来的镜像播到缺的那段会断"
+        else
+            gap_cmd="$0 \"$SRC_TOP\""
+            [ -n "$OUT" ] && gap_cmd="$gap_cmd \"$OUT\""
+            err "VIDEO_TS 有 $gap_n 段 VOB 缺失(编号断号) —— 这一段的音视频真没了, 补不出来"
+            die "确认要带着缺口出镜像就加 ALLOW_GAP=1 重跑:
+       ALLOW_GAP=1 $gap_cmd
+   (连其它结构检查一起跳过用 CHECK=0)"
+        fi
+    fi
 
     # ② 文件名大小写 + 扇区对齐 + 单文件上限 + 目录里的多余文件
     bad_case=0; bad_align=0; junk=""

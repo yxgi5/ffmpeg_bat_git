@@ -16,6 +16,9 @@
 #    STAGE=<路径>     先压时 MKV 的落点, 默认 <源旁边>/HEVC_OUT
 #    KEEP_STAGE=1     打包完保留那份 MKV, 默认跟着工作目录一起删
 #    VOLID=NAME       卷标(只保留 [A-Za-z0-9_], 截到 32 字符)
+#    CHECK=0          跳过源盘体检(不建议; 体检只在"DVD 目录 + 真的要读它"时做)
+#    ALLOW_GAP=1      体检发现补不出来的缺失(VOB 断号)时不拦, 带着缺口继续。
+#                     默认拦下并退出(与 dvd_restore.sh / dvd_shrink.sh 同义)
 #
 #  DVD 机读不了这种盘 —— 这是**数据盘**, 不是 DVD-Video:
 #    * 里面是 mkv / mp4 之类的普通文件, 没有 VIDEO_TS, 没有 DVD 菜单;
@@ -120,6 +123,35 @@ info "判定        : $([ "$is_dvd" = 1 ] && echo 'DVD-Video 源' || echo '普�
 #  先压: 交给同仓库的 ffmpeg_dvd_hevc.sh, 不在这里复制它的坑(dvdvideo 解复用、
 #  位图字幕、IVTC 都在那边处理好了)
 # =========================================================================
+# =========================================================================
+#  体检门: 只在"源是 DVD **目录** 且真的要读它(ENCODE=1)"时才做
+#  同 dvd_shrink.sh 那道门: 退出码 0 完好 / 1 都能补 / 2 补不出来; 本脚本不替你补。
+#  ISO / 光驱源跳过: dvd_repair.sh 只认目录, 喂 ISO 会被当成"没有 VIDEO_TS", 那是假警报。
+# =========================================================================
+if [ "$ENCODE" = 1 ] && [ "${CHECK:-1}" != "0" ] && [ -d "$SRC" ] && [ "$is_dvd" = 1 ]; then
+    info "体检源盘结构 ..."
+    CHECK_ONLY=1 bash "$SCRIPT_DIR/dvd_repair.sh" "$SRC"
+    case "$?" in
+        0) info "体检通过    : IFO/BUP 成对齐全, VOB 编号连续" ;;
+        1)
+            err "源盘有缺失(清单见上) —— 缺的那些 title 压不出来, 先修再压"
+            die "修复命令:
+       APPLY=1 bash \"$SCRIPT_DIR/dvd_repair.sh\" \"$SRC\"
+   (不想要这道门就 CHECK=0)"
+            ;;
+        2)
+            if [ "${ALLOW_GAP:-0}" = "1" ]; then
+                warn "有补不出来的缺失 —— ALLOW_GAP=1, 继续; 缺的那一段不会出现在产物里"
+            else
+                err "源盘有补不出来的缺失(VOB 断号): 那一整段的音视频真没了"
+                die "确认要带着缺口继续就加 ALLOW_GAP=1 重跑:
+       ALLOW_GAP=1 $0 \"$SRC\" ${OUT:+\"$OUT\"}"
+            fi
+            ;;
+        *) die "体检失败(dvd_repair.sh 退出码非 0/1/2), 先单独跑它看报错" ;;
+    esac
+fi
+
 if [ "$ENCODE" = 1 ]; then
     [ "$is_dvd" = 1 ] || die "ENCODE=1 但源不是 DVD-Video(没有 VIDEO_TS), 不知道该压什么"
     HENC="$REPO_ROOT/ffmpeg_dvd_hevc.sh"
