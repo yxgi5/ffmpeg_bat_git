@@ -570,6 +570,47 @@ function ff_run() { _ff_native_exec "$FF" "$@"; }
 function fp_run() { _ff_native_exec "$FP" "$@"; }
 
 # ================================================================
+# pick_mkisofs / mkisofs_path  ——  打包器(mkisofs / genisoimage)的挑选与调用
+#
+# 为什么不能只按 mkisofs -> genisoimage 取第一个(2026-09-29 实测, Cygwin 打 DVD):
+#   Cygwin 的 PATH 上常有 WinCDEmu 自带的 mkisofs.exe, 它是**原生** Windows 程序。
+#   Cygwin 不给原生子进程改写 argv 里的路径(MSYS2 会改写), 于是同一条命令:
+#     MSYS2   /h/.../VIDEO_TS           -> 正常
+#     Cygwin  /cygdrive/h/.../VIDEO_TS  -> No such file or directory
+#   中文路径更糟: 原生 exe 那边直接变乱码(Invalid node - '/cygdrive/h/Downloads/<乱码>')。
+#   所以在这类环境里优先挑**shell 自己那一份**(在 /usr/bin 之类, 认 POSIX 路径);
+#   实在只剩原生 exe 时, 才把参数改成 native_path 的混合写法 X:/... 喂给它。
+#   纯 Linux 没有 cygpath, 两条分支都不进 —— 行为与改造前完全一致(mkisofs 优先)。
+#
+#   MKISOFS=/path/to/xxx 可强制指定, 与 FFMPEG= / FFPROBE= 的覆盖方式一致。
+# ================================================================
+function pick_mkisofs() {
+    if [ -n "${MKISOFS:-}" ] && [ -x "${MKISOFS}" ]; then printf '%s' "$MKISOFS"; return 0; fi
+    local cand="" first="" shell_side=""
+    for c in mkisofs genisoimage; do
+        command -v "$c" >/dev/null 2>&1 || continue
+        cand="$(command -v "$c")"
+        [ -n "$first" ] || first="$cand"
+        # Cygwin 挂在 /cygdrive 下的是 Windows 盘 -> 那一个是原生 exe;
+        # /usr/bin 之类的是 shell 侧构建, 认 POSIX 路径
+        case "$cand" in /cygdrive/*) ;; *) shell_side="$cand"; break ;; esac
+    done
+    case "$(uname -s 2>/dev/null)" in
+        CYGWIN*) [ -n "$shell_side" ] && { printf '%s' "$shell_side"; return 0; } ;;
+    esac
+    [ -n "$first" ] && { printf '%s' "$first"; return 0; }
+    return 1
+}
+
+# 选中的打包器要不要把路径改成原生写法: 只有「Cygwin + 原生 exe」这一档才要
+function mkisofs_path() {
+    case "$(uname -s 2>/dev/null)" in
+        CYGWIN*) case "${1:-}" in /cygdrive/*) native_path "$1"; return 0 ;; esac ;;
+    esac
+    printf '%s' "${1:-}"
+}
+
+# ================================================================
 # src_stamp <文件>  ——  把源文件折算成一小段"身份串", 用来给工作目录命名
 #   只取字节数: .bat 侧的 %%\~zI 能算出同一个数, 两族因此可以共用同一份产物;
 #   mtime 不行(cmd 的 %%\~tI 是本地化格式, 和 stat/date 的秒数对不上)。

@@ -180,9 +180,10 @@ VOLID="${VOLID:-$(basename "$DIR")}"
 VOLID="$(printf '%s' "$VOLID" | tr -cd 'A-Za-z0-9_' | cut -c1-32)"
 [ -n "$VOLID" ] || VOLID="DATA"
 
-MKISOFS=""
-for c in mkisofs genisoimage; do command -v "$c" >/dev/null 2>&1 && { MKISOFS="$(command -v "$c")"; break; }; done
-[ -n "$MKISOFS" ] || die "找不到 mkisofs / genisoimage。安装: sudo apt install genisoimage"
+# 挑打包器: 不能盲选 PATH 上第一个 —— Cygwin 下那常常是 WinCDEmu 的原生
+# mkisofs.exe, 它吃不下 POSIX 路径(见 lib/common.sh 的 pick_mkisofs)
+declare -F pick_mkisofs >/dev/null 2>&1 || die "lib/common.sh 未加载(pick_mkisofs 缺失) —— 请在完整仓库里运行本脚本"
+MKISOFS="$(pick_mkisofs)" || die "找不到 mkisofs / genisoimage。安装: sudo apt install genisoimage"
 HAVE_XORRISO=0; command -v xorriso >/dev/null 2>&1 && HAVE_XORRISO=1
 HAVE_7Z=0;      command -v 7z      >/dev/null 2>&1 && HAVE_7Z=1
 [ "$HAVE_XORRISO" = 1 ] || [ "$HAVE_7Z" = 1 ] || warn "xorriso 与 7z 都没有 —— 打包后只做大小检查, 跳过文件清单比对"
@@ -204,7 +205,8 @@ fi
 #  打包: UDF 桥 + Joliet + Rock Ridge
 # =========================================================================
 info "开始打包($MKISOFS -udf) ..."
-"$MKISOFS" -udf -iso-level 3 -J -r -allow-limited-size -V "$VOLID" -o "$OUT" "$DIR"
+# 只有「Cygwin + 原生 exe」这一档才把路径换成 X:/... 混合写法, 其余原样
+"$MKISOFS" -udf -iso-level 3 -J -r -allow-limited-size -V "$VOLID" -o "$(mkisofs_path "$OUT")" "$(mkisofs_path "$DIR")"
 rc=$?
 [ "$rc" -eq 0 ] || die "打包失败(rc=$rc)"
 ISO_SZ="$(stat -c%s "$OUT")"
