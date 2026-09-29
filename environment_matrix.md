@@ -1495,3 +1495,30 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       新增：lib 丢位图名单被抓、变量排在 `-map 0:s?` 之前被抓、完整接线保持静默）。
       端到端：`bash ffmpeg_libx264.sh` 跑裁出来的 PGS 样本 → 命令行带 `-map -0:s:0`，
       rc=0，产物 h264 + aac + 2 条 mov_text（ass / subrip 保住）。
+55. **`ffmpeg_dvd_hevc.bat` 首次真机端到端测试（2026-09-29）+ 两处真缺陷修复**（详见
+    `code_review_report.md` 同日条目）：
+    * **为什么之前一直没端到端**：本机三个 shell（cmd / MSYS2 / Cygwin）**都造不出 DVD 素材**
+      （第 12 条：MINGW64 连 `mkisofs`/`genisoimage`/`xorriso` 都没有，Cygwin 也没有 `dvdauthor`），
+      而 `ffmpeg -f dvdvideo` **必须**有 `VIDEO_TS.IFO`（实测 `D:\repos\test.iso` 的报错就是
+      `UDFFindFile /VIDEO_TS/VIDEO_TS.IFO failed`）。所以 DVD 线的端到端**只能拿真盘**：
+      本轮用 `H:\Downloads\中高艺\中高艺丝袜视频DVD系列\DVD0xx(*)\DVD0xx.ISO`（约 4 GB/张，
+      PAL 720x576）。沙箱里 `cmd < 脚本 > 日志` 这条通道可用，故 9 条错误路径 + 7 条端到端全是实跑。
+    * **修复 1（.bat 独有、跨族不对等）**：配置区 `EXT` / `VFILT_EXTRA` / `SPLIT_CHAPTER` /
+      `EXTRA_TITLES` / `VBITRATE` 是**无条件 `set`**，静默冲掉调用方预设的环境变量（同文件里
+      `MODE`/`AUDIO`/`FILT`/`VENC` 都有 `if not defined` 守卫，`.sh` 侧五个全是 `${VAR:-默认}`）。
+      实测 `set EXT=mp4 & ffmpeg_dvd_hevc.bat …` **仍产出 `.mkv`** → 五处补守卫。
+    * **修复 2（静默降级）**：`:PROBE_RATE` 的 `findstr /r "^[0-9][0-9]*/[0-9][0-9]*$"` 匹配不上
+      ffprobe `-of csv=p=0` 的**尾逗号**输出（实测 5 字节 `25/1,`）→ `SRC_RATE` 恒空 → 制式判定
+      退化成按高度猜（日志 `源制式  : PAL25 @` 后面空白）。改正则容忍尾逗号 + 回读按逗号取首列。
+      同形态的 `:PROBE_ACODEC` **是好的**（最小实验：`findstr` 管道形式能匹配带 CR 的 `mp1`）
+      → `pcm_dvd` 盘（DVD020）正确触发「自动转 AAC 192k」，产物 `hevc + aac`。
+    * **L15 负退出码守卫的运行时实证**（`test/README.md` §6.5 的「最重要待验项」）：无章节 title
+      上 `SPLIT_CHAPTER=2` → ffmpeg 返回 **-1094995529** → 脚本打印
+      `Convert failed! rc=-1094995529` 并 `exit /b 1`（`if errorlevel 1` 看不见负数）。
+    * **修复 3（提示被吃掉）**：失败提示行 `echo … 不被接受 -> 换 VENC=libx265 …` 里的
+      `->` 被 cmd 当成输出重定向，提示写进了名为「换」的文件（78 字节），用户看不到；
+      改全角 `→`（`.sh` 侧的 `->` 全在注释/引号内，不受影响）。**教训**：`.bat` 里任何
+      `echo` 文本都不能出现裸 `>` / `<`，箭头一律用全角。
+    * **可复用的环境事实**：本机 gyan full 2025-05-01 **有** `dvdvideo` 解复用器与
+      `hevc_nvenc`/`hevc_qsv`/`libx265`（三条探测全部 rc=0）；NVENC 压 DVD 约 **74x**
+      （1119s 的 title 只花 ~15 s 墙钟），做 DVD 端到端比软编便宜一个量级。

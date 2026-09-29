@@ -689,11 +689,7 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
 * **`check_env.bat /probe`**（本机预期：`av1_qsv` → `PROBE-FAIL rc=1 | Conversion failed!`
   —— 入口现在把 ffmpeg 的负码 `-40` 归一成契约里的 `1`，`run.log` 里仍能看到原始的
   `ERRORLEVEL:-40`；其余 `PROBE-OK out=…B`；表尾还有 `filt libvmaf : yes`）；
-* **失败守卫的运行时实证**（本轮最重要的待验项：`.bat` 侧的 `if not "%FB_RC%"=="0"`
-  永远没在真机上跑过一次，静态 + lint 只能证明形状对）—— 建议拿一个**必然失败**的入口
-  双击一次，例如在无 AV1 硬编的机器上跑 `ffmpeg_av1_qsv.bat`：
-  窗口应出现 `Convert failed! rc=-40`，**cmd 里 `echo %ERRORLEVEL%` 应为 1**；
-  修之前这里会走到「转换已出错或完成, 默认不替换」并返回 0；
+* ~~**失败守卫的运行时实证**~~ ✅ **2026-09-29 已实证**（原为「本轮最重要的待验项」：`.bat` 侧的 `if not "%FB_RC%"=="0"` 从未在真机跑过一次，静态 + lint 只能证明形状对）：拿 `ffmpeg_dvd_hevc.bat` 在**无章节**的 title 上跑 `SPLIT_CHAPTER=2`，part2 必然失败 —— ffmpeg 返回 **-1094995529**，日志打出 `Convert failed! rc=-1094995529` 且进程 `exit /b 1`（`if errorlevel 1` 是带符号比较，看不见这个负数）。详见 `code_review_report.md` 同日条目；原建议的验证路径（无 AV1 硬编的机器上跑 `ffmpeg_av1_qsv.bat`，期望 `Convert failed! rc=-40`）仍然有效。
 * **拖一部含多音轨的 mkv 上 `ffmpeg_copy_to_mp4.bat`**：除了音轨数要对得上，
   还要确认 moov 前置 —— 用 `ffprobe -v trace` 看原子顺序是 `ftyp` → **`moov`** → `mdat`；
 * **`probe_source` 合并探测的运行时实证**（本轮新增）：拖一部普通片源上任意编码入口

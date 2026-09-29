@@ -99,7 +99,8 @@ if not defined PREFIX set "PREFIX=dvd"
 
 rem EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
 rem EXT=mp4  只能 HEVC + AAC + 1 条字幕，且 AC3 必须重编码
-set EXT=mkv
+rem 同上: 不覆盖调用方预设的值(与 .sh 侧 ${EXT:-mkv} 同义)
+if not defined EXT set EXT=mkv
 
 rem AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
 rem           保留 25p; 源已是 23.976p -> 不加滤镜。读不到帧率就按高度猜(576/288=PAL,
@@ -115,7 +116,8 @@ rem 追加到滤镜链末尾的可选处理（通用化：默认空，不改 SAR
 rem   例: setsar=32:27            16:9 变形宽银幕
 rem       setsar=8:9              4:3
 rem       crop=704:480:8:0,setsar=40:33   裁掉左右过扫边后再修 SAR
-set VFILT_EXTRA=
+rem 不覆盖调用方预设(与 .sh 侧 ${VFILT_EXTRA:-} 同义)
+if not defined VFILT_EXTRA set VFILT_EXTRA=
 
 rem AUDIO=copy  MKV 下保留原始 AC3 / DTS / MP2，零重损失，最快。
 rem             唯一例外: 源音轨是 LPCM(pcm_dvd) 时 Matroska 装不下(实测报
@@ -136,15 +138,18 @@ if defined DVD_TITLE set MODE=TITLE
 rem SPLIT_CHAPTER=N  按第 N 章把正片切成两段(例如前編/後編)，0 = 不切
 rem   第 1 段 = 第 1 章到第 N-1 章，第 2 段 = 第 N 章到结尾
 rem   查章节点: ffprobe -f dvdvideo -preindex 1 -title 3 -show_chapters <源>
-set SPLIT_CHAPTER=0
+rem 不覆盖调用方预设(与 .sh 侧 ${SPLIT_CHAPTER:-0} 同义)
+if not defined SPLIT_CHAPTER set SPLIT_CHAPTER=0
 
 rem 额外要导出的 title 号，空格分隔；留空则跳过。例: set EXTRA_TITLES=1 4 5
-set EXTRA_TITLES=
+rem 不覆盖调用方预设(与 .sh 侧 ${EXTRA_TITLES:-} 同义)
+if not defined EXTRA_TITLES set EXTRA_TITLES=
 
 rem 空 = 查表再 /2（推荐）；填数字则直接覆盖(bit/s)
 rem   用哪张表由编码器定: hevc_* -> hevc 表, h264_* / libx264 -> avc 表,
 rem   av1_* / libsvtav1 -> av1 表(三张表都 /2, 与仓库其余入口同口径)
-set VBITRATE=
+rem 不覆盖调用方预设(与 .sh 侧 ${VBITRATE:-} 同义)
+if not defined VBITRATE set VBITRATE=
 
 rem VENC 空 / auto = 依次探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一个真能编的
 rem VENC 显式     = 直接填 ffmpeg 原生名: hevc_nvenc / hevc_qsv / h264_nvenc /
@@ -459,7 +464,7 @@ set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
     echo 常见原因: [1] -c:s 处理不了位图字幕  [2] MP4 下 AC3 没转成 AAC
-    echo            [3] %VCODEC% 的参数不被接受 -> 换 VENC=libx265 或 VENC=auto
+    echo            [3] %VCODEC% 的参数不被接受 → 换 VENC=libx265 或 VENC=auto
     exit /b 1
 )
 exit /b 0
@@ -560,8 +565,12 @@ rem  形状过滤(只留纯 "数字/数字" 或纯 codec 名那些行)
 rem =========================================================================
 :PROBE_RATE
 set "%~2="
-"%FP%" -v error -f dvdvideo -title %1 -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*$" > "%WORK%\_p3.txt"
-if exist "%WORK%\_p3.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p3.txt") do set "%~2=%%A"
+"%FP%" -v error -f dvdvideo -title %1 -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*,*$" > "%WORK%\_p3.txt"
+rem 只留数值行(libdvdread 的 CHECK_VALUE 抱怨在这类盘上是打到标准输出的, 见下面
+rem :PROBE_ACODEC), 但正则必须容忍尾逗号: csv=p=0 对单字段也打 "25/1," 这种形式,
+rem 原来的 ^...$ 锚匹配不上 -> SRC_RATE 恒为空, 制式只能退化成按高度猜(日志里
+rem "源制式: PAL25 @" 后面是空的)。回读时再按逗号取首列, 与 .sh 侧 tr ',' 同效果。
+if exist "%WORK%\_p3.txt" for /f "usebackq tokens=1 delims=," %%A in ("%WORK%\_p3.txt") do set "%~2=%%A"
 del "%WORK%\_p3.txt" 2>nul
 exit /b 0
 
