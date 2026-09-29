@@ -46,7 +46,9 @@ rem       白扔 20% 码率还留梳状波纹
 rem
 rem  本脚本相对现有脚本新增的三件事:
 rem    A. -f dvdvideo 直接读整张镜像 / VIDEO_TS 目录 / 光驱, 不用先解 VOB
-rem    B. 可选 IVTC 到 23.976p(FILT=IVTC/BWDIF/NONE)
+rem    B. 默认按源制式选滤镜(FILT=AUTO): NTSC 29.97i -> IVTC 到 23.976p,
+rem      PAL 25i -> BWDIF 去交错保留 25p(PAL 硬套 IVTC 会掉到 20fps, 实测踩过);
+rem      要手动指定就 FILT=IVTC / BWDIF / NONE
 rem    C. 默认 MKV + AC3 remux + 位图字幕无损保留全部轨
 rem
 rem  通用化设计(刻意不改的两件事):
@@ -58,8 +60,15 @@ rem         set VFILT_EXTRA=crop=704:480:8:0,setsar=40:33
 rem    * 不猜测该切哪一章。前編/後編的分界章号每张盘都不一样, 由调用方填
 rem      SPLIT_CHAPTER; 默认 0 = 不切。
 rem
-rem  码率仍复用仓库现有的 power-law 模型:
-rem    lib\bitrate_table_hevc.csv + lib\common.bat 的 lookup_bitrate
+rem  编码器(开关 VENC, 与 .sh 侧同名同义):
+rem    空 / auto = 依次真跑探测 hevc_nvenc -> hevc_qsv -> libx265, 取第一个能编的
+rem    显式     = ffmpeg 原生名(hevc_nvenc / hevc_qsv / h264_nvenc / h264_qsv /
+rem               av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1), 探测通不过
+rem               就报错退出并列出本机可用的, 不静默降级。名字用原生名, 不另起别名
+rem               连字符写法(hevc-nvenc)也认; avc_nvenc / avc_qsv 翻成 h264_*。
+rem
+rem  码率仍复用仓库现有的 power-law 模型(三张表都 /2, 用哪张由编码器定):
+rem    bitrate_table_hevc.csv / _avc.csv / _av1.csv + lib\common.bat 的 lookup_bitrate
 rem    例: 720x480 = 345600 px -> 表值 1272042 -> 再 /2 = 636021 bit/s
 rem  注意: VBITRATE 单位是 bit/s(裸数字), 与 ffmpeg_hevc_nvenc.bat 同口径;
 rem        别写成 636k, 那会被当成 636 Mbps 把 NVENC 顶回去。
@@ -92,10 +101,15 @@ rem EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字
 rem EXT=mp4  只能 HEVC + AAC + 1 条字幕，且 AC3 必须重编码
 set EXT=mkv
 
-rem IVTC    3:2 pulldown -> 23.976p，动画/电影 DVD 多数是这种，默认用它
-rem BWDIF   去交错但保留 29.97p，只有确认是真隔行(摄像机/现场录像)时才用
-rem NONE    原样 29.97 直接编码
-set FILT=IVTC
+rem AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
+rem           保留 25p; 源已是 23.976p -> 不加滤镜。读不到帧率就按高度猜(576/288=PAL,
+rem           480/240=NTSC)。PAL 盘没有 3:2 pulldown, 硬套 IVTC 会掉到 20fps(实测: 本机
+rem           两张 720x576 PAL 盘跑 IVTC 出来 r_frame_rate=20/1, 白扔 20% 帧)
+rem IVTC    3:2 pulldown -> 23.976p，NTSC 动画/电影 DVD 多数是这种
+rem BWDIF   去交错但保留原帧率(PAL 25i -> 25p)。注意 bwdif=mode=1 是 send_field,
+rem         帧率直接翻倍(实测 25i -> 50p), 帧数翻倍会把码率摊薄, 故这里用 mode=0
+rem NONE    原样编码，不做去交错
+if not defined FILT set FILT=AUTO
 
 rem 追加到滤镜链末尾的可选处理（通用化：默认空，不改 SAR 也不裁边）
 rem   例: setsar=32:27            16:9 变形宽银幕
@@ -103,14 +117,19 @@ rem       setsar=8:9              4:3
 rem       crop=704:480:8:0,setsar=40:33   裁掉左右过扫边后再修 SAR
 set VFILT_EXTRA=
 
-rem AUDIO=copy  MKV 下保留原始 AC3，零重损失，最快
-rem AUDIO=aac   必须重编码(MP4 下强制用这个)
-set AUDIO=copy
+rem AUDIO=copy  MKV 下保留原始 AC3 / DTS / MP2，零重损失，最快。
+rem             唯一例外: 源音轨是 LPCM(pcm_dvd) 时 Matroska 装不下(实测报
+rem             "No wav codec tag found for codec pcm_dvd")，会自动转成 AAC
+rem AUDIO=aac   强制重编码成 AAC 192k(MP4 下强制用这个)
+rem AUDIO=flac  强制重编码成 FLAC，无损，体积约为 LPCM 的一半
+if not defined AUDIO set AUDIO=copy
 
-rem MODE=AUTO   自动扫描所有 title，挑时长最长的那条当正片(默认，最通用)
+rem MODE=ALL    每个 title 各出一个文件(默认)
+rem MODE=AUTO   自动扫描所有 title，挑时长最长的那条当正片
 rem MODE=TITLE  只处理 DVD_TITLE 指定的一条
-rem MODE=ALL    每个 title 各出一个文件
-set MODE=AUTO
+rem 不覆盖调用方预设的值: setlocal 挡不住继承来的环境变量, 写成 set MODE=ALL 会把
+rem "set MODE=AUTO && ffmpeg_dvd_hevc.bat ..." 里的 AUTO 悄悄冲掉
+if not defined MODE set MODE=ALL
 set "DVD_TITLE=%~3"
 if defined DVD_TITLE set MODE=TITLE
 
@@ -122,8 +141,19 @@ set SPLIT_CHAPTER=0
 rem 额外要导出的 title 号，空格分隔；留空则跳过。例: set EXTRA_TITLES=1 4 5
 set EXTRA_TITLES=
 
-rem 空 = 用 lib\bitrate_table_hevc.csv 查表再 /2（推荐）；填数字则直接覆盖(bit/s)
+rem 空 = 查表再 /2（推荐）；填数字则直接覆盖(bit/s)
+rem   用哪张表由编码器定: hevc_* -> hevc 表, h264_* / libx264 -> avc 表,
+rem   av1_* / libsvtav1 -> av1 表(三张表都 /2, 与仓库其余入口同口径)
 set VBITRATE=
+
+rem VENC 空 / auto = 依次探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一个真能编的
+rem VENC 显式     = 直接填 ffmpeg 原生名: hevc_nvenc / hevc_qsv / h264_nvenc /
+rem                 h264_qsv / av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1
+rem                 (连字符写法 hevc-nvenc 也认; avc_nvenc / avc_qsv 会自动翻成
+rem                  h264_nvenc / h264_qsv —— ffmpeg 里没有 avc_* 这个编码器名)
+rem 显式指定的那个探测通不过 -> 报错退出并列出本机可用的，不静默降级
+rem 同上: 不覆盖调用方预设的 VENC
+if not defined VENC set "VENC=auto"
 rem ==================================================================
 
 rem ---------------------------- 找 ffmpeg ----------------------------
@@ -223,6 +253,53 @@ if not defined SRC_W (
 )
 echo 正片: title %DVD_TITLE%  %SRC_W%x%SRC_H%  时长 %SRC_DUR%s
 set /a SRC_PIX=%SRC_W%*%SRC_H%
+rem 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条
+if "%MODE%"=="ALL" (set REF_TITLE=1) else (set REF_TITLE=%DVD_TITLE%)
+call :PROBE_RATE %REF_TITLE% SRC_RATE
+call :PROBE_ACODEC %REF_TITLE% SRC_ACODEC
+
+rem ---------------------------- 选编码器 ----------------------------
+rem 探测一律「真跑一次小编码」，不看 ffmpeg -encoders 列表：本机三个 nvenc 都挂在
+rem 列表里，真跑却在 cuInit 处失败(没 N 卡) —— 只看列表会把不可用判成可用。
+rem 尺寸取 320x240：再小(128x128) NVENC 自己就拒绝初始化，反过来会把可用判成
+rem 不可用(仓库 test/README.md 记过这个假 SKIP)。
+set "VENC_NAME=%VENC%"
+if not defined VENC_NAME set VENC_NAME=auto
+set "VENC_NAME=%VENC_NAME:-=_%"
+if /i "%VENC_NAME%"=="avc_nvenc" set VENC_NAME=h264_nvenc
+if /i "%VENC_NAME%"=="avc_qsv" set VENC_NAME=h264_qsv
+set "VCODEC="
+if /i not "%VENC_NAME%"=="auto" goto VENC_FIXED
+call :VENC_OK hevc_nvenc
+if "%VRC%"=="0" set "VCODEC=hevc_nvenc"
+if defined VCODEC goto VENC_PICKED
+call :VENC_OK hevc_qsv
+if "%VRC%"=="0" set "VCODEC=hevc_qsv"
+if defined VCODEC goto VENC_PICKED
+call :VENC_OK libx265
+if "%VRC%"=="0" set "VCODEC=libx265"
+if defined VCODEC goto VENC_PICKED
+echo [错误] hevc_nvenc / hevc_qsv / libx265 三个候选本机都不可用
+exit /b 1
+:VENC_FIXED
+rem 先认名字再探测：拼错的名字不至于被当成「本机不可用」这种误导性报错
+call :VENC_BTAB %VENC_NAME%
+if defined BTAB goto VENC_FIXED_OK
+echo [错误] 不认识的编码器: %VENC_NAME%
+echo        认这些: hevc_nvenc hevc_qsv h264_nvenc h264_qsv av1_nvenc av1_qsv libx265 libx264 libsvtav1
+exit /b 1
+:VENC_FIXED_OK
+set "VCODEC=%VENC_NAME%"
+call :VENC_OK %VCODEC%
+if "%VRC%"=="0" goto VENC_PICKED
+echo [错误] 指定的编码器 %VCODEC% 本机不可用，探测失败
+echo        常见原因: 没装对应驱动 / 这份 ffmpeg 没编进该编码器 / 显卡不支持该格式
+call :VENC_LIST
+echo        本机实测可用: %AVAIL_LIST%
+exit /b 1
+:VENC_PICKED
+call :VENC_BTAB %VCODEC%
+echo 编码器  : %VCODEC%
 
 rem ---------------------------- 算目标码率 ----------------------------
 if defined VBITRATE goto HAVE_BIT
@@ -232,7 +309,7 @@ if not exist "%SELF_DIR%lib\common.bat" (
     echo        要么把仓库放完整，要么手工给码率: set VBITRATE=636021
     exit /b 2
 )
-call "%SELF_DIR%lib\common.bat" lookup_bitrate %SRC_PIX% BIT bitrate_table_hevc.csv
+call "%SELF_DIR%lib\common.bat" lookup_bitrate %SRC_PIX% BIT bitrate_table_%BTAB%.csv
 if not defined BIT (
     echo [错误] %SRC_PIX% 不在码率表范围内
     exit /b 2
@@ -240,11 +317,39 @@ if not defined BIT (
 set /a VBITRATE=%BIT% / 2
 :HAVE_BIT
 echo 目标视频码率: %VBITRATE% bit/s
+rem -b:v 要等码率算完才能拼进来，所以参数在这里组装(模板见 :VENC_ARGS)
+call :VENC_ARGS %VCODEC%
+echo 编码参数: %VENC_ARGS%
 
 rem ---------------------------- 组滤镜链 ----------------------------
+set "FILT_IVTC=fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate"
+set "FILT_BW=bwdif=mode=0"
 set VFILT=
-if "%FILT%"=="IVTC" set VFILT=fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate
-if "%FILT%"=="BWDIF" set VFILT=bwdif=mode=1
+if "%FILT%"=="IVTC" set "VFILT=%FILT_IVTC%"
+if "%FILT%"=="BWDIF" set "VFILT=%FILT_BW%"
+if "%FILT%"=="AUTO" goto FILT_AUTO
+goto FILT_JOIN
+:FILT_AUTO
+set FSYS=
+if "%SRC_RATE%"=="30000/1001" set FSYS=NTSC29
+if "%SRC_RATE%"=="30/1" set FSYS=NTSC29
+if "%SRC_RATE%"=="60000/1001" set FSYS=NTSC29
+if "%SRC_RATE%"=="24000/1001" set FSYS=NTSC23
+if "%SRC_RATE%"=="24/1" set FSYS=NTSC23
+if "%SRC_RATE%"=="25/1" set FSYS=PAL25
+if "%SRC_RATE%"=="50/1" set FSYS=PAL25
+if defined FSYS goto FILT_PICK
+rem 读不到帧率就按高度猜: 576/288 = PAL, 480/240 = NTSC
+if "%SRC_H%"=="576" set FSYS=PAL25
+if "%SRC_H%"=="288" set FSYS=PAL25
+if "%SRC_H%"=="480" set FSYS=NTSC29
+if "%SRC_H%"=="240" set FSYS=NTSC29
+:FILT_PICK
+if "%FSYS%"=="NTSC29" set "VFILT=%FILT_IVTC%"
+if "%FSYS%"=="PAL25" set "VFILT=%FILT_BW%"
+if defined FSYS echo 源制式  : %FSYS% @ %SRC_RATE%
+if not defined FSYS echo 源制式  : 读不到帧率也不认识高度，不加滤镜
+:FILT_JOIN
 if defined VFILT_EXTRA if defined VFILT set VFILT=%VFILT%,%VFILT_EXTRA%
 if defined VFILT_EXTRA if not defined VFILT set VFILT=%VFILT_EXTRA%
 set VFOPT=
@@ -257,15 +362,24 @@ echo [错误] EXT 只能是 mkv 或 mp4
 exit /b 3
 
 :CFG_MKV
-set VENC=hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v %VBITRATE%
-if "%AUDIO%"=="aac" (set AENC=-c:a aac -b:a 192k) else (set AENC=-c:a copy)
+rem 编码器参数(-c:v 的名字与 -b:v)由上面 :VENC_PICKED / :VENC_ARGS 组装
+set AENC=-c:a copy
+if "%AUDIO%"=="aac" set AENC=-c:a aac -b:a 192k
+if "%AUDIO%"=="flac" set AENC=-c:a flac
+if not "%AUDIO%"=="copy" goto CFG_MKV_DONE
+if not defined SRC_ACODEC goto CFG_MKV_DONE
+rem 含 pcm_dvd 就转: cmd 里没有 contains, 用"去掉子串后是否变短"来判断
+if "%SRC_ACODEC:pcm_dvd=%"=="%SRC_ACODEC%" goto CFG_MKV_DONE
+set AENC=-c:a aac -b:a 192k
+echo 注意: 源音轨是 LPCM(pcm_dvd)，Matroska 装不下，自动转 AAC 192k（要无损就设 AUDIO=flac）
+:CFG_MKV_DONE
 set SENC=-c:s copy
 set SMAP=-map 0:s?
 goto RUN_ALL
 
 :CFG_MP4
 echo 注意: MP4 只能保留 1 条 DVD 位图字幕，其余会丢；要全留请用 EXT=mkv
-set VENC=hevc_nvenc -profile:v main -preset p4 -tune:v hq -rc cbr -b:v %VBITRATE%
+rem 编码器参数(-c:v 的名字与 -b:v)由上面 :VENC_PICKED / :VENC_ARGS 组装
 set AENC=-c:a aac -b:a 192k
 set SENC=-c:s dvdsub
 set SMAP=-map 0:s:0?
@@ -335,7 +449,7 @@ if not "%CS%"=="0" set CHOP=-chapter_start %CS%
 if not "%CE%"=="0" set CHOP=%CHOP% -chapter_end %CE%
 echo ------------------------------------------------------------
 echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% %CHOP% -i "%SRC%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VENC% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% %CHOP% -i "%SRC%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
 %RUN_COM%
 rem 负退出码陷阱: Windows ffmpeg 失败时返回负的 AVERROR 值, 而 cmd 的
@@ -345,7 +459,7 @@ set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
     echo 常见原因: [1] -c:s 处理不了位图字幕  [2] MP4 下 AC3 没转成 AAC
-    echo            [3] NVIDIA 驱动过旧 / hevc_nvenc 不可用
+    echo            [3] %VCODEC% 的参数不被接受 -> 换 VENC=libx265 或 VENC=auto
     exit /b 1
 )
 exit /b 0
@@ -354,13 +468,108 @@ exit /b 0
 set "T=%~1"
 set "OUTN=%~2"
 echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:V -map 0:a? %VFOPT% -c:v %VENC% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
 %RUN_COM%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
     exit /b 1
 )
+exit /b 0
+
+rem =========================================================================
+rem  子过程 VENC_OK  <编码器>  ->  VRC=退出码(0 = 真能编)
+rem  真跑一次 320x240 小编码。只看 ffmpeg -encoders 列表会踩「假可用」：本机三个
+rem  nvenc 都列在表里，真跑却在 cuInit 处失败(没 N 卡)。320x240 是最小的安全尺寸，
+rem  再小(128x128) NVENC 自己拒绝初始化，会把可用判成不可用。
+rem =========================================================================
+:VENC_OK
+"%FF%" -hide_banner -v error -f lavfi -i testsrc2=s=320x240:r=25:d=1 -c:v %~1 -frames:v 2 -f null - >nul 2>&1
+set "VRC=%ERRORLEVEL%"
+exit /b 0
+
+rem =========================================================================
+rem  子过程 VENC_BTAB  <编码器>  ->  BTAB = hevc / avc / av1(不认识的名字给空)
+rem =========================================================================
+:VENC_BTAB
+set "BTAB="
+if /i "%~1"=="hevc_nvenc" set BTAB=hevc
+if /i "%~1"=="hevc_qsv" set BTAB=hevc
+if /i "%~1"=="libx265" set BTAB=hevc
+if /i "%~1"=="h264_nvenc" set BTAB=avc
+if /i "%~1"=="h264_qsv" set BTAB=avc
+if /i "%~1"=="libx264" set BTAB=avc
+if /i "%~1"=="av1_nvenc" set BTAB=av1
+if /i "%~1"=="av1_qsv" set BTAB=av1
+if /i "%~1"=="libsvtav1" set BTAB=av1
+exit /b 0
+
+rem =========================================================================
+rem  子过程 VENC_ARGS  <编码器>  ->  VENC_ARGS(含 -b:v, 依赖已算好的 %VBITRATE%)
+rem  口径照抄仓库里同名编码器的入口(ffmpeg_hevc_qsv.bat / ffmpeg_av1_qsv.bat ...)
+rem =========================================================================
+:VENC_ARGS
+set "VENC_ARGS=-b:v %VBITRATE%"
+if /i "%~1"=="hevc_nvenc" set "VENC_ARGS=-profile:v main -preset p4 -tune:v hq -rc cbr -b:v %VBITRATE%"
+if /i "%~1"=="h264_nvenc" set "VENC_ARGS=-profile:v high -preset p4 -tune:v hq -rc cbr -b:v %VBITRATE%"
+if /i "%~1"=="av1_nvenc" set "VENC_ARGS=-preset p4 -tune:v hq -rc cbr -b:v %VBITRATE%"
+if /i "%~1"=="hevc_qsv" set "VENC_ARGS=-profile:v main -preset veryfast -b:v %VBITRATE%"
+if /i "%~1"=="h264_qsv" set "VENC_ARGS=-profile:v main -preset veryfast -b:v %VBITRATE%"
+if /i "%~1"=="av1_qsv" set "VENC_ARGS=-profile:v main -preset fast -b:v %VBITRATE%"
+if /i "%~1"=="libx265" set "VENC_ARGS=-profile:v main -preset fast -b:v %VBITRATE%"
+if /i "%~1"=="libx264" set "VENC_ARGS=-profile:v high -preset fast -b:v %VBITRATE%"
+if /i "%~1"=="libsvtav1" set "VENC_ARGS=-preset 8 -b:v %VBITRATE%"
+exit /b 0
+
+rem =========================================================================
+rem  子过程 VENC_LIST  ->  AVAIL_LIST(本机真能编的编码器, 空格分隔)
+rem  只在"显式指定的编码器不可用"这条报错路径上跑, 平时不付这个代价
+rem =========================================================================
+:VENC_LIST
+set "AVAIL_LIST="
+call :VENC_OK hevc_nvenc
+if "%VRC%"=="0" call :ADD_AVAIL hevc_nvenc
+call :VENC_OK h264_nvenc
+if "%VRC%"=="0" call :ADD_AVAIL h264_nvenc
+call :VENC_OK av1_nvenc
+if "%VRC%"=="0" call :ADD_AVAIL av1_nvenc
+call :VENC_OK hevc_qsv
+if "%VRC%"=="0" call :ADD_AVAIL hevc_qsv
+call :VENC_OK h264_qsv
+if "%VRC%"=="0" call :ADD_AVAIL h264_qsv
+call :VENC_OK av1_qsv
+if "%VRC%"=="0" call :ADD_AVAIL av1_qsv
+call :VENC_OK libx265
+if "%VRC%"=="0" call :ADD_AVAIL libx265
+call :VENC_OK libx264
+if "%VRC%"=="0" call :ADD_AVAIL libx264
+call :VENC_OK libsvtav1
+if "%VRC%"=="0" call :ADD_AVAIL libsvtav1
+if not defined AVAIL_LIST set "AVAIL_LIST=一个都没有"
+exit /b 0
+
+:ADD_AVAIL
+if defined AVAIL_LIST (set "AVAIL_LIST=%AVAIL_LIST% %~1") else (set "AVAIL_LIST=%~1")
+exit /b 0
+
+rem =========================================================================
+rem  子过程 PROBE_RATE  title -> &2=视频流帧率(如 25/1 / 30000/1001), 读不到则空
+rem  子过程 PROBE_ACODEC title -> &2=音轨 codec 名(空格分隔, 如 "ac3" / "pcm_dvd")
+rem  落盘再回读的理由同 :PROBE; libdvdread 的抱怨是打到标准输出的, 靠 findstr 按
+rem  形状过滤(只留纯 "数字/数字" 或纯 codec 名那些行)
+rem =========================================================================
+:PROBE_RATE
+set "%~2="
+"%FP%" -v error -f dvdvideo -title %1 -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*$" > "%WORK%\_p3.txt"
+if exist "%WORK%\_p3.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p3.txt") do set "%~2=%%A"
+del "%WORK%\_p3.txt" 2>nul
+exit /b 0
+
+:PROBE_ACODEC
+set "%~2="
+"%FP%" -v error -f dvdvideo -title %1 -select_streams a -show_entries stream=codec_name -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[a-z][a-z0-9_]*$" > "%WORK%\_p4.txt"
+if exist "%WORK%\_p4.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p4.txt") do call set "%~2=%%%~2%% %%A"
+del "%WORK%\_p4.txt" 2>nul
 exit /b 0
 
 rem =========================================================================

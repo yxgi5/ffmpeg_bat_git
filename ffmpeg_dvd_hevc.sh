@@ -17,8 +17,8 @@
 #        to bitmap"
 #    3) 就算改成 copy, mp4 封装也会静默丢掉第 2 条字幕轨
 #       (实测 300s 片段: mkv 保留 2 条, mp4 只剩 1 条)
-#    4) 不做 IVTC: DVD 里大量内容是 3:2 pulldown 的 23.976p, 按 29.97 编码
-#       白扔 20% 码率还留梳状波纹
+#    4) 默认按源制式选滤镜(FILT=AUTO): NTSC 29.97i 走 IVTC 还原 23.976p(不做的话
+#       按 29.97 编码白扔 20% 码率还留梳状波纹), PAL 25i 走 BWDIF 去交错保留 25p
 #
 #  通用化设计(刻意不改的两件事):
 #    * 不动 SAR, 不裁边。DVD 宽高比要同时看 IFO 与 MPEG-2 序列头, 同一张盘两者
@@ -28,6 +28,18 @@
 #          VFILT_EXTRA='crop=704:480:8:0,setsar=40:33'  # 裁过扫边后修 SAR
 #    * 不猜测该切哪一章。每张盘的前編/後編分界章号都不同, 由调用方填
 #      SPLIT_CHAPTER; 默认 0 = 不切。
+#
+#  编码器(与 .bat 侧同名开关 VENC):
+#    空 / auto   依次真跑探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一个能编的
+#    显式        直接填 ffmpeg 原生名: hevc_nvenc / hevc_qsv / h264_nvenc /
+#                h264_qsv / av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1
+#                (连字符写法 hevc-nvenc 也认; avc_nvenc / avc_qsv 会自动翻译成
+#                 h264_nvenc / h264_qsv —— ffmpeg 里没有 avc_* 这个编码器名)
+#    显式指定的那个探测通不过 -> 报错退出并列出本机可用的, 不静默降级
+#    探测一律"真跑一次小编码", 不看 ffmpeg -encoders 列表: 本机三个 nvenc 都列在
+#      表里, 真跑却在 cuInit 处失败(没 N 卡) —— 只看列表会把不可用判成可用
+#    码率表跟着编码器走: hevc_* -> hevc 表, h264_* / libx264 -> avc 表,
+#      av1_* / libsvtav1 -> av1 表(三张表都 /2, 与仓库其余入口同口径)
 #
 #  依赖: ffmpeg 需带 libdvdread + libdvdnav(即 dvdvideo 解复用器), 精简构建没有。
 #  注意: 本文件保持 UTF-8 编码 + LF 行尾
@@ -87,22 +99,30 @@ PREFIX="$(basename "${SRC%.*}")"
 # EXT=mp4  只能 HEVC + AAC + 1 条字幕, 且 AC3 必须重编码
 EXT="${EXT:-mkv}"
 
-# IVTC    3:2 pulldown -> 23.976p, 动画/电影 DVD 多数是这种, 默认用它
-# BWDIF   去交错但保留 29.97p, 只有确认是真隔行(摄像机/现场录像)才用
-# NONE    原样 29.97 直接编码
-FILT="${FILT:-IVTC}"
+# AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
+#            保留 25p; 源已是 23.976p -> 不加滤镜。判读不到帧率就按高度猜(576/288=PAL,
+#            480/240=NTSC)。PAL 盘没有 3:2 pulldown, 硬套 IVTC 会掉到 20fps(实测: 本机
+#            两张 720x576 PAL 盘跑 IVTC 出来 r_frame_rate=20/1, 白扔 20% 帧)
+# IVTC    3:2 pulldown -> 23.976p, NTSC 动画/电影 DVD 多数是这种
+# BWDIF   去交错但保留原帧率(PAL 25i -> 25p)。注意 bwdif=mode=1 是 send_field,
+#         帧率直接翻倍(实测 25i -> 50p), 帧数翻倍会把码率摊薄, 故这里用 mode=0
+# NONE    原样编码, 不做去交错
+FILT="${FILT:-AUTO}"
 
 # 追加到滤镜链末尾的可选处理(默认空: 不改 SAR, 不裁边)
 VFILT_EXTRA="${VFILT_EXTRA:-}"
 
-# AUDIO=copy  MKV 下保留原始 AC3, 零重损失, 最快
-# AUDIO=aac   必须重编码(MP4 下强制用这个)
+# AUDIO=copy  MKV 下保留原始 AC3 / DTS / MP2, 零重损失, 最快。
+#             唯一例外: 源音轨是 LPCM(pcm_dvd) 时 Matroska 装不下(实测报
+#             "No wav codec tag found for codec pcm_dvd"), 会自动转成 AAC
+# AUDIO=aac   强制重编码成 AAC 192k(MP4 下强制用这个)
+# AUDIO=flac  强制重编码成 FLAC, 无损, 体积约为 LPCM 的一半
 AUDIO="${AUDIO:-copy}"
 
-# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片(默认, 最通用)
+# MODE=ALL    每个 title 各出一个文件(默认)
+# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片
 # MODE=TITLE  只处理 DVD_TITLE 指定的一条
-# MODE=ALL    每个 title 各出一个文件
-MODE="${MODE:-AUTO}"
+MODE="${MODE:-ALL}"
 if [ "$#" -ge 3 ]; then
     DVD_TITLE="$3"
     MODE="TITLE"
@@ -120,8 +140,10 @@ EXTRA_TITLES="${EXTRA_TITLES:-}"
 # 空 = 用 lib/bitrate_table_hevc.csv 查表再 /2(推荐); 填数字则直接覆盖, 如 636k
 VBITRATE="${VBITRATE:-}"
 
-# 编码器: 默认 hevc_nvenc; 无 N 卡时设 VENC=libx265 走软编
-VENC_NAME="${VENC:-hevc_nvenc}"
+# 编码器: 空 / auto = 依次探测 hevc_nvenc -> hevc_qsv -> libx265 取第一个能编的;
+#         要指定就填 ffmpeg 原生名(hevc_nvenc / h264_qsv / libx265 ...)。
+#         解析与可用性探测都在下面"编码器"那一节做(码率表要先定下来才能查表)
+VENC="${VENC:-auto}"
 # ==================================================================
 
 mkdir -p "$OUTDIR" || { echo "无法创建输出目录: $OUTDIR"; exit 1; }
@@ -153,6 +175,23 @@ probe_title() {
            | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
     [ -n "$dur" ] || return 1
     printf '%s %s\n' "$wh" "$dur"
+}
+
+#  <title> -> 该 title 视频流的帧率, 如 25/1 / 30000/1001; 读不到则空
+#  过滤理由同 probe_title: libdvdread 的抱怨是打到标准输出的, 只能按形状挑
+probe_rate() {
+    fp_run -v error -f dvdvideo -title "$1" \
+           -select_streams v:0 -show_entries stream=r_frame_rate \
+           -of csv=p=0 "$SRC" 2>/dev/null \
+        | tr ',' '\n' | grep -oE '^[0-9]+/[0-9]+$' | tail -1
+}
+
+#  <title> -> 该 title 所有音轨的 codec 名(空格分隔), 如 "ac3" / "pcm_dvd"; 读不到则空
+probe_acodec() {
+    fp_run -v error -f dvdvideo -title "$1" \
+           -select_streams a -show_entries stream=codec_name \
+           -of csv=p=0 "$SRC" 2>/dev/null \
+        | tr -d '\r' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
 }
 
 # ---------- 选定要处理的 title ----------
@@ -199,25 +238,122 @@ read -r SRC_W SRC_H SRC_DUR <<<"$MAIN"
 echo "正片: ${SRC_W}x${SRC_H}  时长 ${SRC_DUR}s"
 SRC_PIX=$(( SRC_W * SRC_H ))
 
+# 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条
+if [ "$MODE" = "ALL" ]; then REF_TITLE=1; else REF_TITLE="$DVD_TITLE"; fi
+SRC_RATE="$(probe_rate "$REF_TITLE" 2>/dev/null)"
+SRC_ACODEC="$(probe_acodec "$REF_TITLE" 2>/dev/null)"
+
+# =========================================================================
+#  编码器: VENC 空 / auto 时依次探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一
+#  个真能编的; 显式给了名字就用那个, 探测不过就报错退出(并列出本机可用的)。
+#
+#  探测一律"真跑一次小编码", 不看 ffmpeg -encoders 列表 —— 本机三个 nvenc 都挂在
+#  列表里, 真跑却在 cuInit 处失败(没 N 卡), 只看列表会把"不可用"判成可用。
+#  尺寸取 320x240: 再小(128x128) NVENC 自己就拒绝初始化, 反过来会把"可用"判成
+#  不可用(仓库 test/README.md 记过这个假 SKIP)。
+# =========================================================================
+venc_usable() {
+    "$FF" -hide_banner -v error -f lavfi -i testsrc2=s=320x240:r=25:d=1 \
+          -c:v "$1" -frames:v 2 -f null - >/dev/null 2>&1
+}
+
+VENC_LIST_ALL="hevc_nvenc h264_nvenc av1_nvenc hevc_qsv h264_qsv av1_qsv libx265 libx264 libsvtav1"
+
+venc_avail_list() {
+    local e out=""
+    for e in $VENC_LIST_ALL; do
+        venc_usable "$e" && out="${out:+$out }$e"
+    done
+    printf '%s' "${out:-一个都没有}"
+}
+
+# 名字归一: 连字符写法(hevc-nvenc)统一成下划线; avc_* 翻成 ffmpeg 真名 h264_*
+VENC_NAME="${VENC:-auto}"
+VENC_NAME="${VENC_NAME//-/_}"
+case "$VENC_NAME" in
+    avc_nvenc) VENC_NAME="h264_nvenc" ;;
+    avc_qsv)   VENC_NAME="h264_qsv"   ;;
+esac
+
+if [ "$VENC_NAME" = "auto" ]; then
+    VENC_NAME=""
+    for c in hevc_nvenc hevc_qsv libx265; do
+        if venc_usable "$c"; then VENC_NAME="$c"; break; fi
+    done
+    [ -n "$VENC_NAME" ] || {
+        echo -e "\033[41;36mhevc_nvenc / hevc_qsv / libx265 三个候选本机都不可用\033[0m"
+        exit 1
+    }
+    echo "编码器  : auto -> $VENC_NAME（依次探测 hevc_nvenc / hevc_qsv / libx265）"
+else
+    # 先认名字再探测: 拼错的名字不至于被当成"本机不可用"这种误导性报错
+    case " $VENC_LIST_ALL " in
+        *" $VENC_NAME "*) : ;;
+        *)
+            echo -e "\033[41;36m不认识的编码器: $VENC_NAME\033[0m"
+            echo "认这些: $VENC_LIST_ALL"
+            exit 1
+            ;;
+    esac
+    venc_usable "$VENC_NAME" || {
+        echo -e "\033[41;36m指定的编码器 $VENC_NAME 本机不可用\033[0m"
+        echo "常见原因: 没装对应驱动 / 这份 ffmpeg 没编进该编码器 / 显卡不支持该格式"
+        echo "本机实测可用: $(venc_avail_list)"
+        exit 1
+    }
+    echo "编码器  : $VENC_NAME（显式指定）"
+fi
+
+# 参数模板(不含 -b:v, 码率算完再追加) + 该用哪张码率表
+case "$VENC_NAME" in
+    hevc_nvenc) VENC_BASE="-profile:v main -preset p4 -tune:v hq -rc cbr";  BTAB=hevc ;;
+    hevc_qsv)   VENC_BASE="-profile:v main -preset veryfast";               BTAB=hevc ;;
+    libx265)    VENC_BASE="-profile:v main -preset fast";                   BTAB=hevc ;;
+    h264_nvenc) VENC_BASE="-profile:v high -preset p4 -tune:v hq -rc cbr";  BTAB=avc  ;;
+    h264_qsv)   VENC_BASE="-profile:v main -preset veryfast";               BTAB=avc  ;;
+    libx264)    VENC_BASE="-profile:v high -preset fast";                   BTAB=avc  ;;
+    av1_nvenc)  VENC_BASE="-preset p4 -tune:v hq -rc cbr";                  BTAB=av1  ;;
+    av1_qsv)    VENC_BASE="-profile:v main -preset fast";                   BTAB=av1  ;;
+    libsvtav1)  VENC_BASE="-preset 8";                                      BTAB=av1  ;;
+esac
+
 # ---------- 算目标码率(复用仓库的 power-law 模型) ----------
 if [ -z "$VBITRATE" ]; then
-    BIT="$(lookup_bitrate "$SRC_PIX" bitrate_table_hevc.csv)"
+    BIT="$(lookup_bitrate "$SRC_PIX" "bitrate_table_${BTAB}.csv")"
     if [ $? -ne 0 ] || [ -z "$BIT" ]; then
         echo -e "\033[41;36mManual handle it! (${SRC_PIX} px 不在码率表范围内)\033[0m"
         exit 2
     fi
     # 与 .bat / ffmpeg_hevc_nvenc.sh 同口径: 查表值 /2, 单位 bits/s(裸数字),
     # 不加 k —— 636021 就是 636 kbps; 加了 k 会变成 636 Mbps 被 NVENC 拒
+    # 表按编码器选(hevc/avc/av1), 三张表都是 /2, 与仓库其余入口同口径
     VBITRATE="$(awk -v b="$BIT" 'BEGIN{printf "%d", b/2}')"
 fi
 echo "ref TARGET_BITRATE = ${VBITRATE} bit/s (~$(( VBITRATE / 1000 )) kbps)"
 
 # ---------- 组滤镜链 ----------
+FILT_IVTC="fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate"
+FILT_BW="bwdif=mode=0"
 VFILT=""
 case "$FILT" in
-    IVTC)  VFILT="fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate" ;;
-    BWDIF) VFILT="bwdif=mode=1" ;;
+    IVTC)  VFILT="$FILT_IVTC" ;;
+    BWDIF) VFILT="$FILT_BW" ;;
     NONE)  VFILT="" ;;
+    AUTO)
+        case "$SRC_RATE" in
+            30000/1001|30/1|60000/1001|60/1) FSYS="NTSC 29.97i";  VFILT="$FILT_IVTC" ;;
+            24000/1001|24/1)                 FSYS="NTSC 23.976p"; VFILT=""          ;;
+            25/1|50/1)                       FSYS="PAL 25i";      VFILT="$FILT_BW"  ;;
+            *)
+                case "$SRC_H" in
+                    576|288) FSYS="PAL(按高度猜)";   VFILT="$FILT_BW"   ;;
+                    480|240) FSYS="NTSC(按高度猜)";  VFILT="$FILT_IVTC" ;;
+                    *)       FSYS="未知";            VFILT=""           ;;
+                esac
+                ;;
+        esac
+        echo "源制式  : ${FSYS} @ ${SRC_RATE:-读不到帧率}"
+        ;;
 esac
 if [ -n "$VFILT_EXTRA" ]; then
     if [ -n "$VFILT" ]; then VFILT="${VFILT},${VFILT_EXTRA}"; else VFILT="$VFILT_EXTRA"; fi
@@ -225,16 +361,26 @@ fi
 if [ -n "$VFILT" ]; then echo "滤镜链: $VFILT"; else echo "滤镜链: [无]"; fi
 
 # ---------- 容器相关选项(数组, 无 eval) ----------
-# 编码器参数按 VENC 分档; -c:v 由 enc() 统一追加, 保证 -i 一定在 -c:v 之前
-case "$VENC_NAME" in
-    hevc_nvenc) VENC_ARGS=(-profile:v main -preset p4 -tune:v hq -rc cbr -b:v "$VBITRATE") ;;
-    libx265)    VENC_ARGS=(-preset medium -x265-params "log-level=error" -b:v "$VBITRATE") ;;
-    *)          VENC_ARGS=(-b:v "$VBITRATE") ;;
-esac
+# 参数模板 + 码率 -> 数组。模板里都是固定字面量, 用 read -a 切词即可(不用 eval);
+# -c:v 由 enc() 统一追加, 保证 -i 一定在 -c:v 之前
+read -r -a VENC_ARGS <<<"${VENC_BASE} -b:v ${VBITRATE}"
+echo "编码参数: ${VENC_ARGS[*]}"
 
 case "$EXT" in
     mkv)
-        [ "$AUDIO" = "aac" ] && AENC=(-c:a aac -b:a 192k) || AENC=(-c:a copy)
+        AENC=(-c:a copy)
+        [ "$AUDIO" = "aac" ]  && AENC=(-c:a aac -b:a 192k)
+        [ "$AUDIO" = "flac" ] && AENC=(-c:a flac)
+        # AUDIO=copy 下唯一例外: LPCM(pcm_dvd) 装不进 Matroska(实测写头就失败:
+        # "No wav codec tag found for codec pcm_dvd"), 撞上就自动转 AAC
+        if [ "$AUDIO" = "copy" ]; then
+            case "$SRC_ACODEC" in
+                *pcm_dvd*)
+                    AENC=(-c:a aac -b:a 192k)
+                    echo "注意: 源音轨是 LPCM(pcm_dvd), Matroska 装不下 -> 自动转 AAC 192k（要无损设 AUDIO=flac）"
+                    ;;
+            esac
+        fi
         SENC=(-c:s copy)
         SMAP=(-map 0:s?)
         ;;
@@ -281,7 +427,7 @@ enc() {
     if [ $? -ne 0 ]; then
         echo -e "\033[41;36mtitle $t 编码失败\033[0m"
         echo "常见原因: 1) -c:s 处理不了位图字幕  2) MP4 下 AC3 没转成 AAC"
-        echo "          3) ${VENC_NAME} 不可用 -> 换 VENC=libx265"
+        echo "          3) ${VENC_NAME} 参数不被接受 -> 换 VENC=libx265 或 VENC=auto"
         return 1
     fi
     return 0
