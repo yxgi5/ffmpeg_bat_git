@@ -253,12 +253,17 @@ if [ "${CHECK:-1}" != "0" ]; then
     fi
 
     # ⑤ DVD 根里的多余内容: root 模式会把整个根打进镜像, 先说一声
+    #    JACKET_P / OpenDVD 是"标准件", 不算夹带: JACKET_P 是 DVD-Video 规范里的封面图
+    #    目录(实测这批盘 3 张都带), OpenDVD 是刻录软件附的 PC 播放目录, 两者都该留着。
     if [ "$MODE" = "root" ]; then
         extra=""
         for f in "$DVD_ROOT"/*; do
             [ -e "$f" ] || continue
             n="$(basename "$f")"
-            case "$n" in VIDEO_TS|AUDIO_TS) ;; *) extra="$extra $n" ;; esac
+            case "$n" in
+                VIDEO_TS|AUDIO_TS|JACKET_P|OpenDVD) ;;
+                *) extra="$extra $n" ;;
+            esac
         done
         [ -z "$extra" ] || warn "DVD 根里还有:$extra —— 会一起进镜像(只想打包 VIDEO_TS 就把 VIDEO_TS 目录直接当源传进来)"
     fi
