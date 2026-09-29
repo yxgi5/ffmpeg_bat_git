@@ -35,6 +35,13 @@
 #    * 不做 IVTC: DVD 规范只有 25(PAL) / 29.97(NTSC) 两种帧率, 逆变换成 23.976
 #      反而出不来合规的盘(HEVC 归档那条路才做 IVTC)。
 #
+#  源盘缺文件怎么办:
+#    本脚本不调 tools/dvd_repair.sh, 也不会替你补 —— 它只调 dvd_restore.sh 打包。
+#    缺 IFO 或 BUP 中的一个不影响: libdvdread 会自动退回 BUP, 实测照样读得出 title。
+#    但整组 .IFO + .BUP 全丢时那条 title 根本读不出来(libdvdread: findDVDFile
+#    /VIDEO_TS/VTS_01_0.IFO failed), 本脚本只会静默跳过它 —— MODE=ALL 做出来的盘
+#    就少一条正片, AUTO 则可能挑中别的一条。所以先跑 tools/dvd_repair.sh 修, 再瘦身。
+#
 #  依赖: ffmpeg(带 dvdvideo 解复用器 + mpeg2video) + dvdauthor + mkisofs/genisoimage
 #  注意: 本文件保持 UTF-8 编码 + LF 行尾
 # =========================================================================

@@ -12,7 +12,8 @@
 #  开关(环境变量, 写在命令之前):
 #    VOLID=NAME      卷标。默认取源目录名, 只保留 [A-Za-z0-9_], 截到 32 字符
 #    BURN=/dev/sr0   打好 ISO 后立刻刻录。默认不刻录, 只出 ISO
-#    FIX=1           缺失/不等长的 *.BUP 用同名 *.IFO 覆盖(DVD 规范: 二者应逐字节相同)
+#    FIX=1           缺失/不等长的 *.BUP 用同名 *.IFO 覆盖(DVD 规范: 二者应逐字节相同)。
+#                    反向(缺 IFO)与整组 IFO/BUP 全丢请改用 tools/dvd_repair.sh
 #    DEEP=1          校验阶段把 ISO 解开逐字节比对(最稳, 但要额外读写一份 1.x GB)
 #    CHECK=0         跳过结构检查(不建议; 检查项见下)
 #
@@ -166,7 +167,7 @@ if [ "${CHECK:-1}" != "0" ]; then
         for c in "$VTS"/[Vv][Ii][Dd][Ee][Oo]_[Tt][Ss].[Ii][Ff][Oo]; do
             [ -f "$c" ] && die "找到的是 $(basename "$c") 而不是 VIDEO_TS.IFO —— 请改成全大写再跑(mkisofs -dvd-video 只认大写文件名)"
         done
-        die "缺少 VIDEO_TS.IFO —— 没有它就不是 DVD-Video(只有 VOB 的话需要用 dvdauthor 重新生成 IFO/BUP, 本脚本不做这件事)"
+        die "缺少 VIDEO_TS.IFO —— 没有它就不是 DVD-Video。整个 IFO/BUP 没了要用 dvdauthor 重建, 本脚本不做这件事, 用 tools/dvd_repair.sh"
     fi
     [ -f "$VTS/VIDEO_TS.BUP" ] || warn "缺少 VIDEO_TS.BUP(菜单 IFO 的备份)。FIX=1 可用 IFO 补一个"
 
@@ -176,6 +177,31 @@ if [ "${CHECK:-1}" != "0" ]; then
     [ "$vts_ifo" -gt 0 ] || die "VIDEO_TS 里没有任何 VTS_*_0.IFO"
     [ "$vob"      -gt 0 ] || die "VIDEO_TS 里没有任何 .VOB"
     info "标题集(IFO) : $vts_ifo 个, VOB: $vob 个"
+
+    # ①b 正片 VOB 的编号必须是连续的 _1.._N: 中间缺一个就是那一整段音视频真没了,
+    #     补不出来(只能重新抓), 但至少要在打包前说出来 —— 否则镜像看着正常, 播到
+    #     缺的那段才断。完整体检用 tools/dvd_repair.sh
+    gap_n=0
+    for g in $(for f in "$VTS"/VTS_*_*.VOB; do
+                   [ -f "$f" ] || continue
+                   n="$(basename "$f")"; s="${n#VTS_}"; printf '%s\n' "${s%%_*}"
+               done | sort -nu); do
+        max=0
+        for f in "$VTS"/VTS_${g}_*.VOB; do
+            [ -f "$f" ] || continue
+            n="$(basename "$f")"; s="${n#VTS_}"; rest="${s#*_}"; idx="${rest%%.*}"
+            case "$idx" in 0|*[!0-9]*) continue ;; esac
+            [ "$idx" -gt "$max" ] && max="$idx"
+        done
+        i=1
+        while [ "$i" -le "$max" ]; do
+            if [ ! -f "$VTS/VTS_${g}_${i}.VOB" ]; then
+                warn "缺 VTS_${g}_${i}.VOB(编号断号) —— 这一段的音视频真没了, 补不出来"
+                gap_n=$((gap_n + 1))
+            fi
+            i=$((i + 1))
+        done
+    done
 
     # ② 文件名大小写 + 扇区对齐 + 单文件上限 + 目录里的多余文件
     bad_case=0; bad_align=0; junk=""
@@ -236,11 +262,16 @@ if [ "${CHECK:-1}" != "0" ]; then
             fi
         fi
     done
-    # 反向: 有 BUP 却没有 IFO —— 这种情况补不出来, 只能报
+    # 反向: 有 BUP 却没有 IFO —— 这也是能补的, 不是只能报。BUP 就是 IFO 的逐字节备份
+    #   (实测 DVD001(Canndy) 的 3 对 IFO/BUP 的 md5 完全相同), 反向拷贝同样成立。
+    #   别被"ffprobe 照样读得出 title"骗了: 那是 libdvdread 会自动退回 BUP, 硬件 DVD 机
+    #   和 mkisofs -dvd-video 都没这待遇, 后者直接 "Failed to open VTS info" 打包失败。
+    #   本脚本只做检查与打包, 补齐统一交给 tools/dvd_repair.sh(它还会先核对本盘其余
+    #   IFO/BUP 对是否真的一致, 不一致的盘不擅自补)。
     for bup in "$VTS"/*.BUP; do
         [ -f "$bup" ] || continue
         n="$(basename "$bup")"
-        [ -f "$VTS/${n%.BUP}.IFO" ] || warn "$n 没有对应的 ${n%.BUP}.IFO"
+        [ -f "$VTS/${n%.BUP}.IFO" ] || warn "$n 没有对应的 ${n%.BUP}.IFO —— 用 tools/dvd_repair.sh 可以反过来用 BUP 补齐"
     done
 
     # ④ AUDIO_TS: DVD-Video 规范要求存在, 空目录即可
