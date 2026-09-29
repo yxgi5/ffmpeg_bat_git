@@ -760,3 +760,18 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
     **新写的 sh 工具不要用 `"$FF"` / `"$FP"` 直接碰文件**，走这两个包装。仍用直接调用的：
     `smoke_ffmpeg.sh` / `smoke_special_chars.sh` / `check_env.sh`（MSYS2/Linux 由运行时改写
     所以可用，Cygwin 下会失败，待补）。
+11. **「原生 exe」与「shell 自己那一份」不是一回事，挑外部程序时要挑对**（2026-09-29 实测，
+    `tools/dvd_restore.sh` 打一张 991 MB 的 DVD）。Cygwin 的 PATH 上常有 WinCDEmu 自带的
+    `mkisofs.exe` —— 它是**原生** Windows 程序，于是
+    `mkisofs -dvd-video … /cygdrive/h/…/VIDEO_TS` 直接 `Invalid node`，中文路径还变成乱码；
+    而同一台机器上的 `/usr/bin/genisoimage`（Cygwin 侧构建）一次就过。**MSYS2 不受影响**
+    （它替原生子进程改写 argv），于是同一条命令 MINGW64 能跑、Cygwin 不能 —— 又是
+    「换个 shell 换个世界」。修法已落在 `lib/common.sh`：
+    * `pick_mkisofs()`：Cygwin 下优先挑 `/cygdrive/` 之外的那一份；`MKISOFS=/path` 可强制指定；
+    * `mkisofs_path()`：只有「Cygwin + 候选在 `/cygdrive/` 下」时才把路径换成 `X:/...`；
+    * 纯 Linux 两条分支**都不进** —— 仍是 `mkisofs` 优先、路径原样，行为与改造前一致。
+
+    同一个坑在 ffmpeg 上的对应物是 `ff_run` / `fp_run`：**新写的脚本不要裸调
+    `"$FF"` / `"$FP"`**。`tools/dvd_repair.sh` 原先有 8 处裸调 ffprobe + 1 处裸调 ffmpeg，
+    已全部改走 `fp_run` / `ff_run`；实测 Cygwin 下给同一份 DVD 探流，裸 POSIX 路径 `rc=1`，
+    走 `fp_run` 改写后 `rc=0`。`tools/dvd_shrink.sh` 一开始就用对了，所以它没有这个毛病。

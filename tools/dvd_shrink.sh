@@ -134,7 +134,7 @@ FP="${FFPROBE:-}"
 [ -n "$FP" ] || die "找不到 ffprobe"
 export FF FP
 
-command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor。安装: sudo apt install dvdauthor"
+command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 的官方源里没有这个包, 建议改在 WSL 或 Linux 上跑本脚本"
 MKISOFS=""
 for c in mkisofs genisoimage; do command -v "$c" >/dev/null 2>&1 && { MKISOFS="$(command -v "$c")"; break; }; done
 [ -n "$MKISOFS" ] || die "找不到 mkisofs / genisoimage(最后一步打包 ISO 要用到)"

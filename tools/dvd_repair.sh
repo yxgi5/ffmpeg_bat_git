@@ -269,7 +269,7 @@ fi
 #  依赖: 只有真的要重建时才需要
 # =========================================================================
 if [ "$NEED_TOOLS" = "1" ]; then
-    command -v dvdauthor >/dev/null 2>&1 || die "要重建 IFO/BUP, 但找不到 dvdauthor。安装: sudo apt install dvdauthor"
+    command -v dvdauthor >/dev/null 2>&1 || die "要重建 IFO/BUP, 但找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 的官方源里没有这个包, 建议改在 WSL 或 Linux 上跑本脚本"
     FF="${FFMPEG:-}"
     [ -n "$FF" ] && [ -x "$FF" ] || FF="$(find_ffmpeg 2>/dev/null)"
     [ -n "$FF" ] && [ -x "$FF" ] || FF="$(command -v ffmpeg 2>/dev/null)"
@@ -289,7 +289,7 @@ fi
 vobs_duration() {
     local v d total=0
     for v in "$@"; do
-        d="$("$FP" -v error -show_entries format=duration -of csv=p=0 "$v" 2>/dev/null |
+        d="$(fp_run -v error -show_entries format=duration -of csv=p=0 "$v" 2>/dev/null |
             awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
         [ -n "$d" ] || d=0
         total="$(awk -v a="$total" -v b="$d" 'BEGIN{printf "%.3f", a + b}')"
@@ -300,13 +300,13 @@ vobs_duration() {
 detect_scenes() {
     local off=0 v dur
     for v in "$@"; do
-        "$FF" -hide_banner -v info -i "$v" \
+        ff_run -hide_banner -v info -i "$v" \
             -filter:v "select='gt(scene,$SCENE_TH)',showinfo" -f null - 2>&1 |
             awk -v o="$off" '/pts_time:/{
                 for (i = 1; i <= NF; i++)
                     if ($i ~ /^pts_time:/) { t = substr($i, 10) + 0; if (t > 1) printf "%.3f\n", t + o }
             }'
-        dur="$("$FP" -v error -show_entries format=duration -of csv=p=0 "$v" 2>/dev/null |
+        dur="$(fp_run -v error -show_entries format=duration -of csv=p=0 "$v" 2>/dev/null |
             awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
         [ -n "$dur" ] || dur=0
         off="$(awk -v a="$off" -v b="$dur" 'BEGIN{printf "%.3f", a + b}')"
@@ -382,9 +382,9 @@ rebuild_group() {
 
     [ "$KEEPMENU" = "1" ] && [ -f "$VTS/VTS_${g}_0.VOB" ] && menu="$VTS/VTS_${g}_0.VOB"
 
-    w="$("$FP" -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
-    h="$("$FP" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
-    acodec="$("$FP" -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[a-z0-9_]+$/ { print $1 }' | tail -1)"
+    w="$(fp_run -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
+    h="$(fp_run -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
+    acodec="$(fp_run -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[a-z0-9_]+$/ { print $1 }' | tail -1)"
 
     if [ -n "${FORMAT:-}" ]; then
         fmt="$(printf '%s' "$FORMAT" | tr 'A-Z' 'a-z')"
@@ -401,7 +401,7 @@ rebuild_group() {
     # 各 VOB 时长: 既是章节切片的依据, 也是"有没有被 dvdauthor 截断"的基准
     i=0
     while [ "$i" -lt "${#tvobs[@]}" ]; do
-        vdur+=("$("$FP" -v error -show_entries format=duration -of csv=p=0 "${tvobs[$i]}" 2>/dev/null |
+        vdur+=("$(fp_run -v error -show_entries format=duration -of csv=p=0 "${tvobs[$i]}" 2>/dev/null |
             awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)")
         [ -n "${vdur[$i]}" ] || vdur[$i]=0
         i=$((i + 1))
@@ -462,7 +462,7 @@ rebuild_group() {
         fi
 
         # 复核: dest 是只有这一组的独立 DVD 树, 里面的 title 1 就是这条 PGC
-        got="$("$FP" -v error -f dvdvideo -title 1 -show_entries format=duration \
+        got="$(fp_run -v error -f dvdvideo -title 1 -show_entries format=duration \
               -of csv=p=0 "$dest" 2>/dev/null | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
         if [ -z "$got" ] || awk -v a="$got" -v b="$total" 'BEGIN{exit !(a >= b - 2)}'; then
             [ "$attempt" = "full" ] && info "VTS_$g 时长   : ${got:-?}s(基准 $(printf '%.0f' "$total")s) —— 章节保住了"
@@ -503,7 +503,7 @@ ensure_format() {
     else
         for v in "$VTS"/VTS_*_1.VOB "$VTS"/VIDEO_TS.VOB; do
             [ -f "$v" ] || continue
-            h="$("$FP" -v error -select_streams v:0 -show_entries stream=height \
+            h="$(fp_run -v error -select_streams v:0 -show_entries stream=height \
                 -of csv=p=0 "$v" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
             [ -n "$h" ] && break
         done
