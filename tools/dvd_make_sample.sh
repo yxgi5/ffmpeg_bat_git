@@ -164,6 +164,22 @@ has_dvdvideo() {   # has_dvdvideo <ffmpeg>: 这个构建认不认 -f dvdvideo
     "$1" -hide_banner -demuxers 2>/dev/null |
         awk '{ if ($1 == "D" && $2 == "dvdvideo") f = 1 } END{ exit !f }'
 }
+# 2026-09-29 WSL 实测: 上面这句"本机能用的那份在 /opt/ffmpeg 下"还不够 ——
+# 这个发行版继承了宿主的 Windows PATH, PATH 里排在前面的
+# /mnt/c/Program Files/ffmpeg/bin/ffmpeg.exe 会抢先命中(它确实认 -f dvdvideo),
+# 接着找同目录的 ffprobe 却只有 ffprobe.exe -> FPDVD 落空, 第 ④ 步照样跳过。
+# 而且就算找到了那个 .exe 也读不出东西: Windows PE 要 X:/... 那样的路径,
+# Cygwin / MSYS2 有 cygpath 给 native_path 做改写, **纯 Linux(含 WSL)没有**,
+# native_path 原样把 /root/... 递过去 -> No such file or directory。
+# 结论: 没有 cygpath 时, .exe 与 /mnt/?/ 下的候选一律让位给原生 Linux 构建。
+_ff_is_win_pe() {   # _ff_is_win_pe <候选路径>: 当前环境下它是不是"用不了的 Windows 原生"
+    command -v cygpath >/dev/null 2>&1 && return 1   # 有 cygpath -> 能改写路径, 放行
+    case "$1" in
+        *.exe|*.EXE) return 0 ;;
+        /mnt/?/*|/mnt/??/*) return 0 ;;
+    esac
+    return 1
+}
 pick_dvd_ff() {
     local d c
     if [ -n "${FFMPEG:-}" ] && [ -x "${FFMPEG}" ]; then echo "$FFMPEG"; return 0; fi
@@ -173,11 +189,13 @@ pick_dvd_ff() {
     while IFS= read -r d; do
         [ -n "$d" ] || continue
         for c in "$d/ffmpeg" "$d/ffmpeg.exe"; do
+            _ff_is_win_pe "$c" && continue
             has_dvdvideo "$c" || continue
             echo "$c"; return 0
         done
     done < <(printf '%s' "${PATH:-/usr/bin}" | tr ':' '\n')
     for c in /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
+        _ff_is_win_pe "$c" && continue
         has_dvdvideo "$c" || continue
         echo "$c"; return 0
     done
@@ -185,8 +203,17 @@ pick_dvd_ff() {
 }
 FPDVD=""
 if dvd_ff="$(pick_dvd_ff 2>/dev/null)" && [ -n "$dvd_ff" ]; then
-    cand="$(dirname "$dvd_ff")/ffprobe"
-    [ -x "$cand" ] && FPDVD="$cand"
+    # 同目录可能只有 ffprobe(Cygwin/MSYS 的包)也可能只有 ffprobe.exe(gyan / Windows
+    # 构建), 两个名字都得试; 而且必须**连它自己也验证一遍** —— 找到能用的 ffmpeg
+    # 不代表同目录的 ffprobe 是配套的(JSON 输出格式、-hide_banner 的支持都可能差着)。
+    _ffdir="$(dirname "$dvd_ff")"
+    for cand in "$_ffdir/ffprobe" "$_ffdir/ffprobe.exe"; do
+        [ -x "$cand" ] || continue
+        has_dvdvideo "$cand" || continue
+        FPDVD="$cand"; break
+    done
+    [ -n "$FPDVD" ] || warn "ffmpeg $dvd_ff 认 -f dvdvideo, 但同目录没有同样认它的 ffprobe —— 回读校验只能跳过"
+    unset _ffdir
 fi
 
 if [ "$NO_VIDEOTS" != 1 ]; then
