@@ -17,6 +17,7 @@ lib/bitrate_table_av1.csv  AV1 专用表
 ffmpeg_*.bat | .sh         单个文件转换入口
 convert_from_list_*.bat|sh 按清单批量转换
 repack_from_list.bat | .sh 按清单批量无损转封装
+tools/dvd_restore.sh      解压出来的 VIDEO_TS 反向还原成可刻录的 DVD-Video ISO
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
 archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
 code_review_report.md      多轮代码评审与冒烟记录
@@ -195,6 +196,39 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 - **`call :ENC` 的前缀必须加双引号**：源文件名常带空格与小括号（如 `[DVDISO](18禁アニメ) ...`），不包住会被按空格切成好几个参数，输出名与章节号全部错位
 - **`MODE=ALL` 要先拿 title 1 定码率档位**：直接跳进编码循环会整段跳过码率计算，`-b:v` 是空值，每个 title 都在 ffmpeg 处失败
 - **`title` 编号不连续**：DVD 的 title 号会缺号（实测那张盘缺 title 2），扫描循环不能「读不到就收尾」，否则只压到某个短特典而跳过正片，**而产物看起来完全正常**
+
+## 还原 DVD-Video（`tools/dvd_restore.sh`）
+
+`ffmpeg_dvd_hevc` 是把 DVD 拆成视频文件，**这个工具是反向的**：手里有一份解压出来的
+`VIDEO_TS`（+ `AUDIO_TS`），把它还原成一张能刻盘、能在家用 DVD 机上播的 DVD-Video ISO。
+
+```
+./tools/dvd_restore.sh <源目录> [输出ISO]
+  源目录   含 VIDEO_TS 的 DVD 根目录；直接指到 VIDEO_TS 目录本身也行
+  输出ISO  默认 <源目录名>.iso，写在源目录**旁边**（不能写在源目录里面）
+```
+
+```
+./tools/dvd_restore.sh ~/Downloads/tmp/KB059-Nessy-KB4
+BURN=/dev/sr0 ./tools/dvd_restore.sh ~/Downloads/tmp/KB059-Nessy-KB4   # 打好立刻刻
+FIX=1 ./tools/dvd_restore.sh ...                                       # 缺/坏的 BUP 用 IFO 补
+DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开镜像逐字节比对
+```
+
+三个关键点（都是实测，脚本头部注释有原始数据）：
+
+- **必须 `mkisofs -dvd-video`**：它会按 DVD-Video 的规矩排序文件并补 padding；不加这个参数
+  出来的镜像在电脑上看着正常，家用机却会挑盘/跳帧。
+- **文件名必须全大写**：mkisofs 手册写明 `-dvd-video` 的排序只对大写名生效，小写名不报错、
+  只是**悄悄不排序**，于是掉进上一条。
+- **输出 ISO 不能落在源目录里面**：mkisofs 边扫目录树边写镜像，会把正在写的 ISO 自己卷进去。
+
+打包前会先体检：必备文件、大小写、2048 字节对齐、单文件 ≤ 1 GiB、IFO/BUP 是否成对、
+`AUDIO_TS` 是否存在（缺了自动补空目录）、容量能不能塞进 DVD-5 / DVD-9；
+打包后校验 UDF 卷识别序列（`BEA01`/`NSR02`/`TEA01`）并逐个比对文件清单与大小。
+
+依赖：`genisoimage`（必需，提供 `mkisofs -dvd-video`）；`xorriso` 或 `7z`（校验，二选一）；
+`growisofs` / `wodim`（仅 `BURN=` 刻录时需要）。
 
 ## ffmpeg 依赖怎么找
 
