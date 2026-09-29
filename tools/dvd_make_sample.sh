@@ -44,6 +44,20 @@
 #      只报 5 个, 只有 2 个时干脆报 0 个; mplayer -identify 读出来和 IFO 一致。
 #      所以脚本直接读 VTS_xx_0.IFO 里 PGC 的 nr_of_programs 来核对。
 #
+#  跨平台实测的坑(2026-09-29, Cygwin64 与 MSYS2 MINGW64):
+#    * drawtext 的值必须转义, 冒号是它的选项分隔符。两处值自带冒号: MSYS2 的
+#      fc-match 给的是 C:/Windows/fonts\msyh.ttc(盘符冒号, 还混着反斜杠), 静态
+#      标签的 "scene 1  0:00:10.00" 时间码也是。不转义的话 ffmpeg 从第一个冒号
+#      处把值切断, 报 No option name near '...' 然后 Error: Invalid argument ——
+#      MINGW64 与 Cygwin(原生 ffmpeg)两边都是这一条。本机 Linux 上没撞见是因为
+#      那份构建没有 drawtext, LABEL 直接关掉了。%{pts\:hms} 那处本来就有转义。
+#    * 体积那行要 LC_ALL=C: 中文 locale 下 du 的合计行是"总用量"不是 total,
+#      awk '/total/' 匹配不到, 打印出来是个空的体积。
+#    * Cygwin 里 ffmpeg 若解析到原生 Windows 构建(FFMPEG= 指定或 PATH 顺序),
+#      POSIX 路径要经 ff_run 改写成 X:/..., 否则 No such file or directory。
+#      两个环境的 dvdauthor 都没装 —— 第 2 步(VIDEO_TS)在这里跑不了, 要测就加
+#      NO_VIDEOTS=1 只跑第 1 步。
+#
 #  依赖: ffmpeg(带 mpeg2video + ac3 编码器; LABEL 还要 drawtext) + dvdauthor +
 #        tools/dvd_restore.sh(打 ISO 那一步)
 #  注意: 本文件保持 UTF-8 编码 + LF 行尾
@@ -125,6 +139,13 @@ echo ==========================================================
 # =========================================================================
 #  依赖: ffmpeg 要同时有 mpeg2video 与 ac3 编码器
 # =========================================================================
+# ff_run / fp_run 来自 lib/common.sh: 它们把以 / 开头的参数改写成原生写法(X:/...)。
+# 不包装的话, Cygwin 下把 POSIX 路径喂给原生 ffmpeg.exe 就是 No such file or
+# directory —— Cygwin 不给原生子进程改写 argv, MSYS2 会(所以同一条命令 MSYS2 能过、
+# Cygwin 过不去)。与 dvd_restore.sh / dvd_shrink.sh 同一批处理。
+declare -F ff_run >/dev/null 2>&1 || die "lib/common.sh 未加载(ff_run 缺失) —— 请在完整仓库里运行本脚本"
+declare -F _ff_native_exec >/dev/null 2>&1 || die "lib/common.sh 未加载(_ff_native_exec 缺失) —— 请在完整仓库里运行本脚本"
+
 FF="${FFMPEG:-}"
 [ -n "$FF" ] && [ -x "$FF" ] || FF="$(find_ffmpeg --need-encoder mpeg2video --need-encoder ac3 2>/dev/null)"
 [ -n "$FF" ] && [ -x "$FF" ] || FF="$(command -v ffmpeg 2>/dev/null)"
@@ -138,14 +159,26 @@ FP="${FFPROBE:-}"
 # 回读 ISO 要用 -f dvdvideo, 而能编码 mpeg2video 的构建未必带这个解复用器(实测
 # 本机 /usr/bin/ffmpeg 就没有, 能用的那份在 /opt/ffmpeg 下)。合成那一步不需要它,
 # 只有最后"读回来看看对不对"需要 —— 找不到就跳过校验, 不因此判失败。
+has_dvdvideo() {   # has_dvdvideo <ffmpeg>: 这个构建认不认 -f dvdvideo
+    [ -x "$1" ] || return 1
+    "$1" -hide_banner -demuxers 2>/dev/null |
+        awk '{ if ($1 == "D" && $2 == "dvdvideo") f = 1 } END{ exit !f }'
+}
 pick_dvd_ff() {
     local d c
     if [ -n "${FFMPEG:-}" ] && [ -x "${FFMPEG}" ]; then echo "$FFMPEG"; return 0; fi
-    for c in $(IFS=:; for d in ${PATH:-/usr/bin}; do [ -n "$d" ] && echo "$d/ffmpeg"; done) \
-             /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
-        [ -x "$c" ] || continue
-        "$c" -hide_banner -demuxers 2>/dev/null |
-            awk '{ if ($1 == "D" && $2 == "dvdvideo") f = 1 } END{ exit !f }' || continue
+    # PATH 要逐项看, 而且**必须带引号**: 条目含空格时(Windows 上 C:\Program Files\
+    # ... 就是)无引号的展开会把一项切成两半, 那一档里的 ffmpeg 永远轮不到 ——
+    # 与 lib/common.sh 的 find_ffmpeg 同一个坑。
+    while IFS= read -r d; do
+        [ -n "$d" ] || continue
+        for c in "$d/ffmpeg" "$d/ffmpeg.exe"; do
+            has_dvdvideo "$c" || continue
+            echo "$c"; return 0
+        done
+    done < <(printf '%s' "${PATH:-/usr/bin}" | tr ':' '\n')
+    for c in /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
+        has_dvdvideo "$c" || continue
         echo "$c"; return 0
     done
     return 1
@@ -181,12 +214,28 @@ pick_font() {
     done
     return 1
 }
+# drawtext 的 option 值里, 冒号是选项分隔符、反斜杠是转义符 —— 两样都得躲开, 否则
+# ffmpeg 会把值从第一个冒号处切断, 报 "No option name near '...'" 然后整条滤镜链挂掉
+# (实测 2026-09-29: MINGW64 与 Cygwin+原生 ffmpeg 两边都是这一条 Error: Invalid argument):
+#   * MSYS2 的 fc-match 给的是 C:/Windows/fonts\msyh.ttc —— 盘符冒号 + 混合分隔符;
+#     不转义时 ffmpeg 在 "C" 后面就切开了
+#   * 静态标签自带的 "scene 1  0:00:10.00" 里也有冒号, 同一个下场(这处与平台无关,
+#     本机 Linux 上只要 LABEL=1 也照样挂 —— 之前没测到是因为那份构建没有 drawtext)
+# 只转义"值", 不要对 %{pts\:hms} 再转一次(那处已经写好了 \: , 转了会变成 \\: )
+ff_esc() {
+    local s="$1"
+    s="${s//\\//}"      # 反斜杠先统一成正斜杠
+    s="${s//:/\\:}"     # 冒号转义
+    printf '%s' "$s"
+}
 FONT=""
+FONT_ESC=""
 if [ "$LABEL" = 1 ]; then
-    if ! "$FF" -hide_banner -filters 2>/dev/null | grep -q " drawtext "; then
+    if ! ff_run -hide_banner -filters 2>/dev/null | grep -q " drawtext "; then
         warn "这个 ffmpeg 没有 drawtext 滤镜 —— LABEL 关掉, 画面只有测试图"
         LABEL=0
     elif FONT="$(pick_font)"; then
+        FONT_ESC="$(ff_esc "$FONT")"
         info "字体        : $FONT"
     else
         warn "找不到可用的 ttf 字体 —— LABEL 关掉, 画面只有测试图"
@@ -243,7 +292,8 @@ make_mpg() {
         if [ "$LABEL" = 1 ]; then
             # 每段贴一个静态标签: "scene N  0:01:00"(N 从 1 起, 时间是该段在整条
             # title 里的起点)。叠加时间码放在 concat 之后, 那里 pts 才是整条的时间
-            lbl="drawtext=fontfile='$FONT':text='scene $((i + 1))  $(fmt_time $((i * SCENE_LEN)))'"
+            # 时间码自带冒号, 与字体路径一样要先转义(见 ff_esc)
+            lbl="drawtext=fontfile='$FONT_ESC':text='scene $((i + 1))  $(ff_esc "$(fmt_time $((i * SCENE_LEN)))")'"
             lbl="$lbl:fontsize=$FS:fontcolor=white:box=1:boxcolor=black@0.5:x=(w-text_w)/2:y=h-$((FS * 2))"
             filt="${filt}[$i:v]$lbl[s$i];"
         fi
@@ -253,7 +303,7 @@ make_mpg() {
     filt="${filt}${chain}concat=n=${NS}:v=1:a=0[cat]"
     if [ "$LABEL" = 1 ]; then
         # %{pts:hms} 里的冒号要转义成 \: , 否则 ffmpeg 会把 hms 当成参数分隔符
-        tc="drawtext=fontfile='$FONT':text='%{pts\:hms}':fontsize=$((FS / 2)):fontcolor=yellow:box=1:boxcolor=black@0.5:x=40:y=40"
+        tc="drawtext=fontfile='$FONT_ESC':text='%{pts\:hms}':fontsize=$((FS / 2)):fontcolor=yellow:box=1:boxcolor=black@0.5:x=40:y=40"
         filt="${filt};[cat]$tc[v]"
     else
         filt="${filt};[cat]null[v]"
@@ -267,7 +317,9 @@ make_mpg() {
     CMD+=("$mpg")
 
     info "生成 title $t -> $(basename "$mpg")"
-    "$FF" -hide_banner -v error -y "${CMD[@]}" || return 1
+    # 走 ff_run(不是直接 "$FF"): mpg 输出路径要改写成原生写法, 否则 Cygwin 下
+    # 原生 ffmpeg.exe 拿到 /tmp/... 会直接 No such file or directory
+    ff_run -hide_banner -v error -y "${CMD[@]}" || return 1
     return 0
 }
 
@@ -278,8 +330,13 @@ make_mpg() {
 field() { awk -F= -v k="$2" '$1 == k { print $2 }' <<<"$1"; }
 check_mpg() {
     local f="$1" v a c w h r dar ac sr ch
-    v="$("$FP" -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate,display_aspect_ratio -of default=nw=1 "$f" 2>/dev/null)"
-    a="$("$FP" -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of default=nw=1 "$f" 2>/dev/null)"
+    v="$(fp_run -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate,display_aspect_ratio -of default=nw=1 "$f" 2>/dev/null)"
+    a="$(fp_run -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of default=nw=1 "$f" 2>/dev/null)"
+    # 原生 Windows 的 ffprobe 输出 CRLF, 字段值末尾会挂一个 \r: "25/1\r" 与 "25/1"
+    # 不相等 —— 于是素材打印出来看着完全合规, 却照样被判"不合规"(2026-09-29 实测
+    # Cygwin + 原生 ffmpeg)。与 lib/common.sh 里 probe_source 的 ${raw//$'\r'/} 同理。
+    v="${v//$'\r'/}"
+    a="${a//$'\r'/}"
     c="$(field "$v" codec_name)"; w="$(field "$v" width)"; h="$(field "$v" height)"
     r="$(field "$v" r_frame_rate)"; dar="$(field "$v" display_aspect_ratio)"
     ac="$(field "$a" codec_name)"; sr="$(field "$a" sample_rate)"; ch="$(field "$a" channels)"
@@ -296,22 +353,25 @@ check_mpg() {
 # =========================================================================
 #  1) 合成 MPEG-2 PS
 # =========================================================================
-MPGS=""
+# 用数组而不是空格拼的串: 输出目录带空格时(Windows 上很常见)后者会在 du / for
+# 那里被切成好几段, 报出来的错完全看不出是路径的问题
+MPGS=()
 RC=0
 for t in $(seq 1 "$TITLES"); do
     mpg="$WORK/title_${t}.mpg"
     if make_mpg "$t" "$mpg" && check_mpg "$mpg"; then
-        MPGS="$MPGS $mpg"
+        MPGS+=("$mpg")
     else
         RC=1
     fi
 done
 [ "$RC" -eq 0 ] || die "素材生成失败(工作目录: $WORK)"
-info "素材体积    : $(du -ch $MPGS 2>/dev/null | awk '/total/{print $1}')"
+# LC_ALL=C: 中文 locale 下 du 的合计行是"总用量"而不是 total, awk 会匹配不到 -> 空
+info "素材体积    : $(LC_ALL=C du -ch "${MPGS[@]}" 2>/dev/null | awk '/total/{print $1}')"
 
 [ "$NO_VIDEOTS" = 1 ] && {
     info "NO_VIDEOTS=1, 到这里为止。下一步:"
-    info "  VIDEO_FORMAT=$VFORMAT dvdauthor -o <目录> -t $MPGS"
+    info "  VIDEO_FORMAT=$VFORMAT dvdauthor -o <目录> -t ${MPGS[*]}"
     exit 0
 }
 
@@ -326,7 +386,7 @@ XML="$WORK/dvd.xml"
 {
     printf '<dvdauthor dest="%s">\n' "$OUT"
     printf '  <vmgm />\n'
-    for mpg in $MPGS; do
+    for mpg in "${MPGS[@]}"; do
         printf '  <titleset>\n    <titles>\n'
         printf '      <video format="%s" />\n' "$VFMT"
         printf '      <audio format="ac3" lang="en" />\n'
@@ -365,7 +425,10 @@ else
 P="$FPDVD"
 info "回读校验($P; 期望 ${TITLES} 条, 每条 ${DURATION}s / ${NS} 章节):"
 for t in $(seq 1 "$TITLES"); do
-    d="$("$P" -v error -f dvdvideo -title "$t" -show_entries format=duration -of csv=p=0 "$ISO" 2>/dev/null | grep -E '^[0-9]' | tail -1)"
+    # P 是"另一个" ffprobe(能读 dvdvideo 的那个), 不是 $FP —— 但路径同样要改写,
+    # 所以走 _ff_native_exec 而不是直接 "$P"
+    d="$(_ff_native_exec "$P" -v error -f dvdvideo -title "$t" -show_entries format=duration -of csv=p=0 "$ISO" 2>/dev/null | grep -E '^[0-9]' | tail -1)"
+    d="${d//$'\r'/}"     # 同上: 原生 ffprobe 的 CRLF 会让下面的 -eq 比较失效
     n="$(count_programs "$(printf '%s/VIDEO_TS/VTS_%02d_0.IFO' "$OUT" "$t")")"
     if [ -n "$d" ]; then
         info "  title $t: ${d%.*}s / ${n:-读不到} 章节"

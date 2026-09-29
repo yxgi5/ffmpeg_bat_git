@@ -772,6 +772,45 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
     * 纯 Linux 两条分支**都不进** —— 仍是 `mkisofs` 优先、路径原样，行为与改造前一致。
 
     同一个坑在 ffmpeg 上的对应物是 `ff_run` / `fp_run`：**新写的脚本不要裸调
-    `"$FF"` / `"$FP"`**。`tools/dvd_repair.sh` 原先有 8 处裸调 ffprobe + 1 处裸调 ffmpeg，
+    `"$FF"` / `"$FP"`**。    `tools/dvd_repair.sh` 原先有 8 处裸调 ffprobe + 1 处裸调 ffmpeg，
     已全部改走 `fp_run` / `ff_run`；实测 Cygwin 下给同一份 DVD 探流，裸 POSIX 路径 `rc=1`，
     走 `fp_run` 改写后 `rc=0`。`tools/dvd_shrink.sh` 一开始就用对了，所以它没有这个毛病。
+12. **Windows 上造 DVD 测试素材只能跑到第 ① 步**（`tools/dvd_make_sample.sh`，2026-09-29
+    实测）。它四步走完才是一张完整的盘，而**这在 Windows 上做不到，两个 shell 缺的还不一样**：
+
+    | 步骤 | Cygwin64 | MSYS2 MINGW64 |
+    |------|----------|---------------|
+    | ① 合成 MPEG-2 PS（`-target pal-dvd`） | ✅ | ✅ |
+    | ② `dvdauthor` 建 VIDEO_TS | ❌ 没装 | ❌ 没装 |
+    | ③ `dvd_restore.sh` 打 ISO | ⚠️ 有 `/usr/bin/genisoimage` | ❌ 打包器一个都没有 |
+    | ④ 回读校验（`-f dvdvideo`） | ❌ 无 `dvdvideo` 解复用器 | ❌ 同左 |
+
+    所以在这台机器上验证就加 `NO_VIDEOTS=1`（只跑第 ① 步，两个 shell 都通过，
+    产物 `mpeg2video 720x576@25/1 DAR=4:3 / ac3 48000Hz 2ch`）；**要跑完整四步得回 Ubuntu**。
+    两个环境都提供不了 `dvdauthor`（`pacman -Ss dvdauthor` 空、`cygcheck -p dvdauthor`
+    = 0 matches），MINGW64 连 `mkisofs` / `genisoimage` / `xorriso` 全都没有 —— 就算装上
+    dvdauthor，第 ③ 步也会停在 `找不到 mkisofs / genisoimage`。Cygwin 是这台机器上更接近
+    能跑通的那个：它有 shell 侧的 `genisoimage`，而 PATH 上那个 WinCDEmu 的原生
+    `mkisofs.exe` 会被 `pick_mkisofs` 正确跳过（见第 11 条）。
+
+    这一轮顺带修掉的四处，全都是**只在 Windows 上才露出来**的：
+
+    * **`drawtext` 的值必须转义冒号**（`ff_esc()`）。两处值自带冒号：MSYS2 的 `fc-match`
+      给的是 `C:/Windows/fonts\msyh.ttc`（盘符冒号，还混着反斜杠），静态标签的
+      `scene 1  0:00:10.00` 时间码也是。不转义的话 ffmpeg 从第一个冒号处把值切断，
+      报 `No option name near '...'` 然后整条滤镜链 `Error: Invalid argument` ——
+      MINGW64 与「Cygwin + 原生 ffmpeg」两边都死在这。**这处与平台无关**：本机 Linux 上
+      一直没撞见，只是因为那份构建没有 drawtext、`LABEL` 直接关掉了。修法是新增的
+      `ff_esc()`：先把值里的反斜杠统一成正斜杠，再把冒号 `:` 转成 `\:`；
+      `%{pts\:hms}` 那处本来就有转义，**别对它再转一次**（会变成 `\\:`）。
+    * **原生 exe 的 ffprobe 输出 CRLF**。字段值末尾会挂一个 `\r`，于是
+      `"25/1\r"` 与 `"25/1"` 不相等 —— 素材打印出来看着**完全合规**，却照样被判
+      「不合规」（Cygwin + 原生 ffmpeg 实测）。与 `lib/common.sh` 里 `probe_source`
+      的 `${raw//$'\r'/}` 同款处理。
+    * **`du` 要 `LC_ALL=C`**。中文 locale 下合计行是「总用量」不是 `total`，
+      `awk '/total/'` 匹配不到 → 「素材体积」那行是空的。
+    * **`$FF` / `$FP` 要走 `ff_run` / `fp_run`**（第 10 条）。这个脚本是那批跨平台修改
+      **之前**新增的，漏了这一层；回读那个"另一个 ffprobe"（挑带 `dvdvideo` 的那个）
+      同理走 `_ff_native_exec`。另外 `MPGS` 从空格拼的串改成数组、`pick_dvd_ff` 里
+      PATH 遍历加了引号 —— 输出目录带空格时（`C:\Program Files\...` 就是）前者会被
+      切成几段，报出来的错完全看不出是路径问题。
