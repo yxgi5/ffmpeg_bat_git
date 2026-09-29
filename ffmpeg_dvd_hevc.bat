@@ -94,7 +94,8 @@ set "OUTDIR=%~2"
 if not defined OUTDIR set "OUTDIR=%~dp1HEVC_OUT"
 
 rem 输出名前缀: 默认取源文件名(去扩展名)
-set "PREFIX=%~n1"
+rem 不覆盖调用方预设(与 .sh 侧 ${PREFIX:-...} 及 EXT/MODE/VENC 的守卫同口径)
+if not defined PREFIX set "PREFIX=%~n1"
 if not defined PREFIX set "PREFIX=dvd"
 
 rem EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
@@ -361,6 +362,10 @@ set VFOPT=
 if defined VFILT set VFOPT=-vf "%VFILT%"
 
 rem ---------------------------- 容器相关选项 ----------------------------
+rem 大小写不敏感, 并归一成小写: 输出文件后缀直接取 %EXT%, 不归一的话 set EXT=MP4 会
+rem 产出 ".MP4"(与 .sh 侧 ${EXT,,} 同义)
+if /i "%EXT%"=="mkv" set "EXT=mkv"
+if /i "%EXT%"=="mp4" set "EXT=mp4"
 if "%EXT%"=="mkv" goto CFG_MKV
 if "%EXT%"=="mp4" goto CFG_MP4
 echo [错误] EXT 只能是 mkv 或 mp4

@@ -56,25 +56,25 @@ echo 由 andreas 编写
 echo ============================================================
 
 # ---------- 前置检查 ----------
-if ! check_command "ffmpeg"; then
-    echo -e "\033[41;36mffmpeg command not found!\033[0m"
-    exit 1
-fi
-if ! check_command "ffprobe"; then
-    echo -e "\033[41;36mffprobe command not found!\033[0m"
-    exit 1
-fi
-
-# ff_run / fp_run 要求 FF / FP 已设好; 允许用环境变量覆盖, 与 bat 侧的查找顺序对齐
-FF="${FFMPEG:-$(command -v ffmpeg)}"
-FP="${FFPROBE:-$(command -v ffprobe)}"
-export FF FP
-
-if ! ffmpeg -hide_banner -demuxers 2>/dev/null | grep -qi "dvdvideo"; then
-    echo -e "\033[41;36m这份 ffmpeg 没有 dvdvideo 解复用器\033[0m"
+# 与 .bat 侧同一套定位顺序(见 lib/common.sh 的 find_ffmpeg):
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+# 不能只问 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个。
+# dvdvideo 解复用器依赖 libdvdread/libdvdnav, 精简构建没有 —— 用 --need-demuxer 让
+# 定位阶段就跳过不带它的构建(本机实测: PATH 上 ubuntu 4.4.2 没有, /opt 下的 master
+# build 有, 于是自动落到 /opt 那份, 不必写死路径)。
+# 选中的那份由 ff_report 在标准错误上醒目回显。
+if ! FF="$(find_ffmpeg --need-demuxer dvdvideo)"; then
+    echo -e "\033[41;36m找不到带 dvdvideo 解复用器的 ffmpeg\033[0m"
     echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
+    echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
     exit 1
 fi
+if ! FP="$(find_ffprobe "$FF")"; then
+    echo -e "\033[41;36m找不到 ffprobe\033[0m"
+    echo "可用 FFPROBE=<可执行文件> 指定"
+    exit 1
+fi
+export FF FP
 
 # ============================ 配置区 ============================
 # ---------- 输入 ----------
@@ -92,12 +92,15 @@ if [ -z "$OUTDIR" ]; then
     OUTDIR="$(cd "$(dirname "$SRC")" 2>/dev/null && pwd)/HEVC_OUT"
     [ -n "$OUTDIR" ] || OUTDIR="./HEVC_OUT"
 fi
-PREFIX="$(basename "${SRC%.*}")"
+# 允许调用方用 PREFIX= 覆盖(与 .bat 侧 if not defined PREFIX 同口径)
+PREFIX="${PREFIX:-$(basename "${SRC%.*}")}"
 [ -n "$PREFIX" ] || PREFIX="dvd"
 
 # EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
 # EXT=mp4  只能 HEVC + AAC + 1 条字幕, 且 AC3 必须重编码
 EXT="${EXT:-mkv}"
+# 归一成小写: 输出文件后缀是直接取 $EXT 拼的, 不归一的话 EXT=MP4 会产出 ".MP4"
+EXT="${EXT,,}"
 
 # AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
 #            保留 25p; 源已是 23.976p -> 不加滤镜。判读不到帧率就按高度猜(576/288=PAL,
@@ -123,11 +126,15 @@ AUDIO="${AUDIO:-copy}"
 # MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片
 # MODE=TITLE  只处理 DVD_TITLE 指定的一条
 MODE="${MODE:-ALL}"
+# 位置参数优先; 没给位置参数、但环境里设了 DVD_TITLE 也切 TITLE(与 .bat 侧
+# `if defined DVD_TITLE set MODE=TITLE` 对齐 —— 否则这个变量会被静默忽略)
 if [ "$#" -ge 3 ]; then
     DVD_TITLE="$3"
-    MODE="TITLE"
 fi
 DVD_TITLE="${DVD_TITLE:-}"
+if [ -n "$DVD_TITLE" ]; then
+    MODE="TITLE"
+fi
 
 # SPLIT_CHAPTER=N  按第 N 章把正片切成两段(如前編/後編), 0 = 不切
 #   第 1 段 = 第 1 章到第 N-1 章, 第 2 段 = 第 N 章到结尾
@@ -170,9 +177,12 @@ probe_title() {
           -of csv=p=0 "$SRC" 2>/dev/null \
           | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1, $2}' | tail -1)"
     [ -n "$wh" ] || return 1
+    # 时长同样先 tr 掉逗号: 有的构建(Windows 真机那台)对单字段也打 "3300.500000," 这种
+    # 带尾逗号的形式, 行级 ^...$ 匹配不上 -> dur 恒空 -> "读不到 title N" 全盘跑不动
+    # (2026-09-29 本机用带尾逗号的替身 ffprobe 复现出来)
     dur="$(fp_run -v error -f dvdvideo -title "$t" \
            -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/null \
-           | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
+           | tr ',' ' ' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
     [ -n "$dur" ] || return 1
     printf '%s %s\n' "$wh" "$dur"
 }
@@ -188,10 +198,11 @@ probe_rate() {
 
 #  <title> -> 该 title 所有音轨的 codec 名(空格分隔), 如 "ac3" / "pcm_dvd"; 读不到则空
 probe_acodec() {
+    # 同上: 带尾逗号时 "ac3," 过不了 ^...$, LPCM 例外会静默失效
     fp_run -v error -f dvdvideo -title "$1" \
            -select_streams a -show_entries stream=codec_name \
            -of csv=p=0 "$SRC" 2>/dev/null \
-        | tr -d '\r' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
+        | tr -d '\r' | tr ',' '\n' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
 }
 
 # ---------- 选定要处理的 title ----------

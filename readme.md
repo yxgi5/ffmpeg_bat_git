@@ -159,8 +159,9 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 | 开关 | 取值 | 默认 | 作用 |
 | --- | --- | --- | --- |
 | `MODE` | `ALL` / `AUTO` / `TITLE` | `ALL` | `ALL` 每个 title 各出一个文件（**默认**）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE` |
-| `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE` |
-| `EXT` | `mkv` / `mp4` | `mkv` | **建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码 |
+| `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE`（命令行第 3 参优先） |
+| `PREFIX` | 名字 | 源文件名（去扩展名） | 输出文件名前缀：`<PREFIX>_title<N>.<EXT>`（`MODE=ALL`）/ `<PREFIX>.<EXT>`（单条） |
+| `EXT` | `mkv` / `mp4` | `mkv` | 大小写都认（`EXT=MP4` 与 `mp4` 等价）。**建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码 |
 | `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | `AUTO` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
 | `VFILT_EXTRA` | 滤镜串 | 空 | 追加到滤镜链末尾。**默认不改 SAR、不裁边**；确要修填 `setsar=32:27` / `crop=704:480:8:0,setsar=40:33` |
 | `AUDIO` | `copy` / `aac` / `flac` | `copy` | `copy`＝原样保留 AC3 / DTS / MP2（零损失、最快），**唯一例外**：源音轨是 LPCM 时自动转 AAC（见下）；`aac`＝强制重编码 192k；`flac`＝强制重编码，无损，体积约为 LPCM 的一半；mp4 下强制 `aac` |
@@ -508,7 +509,25 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
   `FFMPEG_BIN` 环境变量（指向 bin 目录）→ 仓库内 `ffmpeg\bin` → `PATH`（where）→ `C:\Program Files\ffmpeg\bin`
-- **`.sh`**：直接用 `PATH` 里的 `ffmpeg`/`ffprobe`（缺任一即报错退出）
+- **`.sh`**：`lib/common.sh` 的 `find_ffmpeg`，与 `.bat` 同序
+  `FFMPEG_BIN`（bin 目录）/ `FFMPEG`（可执行文件）→ 仓库内 `ffmpeg/bin` → `PATH` **逐项** → 常见安装前缀；
+  `ffprobe` 由 `find_ffprobe` 取与 ffmpeg 同目录那份（也可用 `FFPROBE=` 指定）。启动时回显实际用到的路径与版本串。
+  **不能只信 `command -v`**：它只回第一个命中，而 MSYS2 的 `/mingw64/bin` 8.1、Cygwin 的 `/usr/bin` 7.1.1 常常正是缺能力的那个，
+  `dvdvideo` 检查也用定位到的这份 ffmpeg 来做（否则会变成“检查 PATH 里那份、却跑另一份”）
+
+两族定位成功后都会**醒目回显**最终选定的路径与版本串（`.sh` 走标准错误，`.bat` 直接 `echo`），形如：
+
+```
+============================================================
+ 使用 ffmpeg : /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg
+ 版本       : N-117740-g7f51cf75c6-20241110
+============================================================
+```
+
+`find_ffmpeg` 还能按能力筛：`--need-filter <名>` / `--need-encoder <名>` / `--need-demuxer <名>`，
+缺哪项就在查找阶段**跳过**那个候选（诊断走标准错误）。`ffmpeg_dvd_hevc.sh` 用的是 `--need-demuxer dvdvideo`：
+本机 PATH 上的 Ubuntu 4.4.2 没有 dvdvideo，于是自动落到 `/opt` 下的 master build，**不用写死路径**。
+显式指定（`FFMPEG_BIN` / `FFMPEG`）仍然无条件优先——能力不足只报错、不悄悄换掉。
 
 ## 已知边界与注意事项
 

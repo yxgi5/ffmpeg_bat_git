@@ -306,8 +306,9 @@ function run_list() {
 # 的构建, 只是 PATH 里排在前面。
 #
 # 契约:
-#   find_ffmpeg [--need-filter <名>]... [--need-encoder <名>]...
-#     成功: 标准输出打印 ffmpeg 可执行文件路径(供 FF=$(...) 捕获), 返回 0
+#   find_ffmpeg [--need-filter <名>]... [--need-encoder <名>]... [--need-demuxer <名>]...
+#     成功: 标准输出打印 ffmpeg 可执行文件路径(供 FF=$(...) 捕获), 返回 0;
+#           同时在**标准错误**醒目回显最终选定的路径与版本(见 ff_report)
 #     失败: 返回 1, 诊断信息(跳过了谁/为什么)全部走标准错误
 #   find_ffprobe <ffmpeg 路径>
 #     成功: 打印同目录(或 PATH 上)的 ffprobe 并返回 0, 失败返回 1
@@ -324,26 +325,32 @@ function run_list() {
 # 内部: 一条定位诊断(标准错误, 前缀统一, 便于检索)
 _ff_note() { printf '[find_ffmpeg] %s\n' "$1" >&2; }
 
-# 内部: 列出候选缺少的能力(空串 = 全部满足), 形如 "filter:libvmaf encoder:libx265"
+# 内部: 列出候选缺少的能力(空串 = 全部满足), 形如 "filter:libvmaf encoder:libx265 demuxer:dvdvideo"
 _ff_missing() {
-    local bin="$1" fl="$2" en="$3" f e out=""
+    local bin="$1" fl="$2" en="$3" dm="$4" f e d out=""
     for f in $fl; do
         "$bin" -hide_banner -filters 2>/dev/null | grep -q -- "$f" || out="$out filter:$f"
     done
     for e in $en; do
         "$bin" -hide_banner -encoders 2>/dev/null | grep -q -- " $e " || out="$out encoder:$e"
     done
+    # 解复用器列表形如 " D   dvdvideo        DVD-Video": 按独立词匹配(前后是空白或行首/行尾),
+    # 既不漏掉行尾那一列, 也不会被描述列里的同名子串骗过
+    for d in $dm; do
+        "$bin" -hide_banner -demuxers 2>/dev/null \
+            | grep -qE "(^|[[:space:]])${d}([[:space:]]|$)" || out="$out demuxer:$d"
+    done
     printf '%s' "${out# }"
 }
 
 # 内部: 候选是否满足全部能力要求
-_ff_capable() { [ -z "$(_ff_missing "$1" "$2" "$3")" ]; }
+_ff_capable() { [ -z "$(_ff_missing "$1" "$2" "$3" "$4")" ]; }
 
 # 内部: 采用显式指定的候选; 能力不足时打印原因并返回 1
 _ff_adopt() {
-    local bin="$1" fl="$2" en="$3" src="$4"
-    _ff_capable "$bin" "$fl" "$en" && { echo "$bin"; return 0; }
-    _ff_note "$src=$bin 缺少 $(_ff_missing "$bin" "$fl" "$en") —— 显式指定优先, 不再自动查找"
+    local bin="$1" fl="$2" en="$3" dm="$4" src="$5"
+    _ff_capable "$bin" "$fl" "$en" "$dm" && { echo "$bin"; return 0; }
+    _ff_note "$src=$bin 缺少 $(_ff_missing "$bin" "$fl" "$en" "$dm") —— 显式指定优先, 不再自动查找"
     return 1
 }
 
@@ -351,7 +358,7 @@ _ff_adopt() {
 # 去重按"去掉 .exe 后缀"比较: Git Bash 的 command -v 返回不带后缀的路径,
 # 常见安装前缀那里写的是 ffmpeg.exe, 两者往往指向同一个文件, 不必探测两次。
 _ff_try() {
-    local bin="$1" fl="$2" en="$3" key
+    local bin="$1" fl="$2" en="$3" dm="$4" key
     [ -n "$bin" ] || return 1
     [ -x "$bin" ] || return 1
     key="${bin%.exe}"
@@ -359,8 +366,8 @@ _ff_try() {
         *" $key "*) return 1 ;;
     esac
     _FF_SEEN="${_FF_SEEN:-} $key"
-    _ff_capable "$bin" "$fl" "$en" && { echo "$bin"; return 0; }
-    _ff_note "跳过 $bin —— 缺少 $(_ff_missing "$bin" "$fl" "$en")"
+    _ff_capable "$bin" "$fl" "$en" "$dm" && { echo "$bin"; return 0; }
+    _ff_note "跳过 $bin —— 缺少 $(_ff_missing "$bin" "$fl" "$en" "$dm")"
     return 1
 }
 
@@ -388,13 +395,14 @@ _ff_known_prefixes() {
     printf '%s\n' /usr/local/bin/ffmpeg /usr/bin/ffmpeg
 }
 
-function find_ffmpeg() {
-    local fl="" en="" cand repo_root d oldifs
+function _ff_find_core() {
+    local fl="" en="" dm="" cand repo_root d oldifs
     local dirs=()
     while [ $# -gt 0 ]; do
         case "$1" in
             --need-filter)  fl="$fl ${2:-}"; shift 2 ;;
             --need-encoder) en="$en ${2:-}"; shift 2 ;;
+            --need-demuxer) dm="$dm ${2:-}"; shift 2 ;;
             *) shift ;;
         esac
     done
@@ -403,19 +411,19 @@ function find_ffmpeg() {
     # ---- 阶段一: 显式指定(FFMPEG_BIN 指目录, 与 bat 侧同名同义) ----
     if [ -n "${FFMPEG_BIN:-}" ]; then
         for cand in "$FFMPEG_BIN/ffmpeg" "$FFMPEG_BIN/ffmpeg.exe"; do
-            [ -x "$cand" ] && { _ff_adopt "$cand" "$fl" "$en" FFMPEG_BIN; return $?; }
+            [ -x "$cand" ] && { _ff_adopt "$cand" "$fl" "$en" "$dm" FFMPEG_BIN; return $?; }
         done
         _ff_note "FFMPEG_BIN=$FFMPEG_BIN 下没有可执行的 ffmpeg, 继续自动查找"
     fi
     if [ -n "${FFMPEG:-}" ]; then
-        [ -x "$FFMPEG" ] && { _ff_adopt "$FFMPEG" "$fl" "$en" FFMPEG; return $?; }
+        [ -x "$FFMPEG" ] && { _ff_adopt "$FFMPEG" "$fl" "$en" "$dm" FFMPEG; return $?; }
         _ff_note "FFMPEG=$FFMPEG 不可执行, 继续自动查找"
     fi
 
     # ---- 阶段二: 自动查找, 跳过能力不足的候选 ----
     repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     for cand in "$repo_root/ffmpeg/bin/ffmpeg" "$repo_root/ffmpeg/bin/ffmpeg.exe"; do
-        _ff_try "$cand" "$fl" "$en" && return 0
+        _ff_try "$cand" "$fl" "$en" "$dm" && return 0
     done
 
     # PATH 必须**逐项**看, 不能只问 command -v: 它只回第一个命中, 而"第一个"经常
@@ -430,16 +438,43 @@ function find_ffmpeg() {
     IFS="$oldifs"
     # ${arr[@]+"${arr[@]}"} 是 set -u 下空数组的安全写法(兼容 bash 4.3)
     for d in ${dirs[@]+"${dirs[@]}"}; do
-        _ff_try "$d/ffmpeg" "$fl" "$en" && return 0
-        _ff_try "$d/ffmpeg.exe" "$fl" "$en" && return 0
+        _ff_try "$d/ffmpeg" "$fl" "$en" "$dm" && return 0
+        _ff_try "$d/ffmpeg.exe" "$fl" "$en" "$dm" && return 0
     done
 
     # ---- 阶段三: 常见安装前缀(Windows 侧路径由 cygpath 生成, Cygwin 也命中) ----
     while IFS= read -r cand; do
-        _ff_try "$cand" "$fl" "$en" && return 0
+        _ff_try "$cand" "$fl" "$en" "$dm" && return 0
     done < <(_ff_known_prefixes)
     _ff_note "已试遍 PATH 各项与常见前缀, 没有满足要求的 ffmpeg"
     return 1
+}
+
+# ================================================================
+#  ff_report <ffmpeg 路径> [ffprobe 路径]
+#  醒目回显最终选定的 ffmpeg(走**标准错误**, 免得污染 FF=$(find_ffmpeg) 的捕获)。
+#  定位过程里"跳过谁、为什么"已经由 _ff_note 打出来了, 但那一堆诊断很容易盖过
+#  真正被采用的那个 —— 用户问"到底用的哪个 ffmpeg"时看的就是这块牌子。
+# ================================================================
+function ff_report() {
+    local ff="${1:-}" fp="${2:-}" b="" e="" bar
+    bar="============================================================"
+    # 只在终端里上色; 重定向到文件时留下纯文本, 免得日志里一堆转义序列
+    if [ -t 2 ]; then b="\033[1;7m"; e="\033[0m"; fi
+    [ -n "$ff" ] || return 0
+    printf '\n%b\n' "${b}${bar}${e}" >&2
+    printf '%b\n' "${b} 使用 ffmpeg : ${ff} ${e}" >&2
+    [ -n "$fp" ] && printf ' 使用 ffprobe: %s\n' "$fp" >&2
+    printf ' 版本       : %s\n' "$(ffmpeg_build_id "$ff")" >&2
+    printf '%b\n' "${b}${bar}${e}" >&2
+}
+
+# 对外入口: 承接 _ff_find_core 的能力筛选, 并在成功时醒目回显选定的那一份
+function find_ffmpeg() {
+    local bin
+    bin="$(_ff_find_core "$@")" || return 1
+    ff_report "$bin"
+    printf '%s\n' "$bin"
 }
 
 function find_ffprobe() {
