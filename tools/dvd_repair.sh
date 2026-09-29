@@ -7,11 +7,17 @@
 #      源目录   含 VIDEO_TS 的 DVD 根目录, 或 VIDEO_TS 目录本身(两种都认)
 #      输出ISO  给了就在修完之后接着调 dvd_restore.sh 打包; 不给就只修不打
 #
-#  谁会调它: 没有。dvd_shrink.sh 只调 dvd_restore.sh, 不会替你补文件 —— 缺了就是
-#            缺了, 得自己先跑一遍本脚本(顺序: 先 dvd_repair.sh 修, 再 dvd_shrink.sh 瘦)。
-#            本脚本只在"给了输出ISO"时自动往下走一步: 修完自己调 dvd_restore.sh 打包。
+#  谁会调它:
+#    * 体检模式(CHECK_ONLY=1)被 tools/dvd_shrink.sh 与 tools/dvd_to_data_iso.sh 当
+#      "体检门"调用: 它们只看退出码, 仍然**不替用户改盘** —— 有缺失就停下来, 把本脚本
+#      的修复命令打给用户(顺序不变: 先 dvd_repair.sh 修, 再瘦身 / 再压)。
+#    * 本脚本自己只在"给了输出ISO"时往下走一步: 修完自动调 dvd_restore.sh 打包。
+#    * dvd_restore.sh **不**调本脚本(它只指路): 否则"修完打包"会变成互相调用的死循环。
 #
 #  开关(环境变量, 写在命令之前):
+#    CHECK_ONLY=1    只体检, 不改任何文件: 打印缺失清单, 结论走**退出码** ——
+#                    0 = 完好 / 1 = 有缺失但都能补 / 2 = 有补不出来的(VOB 断号)
+#                    给别的脚本当"体检门"用(见"谁会调它")
 #    APPLY=1         真的改盘。默认只读预览: 只把"缺什么 / 打算怎么补"打印出来
 #    KEEPMENU=1      重建时把原来的 VTS_xx_0.VOB(菜单)一起喂给 dvdauthor, 菜单能保住
 #                    (默认 1; 失败会自动退回"不要菜单", 并把那个 VOB 挪到备份目录)
@@ -67,6 +73,7 @@ err()   { printf '\033[41;36m%s 错误: %s\033[0m\n' "$TAG" "$*" >&2; }
 die()   { err "$*"; exit 1; }
 usage() { awk 'NR>=3 && /^# =+$/ { exit } NR>=3 { sub(/^# ?/, ""); print }' "$0"; exit "${1:-0}"; }
 
+CHECK_ONLY="${CHECK_ONLY:-0}"
 APPLY="${APPLY:-0}"
 KEEPMENU="${KEEPMENU:-1}"
 CHAPTERS="${CHAPTERS:-auto}"
@@ -101,7 +108,12 @@ DVD_ROOT="$(cd "$DVD_ROOT" && pwd)"
 # 夹带物警告, 也会被 mkisofs 一起扫进镜像
 BASE_NAME="$(basename "$DVD_ROOT")"
 [ -n "$BASE_NAME" ] && [ "$BASE_NAME" != "/" ] || BASE_NAME="DVDVIDEO"
-WORK="$(dirname "$DVD_ROOT")/.dvd_repair_${BASE_NAME}"
+if [ "$CHECK_ONLY" = "1" ]; then
+    # 只体检: 不要在源盘旁边留下 .dvd_repair_* 目录(没动过文件却留个空壳最容易误判)
+    WORK="$(mktemp -d 2>/dev/null || echo "/tmp/.dvd_repair_check_$$")"
+else
+    WORK="$(dirname "$DVD_ROOT")/.dvd_repair_${BASE_NAME}"
+fi
 BACKUP="$(dirname "$DVD_ROOT")/.dvd_repair_backup_${BASE_NAME}"
 rm -rf "$WORK"
 mkdir -p "$WORK" || die "建不了工作目录: $WORK"
@@ -111,6 +123,9 @@ trap cleanup EXIT
 echo ============================================================
 info "源 DVD 根   : $DVD_ROOT"
 info "VIDEO_TS    : $VTS"
+if [ "$CHECK_ONLY" = "1" ]; then
+    info "体检模式    : CHECK_ONLY=1 —— 不改任何文件, 结论走退出码(0 完好 / 1 可修 / 2 补不出来)"
+fi
 info "模式        : $([ "$APPLY" = "1" ] && echo "APPLY=1 真的改盘" || echo "只读预览(APPLY=1 才会动文件)")"
 echo ============================================================
 
@@ -242,7 +257,8 @@ done
 N_ALL=${#PLAN_KIND[@]}
 if [ "$N_ALL" -eq 0 ]; then
     info "没发现缺失: IFO/BUP 成对齐全, VOB 编号连续"
-    if [ -n "$OUT" ]; then
+    # 体检模式下不往下打包: 调用方只要结论(退出码 0), 不该顺手产出一个镜像
+    if [ -n "$OUT" ] && [ "$CHECK_ONLY" != "1" ]; then
         echo ============================================================
         bash "$SCRIPT_DIR/dvd_restore.sh" "$DVD_ROOT" "$OUT" || exit 1
     fi
@@ -259,6 +275,19 @@ N_GAP=0
 for k in "${PLAN_KIND[@]}"; do [ "$k" = "GAP" ] && N_GAP=$((N_GAP + 1)); done
 [ "$N_GAP" -eq 0 ] || warn "有 $N_GAP 项是补不出来的(内容真丢了), 需要重新抓那一整段"
 echo ============================================================
+
+# 体检模式: 结论只走退出码, 跳过后面所有会动文件的分支(含 dvdauthor 依赖检查)
+#   0 = 完好        调用方继续
+#   1 = 有缺失但都能补  调用方 die 并给出 APPLY=1 那条命令
+#   2 = 有补不出来的    调用方 die: 内容真没了, 修也没用
+if [ "$CHECK_ONLY" = "1" ]; then
+    if [ "$N_GAP" -gt 0 ]; then
+        info "体检结论: $N_ALL 项里 $N_GAP 项补不出来(内容真丢了) —— 退出码 2"
+        exit 2
+    fi
+    info "体检结论: $N_ALL 项都能补(加 APPLY=1 重跑即可) —— 退出码 1"
+    exit 1
+fi
 
 if [ "$APPLY" != "1" ]; then
     info "只读预览结束, 没有改动任何文件。确认无误后加 APPLY=1 重跑"

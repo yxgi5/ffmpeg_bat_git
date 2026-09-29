@@ -329,6 +329,7 @@ NO_ISO=1 ./tools/dvd_make_sample.sh /tmp/ts                  # 出 VIDEO_TS 就�
 BURN=/dev/sr0 ./tools/dvd_restore.sh ~/Downloads/tmp/KB059-Nessy-KB4   # 打好立刻刻
 FIX=1 ./tools/dvd_restore.sh ...                                       # 缺/坏的 BUP 用 IFO 补
 DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开镜像逐字节比对
+ALLOW_GAP=1 ./tools/dvd_restore.sh ...                                 # VOB 断号也照样出镜像(默认拦下)
 ```
 
 三个关键点（都是实测，脚本头部注释有原始数据）：
@@ -342,6 +343,9 @@ DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开�
 打包前会先体检：必备文件、大小写、2048 字节对齐、单文件 ≤ 1 GiB、IFO/BUP 是否成对、
 `AUDIO_TS` 是否存在（缺了自动补空目录）、容量能不能塞进 DVD-5 / DVD-9；
 打包后校验 UDF 卷识别序列（`BEA01`/`NSR02`/`TEA01`）并逐个比对文件清单与大小。
+其中 **VOB 编号断号默认拦下**：那一整段的音视频真没了，任何工具都补不出来，镜像看着正常、
+校验也过，播到缺的那段才断 —— 而那时盘已经刻完了。报错里直接给出 `ALLOW_GAP=1 ...` 那条
+「带着缺口继续」的命令（`CHECK=0` 则连其它结构检查一起跳过）。
 
 依赖：`genisoimage`（必需，提供 `mkisofs -dvd-video`）；`xorriso` 或 `7z`（校验，二选一）；
 `growisofs` / `wodim`（仅 `BURN=` 刻录时需要）。
@@ -349,6 +353,10 @@ DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开�
 ## 补齐缺失的 IFO / BUP（`tools/dvd_repair.sh`）
 
 抓盘/解压出来的目录常常缺文件。这个工具先体检再补齐，默认**只读预览**，加 `APPLY=1` 才动盘。
+
+体检也可以单独要：`CHECK_ONLY=1` 只打印缺失清单、**一个字节都不改**，结论走退出码
+（`0` 完好 / `1` 有缺失但都能补 / `2` 有补不出来的）—— `dvd_shrink.sh` 与
+`dvd_to_data_iso.sh` 就是拿它当「体检门」用（见下面「谁会调它」）。
 
 ```
 ./tools/dvd_repair.sh <源目录> [输出ISO]
@@ -410,14 +418,19 @@ FORMAT=pal APPLY=1 ...                             # 强制制式（默认按 VO
 
 ```
 dvd_repair.sh  ──(只在给了输出ISO时)──>  dvd_restore.sh      修完直接打包
+dvd_shrink.sh  ──(CHECK_ONLY=1, 只体检)──>  dvd_repair.sh    先体检, 有缺失就停下
 dvd_shrink.sh  ─────────────────────>  dvd_restore.sh      瘦身完打包
+dvd_to_data_iso.sh ──(CHECK_ONLY=1, 只体检)──> dvd_repair.sh  DVD 目录 + 要压时才体检
 dvd_make_sample.sh ─────────────────>  dvd_restore.sh      造完素材打包
-dvd_to_data_iso.sh                     （独立，不调任何脚本）
+dvd_to_data_iso.sh ──(ENCODE=1, 先压)──>  ffmpeg_dvd_hevc.sh
 ```
 
-- **`dvd_shrink.sh` 不会调用 `dvd_repair.sh`**，反过来也没有。`dvd_repair.sh` 只在一个地方
-  自动往下走：你给了「输出 ISO」参数时，它在修完之后自己调 `dvd_restore.sh` 打包。
-- 所以**没有脚本会替你补文件**，缺了就是缺了，得自己先跑一遍 `dvd_repair.sh`。
+- **`dvd_shrink.sh` / `dvd_to_data_iso.sh` 只调 `dvd_repair.sh` 的体检模式**（`CHECK_ONLY=1`，
+  只读）：有缺失就停下来，把「缺什么 + 该跑的那条 `APPLY=1 ...` 命令」打给你。
+  **仍然没有脚本会替你改盘** —— 修是 `dvd_repair.sh` 的事，而它默认也是只读预览。
+- `dvd_repair.sh` 自己只在一个地方自动往下走：你给了「输出 ISO」参数时，修完自己调
+  `dvd_restore.sh` 打包。反过来 `dvd_restore.sh` **不**调 `dvd_repair.sh`（它只指路），
+  否则「修完打包」会变成互相调用的死循环。
 - 瘦身（`dvd_shrink.sh`）靠 `ffprobe -f dvdvideo` 读源盘，而 libdvdread 会自动退回 BUP，
   所以「缺 IFO 或 BUP 中的一个」对它毫无影响（实测缺哪个都照样读出 1682s / 2068s）。
 - 但**整组 `.IFO` + `.BUP` 全丢时那条 title 根本读不出来**（`DVDOpenFilePath:
@@ -442,6 +455,7 @@ LPCM / DTS 音频，把 HEVC 塞进 VOB 里能出 ISO 也能刻盘，但没有�
 ./tools/dvd_shrink.sh ~/Downloads/tmp/LD016春春裸足电影3      # 挑最长的正片, 目标 DVD-5
 TARGET_MB=8000 ./tools/dvd_shrink.sh ...                     # 目标改成 DVD-9 双层
 MODE=ALL ./tools/dvd_shrink.sh ...                           # 每个 title 各做一个标题集
+ALLOW_GAP=1 ./tools/dvd_shrink.sh ...                        # 断号/标题数对不上也继续(默认拦下)
 VBITRATE=2500k ./tools/dvd_shrink.sh ...                     # 直接指定视频码率
 AUDIO=ac3 ./tools/dvd_shrink.sh ...                          # dvdauthor 报音频断续时改重编
 ```
@@ -452,9 +466,12 @@ AUDIO=ac3 ./tools/dvd_shrink.sh ...                          # dvdauthor 报音�
 - 代价说在前面：**重编码必然掉画质**、**原盘菜单会丢**（IFO 由 `dvdauthor` 重生成，菜单
   只存在于原盘的 VOB 里）。脚本发现「反推出的码率不低于原盘」会先劝退。
 - 章节从源盘带过来；**不做 IVTC** —— DVD 只认 25（PAL）/ 29.97（NTSC）两种帧率。
-- **源盘缺文件要先补**：本脚本不会替你补，也补不了。缺 IFO 或 BUP 中的一个不影响读取
-  （libdvdread 会退回 BUP），但整组 `.IFO` + `.BUP` 全丢时那条 title 读不出来、会被静默跳过
-  —— 先跑 `tools/dvd_repair.sh` 修好再瘦身。
+- **源盘缺文件会先被拦下**（源是**目录**时）：开跑前请 `dvd_repair.sh` 只读体一次检，
+  有缺失就停下并把 `APPLY=1 bash tools/dvd_repair.sh <源>` 打给你（`CHECK=0` 跳过这道门）。
+  补不出来的那种（VOB 断号）同理拦下，确实要带着缺口继续就 `ALLOW_GAP=1`。
+  本脚本**不会替你改源盘**。源是 ISO / 光驱时做不了体检（`dvd_repair.sh` 只认目录），跳过不拦。
+- 另外 `MODE=ALL` 下会对一次账：盘上有几个 `VTS_*_0.IFO`，就该读出几条 title；
+  对不上说明有标题集读不出来（多半是整组 IFO/BUP 丢了），不再静默少一条正片。
 
 产物仍由 `dvd_restore.sh` 打包与校验（UDF 卷识别序列 + 文件清单），等于「重制 + 还原」一条龙。
 依赖：`dvdauthor` + 带 `dvdvideo` 与 `mpeg2video` 的 `ffmpeg` + `genisoimage`。
@@ -473,7 +490,13 @@ AUDIO=ac3 ./tools/dvd_shrink.sh ...                          # dvdauthor 报音�
 ./tools/dvd_to_data_iso.sh ~/HEVC_OUT                          # 已有文件, 直接打包
 VENC=hevc_nvenc ./tools/dvd_to_data_iso.sh ...                 # 有 N 卡时走硬编(默认 libx265)
 KEEP_STAGE=1 ./tools/dvd_to_data_iso.sh ...                    # 保留中间那份 MKV
+CHECK=0 ./tools/dvd_to_data_iso.sh ...                         # 跳过源盘体检
+ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样压(默认拦下)
 ```
+
+- 源是 **DVD 目录且真要读它**（`ENCODE=1`）时，开跑前同样先过一遍 `dvd_repair.sh` 的只读体检：
+  有缺失就停下并给出修复命令；断号（`ALLOW_GAP=1` 放行）与「补不出来」同上。
+  源是 ISO / 光驱、或只是普通文件目录时不做体检。
 
 实测 1.05 GiB 的 DVD → 136 MiB 数据 ISO（约 1/8）。**这是数据盘，不是 DVD-Video**：没有
 `VIDEO_TS`、没有菜单，PC 直接播，传统 DVD 机读不了；部分电视 / 蓝光机的数据盘功能能读。
