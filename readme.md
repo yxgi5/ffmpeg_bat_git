@@ -242,16 +242,36 @@ DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开�
 ```
 
 ```
-./tools/dvd_repair.sh ~/Downloads/tmp/DVD001      # 先看看缺什么（只读）
+./tools/dvd_repair.sh ~/Downloads/tmp/DVD001      # 先看看缺什么（只读，不动盘）
 APPLY=1 ./tools/dvd_repair.sh ~/Downloads/tmp/DVD001 ~/out.iso   # 修完直接打 ISO
+APPLY=1 ./tools/dvd_repair.sh ~/Downloads/tmp/DVD001             # 只修，不打
 CHAPTERS=none APPLY=1 ...                          # 重建时不要章节（省一次全片解码）
+KEEPMENU=0 APPLY=1 ...                             # 重建时连菜单也不要（孤儿 VOB 会被挪走）
+FORMAT=pal APPLY=1 ...                             # 强制制式（默认按 VOB 分辨率判）
 ```
+
+常用开关（都是环境变量，写在命令前面）：
+
+| 开关 | 默认 | 意思 |
+|---|---|---|
+| `APPLY=1` | 关 | 不加就是只读预览，只打印"缺什么、打算怎么补" |
+| `CHAPTERS=auto\|none` | `auto` | 重建时用 ffmpeg 场景检测重打章节（代价：一次全片解码） |
+| `SCENE_TH` / `MIN_GAP` / `MAX_CH` | `0.40` / `30` / `60` | 场景检测阈值 / 相邻章节最小间隔 / 章节上限 |
+| `KEEPMENU=1` | 开 | 重建时把原 `VTS_xx_0.VOB`（菜单）一起喂给 `dvdauthor`，保住菜单 |
+| `FORMAT=pal\|ntsc` | 自动 | 按 VOB 分辨率判（576/288 = PAL）；判错时手动指定 |
+| `FORCE=1` | 关 | 本盘 IFO/BUP 本就不一致时，也照样用 BUP 顶 IFO |
+| `KEEP_WORK=1` | 关 | 保留工作目录（`dvdauthor` 的中间产物与日志） |
+
+被替换掉的原件不会凭空消失，一律先 `mv` 到 DVD 根**旁边**的
+`.dvd_repair_backup_<名字>/`（同分区 `mv` 不占额外空间）；工作目录是旁边的
+`.dvd_repair_<名字>/`，跑完自动删（`KEEP_WORK=1` 保留）。两者都刻意放在根目录外面，
+否则会被 `dvd_restore.sh` 当成夹带物警告，也会被 `mkisofs` 一起卷进镜像。
 
 | 情形 | 怎么补 | 代价 |
 |---|---|---|
 | 缺 `.BUP`（`.IFO` 在） | 直接 `cp`。规范要求 BUP 是 IFO 的逐字节备份 | 无 |
 | 缺 `.IFO`（`.BUP` 在） | 反方向 `cp`。补之前先核对本盘其余 IFO/BUP 对是否真的一致 | 无 |
-| `.IFO` 与 `.BUP` 都没了 | `dvdauthor` 从该标题集自己的 VOB 重建（**不重编码**）+ `dvdauthor -T` 重生成 VMG | 该组 VOB 重写一遍；菜单可保，章节回不来（可用场景检测重打） |
+| `.IFO` 与 `.BUP` 都没了 | `dvdauthor` 从该标题集自己的 VOB 重建（**不重编码**）+ `dvdauthor -T` 重生成 VMG | 该组 VOB 重写一遍；菜单可保，章节用场景检测重打（是近似值，不是原盘的） |
 | 缺 VOB（编号断号） | 补不出来，只报告是哪一段 | — |
 
 三个实测出来的坑（脚本头部有原始数据）：
@@ -270,6 +290,26 @@ CHAPTERS=none APPLY=1 ...                          # 重建时不要章节（省
 而内容其实还是完整的）。所以脚本每建一次都复核时长，发现被截断就自动降级重写。
 
 依赖：前两档只要 `cp`；第三档要 `dvdauthor` + `ffmpeg`/`ffprobe`。
+
+### 谁会调它、它调谁（顺序别搞反）
+
+```
+dvd_repair.sh  ──(只在给了输出ISO时)──>  dvd_restore.sh      修完直接打包
+dvd_shrink.sh  ─────────────────────>  dvd_restore.sh      瘦身完打包
+dvd_to_data_iso.sh                     （独立，不调任何脚本）
+```
+
+- **`dvd_shrink.sh` 不会调用 `dvd_repair.sh`**，反过来也没有。`dvd_repair.sh` 只在一个地方
+  自动往下走：你给了「输出 ISO」参数时，它在修完之后自己调 `dvd_restore.sh` 打包。
+- 所以**没有脚本会替你补文件**，缺了就是缺了，得自己先跑一遍 `dvd_repair.sh`。
+- 瘦身（`dvd_shrink.sh`）靠 `ffprobe -f dvdvideo` 读源盘，而 libdvdread 会自动退回 BUP，
+  所以「缺 IFO 或 BUP 中的一个」对它毫无影响（实测缺哪个都照样读出 1682s / 2068s）。
+- 但**整组 `.IFO` + `.BUP` 全丢时那条 title 根本读不出来**（`DVDOpenFilePath:
+  findDVDFile /VIDEO_TS/VTS_01_0.IFO failed`）——`dvd_shrink.sh` 只会静默跳过它，`MODE=ALL`
+  做出来的盘就少一条正片，`MODE=AUTO` 则可能挑中另一条。所以顺序是：
+  **先 `dvd_repair.sh` 修，再 `dvd_shrink.sh` 瘦**。
+- 顺带一提：`dvd_shrink.sh` 每条 title 只生成一个 mpg（一个 `<vob>`），所以不会撞上
+  上面那个「`chapters` 写在多 VOB 上会被截断」的坑。
 
 ## 重制 DVD-Video（压缩到目标容量）（`tools/dvd_shrink.sh`）
 
@@ -296,6 +336,9 @@ AUDIO=ac3 ./tools/dvd_shrink.sh ...                          # dvdauthor 报音�
 - 代价说在前面：**重编码必然掉画质**、**原盘菜单会丢**（IFO 由 `dvdauthor` 重生成，菜单
   只存在于原盘的 VOB 里）。脚本发现「反推出的码率不低于原盘」会先劝退。
 - 章节从源盘带过来；**不做 IVTC** —— DVD 只认 25（PAL）/ 29.97（NTSC）两种帧率。
+- **源盘缺文件要先补**：本脚本不会替你补，也补不了。缺 IFO 或 BUP 中的一个不影响读取
+  （libdvdread 会退回 BUP），但整组 `.IFO` + `.BUP` 全丢时那条 title 读不出来、会被静默跳过
+  —— 先跑 `tools/dvd_repair.sh` 修好再瘦身。
 
 产物仍由 `dvd_restore.sh` 打包与校验（UDF 卷识别序列 + 文件清单），等于「重制 + 还原」一条龙。
 依赖：`dvdauthor` + 带 `dvdvideo` 与 `mpeg2video` 的 `ffmpeg` + `genisoimage`。

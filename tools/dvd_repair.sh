@@ -7,6 +7,10 @@
 #      源目录   含 VIDEO_TS 的 DVD 根目录, 或 VIDEO_TS 目录本身(两种都认)
 #      输出ISO  给了就在修完之后接着调 dvd_restore.sh 打包; 不给就只修不打
 #
+#  谁会调它: 没有。dvd_shrink.sh 只调 dvd_restore.sh, 不会替你补文件 —— 缺了就是
+#            缺了, 得自己先跑一遍本脚本(顺序: 先 dvd_repair.sh 修, 再 dvd_shrink.sh 瘦)。
+#            本脚本只在"给了输出ISO"时自动往下走一步: 修完自己调 dvd_restore.sh 打包。
+#
 #  开关(环境变量, 写在命令之前):
 #    APPLY=1         真的改盘。默认只读预览: 只把"缺什么 / 打算怎么补"打印出来
 #    KEEPMENU=1      重建时把原来的 VTS_xx_0.VOB(菜单)一起喂给 dvdauthor, 菜单能保住
