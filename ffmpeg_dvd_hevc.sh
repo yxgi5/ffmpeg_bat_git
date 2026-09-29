@@ -29,6 +29,18 @@
 #    * 不猜测该切哪一章。每张盘的前編/後編分界章号都不同, 由调用方填
 #      SPLIT_CHAPTER; 默认 0 = 不切。
 #
+#  编码器(与 .bat 侧同名开关 VENC):
+#    空 / auto   依次真跑探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一个能编的
+#    显式        直接填 ffmpeg 原生名: hevc_nvenc / hevc_qsv / h264_nvenc /
+#                h264_qsv / av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1
+#                (连字符写法 hevc-nvenc 也认; avc_nvenc / avc_qsv 会自动翻译成
+#                 h264_nvenc / h264_qsv —— ffmpeg 里没有 avc_* 这个编码器名)
+#    显式指定的那个探测通不过 -> 报错退出并列出本机可用的, 不静默降级
+#    探测一律"真跑一次小编码", 不看 ffmpeg -encoders 列表: 本机三个 nvenc 都列在
+#      表里, 真跑却在 cuInit 处失败(没 N 卡) —— 只看列表会把不可用判成可用
+#    码率表跟着编码器走: hevc_* -> hevc 表, h264_* / libx264 -> avc 表,
+#      av1_* / libsvtav1 -> av1 表(三张表都 /2, 与仓库其余入口同口径)
+#
 #  依赖: ffmpeg 需带 libdvdread + libdvdnav(即 dvdvideo 解复用器), 精简构建没有。
 #  注意: 本文件保持 UTF-8 编码 + LF 行尾
 # =========================================================================
@@ -99,10 +111,10 @@ VFILT_EXTRA="${VFILT_EXTRA:-}"
 # AUDIO=aac   必须重编码(MP4 下强制用这个)
 AUDIO="${AUDIO:-copy}"
 
-# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片(默认, 最通用)
+# MODE=ALL    每个 title 各出一个文件(默认)
+# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片
 # MODE=TITLE  只处理 DVD_TITLE 指定的一条
-# MODE=ALL    每个 title 各出一个文件
-MODE="${MODE:-AUTO}"
+MODE="${MODE:-ALL}"
 if [ "$#" -ge 3 ]; then
     DVD_TITLE="$3"
     MODE="TITLE"
@@ -120,8 +132,10 @@ EXTRA_TITLES="${EXTRA_TITLES:-}"
 # 空 = 用 lib/bitrate_table_hevc.csv 查表再 /2(推荐); 填数字则直接覆盖, 如 636k
 VBITRATE="${VBITRATE:-}"
 
-# 编码器: 默认 hevc_nvenc; 无 N 卡时设 VENC=libx265 走软编
-VENC_NAME="${VENC:-hevc_nvenc}"
+# 编码器: 空 / auto = 依次探测 hevc_nvenc -> hevc_qsv -> libx265 取第一个能编的;
+#         要指定就填 ffmpeg 原生名(hevc_nvenc / h264_qsv / libx265 ...)。
+#         解析与可用性探测都在下面"编码器"那一节做(码率表要先定下来才能查表)
+VENC="${VENC:-auto}"
 # ==================================================================
 
 mkdir -p "$OUTDIR" || { echo "无法创建输出目录: $OUTDIR"; exit 1; }
@@ -199,15 +213,90 @@ read -r SRC_W SRC_H SRC_DUR <<<"$MAIN"
 echo "正片: ${SRC_W}x${SRC_H}  时长 ${SRC_DUR}s"
 SRC_PIX=$(( SRC_W * SRC_H ))
 
+# =========================================================================
+#  编码器: VENC 空 / auto 时依次探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一
+#  个真能编的; 显式给了名字就用那个, 探测不过就报错退出(并列出本机可用的)。
+#
+#  探测一律"真跑一次小编码", 不看 ffmpeg -encoders 列表 —— 本机三个 nvenc 都挂在
+#  列表里, 真跑却在 cuInit 处失败(没 N 卡), 只看列表会把"不可用"判成可用。
+#  尺寸取 320x240: 再小(128x128) NVENC 自己就拒绝初始化, 反过来会把"可用"判成
+#  不可用(仓库 test/README.md 记过这个假 SKIP)。
+# =========================================================================
+venc_usable() {
+    "$FF" -hide_banner -v error -f lavfi -i testsrc2=s=320x240:r=25:d=1 \
+          -c:v "$1" -frames:v 2 -f null - >/dev/null 2>&1
+}
+
+VENC_LIST_ALL="hevc_nvenc h264_nvenc av1_nvenc hevc_qsv h264_qsv av1_qsv libx265 libx264 libsvtav1"
+
+venc_avail_list() {
+    local e out=""
+    for e in $VENC_LIST_ALL; do
+        venc_usable "$e" && out="${out:+$out }$e"
+    done
+    printf '%s' "${out:-一个都没有}"
+}
+
+# 名字归一: 连字符写法(hevc-nvenc)统一成下划线; avc_* 翻成 ffmpeg 真名 h264_*
+VENC_NAME="${VENC:-auto}"
+VENC_NAME="${VENC_NAME//-/_}"
+case "$VENC_NAME" in
+    avc_nvenc) VENC_NAME="h264_nvenc" ;;
+    avc_qsv)   VENC_NAME="h264_qsv"   ;;
+esac
+
+if [ "$VENC_NAME" = "auto" ]; then
+    VENC_NAME=""
+    for c in hevc_nvenc hevc_qsv libx265; do
+        if venc_usable "$c"; then VENC_NAME="$c"; break; fi
+    done
+    [ -n "$VENC_NAME" ] || {
+        echo -e "\033[41;36mhevc_nvenc / hevc_qsv / libx265 三个候选本机都不可用\033[0m"
+        exit 1
+    }
+    echo "编码器  : auto -> $VENC_NAME（依次探测 hevc_nvenc / hevc_qsv / libx265）"
+else
+    # 先认名字再探测: 拼错的名字不至于被当成"本机不可用"这种误导性报错
+    case " $VENC_LIST_ALL " in
+        *" $VENC_NAME "*) : ;;
+        *)
+            echo -e "\033[41;36m不认识的编码器: $VENC_NAME\033[0m"
+            echo "认这些: $VENC_LIST_ALL"
+            exit 1
+            ;;
+    esac
+    venc_usable "$VENC_NAME" || {
+        echo -e "\033[41;36m指定的编码器 $VENC_NAME 本机不可用\033[0m"
+        echo "常见原因: 没装对应驱动 / 这份 ffmpeg 没编进该编码器 / 显卡不支持该格式"
+        echo "本机实测可用: $(venc_avail_list)"
+        exit 1
+    }
+    echo "编码器  : $VENC_NAME（显式指定）"
+fi
+
+# 参数模板(不含 -b:v, 码率算完再追加) + 该用哪张码率表
+case "$VENC_NAME" in
+    hevc_nvenc) VENC_BASE="-profile:v main -preset p4 -tune:v hq -rc cbr";  BTAB=hevc ;;
+    hevc_qsv)   VENC_BASE="-profile:v main -preset veryfast";               BTAB=hevc ;;
+    libx265)    VENC_BASE="-profile:v main -preset fast";                   BTAB=hevc ;;
+    h264_nvenc) VENC_BASE="-profile:v high -preset p4 -tune:v hq -rc cbr";  BTAB=avc  ;;
+    h264_qsv)   VENC_BASE="-profile:v main -preset veryfast";               BTAB=avc  ;;
+    libx264)    VENC_BASE="-profile:v high -preset fast";                   BTAB=avc  ;;
+    av1_nvenc)  VENC_BASE="-preset p4 -tune:v hq -rc cbr";                  BTAB=av1  ;;
+    av1_qsv)    VENC_BASE="-profile:v main -preset fast";                   BTAB=av1  ;;
+    libsvtav1)  VENC_BASE="-preset 8";                                      BTAB=av1  ;;
+esac
+
 # ---------- 算目标码率(复用仓库的 power-law 模型) ----------
 if [ -z "$VBITRATE" ]; then
-    BIT="$(lookup_bitrate "$SRC_PIX" bitrate_table_hevc.csv)"
+    BIT="$(lookup_bitrate "$SRC_PIX" "bitrate_table_${BTAB}.csv")"
     if [ $? -ne 0 ] || [ -z "$BIT" ]; then
         echo -e "\033[41;36mManual handle it! (${SRC_PIX} px 不在码率表范围内)\033[0m"
         exit 2
     fi
     # 与 .bat / ffmpeg_hevc_nvenc.sh 同口径: 查表值 /2, 单位 bits/s(裸数字),
     # 不加 k —— 636021 就是 636 kbps; 加了 k 会变成 636 Mbps 被 NVENC 拒
+    # 表按编码器选(hevc/avc/av1), 三张表都是 /2, 与仓库其余入口同口径
     VBITRATE="$(awk -v b="$BIT" 'BEGIN{printf "%d", b/2}')"
 fi
 echo "ref TARGET_BITRATE = ${VBITRATE} bit/s (~$(( VBITRATE / 1000 )) kbps)"
@@ -225,12 +314,10 @@ fi
 if [ -n "$VFILT" ]; then echo "滤镜链: $VFILT"; else echo "滤镜链: [无]"; fi
 
 # ---------- 容器相关选项(数组, 无 eval) ----------
-# 编码器参数按 VENC 分档; -c:v 由 enc() 统一追加, 保证 -i 一定在 -c:v 之前
-case "$VENC_NAME" in
-    hevc_nvenc) VENC_ARGS=(-profile:v main -preset p4 -tune:v hq -rc cbr -b:v "$VBITRATE") ;;
-    libx265)    VENC_ARGS=(-preset medium -x265-params "log-level=error" -b:v "$VBITRATE") ;;
-    *)          VENC_ARGS=(-b:v "$VBITRATE") ;;
-esac
+# 参数模板 + 码率 -> 数组。模板里都是固定字面量, 用 read -a 切词即可(不用 eval);
+# -c:v 由 enc() 统一追加, 保证 -i 一定在 -c:v 之前
+read -r -a VENC_ARGS <<<"${VENC_BASE} -b:v ${VBITRATE}"
+echo "编码参数: ${VENC_ARGS[*]}"
 
 case "$EXT" in
     mkv)
@@ -281,7 +368,7 @@ enc() {
     if [ $? -ne 0 ]; then
         echo -e "\033[41;36mtitle $t 编码失败\033[0m"
         echo "常见原因: 1) -c:s 处理不了位图字幕  2) MP4 下 AC3 没转成 AAC"
-        echo "          3) ${VENC_NAME} 不可用 -> 换 VENC=libx265"
+        echo "          3) ${VENC_NAME} 参数不被接受 -> 换 VENC=libx265 或 VENC=auto"
         return 1
     fi
     return 0

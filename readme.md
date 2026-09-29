@@ -87,7 +87,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
-| `ffmpeg_dvd_hevc.bat` | HEVC NVENC | **DVD-Video** 专用：ISO / `VIDEO_TS` 目录 / 光驱 → HEVC MKV。需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出 |
+| `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video** 专用：ISO / `VIDEO_TS` 目录 / 光驱 → HEVC MKV。需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
 
@@ -143,13 +143,14 @@ ffmpeg_dvd_hevc.bat <源> [输出目录] [title号]
 ```
 
 ```
-ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 自动挑时长最长的 title 当正片
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 每个 title 各出一个文件(默认 MODE=ALL)
 ffmpeg_dvd_hevc.bat "D:\xxx.ISO" D:\out 5         :: 指定输出目录 + 只压 title 5
-set MODE=ALL && ffmpeg_dvd_hevc.bat "D:\xxx.ISO"  :: 每个 title 各出一个文件
+set MODE=AUTO && ffmpeg_dvd_hevc.bat "D:\xxx.ISO" :: 只挑时长最长的那条当正片
 set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两段(前編/後編)
 ```
 
-`.sh` 侧开关是同名环境变量（`MODE=ALL ./ffmpeg_dvd_hevc.sh ...`），另加 `VENC=libx265` 可走软编。
+`.sh` 侧开关是同名环境变量（`MODE=AUTO ./ffmpeg_dvd_hevc.sh ...`），`VENC=libx265` 走软编、
+`VENC=h264_qsv` 走 QSV，与 `.bat` 侧一致。
 
 ### 参数说明
 
@@ -157,7 +158,7 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 
 | 开关 | 取值 | 默认 | 作用 |
 | --- | --- | --- | --- |
-| `MODE` | `AUTO` / `TITLE` / `ALL` | `AUTO` | `AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE`；`ALL` 每个 title 各出一个文件 |
+| `MODE` | `ALL` / `AUTO` / `TITLE` | `ALL` | `ALL` 每个 title 各出一个文件（**默认**）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE` |
 | `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE` |
 | `EXT` | `mkv` / `mp4` | `mkv` | **建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码 |
 | `FILT` | `IVTC` / `BWDIF` / `NONE` | `IVTC` | `IVTC`＝3:2 pulldown 还原 23.976p（动画/电影 DVD 多是这种）；`BWDIF`＝只去交错、保留 29.97p；`NONE`＝原样编码 |
@@ -165,8 +166,41 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 | `AUDIO` | `copy` / `aac` | `copy` | `copy`＝原样保留 AC3（零损失、最快）；mp4 下强制 `aac` |
 | `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切 |
 | `EXTRA_TITLES` | 空格分隔的 title 号 | 空 | 正片之外额外再导出的 title，例 `1 4 5` |
-| `VBITRATE` | 裸数字（bit/s） | 空 | 空＝查 `lib\bitrate_table_hevc.csv` 再把结果 `/2`（推荐）；填了就覆盖。**单位是 bit/s，别写 `636k`**——会被当成 636 Mbps 把 NVENC 顶回去 |
-| `VENC`（仅 `.sh`） | `hevc_nvenc` / `libx265` | `hevc_nvenc` | 无 N 卡时走软编 |
+| `VBITRATE` | 裸数字（bit/s） | 空 | 空＝查表再把结果 `/2`（推荐，用哪张表由 `VENC` 定，见下）；填了就覆盖。**单位是 bit/s，别写 `636k`**——会被当成 636 Mbps 把编码器顶回去 |
+| `VENC` | 见下 | `auto` | 编码器。空 / `auto`＝依次探测 `hevc_nvenc`→`hevc_qsv`→`libx265` 取第一个能编的；显式填名字就用那个 |
+
+#### `VENC`：编码器怎么选
+
+名字一律用 **ffmpeg 原生编码器名**（不另起一套别名）：
+
+| 填这个 | 出什么 | 查哪张码率表 | 参数（与仓库同名入口同口径） |
+| --- | --- | --- | --- |
+| `hevc_nvenc` | HEVC（N 卡） | `bitrate_table_hevc.csv` | `-profile:v main -preset p4 -tune:v hq -rc cbr` |
+| `hevc_qsv` | HEVC（Intel QSV） | `bitrate_table_hevc.csv` | `-profile:v main -preset veryfast` |
+| `libx265` | HEVC（软编） | `bitrate_table_hevc.csv` | `-profile:v main -preset fast` |
+| `h264_nvenc` | AVC（N 卡） | `bitrate_table_avc.csv` | `-profile:v high -preset p4 -tune:v hq -rc cbr` |
+| `h264_qsv` | AVC（Intel QSV） | `bitrate_table_avc.csv` | `-profile:v main -preset veryfast` |
+| `libx264` | AVC（软编） | `bitrate_table_avc.csv` | `-profile:v high -preset fast` |
+| `av1_nvenc` | AV1（N 卡，Ada 起） | `bitrate_table_av1.csv` | `-preset p4 -tune:v hq -rc cbr` |
+| `av1_qsv` | AV1（Intel QSV） | `bitrate_table_av1.csv` | `-profile:v main -preset fast` |
+| `libsvtav1` | AV1（软编） | `bitrate_table_av1.csv` | `-preset 8` |
+
+三张表都是「查表值 `/2`」，与仓库其余入口同口径——所以 AVC 的码率会比 HEVC 高一截（AV1 更低），这不是 bug。
+`-b:v` 由脚本按上述结果追加，不用自己填。
+
+- 连字符写法也认：`hevc-nvenc` ≡ `hevc_nvenc`；`avc_nvenc` / `avc_qsv` 会自动翻成 `h264_nvenc` / `h264_qsv`（ffmpeg 里没有 `avc_*` 这个编码器名）。
+- **空 / `auto`：依次真跑探测 `hevc_nvenc` → `hevc_qsv` → `libx265`，取第一个能编的。**
+  探测是「真编码一次 320×240 小片段」，**不是**看 `ffmpeg -encoders` 列表——本机（2026-09-29 实测）三个 nvenc
+  都挂在列表里，真跑却在 `cuInit(0) failed` 处失败（没 N 卡），只看列表会把不可用判成可用。
+- 显式指定的那个探测通不过 → **报错退出**，并打印本机实测可用的编码器，不静默降级（免得跑了 40 分钟才发现
+  其实在软编）。要换就自己改 `VENC`，或让它自己挑：`VENC=auto`。
+
+```
+本机实测（2026-09-29，Intel iGPU，无 N 卡）:
+  hevc_nvenc / h264_nvenc / av1_nvenc   列表里有，真编失败(cuInit)  -> auto 会跳过
+  hevc_qsv / h264_qsv / av1_qsv         可用                        -> auto 落在 hevc_qsv
+  libx265 / libx264 / libsvtav1         可用
+```
 
 两个刻意的设计：**不动 SAR、不裁边**（DVD 宽高比要同时看 IFO 与 MPEG-2 序列头，同一张盘两者都可能不一致，没有通用写法，故让 ffmpeg 透传原始 SAR）；**不猜测分界章号**（每张盘不同，默认 `SPLIT_CHAPTER=0` 不切）。
 
