@@ -230,6 +230,57 @@ DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开�
 依赖：`genisoimage`（必需，提供 `mkisofs -dvd-video`）；`xorriso` 或 `7z`（校验，二选一）；
 `growisofs` / `wodim`（仅 `BURN=` 刻录时需要）。
 
+## 重制 DVD-Video（压缩到目标容量）（`tools/dvd_shrink.sh`）
+
+要「变小」**又仍然能在家用 DVD 机上播**，只有这一条路：重编码成低码率 MPEG-2，再用
+`dvdauthor` 重新生成 `VIDEO_TS`。DVD-Video 规范只认 MPEG-1 / MPEG-2 视频 + AC-3 / MP2 /
+LPCM / DTS 音频，把 HEVC 塞进 VOB 里能出 ISO 也能刻盘，但没有任何一台 DVD 机解得了。
+
+```
+./tools/dvd_shrink.sh <源> [输出ISO] [title号]
+  源  ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱(如 /dev/sr0)
+```
+
+```
+./tools/dvd_shrink.sh ~/Downloads/tmp/LD016春春裸足电影3      # 挑最长的正片, 目标 DVD-5
+TARGET_MB=8000 ./tools/dvd_shrink.sh ...                     # 目标改成 DVD-9 双层
+MODE=ALL ./tools/dvd_shrink.sh ...                           # 每个 title 各做一个标题集
+VBITRATE=2500k ./tools/dvd_shrink.sh ...                     # 直接指定视频码率
+AUDIO=ac3 ./tools/dvd_shrink.sh ...                          # dvdauthor 报音频断续时改重编
+```
+
+- 码率按「目标容量 ÷ 总时长 − 音频」反推（实测 20 分钟正片 + 目标 300 MiB → 1818 kbps，
+  预估 302 MiB、实出 306 MiB）。给很高的目标时 `mpeg2video` 会撞 `qmin=2` 编不到那么多，
+  实测 8500k 与 5839k 出一样大 —— 所以估算在高目标是上界。
+- 代价说在前面：**重编码必然掉画质**、**原盘菜单会丢**（IFO 由 `dvdauthor` 重生成，菜单
+  只存在于原盘的 VOB 里）。脚本发现「反推出的码率不低于原盘」会先劝退。
+- 章节从源盘带过来；**不做 IVTC** —— DVD 只认 25（PAL）/ 29.97（NTSC）两种帧率。
+
+产物仍由 `dvd_restore.sh` 打包与校验（UDF 卷识别序列 + 文件清单），等于「重制 + 还原」一条龙。
+依赖：`dvdauthor` + 带 `dvdvideo` 与 `mpeg2video` 的 `ffmpeg` + `genisoimage`。
+
+## HEVC 归档 → 数据 ISO（`tools/dvd_to_data_iso.sh`）
+
+不在乎 DVD 机、只在乎体积与长期保存时走这条：先把 DVD 压成 HEVC（复用 `ffmpeg_dvd_hevc.sh`），
+再打成 UDF 数据盘。
+
+```
+./tools/dvd_to_data_iso.sh <目录|DVD源> [输出ISO]
+```
+
+```
+./tools/dvd_to_data_iso.sh ~/Downloads/tmp/LD026-VIV裸足电影1  # DVD -> HEVC MKV -> 数据 ISO
+./tools/dvd_to_data_iso.sh ~/HEVC_OUT                          # 已有文件, 直接打包
+VENC=hevc_nvenc ./tools/dvd_to_data_iso.sh ...                 # 有 N 卡时走硬编(默认 libx265)
+KEEP_STAGE=1 ./tools/dvd_to_data_iso.sh ...                    # 保留中间那份 MKV
+```
+
+实测 1.05 GiB 的 DVD → 136 MiB 数据 ISO（约 1/8）。**这是数据盘，不是 DVD-Video**：没有
+`VIDEO_TS`、没有菜单，PC 直接播，传统 DVD 机读不了；部分电视 / 蓝光机的数据盘功能能读。
+
+打包用 `-udf -iso-level 3 -J -r`：UDF 桥让单文件不被 ISO9660 的 2 GiB 卡住，Joliet + Rock Ridge
+保证 Windows / macOS / Linux 都读得到（别加 `-dvd-video`，那个是给有 `VIDEO_TS` 的源用的）。
+
 ## ffmpeg 依赖怎么找
 
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
