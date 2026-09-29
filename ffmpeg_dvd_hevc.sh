@@ -17,8 +17,8 @@
 #        to bitmap"
 #    3) 就算改成 copy, mp4 封装也会静默丢掉第 2 条字幕轨
 #       (实测 300s 片段: mkv 保留 2 条, mp4 只剩 1 条)
-#    4) 不做 IVTC: DVD 里大量内容是 3:2 pulldown 的 23.976p, 按 29.97 编码
-#       白扔 20% 码率还留梳状波纹
+#    4) 默认按源制式选滤镜(FILT=AUTO): NTSC 29.97i 走 IVTC 还原 23.976p(不做的话
+#       按 29.97 编码白扔 20% 码率还留梳状波纹), PAL 25i 走 BWDIF 去交错保留 25p
 #
 #  通用化设计(刻意不改的两件事):
 #    * 不动 SAR, 不裁边。DVD 宽高比要同时看 IFO 与 MPEG-2 序列头, 同一张盘两者
@@ -99,16 +99,24 @@ PREFIX="$(basename "${SRC%.*}")"
 # EXT=mp4  只能 HEVC + AAC + 1 条字幕, 且 AC3 必须重编码
 EXT="${EXT:-mkv}"
 
-# IVTC    3:2 pulldown -> 23.976p, 动画/电影 DVD 多数是这种, 默认用它
-# BWDIF   去交错但保留 29.97p, 只有确认是真隔行(摄像机/现场录像)才用
-# NONE    原样 29.97 直接编码
-FILT="${FILT:-IVTC}"
+# AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
+#            保留 25p; 源已是 23.976p -> 不加滤镜。判读不到帧率就按高度猜(576/288=PAL,
+#            480/240=NTSC)。PAL 盘没有 3:2 pulldown, 硬套 IVTC 会掉到 20fps(实测: 本机
+#            两张 720x576 PAL 盘跑 IVTC 出来 r_frame_rate=20/1, 白扔 20% 帧)
+# IVTC    3:2 pulldown -> 23.976p, NTSC 动画/电影 DVD 多数是这种
+# BWDIF   去交错但保留原帧率(PAL 25i -> 25p)。注意 bwdif=mode=1 是 send_field,
+#         帧率直接翻倍(实测 25i -> 50p), 帧数翻倍会把码率摊薄, 故这里用 mode=0
+# NONE    原样编码, 不做去交错
+FILT="${FILT:-AUTO}"
 
 # 追加到滤镜链末尾的可选处理(默认空: 不改 SAR, 不裁边)
 VFILT_EXTRA="${VFILT_EXTRA:-}"
 
-# AUDIO=copy  MKV 下保留原始 AC3, 零重损失, 最快
-# AUDIO=aac   必须重编码(MP4 下强制用这个)
+# AUDIO=copy  MKV 下保留原始 AC3 / DTS / MP2, 零重损失, 最快。
+#             唯一例外: 源音轨是 LPCM(pcm_dvd) 时 Matroska 装不下(实测报
+#             "No wav codec tag found for codec pcm_dvd"), 会自动转成 AAC
+# AUDIO=aac   强制重编码成 AAC 192k(MP4 下强制用这个)
+# AUDIO=flac  强制重编码成 FLAC, 无损, 体积约为 LPCM 的一半
 AUDIO="${AUDIO:-copy}"
 
 # MODE=ALL    每个 title 各出一个文件(默认)
@@ -169,6 +177,23 @@ probe_title() {
     printf '%s %s\n' "$wh" "$dur"
 }
 
+#  <title> -> 该 title 视频流的帧率, 如 25/1 / 30000/1001; 读不到则空
+#  过滤理由同 probe_title: libdvdread 的抱怨是打到标准输出的, 只能按形状挑
+probe_rate() {
+    fp_run -v error -f dvdvideo -title "$1" \
+           -select_streams v:0 -show_entries stream=r_frame_rate \
+           -of csv=p=0 "$SRC" 2>/dev/null \
+        | tr ',' '\n' | grep -oE '^[0-9]+/[0-9]+$' | tail -1
+}
+
+#  <title> -> 该 title 所有音轨的 codec 名(空格分隔), 如 "ac3" / "pcm_dvd"; 读不到则空
+probe_acodec() {
+    fp_run -v error -f dvdvideo -title "$1" \
+           -select_streams a -show_entries stream=codec_name \
+           -of csv=p=0 "$SRC" 2>/dev/null \
+        | tr -d '\r' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
+}
+
 # ---------- 选定要处理的 title ----------
 if [ "$MODE" = "ALL" ]; then
     :
@@ -212,6 +237,11 @@ fi
 read -r SRC_W SRC_H SRC_DUR <<<"$MAIN"
 echo "正片: ${SRC_W}x${SRC_H}  时长 ${SRC_DUR}s"
 SRC_PIX=$(( SRC_W * SRC_H ))
+
+# 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条
+if [ "$MODE" = "ALL" ]; then REF_TITLE=1; else REF_TITLE="$DVD_TITLE"; fi
+SRC_RATE="$(probe_rate "$REF_TITLE" 2>/dev/null)"
+SRC_ACODEC="$(probe_acodec "$REF_TITLE" 2>/dev/null)"
 
 # =========================================================================
 #  编码器: VENC 空 / auto 时依次探测 hevc_nvenc -> hevc_qsv -> libx265, 用第一
@@ -302,11 +332,28 @@ fi
 echo "ref TARGET_BITRATE = ${VBITRATE} bit/s (~$(( VBITRATE / 1000 )) kbps)"
 
 # ---------- 组滤镜链 ----------
+FILT_IVTC="fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate"
+FILT_BW="bwdif=mode=0"
 VFILT=""
 case "$FILT" in
-    IVTC)  VFILT="fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate" ;;
-    BWDIF) VFILT="bwdif=mode=1" ;;
+    IVTC)  VFILT="$FILT_IVTC" ;;
+    BWDIF) VFILT="$FILT_BW" ;;
     NONE)  VFILT="" ;;
+    AUTO)
+        case "$SRC_RATE" in
+            30000/1001|30/1|60000/1001|60/1) FSYS="NTSC 29.97i";  VFILT="$FILT_IVTC" ;;
+            24000/1001|24/1)                 FSYS="NTSC 23.976p"; VFILT=""          ;;
+            25/1|50/1)                       FSYS="PAL 25i";      VFILT="$FILT_BW"  ;;
+            *)
+                case "$SRC_H" in
+                    576|288) FSYS="PAL(按高度猜)";   VFILT="$FILT_BW"   ;;
+                    480|240) FSYS="NTSC(按高度猜)";  VFILT="$FILT_IVTC" ;;
+                    *)       FSYS="未知";            VFILT=""           ;;
+                esac
+                ;;
+        esac
+        echo "源制式  : ${FSYS} @ ${SRC_RATE:-读不到帧率}"
+        ;;
 esac
 if [ -n "$VFILT_EXTRA" ]; then
     if [ -n "$VFILT" ]; then VFILT="${VFILT},${VFILT_EXTRA}"; else VFILT="$VFILT_EXTRA"; fi
@@ -321,7 +368,19 @@ echo "编码参数: ${VENC_ARGS[*]}"
 
 case "$EXT" in
     mkv)
-        [ "$AUDIO" = "aac" ] && AENC=(-c:a aac -b:a 192k) || AENC=(-c:a copy)
+        AENC=(-c:a copy)
+        [ "$AUDIO" = "aac" ]  && AENC=(-c:a aac -b:a 192k)
+        [ "$AUDIO" = "flac" ] && AENC=(-c:a flac)
+        # AUDIO=copy 下唯一例外: LPCM(pcm_dvd) 装不进 Matroska(实测写头就失败:
+        # "No wav codec tag found for codec pcm_dvd"), 撞上就自动转 AAC
+        if [ "$AUDIO" = "copy" ]; then
+            case "$SRC_ACODEC" in
+                *pcm_dvd*)
+                    AENC=(-c:a aac -b:a 192k)
+                    echo "注意: 源音轨是 LPCM(pcm_dvd), Matroska 装不下 -> 自动转 AAC 192k（要无损设 AUDIO=flac）"
+                    ;;
+            esac
+        fi
         SENC=(-c:s copy)
         SMAP=(-map 0:s?)
         ;;

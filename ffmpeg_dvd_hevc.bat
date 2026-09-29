@@ -46,7 +46,9 @@ rem       白扔 20% 码率还留梳状波纹
 rem
 rem  本脚本相对现有脚本新增的三件事:
 rem    A. -f dvdvideo 直接读整张镜像 / VIDEO_TS 目录 / 光驱, 不用先解 VOB
-rem    B. 可选 IVTC 到 23.976p(FILT=IVTC/BWDIF/NONE)
+rem    B. 默认按源制式选滤镜(FILT=AUTO): NTSC 29.97i -> IVTC 到 23.976p,
+rem      PAL 25i -> BWDIF 去交错保留 25p(PAL 硬套 IVTC 会掉到 20fps, 实测踩过);
+rem      要手动指定就 FILT=IVTC / BWDIF / NONE
 rem    C. 默认 MKV + AC3 remux + 位图字幕无损保留全部轨
 rem
 rem  通用化设计(刻意不改的两件事):
@@ -99,10 +101,15 @@ rem EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字
 rem EXT=mp4  只能 HEVC + AAC + 1 条字幕，且 AC3 必须重编码
 set EXT=mkv
 
-rem IVTC    3:2 pulldown -> 23.976p，动画/电影 DVD 多数是这种，默认用它
-rem BWDIF   去交错但保留 29.97p，只有确认是真隔行(摄像机/现场录像)时才用
-rem NONE    原样 29.97 直接编码
-set FILT=IVTC
+rem AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
+rem           保留 25p; 源已是 23.976p -> 不加滤镜。读不到帧率就按高度猜(576/288=PAL,
+rem           480/240=NTSC)。PAL 盘没有 3:2 pulldown, 硬套 IVTC 会掉到 20fps(实测: 本机
+rem           两张 720x576 PAL 盘跑 IVTC 出来 r_frame_rate=20/1, 白扔 20% 帧)
+rem IVTC    3:2 pulldown -> 23.976p，NTSC 动画/电影 DVD 多数是这种
+rem BWDIF   去交错但保留原帧率(PAL 25i -> 25p)。注意 bwdif=mode=1 是 send_field,
+rem         帧率直接翻倍(实测 25i -> 50p), 帧数翻倍会把码率摊薄, 故这里用 mode=0
+rem NONE    原样编码，不做去交错
+if not defined FILT set FILT=AUTO
 
 rem 追加到滤镜链末尾的可选处理（通用化：默认空，不改 SAR 也不裁边）
 rem   例: setsar=32:27            16:9 变形宽银幕
@@ -110,9 +117,12 @@ rem       setsar=8:9              4:3
 rem       crop=704:480:8:0,setsar=40:33   裁掉左右过扫边后再修 SAR
 set VFILT_EXTRA=
 
-rem AUDIO=copy  MKV 下保留原始 AC3，零重损失，最快
-rem AUDIO=aac   必须重编码(MP4 下强制用这个)
-set AUDIO=copy
+rem AUDIO=copy  MKV 下保留原始 AC3 / DTS / MP2，零重损失，最快。
+rem             唯一例外: 源音轨是 LPCM(pcm_dvd) 时 Matroska 装不下(实测报
+rem             "No wav codec tag found for codec pcm_dvd")，会自动转成 AAC
+rem AUDIO=aac   强制重编码成 AAC 192k(MP4 下强制用这个)
+rem AUDIO=flac  强制重编码成 FLAC，无损，体积约为 LPCM 的一半
+if not defined AUDIO set AUDIO=copy
 
 rem MODE=ALL    每个 title 各出一个文件(默认)
 rem MODE=AUTO   自动扫描所有 title，挑时长最长的那条当正片
@@ -243,6 +253,10 @@ if not defined SRC_W (
 )
 echo 正片: title %DVD_TITLE%  %SRC_W%x%SRC_H%  时长 %SRC_DUR%s
 set /a SRC_PIX=%SRC_W%*%SRC_H%
+rem 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条
+if "%MODE%"=="ALL" (set REF_TITLE=1) else (set REF_TITLE=%DVD_TITLE%)
+call :PROBE_RATE %REF_TITLE% SRC_RATE
+call :PROBE_ACODEC %REF_TITLE% SRC_ACODEC
 
 rem ---------------------------- 选编码器 ----------------------------
 rem 探测一律「真跑一次小编码」，不看 ffmpeg -encoders 列表：本机三个 nvenc 都挂在
@@ -308,9 +322,34 @@ call :VENC_ARGS %VCODEC%
 echo 编码参数: %VENC_ARGS%
 
 rem ---------------------------- 组滤镜链 ----------------------------
+set "FILT_IVTC=fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate"
+set "FILT_BW=bwdif=mode=0"
 set VFILT=
-if "%FILT%"=="IVTC" set VFILT=fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate
-if "%FILT%"=="BWDIF" set VFILT=bwdif=mode=1
+if "%FILT%"=="IVTC" set "VFILT=%FILT_IVTC%"
+if "%FILT%"=="BWDIF" set "VFILT=%FILT_BW%"
+if "%FILT%"=="AUTO" goto FILT_AUTO
+goto FILT_JOIN
+:FILT_AUTO
+set FSYS=
+if "%SRC_RATE%"=="30000/1001" set FSYS=NTSC29
+if "%SRC_RATE%"=="30/1" set FSYS=NTSC29
+if "%SRC_RATE%"=="60000/1001" set FSYS=NTSC29
+if "%SRC_RATE%"=="24000/1001" set FSYS=NTSC23
+if "%SRC_RATE%"=="24/1" set FSYS=NTSC23
+if "%SRC_RATE%"=="25/1" set FSYS=PAL25
+if "%SRC_RATE%"=="50/1" set FSYS=PAL25
+if defined FSYS goto FILT_PICK
+rem 读不到帧率就按高度猜: 576/288 = PAL, 480/240 = NTSC
+if "%SRC_H%"=="576" set FSYS=PAL25
+if "%SRC_H%"=="288" set FSYS=PAL25
+if "%SRC_H%"=="480" set FSYS=NTSC29
+if "%SRC_H%"=="240" set FSYS=NTSC29
+:FILT_PICK
+if "%FSYS%"=="NTSC29" set "VFILT=%FILT_IVTC%"
+if "%FSYS%"=="PAL25" set "VFILT=%FILT_BW%"
+if defined FSYS echo 源制式  : %FSYS% @ %SRC_RATE%
+if not defined FSYS echo 源制式  : 读不到帧率也不认识高度，不加滤镜
+:FILT_JOIN
 if defined VFILT_EXTRA if defined VFILT set VFILT=%VFILT%,%VFILT_EXTRA%
 if defined VFILT_EXTRA if not defined VFILT set VFILT=%VFILT_EXTRA%
 set VFOPT=
@@ -324,7 +363,16 @@ exit /b 3
 
 :CFG_MKV
 rem 编码器参数(-c:v 的名字与 -b:v)由上面 :VENC_PICKED / :VENC_ARGS 组装
-if "%AUDIO%"=="aac" (set AENC=-c:a aac -b:a 192k) else (set AENC=-c:a copy)
+set AENC=-c:a copy
+if "%AUDIO%"=="aac" set AENC=-c:a aac -b:a 192k
+if "%AUDIO%"=="flac" set AENC=-c:a flac
+if not "%AUDIO%"=="copy" goto CFG_MKV_DONE
+if not defined SRC_ACODEC goto CFG_MKV_DONE
+rem 含 pcm_dvd 就转: cmd 里没有 contains, 用"去掉子串后是否变短"来判断
+if "%SRC_ACODEC:pcm_dvd=%"=="%SRC_ACODEC%" goto CFG_MKV_DONE
+set AENC=-c:a aac -b:a 192k
+echo 注意: 源音轨是 LPCM(pcm_dvd)，Matroska 装不下，自动转 AAC 192k（要无损就设 AUDIO=flac）
+:CFG_MKV_DONE
 set SENC=-c:s copy
 set SMAP=-map 0:s?
 goto RUN_ALL
@@ -502,6 +550,26 @@ exit /b 0
 
 :ADD_AVAIL
 if defined AVAIL_LIST (set "AVAIL_LIST=%AVAIL_LIST% %~1") else (set "AVAIL_LIST=%~1")
+exit /b 0
+
+rem =========================================================================
+rem  子过程 PROBE_RATE  title -> &2=视频流帧率(如 25/1 / 30000/1001), 读不到则空
+rem  子过程 PROBE_ACODEC title -> &2=音轨 codec 名(空格分隔, 如 "ac3" / "pcm_dvd")
+rem  落盘再回读的理由同 :PROBE; libdvdread 的抱怨是打到标准输出的, 靠 findstr 按
+rem  形状过滤(只留纯 "数字/数字" 或纯 codec 名那些行)
+rem =========================================================================
+:PROBE_RATE
+set "%~2="
+"%FP%" -v error -f dvdvideo -title %1 -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*$" > "%WORK%\_p3.txt"
+if exist "%WORK%\_p3.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p3.txt") do set "%~2=%%A"
+del "%WORK%\_p3.txt" 2>nul
+exit /b 0
+
+:PROBE_ACODEC
+set "%~2="
+"%FP%" -v error -f dvdvideo -title %1 -select_streams a -show_entries stream=codec_name -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[a-z][a-z0-9_]*$" > "%WORK%\_p4.txt"
+if exist "%WORK%\_p4.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p4.txt") do call set "%~2=%%%~2%% %%A"
+del "%WORK%\_p4.txt" 2>nul
 exit /b 0
 
 rem =========================================================================

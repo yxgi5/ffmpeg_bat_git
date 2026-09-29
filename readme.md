@@ -161,9 +161,9 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 | `MODE` | `ALL` / `AUTO` / `TITLE` | `ALL` | `ALL` 每个 title 各出一个文件（**默认**）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE` |
 | `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE` |
 | `EXT` | `mkv` / `mp4` | `mkv` | **建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码 |
-| `FILT` | `IVTC` / `BWDIF` / `NONE` | `IVTC` | `IVTC`＝3:2 pulldown 还原 23.976p（动画/电影 DVD 多是这种）；`BWDIF`＝只去交错、保留 29.97p；`NONE`＝原样编码 |
+| `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | `AUTO` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
 | `VFILT_EXTRA` | 滤镜串 | 空 | 追加到滤镜链末尾。**默认不改 SAR、不裁边**；确要修填 `setsar=32:27` / `crop=704:480:8:0,setsar=40:33` |
-| `AUDIO` | `copy` / `aac` | `copy` | `copy`＝原样保留 AC3（零损失、最快）；mp4 下强制 `aac` |
+| `AUDIO` | `copy` / `aac` / `flac` | `copy` | `copy`＝原样保留 AC3 / DTS / MP2（零损失、最快），**唯一例外**：源音轨是 LPCM 时自动转 AAC（见下）；`aac`＝强制重编码 192k；`flac`＝强制重编码，无损，体积约为 LPCM 的一半；mp4 下强制 `aac` |
 | `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切 |
 | `EXTRA_TITLES` | 空格分隔的 title 号 | 空 | 正片之外额外再导出的 title，例 `1 4 5` |
 | `VBITRATE` | 裸数字（bit/s） | 空 | 空＝查表再把结果 `/2`（推荐，用哪张表由 `VENC` 定，见下）；填了就覆盖。**单位是 bit/s，别写 `636k`**——会被当成 636 Mbps 把编码器顶回去 |
@@ -201,6 +201,37 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
   hevc_qsv / h264_qsv / av1_qsv         可用                        -> auto 落在 hevc_qsv
   libx265 / libx264 / libsvtav1         可用
 ```
+
+#### `FILT=AUTO`：按源制式选滤镜
+
+| 源帧率 | 判定 | 用的滤镜 | 出片 |
+| --- | --- | --- | --- |
+| `30000/1001` | NTSC 29.97i | `fieldmatch+yadif+decimate` | 23.976p（IVTC） |
+| `25/1` | PAL 25i | `bwdif=mode=0` | 25p |
+| `24000/1001` | NTSC 23.976p | 无 | 23.976p |
+| 读不到帧率 | 按高度猜：`576`/`288`＝PAL，`480`/`240`＝NTSC | 同上 | 同上 |
+
+**为什么不能一律 IVTC**：PAL 没有 3:2 pulldown，硬套上去会掉到 **20fps** —— 本机实测两张
+720×576 PAL 盘跑 IVTC 出来 `r_frame_rate=20/1`（`decimate` 每 5 帧扔 1 帧），白扔 20% 的帧。
+
+**注意 `bwdif=mode=1` 帧率翻倍**：`mode=1` 是 send_field，实测 25i→**50p**，帧数翻倍会把既定码率
+摊薄一倍，所以档位里用 `mode=0`（send_frame，保留原帧率）。真想要 50p / 59.94p 的平滑感，就
+`FILT=NONE` + `VFILT_EXTRA=bwdif=mode=1`。
+
+#### `AUDIO=copy` 的 LPCM 例外
+
+Matroska 装不下 DVD 的 LPCM 音轨（`pcm_dvd`），一写头就失败：
+
+```
+[matroska] No wav codec tag found for codec pcm_dvd
+[out#0/matroska] Could not write header (incorrect codec parameters ?): Invalid argument
+```
+
+所以 `AUDIO=copy`（默认）下探测到 LPCM 会**自动转 AAC 192k** 并打印一行提示；AC3 / DTS / MP2 继续
+原样直通。要无损就 `AUDIO=flac`（体积约为 LPCM 的一半）。
+
+不"一律强制转 AAC"的理由：AC3→AAC 是**有损重编码**（448k→192k），而直通是零损失且最快；只有装不下
+时才转。真要统一成 AAC 自己设 `AUDIO=aac` 即可（mp4 下本来就是强制 AAC）。
 
 两个刻意的设计：**不动 SAR、不裁边**（DVD 宽高比要同时看 IFO 与 MPEG-2 序列头，同一张盘两者都可能不一致，没有通用写法，故让 ffmpeg 透传原始 SAR）；**不猜测分界章号**（每张盘不同，默认 `SPLIT_CHAPTER=0` 不切）。
 
