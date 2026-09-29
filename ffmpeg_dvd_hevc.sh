@@ -182,9 +182,12 @@ probe_title() {
           -of csv=p=0 "$SRC" 2>/dev/null \
           | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1, $2}' | tail -1)"
     [ -n "$wh" ] || return 1
+    # 时长同样先 tr 掉逗号: 有的构建(Windows 真机那台)对单字段也打 "3300.500000," 这种
+    # 带尾逗号的形式, 行级 ^...$ 匹配不上 -> dur 恒空 -> "读不到 title N" 全盘跑不动
+    # (2026-09-29 本机用带尾逗号的替身 ffprobe 复现出来)
     dur="$(fp_run -v error -f dvdvideo -title "$t" \
            -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/null \
-           | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
+           | tr ',' ' ' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
     [ -n "$dur" ] || return 1
     printf '%s %s\n' "$wh" "$dur"
 }
@@ -200,10 +203,11 @@ probe_rate() {
 
 #  <title> -> 该 title 所有音轨的 codec 名(空格分隔), 如 "ac3" / "pcm_dvd"; 读不到则空
 probe_acodec() {
+    # 同上: 带尾逗号时 "ac3," 过不了 ^...$, LPCM 例外会静默失效
     fp_run -v error -f dvdvideo -title "$1" \
            -select_streams a -show_entries stream=codec_name \
            -of csv=p=0 "$SRC" 2>/dev/null \
-        | tr -d '\r' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
+        | tr -d '\r' | tr ',' '\n' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
 }
 
 # ---------- 选定要处理的 title ----------
