@@ -19,6 +19,7 @@ convert_from_list_*.bat|sh 按清单批量转换
 repack_from_list.bat | .sh 按清单批量无损转封装
 tools/dvd_restore.sh      解压出来的 VIDEO_TS 反向还原成可刻录的 DVD-Video ISO
 tools/dvd_repair.sh       补齐解压盘里缺失的 IFO / BUP(缺哪个都行, 整组丢了就用 dvdauthor 重建)
+tools/dvd_make_sample.sh  用本机 ffmpeg 合成 DVD 合规的 MPEG-2 PS, 做成一张已知参数的测试盘
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
 archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
 code_review_report.md      多轮代码评审与冒烟记录
@@ -198,6 +199,55 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 - **`MODE=ALL` 要先拿 title 1 定码率档位**：直接跳进编码循环会整段跳过码率计算，`-b:v` 是空值，每个 title 都在 ffmpeg 处失败
 - **`title` 编号不连续**：DVD 的 title 号会缺号（实测那张盘缺 title 2），扫描循环不能「读不到就收尾」，否则只压到某个短特典而跳过正片，**而产物看起来完全正常**
 
+## 造测试素材（`tools/dvd_make_sample.sh`）
+
+本机 ffmpeg 合成一段 DVD 合规的 MPEG-2 PS，顺手做成 `VIDEO_TS` 和 ISO —— 给上面几个脚本
+当输入。用真盘测的话，读出来 1682s 你也不知道对不对；自己造一张，几条 title、多长、章节
+落在哪几个时间点全是已知的。
+
+```
+./tools/dvd_make_sample.sh [输出目录] [输出ISO]
+  输出目录  默认 ./dvd_sample（dvdauthor 在它下面生成 VIDEO_TS / AUDIO_TS）
+  输出ISO   默认 <输出目录旁边>/<目录名>.iso
+```
+
+```
+./tools/dvd_make_sample.sh                                  # 5 分钟 PAL, 4:3, 一条 title
+DURATION=120 SCENE_LEN=30 TITLES=2 ./tools/dvd_make_sample.sh /tmp/e2e
+FORMAT=ntsc ASPECT=16:9 VBITRATE=2000k ./tools/dvd_make_sample.sh /tmp/ntsc
+NO_VIDEOTS=1 ./tools/dvd_make_sample.sh /tmp/only_mpg        # 只要 MPEG-2 PS
+NO_ISO=1 ./tools/dvd_make_sample.sh /tmp/ts                  # 出 VIDEO_TS 就停
+```
+
+| 开关 | 默认 | 意思 |
+|---|---|---|
+| `DURATION=300` | 300 | 每条 title 的时长（秒） |
+| `TITLES=1` | 1 | 几条 title（每条一个标题集，音调频率错开，耳朵能分出来） |
+| `SCENE_LEN=30` | 30 | 每几秒切一次画面。切点即章节点，也是场景检测的期望值 |
+| `FORMAT=pal\|ntsc` | pal | pal = 720x576@25；ntsc = 720x480@30000/1001 |
+| `ASPECT=4:3\|16:9` | 4:3 | DVD 只认这两种 |
+| `VBITRATE` / `ABITRATE` | 4000k / 192k | 默认压低过：60s 素材用 `-target` 的默认值要 49 MB |
+| `LABEL=1` | 开 | 画面上叠「scene N」和时间码。没有 drawtext 或找不到字体就自动关 |
+| `NO_VIDEOTS=1` / `NO_ISO=1` | 关 | 半路停下，只出 mpg / 出到 `VIDEO_TS` |
+| `KEEP_WORK=1` | 关 | 保留工作目录（生成的 mpg 与 dvdauthor 的 XML、日志） |
+
+画面是 6 种合成源轮着切（testsrc2 / 纯白 / 彩条 / 纯黑 / rgbtestsrc / 深蓝）。纯色段是
+故意的：白↔黑跳变的场景分数拉满，切点一定检得出来，正好拿来测 `dvd_repair` 的
+`CHAPTERS=auto`（阈值 0.40 命中 4 个里的 3 个，放到 0.10 全中）。
+
+跑完自己回读一遍 ISO 核对：几条 title、每条多长、几个章节。三个实测出来的点：
+
+- **`-target pal-dvd` 不管 SAR**：实测给的是 `SAR=1:1 → DAR=5:4`，既不 4:3 也不 16:9，不是
+  合规盘。必须显式 `-aspect`，加了之后 SAR 变 `16:15` / DAR `4:3`。NTSC 同理。
+- **`-target` 默认码率约 6.5M**：60s 素材就 49 MB，做测试素材太浪费，所以默认压到 4000k。
+- **校验章节数不能问 ffprobe**：它的 `dvdvideo` 解复用器会漏 —— IFO 里 6 个章节它只报 5 个，
+  只有 2 个时干脆报 0 个；`mplayer -identify` 读出来和 IFO 一致。所以脚本直接读
+  `VTS_xx_0.IFO` 里 PGC 的 `nr_of_programs`。
+
+依赖：ffmpeg（带 `mpeg2video` + `ac3` 编码器，`LABEL` 还要 `drawtext`）+ `dvdauthor` +
+`tools/dvd_restore.sh`（打 ISO 那一步）。同样没人会调它，它是这一串的起点：
+`dvd_make_sample → dvd_restore`，产出的目录再交给 `dvd_repair` / `dvd_shrink` 去测。
+
 ## 还原 DVD-Video（`tools/dvd_restore.sh`）
 
 `ffmpeg_dvd_hevc` 是把 DVD 拆成视频文件，**这个工具是反向的**：手里有一份解压出来的
@@ -296,6 +346,7 @@ FORMAT=pal APPLY=1 ...                             # 强制制式（默认按 VO
 ```
 dvd_repair.sh  ──(只在给了输出ISO时)──>  dvd_restore.sh      修完直接打包
 dvd_shrink.sh  ─────────────────────>  dvd_restore.sh      瘦身完打包
+dvd_make_sample.sh ─────────────────>  dvd_restore.sh      造完素材打包
 dvd_to_data_iso.sh                     （独立，不调任何脚本）
 ```
 
