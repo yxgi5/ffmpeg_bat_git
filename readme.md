@@ -18,6 +18,7 @@ ffmpeg_*.bat | .sh         单个文件转换入口
 convert_from_list_*.bat|sh 按清单批量转换
 repack_from_list.bat | .sh 按清单批量无损转封装
 tools/dvd_restore.sh      解压出来的 VIDEO_TS 反向还原成可刻录的 DVD-Video ISO
+tools/dvd_repair.sh       补齐解压盘里缺失的 IFO / BUP(缺哪个都行, 整组丢了就用 dvdauthor 重建)
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
 archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
 code_review_report.md      多轮代码评审与冒烟记录
@@ -229,6 +230,46 @@ DEEP=1 ./tools/dvd_restore.sh ...                                      # 解开�
 
 依赖：`genisoimage`（必需，提供 `mkisofs -dvd-video`）；`xorriso` 或 `7z`（校验，二选一）；
 `growisofs` / `wodim`（仅 `BURN=` 刻录时需要）。
+
+## 补齐缺失的 IFO / BUP（`tools/dvd_repair.sh`）
+
+抓盘/解压出来的目录常常缺文件。这个工具先体检再补齐，默认**只读预览**，加 `APPLY=1` 才动盘。
+
+```
+./tools/dvd_repair.sh <源目录> [输出ISO]
+  源目录   含 VIDEO_TS 的 DVD 根目录；直接指到 VIDEO_TS 也行
+  输出ISO  给了就接着调 dvd_restore.sh 打包，不给就只修不打
+```
+
+```
+./tools/dvd_repair.sh ~/Downloads/tmp/DVD001      # 先看看缺什么（只读）
+APPLY=1 ./tools/dvd_repair.sh ~/Downloads/tmp/DVD001 ~/out.iso   # 修完直接打 ISO
+CHAPTERS=none APPLY=1 ...                          # 重建时不要章节（省一次全片解码）
+```
+
+| 情形 | 怎么补 | 代价 |
+|---|---|---|
+| 缺 `.BUP`（`.IFO` 在） | 直接 `cp`。规范要求 BUP 是 IFO 的逐字节备份 | 无 |
+| 缺 `.IFO`（`.BUP` 在） | 反方向 `cp`。补之前先核对本盘其余 IFO/BUP 对是否真的一致 | 无 |
+| `.IFO` 与 `.BUP` 都没了 | `dvdauthor` 从该标题集自己的 VOB 重建（**不重编码**）+ `dvdauthor -T` 重生成 VMG | 该组 VOB 重写一遍；菜单可保，章节回不来（可用场景检测重打） |
+| 缺 VOB（编号断号） | 补不出来，只报告是哪一段 | — |
+
+三个实测出来的坑（脚本头部有原始数据）：
+
+- **缺 `.IFO` 看着没坏，其实打不出 ISO**：`ffprobe` 还读得出 title，是因为 `libdvdread`
+  会自动退回 BUP；`mkisofs -dvd-video` 没这待遇，直接 `Failed to open VTS info`。
+- **只换掉坏的那组不够，VMG 必须跟着重生成**：留着原来的 `VIDEO_TS.IFO`，正片会少读一大截
+  （实测 1682s 只剩 1119s，正好是第一个 VOB 的量）。
+- **重建后没有菜单时，原来的 `VTS_xx_0.VOB` 成了孤儿**，`mkisofs -dvd-video` 会失败
+  （`Either VIDEO_TS.IFO or VIDEO_TS.VOB is not of correct size`）。默认 `KEEPMENU=1` 把菜单
+  一起喂给 `dvdauthor` 保住它。
+
+章节（`CHAPTERS=auto`，默认）用 ffmpeg 场景检测重新打点，代价是一次全片解码。`dvdauthor`
+在这里有个很坑的脾气：**`chapters` 必须每个 `<vob>` 各写一份、时间是相对该 VOB 自己的开头**，
+只写在第一个 VOB 上会把整条 PGC 的时长元数据截成"第一个 VOB 的长度"（1681.76s → 1119.04s，
+而内容其实还是完整的）。所以脚本每建一次都复核时长，发现被截断就自动降级重写。
+
+依赖：前两档只要 `cp`；第三档要 `dvdauthor` + `ffmpeg`/`ffprobe`。
 
 ## 重制 DVD-Video（压缩到目标容量）（`tools/dvd_shrink.sh`）
 
