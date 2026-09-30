@@ -162,6 +162,7 @@ echo "OUTDIR : $OUTDIR"
 #  probe_title <title>  ->  "宽 高 时长";  读不到则非 0
 #  libdvdnav 那句 "Unable to open device file" 会打到 stderr, 是误报, 丢掉即可
 # =========================================================================
+DUR_UNKNOWN=""
 probe_title() {
     local t="$1" wh dur
     # 关键: libdvdread 的抱怨("CHECK_VALUE failed in src/nav_read.c" 之类)在这个
@@ -175,15 +176,18 @@ probe_title() {
     wh="$(fp_run -v error -f dvdvideo -title "$t" \
           -select_streams v:0 -show_entries stream=width,height \
           -of csv=p=0 "$SRC" 2>/dev/null \
-          | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1, $2}' | tail -1)"
+          | tr -d '\r' | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1, $2}' | tail -1)"
     [ -n "$wh" ] || return 1
     # 时长同样先 tr 掉逗号: 有的构建(Windows 真机那台)对单字段也打 "3300.500000," 这种
     # 带尾逗号的形式, 行级 ^...$ 匹配不上 -> dur 恒空 -> "读不到 title N" 全盘跑不动
     # (2026-09-29 本机用带尾逗号的替身 ffprobe 复现出来)
     dur="$(fp_run -v error -f dvdvideo -title "$t" \
            -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/null \
-           | tr ',' ' ' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
-    [ -n "$dur" ] || return 1
+           | tr -d '\r' | tr ',' ' ' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
+    # 时长读不出来记 0, 而不是判这条 title 读不到: 宽高已经探到说明 title 在, 缺时长
+    # 只影响"挑最长那条"和体积估算(下面有 if 保护)。合成盘实测 format=duration 就是
+    # N/A(2026-09-30), 按老写法脚本在第一条 title 处就 exit 1, 整盘压不了。
+    [ -n "$dur" ] || { dur=0; DUR_UNKNOWN="${DUR_UNKNOWN:+$DUR_UNKNOWN,}$t"; }
     printf '%s %s\n' "$wh" "$dur"
 }
 
@@ -219,7 +223,9 @@ else
     # 一 break 就只看到 84s 的 title 1, 而 55 分钟的正片是 title 3)。
     # 改成容忍连续缺失 MISS_MAX 次才收尾。
     MISS_MAX="${MISS_MAX:-5}"
-    BEST=0; DVD_TITLE=""; MAIN=""; miss=0
+    # BEST 从 -1 起: 时长全读不出来(dur=0)时也要能选中第一条, 否则下面那句
+    # "一个 title 都没读到" 会把整盘拦下
+    BEST=-1; DVD_TITLE=""; MAIN=""; miss=0
     n=1
     while [ "$n" -le 99 ]; do
         if line="$(probe_title "$n")"; then
@@ -246,7 +252,11 @@ if [ "$MODE" = "ALL" ]; then
     MAIN="$(probe_title 1)" || { echo -e "\033[41;36m读不到 title 1\033[0m"; exit 1; }
 fi
 read -r SRC_W SRC_H SRC_DUR <<<"$MAIN"
-echo "正片: ${SRC_W}x${SRC_H}  时长 ${SRC_DUR}s"
+if [ "${SRC_DUR:-0}" = 0 ]; then
+    echo "正片: ${SRC_W}x${SRC_H}  时长读不出来(title ${DUR_UNKNOWN:-?}; 合成盘 / 无导航信息时常见, 只影响体积估算)"
+else
+    echo "正片: ${SRC_W}x${SRC_H}  时长 ${SRC_DUR}s"
+fi
 SRC_PIX=$(( SRC_W * SRC_H ))
 
 # 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条

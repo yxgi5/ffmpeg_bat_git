@@ -203,7 +203,9 @@ rem 不能"读不到就收尾": DVD 的 title 编号**不连续**(本盘实测�
 rem 一收尾就只看到 84s 的 title 1，而 55 分钟正片是 title 3)。
 rem 改成连续缺失 5 次才收尾。
 echo 正在扫描所有 title（逐条开镜像探测，请稍等；读不到的会自动跳过）...
-set BESTD=0
+rem BESTD 从 -1 起(与 .sh 侧对齐): 时长全读不出来(N/A -> 0)时也要能选中第一条,
+rem 否则 0 gtr 0 恒假 -> DVD_TITLE 一直没定义 -> "一个 title 都没读到" 把整盘拦下
+set BESTD=-1
 set DVD_TITLE=
 set MISS=0
 set N=1
@@ -233,6 +235,7 @@ set /a N=%N%+1
 if %N% gtr 99 goto AUTO_DONE
 goto AUTO_LOOP
 :AUTO_DONE
+if %BESTD% lss 0 set BESTD=0
 if not defined DVD_TITLE (
     echo [错误] 一个 title 都没读到，检查源路径 / 是否受 CSS 保护
     exit /b 1
