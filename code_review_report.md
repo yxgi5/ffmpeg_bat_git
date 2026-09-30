@@ -2,8 +2,9 @@
 
 **仓库路径:** `D:\repos\ffmpeg_bat_git`
 **分析日期:** 2026-08-14
+**最近复核:** 2026-09-30（正文各节保留评审时的原始判断不回改；后续进展一律记入「〇、改进进度跟踪」与文末「遗留事项」）
 **代码语言:** Bash / Windows Batch
-**文件数量:** 25 个脚本文件 (13 .sh + 12 .bat) + 文档/数据文件
+**文件数量:** 25 个脚本文件 (13 .sh + 12 .bat) + 文档/数据文件（**评审时**快照；2026-09-30 为 30 .sh + 22 .bat，其中根目录入口 29 个，余为 test/lib/tools/archive）
 
 ---
 
@@ -496,3 +497,7 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 
 
 **遗留事项**：**.bat 家族与 .sh 家族均已端到端实测通过**——.bat 侧 T1–T13 + 元字符矩阵在 cp936/65001 两种入口全绿；.sh 侧 C 机（Arrow Lake，双 ffmpeg 构建 15/15）与 **A 机（i7-9700T，发行版 4.4.2，PASS=22/22）** 均已完成；**跨机器平台验证仅剩 A 机 Win11 的 QSV 与 C 机 Win11 行**（**A 机 Linux 侧已升级为双构建：2026-09-16 下午 `/opt/ffmpeg` master-gpl 到货后两套 ffmpeg 各跑一遍套件，均 PASS=22/22，并定论 4.4.2 的 QSV 硬解为「静默回退软解」**）。第六轮 6b 的 `set` 写法修正已由探针 v6b 复核通过（A 18 PASS + 1 SKIP / C 3/3 / B 6/6 / D SKIP / Z1 PASS，**D 的 SKIP 机制已由 Z2d/Z2e/Z2f/Z2g/D1 四路判别定论：`chcp 65001` 吃掉文件重定向 stdin（管道与控制台不受影响，真实用法零影响）**）；**随后又跑了 T1–T13 回归套件，全绿**（2026-09-16，新增的 `smoke_all.bat` 一键串跑两层）：4 编码器 × 三种用法共 8 项 **PASS**（含 mode B 交互输入 / mode C 全新 UTF-8 控制台）、`copy_to_mp4` PASS、静音输入 PASS、**T13 纯音频输入被 `check_isvideo` 拦下 rc=3 PASS**、T9/T11/T12 list 三测各 2/2、全局 banner 与 debug 卫生检查双双 PASS。这正好补上矩阵探针未覆盖的面（`hevc_nvenc`/`hevc_qsv`/`libx265`、另 3 个 list bat、banner/debug/`check_isvideo` 断言）—— 6b 对核心路径的改动**未引入回归**）；**C 机（Ultra 7 265K / Ubuntu 22.04）平台实测已完成**（2026-09-16 同步入库：4 项修复 + sh 族 15/15 全覆盖 + `smoke_all.sh` 18/18，见 environment_matrix.md）；**README 已于 2026-09-16 重写**（原版停留在旧脚本名 `convert_from_list.bat`/`ffmpeg_lib265.sh`，与现状脱节）：新 README 覆盖目录结构、码率模型、.bat 三种用法与 7 个入口、.sh 用法与平台差异、ffmpeg 查找顺序、**已知边界表**（CRLF/元字符/`^`/成对 `%`/BOM/stdin/`set` 写法）、验证状态与硬件加速速查。**剩余待验证**：A 机（i7-9700T）Win11 QSV、C 机 Win11 QSV AV1、真·Explorer 拖放观感人工扫一眼。~~新增两个 AV1 入口的 Windows 实跑~~ ✅ **已于 2026-09-16 晚在 B 机双击探针实测**：T14 `ffmpeg_av1_nvenc.bat` **PASS**（`TARGET_BITRATE=1656818`、产物 `v=av1`），T15 `ffmpeg_av1_qsv.bat` 按设计记 **`[SKIP]`**（该机 Raptor Lake 核显确无 AV1 编码器），T1–T13 与 banner/debug 卫生检查不受影响。**冒烟套件已迁入仓库 `test/`**（`.bat` 族 + `.sh` 族，统一改为自定位仓库根 → 克隆到任意路径可跑，运行日志目录进 `.gitignore`；迁移后 A / C 机按仓库内路径复跑 `.sh` 套件均 **PASS=22/22**），用法与环境开关见 `test/README.md`。**C 机 Linux 侧已于 2026-09-16 下午补做复查轮（SSH 远程，双构建各 PASS=22/22），并以第三方构建把 `hevc_vaapi` 归因收口为「FFmpeg 4.4.x 老路径在 Arrow Lake 失效、5.1.2 起恢复」**。 **本轮待用户真机复核（沙箱里 `cmd.exe` 从 Bash 与 PowerShell 两条路都被硬拦，bat 语义无法自证）**：① 双击 `test\bat\bench_calib.bat "<F 盘电影>"` 应恢复（五个头行 + 5 个梯点 + `RECOMMENDATION`）；② `test\bat\soft_pair_calib.bat` 的 delivered 列不再恒为 0；③ MSYS2 / Cygwin 各跑一次 `test/sh/bench_calib.sh "F:\👍…mp4"`（**直接传 Windows 路径、不用 cygpath**）应落到 gyan full 并跑完 5 个梯点。另：**bat 回退属"消除唯一嫌疑"而非"已证实根因"**——若仍静默退出，下一步查 `lib/common.bat` 的调度行 `if /I "%~1"=="find_ffmpeg" goto find_ffmpeg`（第一顺位嫌疑：`(A) & set "X=…"` 会把 `setlocal` 推出括号并条件化，导致块内 `set` 全部丢失、该调度条件永不成立）。
+
+**2026-09-30 复核（本段收尾）**：上一段里挂着的三项「待用户真机复核」**已全部闭环** —— ① `bench_calib.bat` 已恢复（用户真机回报：五个头行 + 5 个梯点 + `RECOMMENDATION` 正确，见 7b）；② `delivered` 恒为 0 已修（cmd 把 `=` 也当参数分隔符，`:probe_field` 的裸等号被切成多参数，见 7b）；③ MSYS2 / Cygwin 直传 Windows 路径已跑通（`rejoin_split_path` 自愈 + `native_path()` / `ff_run()` 改写，见 7c）。同段末尾「bat 回退属消除唯一嫌疑、根因待真机复核」的悬置状态同时解除 —— 根因已由 7b 定位并修掉，不再需要沿 `lib/common.bat` 调度行那条线索排查。同日另完成两轮：**10bit 源三缺口（G1/G2/G3）+ 素材脚本**与**退出码 `4` = 硬件缺失**（见上表末两行）。
+
+**仍开放（截至 2026-09-30，共 4 项）**：① A 机（i7-9700T）**Win11 下的 QSV 实跑**（Linux 侧双构建已 22/22，Win11 行在 environment_matrix.md 里仍为待补）；② C 机（Ultra 7 265K）**Win11 侧实跑** —— 它是 QSV AV1 的唯一硬件平台，该机 Win11 三行同样仍为待补；③ 真·Explorer 拖放观感人工扫一眼；④ `echo` 文本里裸 `>` 的 lint 规则未加（需先绕开 `>>"%LOG%" echo … goto …` 这类把文本写进另一个 bat 的既有写法，L07 曾因此误报 4 处）。**除这 4 项外，本报告此前登记的问题均已闭环。**
