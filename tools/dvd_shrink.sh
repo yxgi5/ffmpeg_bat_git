@@ -140,8 +140,11 @@ export FF FP
 # (实测 0.7.2, 装进 /usr/bin 或 /mingw64/bin 即可被 command -v 找到 —— 2026-09-30
 #  本机两个环境都这么装上了, 本脚本在 Windows 侧因此也能完整跑)。
 command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 官方源没有这个包, 需自行编译后放进 /usr/bin 或 /mingw64/bin"
-MKISOFS=""
-for c in mkisofs genisoimage; do command -v "$c" >/dev/null 2>&1 && { MKISOFS="$(command -v "$c")"; break; }; done
+# 走 lib/common.sh 的 pick_mkisofs(口径与 dvd_restore / dvd_to_data_iso 一致:
+# genisoimage 优先, 不再自己按 mkisofs 优先挑一遍 —— 2026-09-30 实测, 那样会在
+# MSYS2 上选中 WinCDEmu 的 3.01a24, 打不出 ISO)
+declare -F pick_mkisofs >/dev/null 2>&1 || die "lib/common.sh 未加载(pick_mkisofs 缺失) —— 请在完整仓库里运行本脚本"
+MKISOFS="$(pick_mkisofs 2>/dev/null || true)"
 [ -n "$MKISOFS" ] || die "找不到 mkisofs / genisoimage(最后一步打包 ISO 要用到)"
 [ -x "$SCRIPT_DIR/dvd_restore.sh" ] || die "缺少同目录的 dvd_restore.sh(打包与校验由它完成)"
 
@@ -421,7 +424,8 @@ enc() {
     fi
     [ -n "$VFILT_EXTRA" ] && { [ -n "$vf" ] && vf="${vf},${VFILT_EXTRA}" || vf="$VFILT_EXTRA"; }
 
-    info "编码 title $t -> $(basename "$mpg") ${w}x${h}${vf:+ 滤镜: $vf}"
+    _vf_txt=""; [ -n "$vf" ] && _vf_txt=" 滤镜: $vf"
+    info "编码 title $t -> $(basename "$mpg") ${w}x${h}${_vf_txt}"
 
     local CMD=(ff_run -y -hide_banner -v error -stats -f dvdvideo -title "$t" -i "$SRC")
     CMD+=(-map 0:V -map 0:a?)

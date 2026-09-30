@@ -430,7 +430,8 @@ rebuild_group() {
     # dvdauthor 靠 VIDEO_FORMAT 决定按哪套制式写 IFO, 不设会直接报错退出
     VIDEO_FORMAT="$(printf '%s' "$fmt" | tr 'a-z' 'A-Z')"
     export VIDEO_FORMAT
-    info "VTS_$g 重建   : ${w:-?}x${h:-?} $VIDEO_FORMAT 音频 ${acodec:-未知}"
+    _ac_txt="${acodec:-}"; [ -n "$_ac_txt" ] || _ac_txt="未知"
+    info "VTS_$g 重建   : ${w:-?}x${h:-?} $VIDEO_FORMAT 音频 ${_ac_txt}"
 
     # 各 VOB 时长: 既是章节切片的依据, 也是"有没有被 dvdauthor 截断"的基准
     i=0

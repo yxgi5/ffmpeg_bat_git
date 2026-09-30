@@ -368,7 +368,8 @@ check_mpg() {
     r="$(field "$v" r_frame_rate)"; dar="$(field "$v" display_aspect_ratio)"
     ac="$(field "$a" codec_name)"; sr="$(field "$a" sample_rate)"; ch="$(field "$a" channels)"
     [ -n "$sr" ] && a="$ac ${sr}Hz ${ch}ch" || a="-"
-    info "  $(basename "$f"): ${c} ${w}x${h}@${r} DAR=${dar:-无} / $a"
+    _dar_txt="${dar:-}"; [ -n "$_dar_txt" ] || _dar_txt="无"
+    info "  $(basename "$f"): ${c} ${w}x${h}@${r} DAR=${_dar_txt} / $a"
     # 帧率: -target 写进去的是 25, ffprobe 读出来是 25/1(NTSC 则是 30000/1001)
     [ "$c" = mpeg2video ] && [ "$w" = "$W" ] && [ "$h" = "$H" ] &&
     { [ "$r" = "$RATE" ] || [ "$r" = "$RATE/1" ]; } &&
@@ -460,7 +461,8 @@ for t in $(seq 1 "$TITLES"); do
     d="${d//$'\r'/}"     # 同上: 原生 ffprobe 的 CRLF 会让下面的 -eq 比较失效
     n="$(count_programs "$(printf '%s/VIDEO_TS/VTS_%02d_0.IFO' "$OUT" "$t")")"
     if [ -n "$d" ]; then
-        info "  title $t: ${d%.*}s / ${n:-读不到} 章节"
+        _n_txt="${n:-}"; [ -n "$_n_txt" ] || _n_txt="读不到"
+        info "  title $t: ${d%.*}s / ${_n_txt} 章节"
         [ "${d%.*}" -eq "$DURATION" ] 2>/dev/null || warn "  title $t 时长对不上(期望 ${DURATION}s)"
         if [ -z "$n" ]; then
             warn "  读不到 VTS_${t} 的 IFO, 章节数没法核对"

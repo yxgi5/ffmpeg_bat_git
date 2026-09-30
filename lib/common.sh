@@ -650,7 +650,14 @@ function fp_run() { _ff_native_exec "$FP" "$@"; }
 function pick_mkisofs() {
     if [ -n "${MKISOFS:-}" ] && [ -x "${MKISOFS}" ]; then printf '%s' "$MKISOFS"; return 0; fi
     local cand="" first="" shell_side=""
-    for c in mkisofs genisoimage; do
+    # 顺序刻意 **genisoimage 在前**(2026-09-30 实测): MSYS2 的 PATH 上第一个打包器
+    # 是 WinCDEmu 自带的 mkisofs 3.01a24(i686-pc-mingw32, 原生 exe) —— 即便给了
+    # D:/... 混合写法, 它照样 `Can't stat <dir>` / `Unable to make a DVD-Video image`,
+    # 造盘那一步直接塌, 后面所有用例跟着 FAIL; 而同机的 /mingw64/bin/genisoimage
+    # 1.1.11 在同样的路径上一次就过。Cygwin 与 Linux 上 genisoimage 也是现在的事实
+    # 标准(README 的安装提示本来就是 apt install genisoimage), 故先挑它,
+    # mkisofs 只作兜底。
+    for c in genisoimage mkisofs; do
         command -v "$c" >/dev/null 2>&1 || continue
         cand="$(command -v "$c")"
         [ -n "$first" ] || first="$cand"

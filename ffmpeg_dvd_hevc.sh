@@ -285,7 +285,11 @@ venc_avail_list() {
     for e in $VENC_LIST_ALL; do
         venc_usable "$e" && out="${out:+$out }$e"
     done
-    printf '%s' "${out:-一个都没有}"
+    # ${...} 里不能塞中文: 中文 Windows 的 MSYS2/Git Bash 会继承 LANG=zh_CN(GBK),
+    # bash 按 GBK 解析 UTF-8 源码时会吞掉闭合引号 -> 整条语句变成语法错误
+    # (2026-09-30 实测, 见 environment_matrix.md 第 58 条)。故用变量中转。
+    [ -n "$out" ] || out="一个都没有"
+    printf '%s' "$out"
 }
 
 # 名字归一: 连字符写法(hevc-nvenc)统一成下划线; avc_* 翻成 ffmpeg 真名 h264_*
@@ -373,7 +377,8 @@ case "$FILT" in
                 esac
                 ;;
         esac
-        echo "源制式  : ${FSYS} @ ${SRC_RATE:-读不到帧率}"
+        _rate_txt="${SRC_RATE:-}"; [ -n "$_rate_txt" ] || _rate_txt="读不到帧率"
+        echo "源制式  : ${FSYS} @ ${_rate_txt}"
         ;;
 esac
 if [ -n "$VFILT_EXTRA" ]; then
