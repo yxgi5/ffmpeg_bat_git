@@ -885,7 +885,17 @@ def check_fail_propagation(inv):
         lines = lf_lines(t)
         idx = None
         for i, ln in enumerate(lines):
-            if ln.strip() == "%RUN_COM%":
+            s = ln.strip()
+            # 2026-09-30: the D3D fallback in the two software entries has to
+            # capture stderr (that is how it decides whether to retry without
+            # -hwaccel), so the run line carries a trailing `2>"file"`. Accept
+            # that form, and keep taking the LAST match: the fallback subroutine
+            # runs %RUN_COM% as well, and the real entry run is the one inside
+            # :main, which comes later in the file. Matching only the exact bare
+            # line made lint lock onto the subroutine's copy and then judge the
+            # wrong guard -- an L15 false alarm on a guard that is in fact
+            # negative-safe (`if not "%FB_RC%"=="0"`).
+            if s == "%RUN_COM%" or re.match(r'^%RUN_COM%\s+2>"[^"]*"\s*$', s):
                 idx = i
         if idx is None:
             bads.append("%s: no bare %%RUN_COM%% execution line found" % f)
