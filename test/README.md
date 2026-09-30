@@ -748,6 +748,38 @@ T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重�
 > `/tmp/fbgit` 后真跑，不是 `git pull` 来的。打包必须带 `--exclude` —— 仓库根目录有 4.3 GB
 > 被 `.gitignore` 忽略的测试片（`*.mp4`/`*.mov`），不排除会把包撑到 4.5 GB 并传断。
 
+### 6.7 四环境全量检测 + 真素材（2026-09-30）
+
+| 环境 | 回归套件 | 元字符矩阵 | DVD 工具链（`tools/` 五个脚本） |
+|---|---|---|---|
+| Windows cmd（`smoke_all.bat` → `smoke_ffmpeg.bat` / `smoke_special_chars.bat`） | **PASS=15 / SKIP=2**（T15 本机无 AV1 QSV；T11 报 UTF-8 清单 fixture 缺失，待补） | 全 PASS（A01–A20 / C81–C83 / Z…） | 无 `.bat` 孪生（`tools/` 只有 `.sh`） |
+| Cygwin64 | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
+| MINGW64（MSYS2，需显式 `MSYSTEM=MINGW64` + `PATH=/mingw64/bin:/usr/bin:/bin`） | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
+| WSL Ubuntu-22.04 | 三套 `rc=0` | 同套 | PASS=22 SKIP=0 |
+| Linux `192.168.31.246`（i7-9700T / UHD 630，ffmpeg master `N-117740`） | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=0 | PASS=22（首轮经非交互 ssh 跑时误报过一次「缺 dvdauthor」，复跑正常 —— `/usr/bin` 里三个工具都在） |
+
+真素材（`H:\Downloads` 的 x265 10bit 剧集、仓库 `input_*.mov`、中高艺 DVD ISO）：
+
+- 完整剧集（路径含中文 + 方括号 + 逗号 + 空格）拖 `ffmpeg_libx264.bat`：端到端 **308 MB** 产物，命令行装配正确；
+- 切 40 s 片段（文件名 `真 素材 [A&B] (测试).mkv`，hevc + ac3 + ass 字幕）跑 6 个 `.bat` 入口：
+  `libx265` / `hevc_qsv` / `hevc_nvenc` / `av1_nvenc` / `copy_to_mp4` 全 rc=0，**`avc_qsv` rc=1、产物 0 字节**（见下）；
+- ISO：`H:\Downloads\中高艺\中高艺丝袜视频DVD系列\DVD001(Canndy)\DVD001(Canndy).iso`（3.4 GB，中文路径 + 括号）
+  走 `ffmpeg_dvd_hevc.bat`：预览识别到正片 720x576 / 1682 s，`APPLY=1` 端到端出片
+  （title1 182 MB、title2 224 MB，speed 25x）。盘本身带 `libdvdread: CHECK_VALUE failed`
+  警告，不影响出片。
+
+**本轮唯一实质缺陷：10bit 源 + `avc_qsv`（两族同症状）** —— h264_qsv 打不开编码器
+（`some encoding parameters are not supported by the QSV runtime` → `Error while opening
+encoder` → rc=-40 / 0 字节），而同素材 `hevc_qsv`、`av1_nvenc`、软编入口都成功，所以不是
+硬件不支持，是 h264_qsv 吃不下 10bit 输入。修法是 `scale_qsv=format=nv12`：在 QSV 硬件内部
+降到 8bit（实测 rc=0、产物 22 MB）。软滤镜 `format=nv12` **不行** —— 帧还在 QSV 表面，
+`auto_scale` 接不上（`Impossible to convert ... auto_scale_0`）。
+只在探到 10bit 时插入：8bit 源回归实测命令行里 `scale_qsv` 出现 **0 次**（一字未改）。
+`.bat` 侧的探测必须走临时文件 + `set /p`，不能用 `for /f in('...')` —— 文件名里的
+`(` `)` 会被 cmd 当语法，实测探测直接落空（修的就是这一版）。
+
+---
+
 ## 7. 约定与坑（都在本仓库真实发生过）
 
 1. **`.bat` 里 `if cond cmd1 & cmd2` 的 `&` 不受 `if` 约束**，`cmd2` 会无条件执行。

@@ -577,6 +577,7 @@ Windows 两个 shell 里同一件事更明显：Cygwin 的 `/usr/bin/ffmpeg`(7.1
 | 成对百分号 | 片名形如 `a%b%c`（中间是合法变量名）**不支持**；`100% Wolf.mp4` 这类单个 `%` 安全 |
 | 清单 BOM | `.bat` 侧 `for /f` 读带 BOM 清单尚未实测（记事本存 UTF-8 无 BOM 时不触发）；`.sh` 侧已兼容 |
 | 交互 stdin | 双击后手输不受影响；只有「文件重定向喂 stdin + `chcp 65001`」这一组合读不到（`.bat` 的 UTF-8 守卫所致，非缺陷） |
+| 10bit 片源 | `ffmpeg_avc_qsv`（h264_qsv）**吃不下 10bit 输入**：x265 10bit（`yuv420p10le`）源会报 `some encoding parameters are not supported by the QSV runtime` → rc=-40、**产物 0 字节**（同素材的 `hevc_qsv` / `av1_nvenc` / 软编入口都正常，所以不是硬件不支持）。2026-09-30 起自动探测 `pix_fmt`，命中 10bit 就加 `-vf scale_qsv=format=nv12`（QSV 硬件内降 8bit，实测 rc=0）；**8bit 源的命令行一字不改** |
 | 修改 `.bat` 时的 set 写法 | 值为「已带引号的路径 / 整条命令行」的变量，**一律用非包装写法** `set VAR=值`；包装写法 `set "VAR=值"` 会与值内引号配对闭合，使后续路径段落裸露、被 `&`/`()` 截断 |
 | 块内参数里的裸 `)` | 多行 `( ... )` 块中，**参数文本里未转义的 `)` 会提前关闭该块**（`^( ^)` 转义、全角 `（）`、`[1]`、双引号内、`for %%A in (...)`、`\|\| ( ... )` 均安全）。后果极隐蔽：紧跟其后的语句脱离块、变成**无条件执行**的顶层语句 —— `ffmpeg_dvd_hevc.bat` 首跑就是这样静默 `exit /b 1` 的（打印两行后直接回提示符、零报错）。静态由 **L23** 拦截，实验记录见 `environment_matrix.md` 第 49 条 |
 

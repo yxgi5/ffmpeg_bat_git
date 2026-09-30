@@ -178,7 +178,31 @@ IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认)
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
-if defined BIT set RUN_COM=%RUN_COM% -c:v:0 h264_qsv -profile:v:0 main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
+rem ---------- 10bit 源: h264_qsv 打不开, 先让 QSV 自己在硬件里降到 8bit ----------
+rem 2026-09-30 实测: 源是 x265 10bit(yuv420p10le)时, h264_qsv 报
+rem   "some encoding parameters are not supported by the QSV runtime" ->
+rem   "Error while opening encoder", rc=-40, 产物 0 字节; 而 hevc_qsv / av1_nvenc
+rem   同素材照常成功, 所以不是硬件不支持, 是 h264_qsv 吃不下 10bit 输入。修法是
+rem   -vf scale_qsv=format=nv12(QSV 硬件内转 nv12, 实测 rc=0)。不能用软滤镜
+rem   format=nv12 —— 帧还在 QSV 表面, auto_scale 接不上(Impossible to convert
+rem   ... auto_scale_0)。只在探到 10bit 时加, 8bit 源的命令行一字不改。
+set "SRC_PIXFMT="
+set "QSV_VF="
+rem 源路径可能带 ( ) [ ] & —— 不能塞进 for /f 的 in('...') 里(cmd 会把括号当语法,
+rem 实测带括号的文件名探测直接落空), 所以走临时文件 + set /p 读回, 与
+rem lib\common.bat 的 :probe_source 同款。
+set "PF_TMP=%TEMP%\ffmpeg_bat_pixfmt_%RANDOM%%RANDOM%.tmp"
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=pix_fmt -of csv=p=0 %SRC_FILE% > "%PF_TMP%" 2>nul
+if exist "%PF_TMP%" (
+    set /p SRC_PIXFMT=<"%PF_TMP%"
+    del "%PF_TMP%" 2>nul
+)
+if defined SRC_PIXFMT echo SRC_PIXFMT=%SRC_PIXFMT%
+if defined SRC_PIXFMT (
+    echo %SRC_PIXFMT% | findstr /i "10le p010" >nul
+    if not errorlevel 1 set "QSV_VF= -vf scale_qsv=format=nv12"
+)
+if defined BIT set RUN_COM=%RUN_COM%%QSV_VF% -c:v:0 h264_qsv -profile:v:0 main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
 echo RUN_COM2:%RUN_COM%
 
 echo.

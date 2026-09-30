@@ -134,6 +134,23 @@ CMD=("$FF" -hide_banner -threads 0 -v verbose)
 CMD+=(-init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
 CMD+=(-i "$ABS_NAME")
 
+# 10bit 源: h264_qsv 打不开 -> 让 QSV 自己在硬件里降到 8bit (2026-09-30 实测)
+#   源是 x265 10bit(yuv420p10le)时, h264_qsv 报 "some encoding parameters are
+#   not supported by the QSV runtime" -> "Error while opening encoder", rc=-40,
+#   产物 0 字节 —— 而 hevc_qsv / av1_nvenc 同素材照常成功, 所以不是硬件不支持,
+#   是 h264_qsv 吃不下 10bit 输入。修法是 -vf scale_qsv=format=nv12: 在 QSV 硬件
+#   内部转 nv12(实测 rc=0, 产物正常)。不能用软滤镜 format=nv12 —— 帧还在 QSV
+#   表面, auto_scale 接不上("Impossible to convert ... auto_scale_0")。
+#   只在探到 10bit 时加, 8bit 源的命令行一字不改。
+src_pixfmt=$(fp_run -v error -select_streams v:0 -show_entries stream=pix_fmt \
+             -of csv=p=0 "$ABS_NAME" 2>/dev/null | tr -d '\r')
+case "$src_pixfmt" in
+    *10le*|*p010*)
+        echo "10bit source ($src_pixfmt) -> scale_qsv=format=nv12"
+        CMD+=(-vf "scale_qsv=format=nv12")
+        ;;
+esac
+
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)
     echo "DOWN TARGET FRAME RATE TO 30"
