@@ -768,7 +768,11 @@ T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重�
 
 | 环境 | 回归套件 | 元字符矩阵 | DVD 工具链（`tools/` 五个脚本） |
 |---|---|---|---|
-| Windows cmd（`smoke_all.bat` → `smoke_ffmpeg.bat` / `smoke_special_chars.bat`） | **PASS=15 / SKIP=2**（T15 本机无 AV1 QSV；T11 报 UTF-8 清单 fixture 缺失，待补） | 全 PASS（A01–A20 / C81–C83 / Z…） | 无 `.bat` 孪生（`tools/` 只有 `.sh`） |
+| Windows cmd（`smoke_all.bat` → `smoke_ffmpeg.bat` / `smoke_special_chars.bat`） | **PASS=15 / SKIP=2** —— T15（本机无 AV1 QSV）；**T11**：bat 套件依赖**外部**的 `%WORK%\list_utf8.txt`，
+存在性检查不过就 `goto T11SKIP`（`smoke_ffmpeg.bat:285`）。**待补的是给 bat 套件加"现场生成 UTF-8 清单"的一步，
+不是补一个静态 fixture 文件**：该清单里是 WORK 目录下的绝对路径，预置文件写不出正确内容；sh 侧
+`smoke_ffmpeg.sh` 正是用 `printf '\xE7\xAC\xAC…'` 字节转义**现场生成**（保持脚本 ASCII-only），故 sh 侧 T11 恒可跑
+（sh 侧注释：`the .bat harness T11 uses a stale fixture and SKIPs when it is missing; here the names are made on the fly`） | 全 PASS（A01–A20 / C81–C83 / Z…） | 无 `.bat` 孪生（`tools/` 只有 `.sh`） |
 | Cygwin64 | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
 | MINGW64（MSYS2，需显式 `MSYSTEM=MINGW64` + `PATH=/mingw64/bin:/usr/bin:/bin`） | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
 | WSL Ubuntu-22.04 | 三套 `rc=0` | 同套 | PASS=22 SKIP=0 |
