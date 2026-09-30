@@ -543,6 +543,17 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 `lib/common.sh` 的 `check_file_isvideo` 与 10 个 `.sh` 入口的码率异常分支
 已在 2026-09-16 从 `1`/`4` 统一为 `3`/`5`，与 `.bat` 侧数值一致。
 
+**`FF_HWACCEL`：软编入口的解码加速器（2026-09-30 新增）**：`ffmpeg_libx264` /
+`ffmpeg_libx265`（两族 4 个脚本）原先写死 `-hwaccel auto` —— 由 ffmpeg 挑第一个能初
+始化的加速器（核显与 N 卡并存时选谁不可控），且锁屏会话下 D3D 会直接崩。现在由
+`FF_HWACCEL` 选：`auto`（默认，逐字等同改动前）/ `cuda` / `none`（完全不加 `-hwaccel`）
+/ `qsv`、`vaapi` 等原样透传。实测：默认与 `cuda`、`none` 均 rc=0 且产物正常；
+`qsv` 在软编入口**跑不通**（QSV 表面帧喂不进 libx264，`Could not open encoder before
+EOF`、rc=1、产物 0 字节）——要 QSV 解码请走 `ffmpeg_*_qsv` 入口。只影响解码，编码器不变。
+`.bat` 侧把值存进 `FF_HWACCEL` 后再拼 `FF_HW_ARG`，D3D 回退 `set RUN_COM=%RUN_COM:
+-hwaccel %FF_HWACCEL%=%` 因此按实际值删参数（显式指定时也会回退一次）；
+`.sh` 侧 `ff_run` 的回退只认字面量 `auto`，显式指定时不再回退（cuda 不会撞 D3D 那个坑）。
+
 **`6` = 产物已存在（2026-09-30 新增）**：ffmpeg 的 `-n` 在输出已存在时打印
 `File already exists. Exiting.` 却**返回 0**，于是「一个字节都没转」被当成成功 ——
 批量跑（`convert_from_list_*`）时尤其隐蔽。两族现在都在动手前先看一眼产物，

@@ -65,7 +65,7 @@ if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device cuda=hw -filter_hw_device hw -hwaccel cuda -hwaccel_output_format cuda
+set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel cuda -hwaccel_output_format cuda
 
 SET "SRC_FILE="
 
