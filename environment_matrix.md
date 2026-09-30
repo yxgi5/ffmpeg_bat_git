@@ -1736,3 +1736,37 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       `Start-Process` 会被拆开（bash 只收到第一个词 —— 实测只执行了 `export` 并打印全部变量），
       要写成脚本文件再交给 bash；MINGW64 那侧还得自己 `export MSYSTEM=MINGW64` 并把
       `/mingw64/bin` 放进 PATH，否则 `-l` 起来的是 MSYS 环境（第 57 条 ⑩）。
+61. **`test/sh/check_env.sh` 的选型口径与脚本实跑不一致（2026-09-30）**：
+    * **现象**：报告一直拿 `/usr/bin/ffmpeg 4.4.2` 盘点，可脚本实跑用的是
+      `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg`（N-117740-g7f51cf75c6-20241110）。
+      同一台机器两份结论：
+
+      | 项 | 报告（4.4.2） | 实跑（/opt N-117740） |
+      |----|---------------|------------------------|
+      | `av1_qsv` / `av1_nvenc` / `libvmaf` | 全 NO | 全 yes |
+      | hwaccels | 有 vdpau、无 vulkan | 有 vulkan、无 vdpau |
+      | encoders | 211 listed | 227 listed |
+      | 不可用条目 | 5 | 4 |
+
+      最典型的是 `ffmpeg_av1_nvenc.sh` 被判 `NO-ENCODER`（"构建里没这编码器"），真实情况是
+      `NO-DEVICE`（编码器在、本机没 Ada 显卡）—— 连结论方向都是反的。
+    * **根因**：`check_env.sh` 自带一份**同名** `find_ffmpeg`，顺序是 `$FFMPEG` → `command -v ffmpeg`
+      → `/opt/...` 兜底（**PATH 优先**）；而 `lib/common.sh` 那份在 Linux 上先走"/opt 新构建优先"
+      （阶段二点五，见 `4c4cf75` / `ca6e0e4`）再逐项扫 PATH。两份实现各自漂移。ffprobe 同理：旧逻辑
+      先 `command -v`，于是出现"ffmpeg 用 /opt、ffprobe 用 /usr/bin 4.4.2"的跨版本搭配。
+    * **修法**：删掉自带那份，改为 `. "$REPO/lib/common.sh"` 后直接用 `find_ffmpeg` /
+      `find_ffprobe "$FF"`（同目录优先，兜底才回落 PATH）。定位过程的 stderr 诊断丢弃——报告头自己
+      会打出最终选定的那个，混在一起反而盖过报告。`FFMPEG=` / `FFPROBE=` 覆盖依然生效。
+    * **结果**：报告现在选 `/opt/.../bin/ffmpeg` + 同目录 `ffprobe`；`av1_qsv` / `av1_nvenc` /
+      `libvmaf` → yes（av1_nvenc 从 NO-ENCODER 变 NO-DEVICE）；不可用条目 5 → 4。
+      lint 31 PASS / 0 FAIL，`smoke_all` 三套 22 / 28 / 22 全绿。
+    * **连带清点**：本机同时确认 sh 族**已无**裸 `ffmpeg` / `ffprobe` 调用，带文件路径的直调
+      `$FF` / `$FP` 也清零 —— 入口是 `CMD=("$FF" ...)` + `ff_run "${CMD[@]:1}"`，数组首元素只供
+      `RUN_COM` 打印，不参与执行。有意保留的三类：`check_env.sh` 自己先 `cygpath -m` 改 `$W`；
+      calib 系列 `ff_run() { "$FF" "$@"; }` 的兜底定义（仅 `common.sh` 未加载时生效）；`-version`
+      / `-encoders` / `-filters` / `-hwaccels` 这类**无文件参数**的探测（改写对它们是恒等的）。
+    * **待办**：第 60 条末尾记的"MINGW64 三条元字符 FAIL（A06 `[x]` / A08 `;` / A14 `'`），根因是
+      入口脚本裸调 `$FF`"—— 那条已由 `4a0abd8`（入口编码与探测改走 `ff_run` / `fp_run`）解决，但
+      **没在 MINGW64 上复测**；本轮另修了冒烟套件自己的 6 处直调（素材生成 + 结果校验走 `ff_run`
+      / `fp_run`，`041f01a`）—— 套件在 Linux 上一直是对的，可 Cygwin / MINGW64 一旦选中原生构建，
+      它会**先挂在造夹具上**，根本测不到脚本。下次上 Windows 请一并复测 ①②两段。

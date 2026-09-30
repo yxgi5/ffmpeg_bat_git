@@ -66,36 +66,29 @@ for arg in "$@"; do
 done
 
 # ---------- ffmpeg discovery ----------
-# Order: explicit env -> PATH -> well-known install prefixes (the lab boxes keep
-# a hand-built ffmpeg under /opt/ffmpeg/<build>/bin, which is not on PATH).
-find_ffmpeg() {
-    if [ -n "${FFMPEG:-}" ] && [ -x "${FFMPEG}" ]; then echo "${FFMPEG}"; return; fi
-    local p
-    p="$(command -v ffmpeg 2>/dev/null || true)"
-    if [ -n "$p" ]; then echo "$p"; return; fi
-    for p in /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg \
-             "/c/Program Files/ffmpeg/bin/ffmpeg.exe" ; do
-        [ -x "$p" ] && { echo "$p"; return; }
-    done
-    echo ""
-}
-
-FF="$(find_ffmpeg)"
-if [ -z "$FF" ]; then
-    echo "FATAL: ffmpeg not found (set FFMPEG=/path/to/ffmpeg)" >&2
-    exit 2
-fi
-if [ -z "${FFPROBE:-}" ]; then
-    FP="$(command -v ffprobe 2>/dev/null || true)"
-    [ -z "$FP" ] && FP="$(dirname "$FF")/ffprobe"
-    [ -x "$FP" ] || FP=""
-else
-    FP="$FFPROBE"
-fi
+# 改走 lib/common.sh 的 find_ffmpeg / find_ffprobe, 不再自带一份(2026-09-30):
+#   1) 口径不一致过: 自带那份是 "PATH 优先"(本机 /usr/bin 4.4.2), 而 common.sh
+#      在 Linux 上是 "/opt 新构建优先" 再回落 PATH(本机 N-117740)。于是报告说
+#      av1_nvenc / av1_qsv / libvmaf 都是 NO, 可脚本真跑时用的是 /opt 那份,
+#      三个其实都在 —— 报告与实跑对不上。
+#   2) ffprobe 同理: 以前先问 command -v, 会出现 "ffmpeg 用 /opt、ffprobe 用
+#      /usr/bin" 的跨版本搭配(4.4.2 的 ffprobe 读不了新构建的产物特征)。现在
+#      按 ffmpeg 的同目录优先(find_ffprobe "$FF"), 兜底才回落 PATH。
 if [ ! -f "$REPO/lib/common.sh" ]; then
     echo "FATAL: repo not found at $REPO (expected $REPO/lib/common.sh)" >&2
     exit 2
 fi
+. "$REPO/lib/common.sh"
+
+# 定位过程里的 "跳过谁/为什么" 走 stderr, 这里丢掉: 下面 report header 自己会
+# 打出最终选定的那个, 混在一起反而盖过报告。
+FF="$(find_ffmpeg 2>/dev/null)"
+if [ -z "$FF" ]; then
+    echo "FATAL: ffmpeg not found (set FFMPEG=/path/to/ffmpeg)" >&2
+    exit 2
+fi
+FP="$(find_ffprobe "$FF" 2>/dev/null || true)"
+[ -n "${FP:-}" ] && [ -x "$FP" ] || FP=""
 
 # ---------- environment facts ----------
 UNAME_S="$(uname -s)"
@@ -434,8 +427,9 @@ if [ "$PROBE" != 1 ]; then
     echo
     echo "NEXT: QUICK statuses are STATIC evidence only -- they say the encoder/"
     echo "      device exists, not that the entry really produces a file (an OK"
-    echo "      entry can still fail at encode time, and entries may silently"
-    echo "      prefer a /opt ffmpeg build that differs from the one inventoried"
-    echo "      here). For the ground truth run: $SELF_DIR/check_env.sh --probe"
+    echo "      entry can still fail at encode time). The inventory above comes"
+    echo "      from the very build the entries pick (same find_ffmpeg), so QUICK"
+    echo "      statuses and what really runs no longer diverge. Ground truth:"
+    echo "      $SELF_DIR/check_env.sh --probe"
 fi
 exit 0
