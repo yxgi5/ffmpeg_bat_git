@@ -45,11 +45,23 @@ rem only the first list entry gets processed; %~dp0 anchors the encoder
 rem so this also works when the repo is not the current directory.
 rem fail-fast: 与 .sh 孪生(run_list)对齐 —— 任一文件失败立即中止并传回 1,
 rem 不再默默跑完整份清单还报 0。goto 是 cmd 里跳出 for 块的可靠写法。
+rem 退出码 4(硬件缺失)单独判: 它不是"这个文件转坏了", 而是"这台机器跑不了这个
+rem   入口" —— 清单剩下的条目会一条接一条撞同一堵墙, 所以按用户裁定不跳过、
+rem   直接中止并把 4 传回, 让调用方一眼看出是硬件而不是片子的问题。
+rem 判定只能用 if errorlevel: for 块里 %VAR% 在块解析时就冻结了, %ERRORLEVEL%
+rem   读不到子调用的返回值; 且 "if errorlevel 4" + "if not errorlevel 5" 才是
+rem   "正好等于 4"(不会把 5/6 截走), ffmpeg 的负 AVERROR(如 av1_qsv 的 -40)
+rem   也进不来 —— 带符号比较下 -40 < 4。
 for /f "usebackq delims=" %%i in ("%SRC_FILE%") do (
     call "%~dp0ffmpeg_hevc_nvenc.bat" "%%i"
+    if errorlevel 4 if not errorlevel 5 goto LIST_HWFAIL
     if errorlevel 1 goto LIST_FAIL
 )
 exit /b 0
+
+:LIST_HWFAIL
+echo 硬件缺失(rc=4): 这台机器跑不了这个入口, 后续条目同样跑不了 —— 中止整份清单
+exit /b 4
 
 :LIST_FAIL
 echo Convert failed! rc=%ERRORLEVEL%

@@ -281,6 +281,14 @@ CASES = [
         {"L13"}, set(),
     ),
     (
+        "L13 precision: exit /b 4 (hardware missing) is inside the contract",
+        "exitcode_hw.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "rem 4 = hardware missing: aborts the whole list run, see README 5.2\n"
+        "exit /b 4\n",
+        set(), {"L13"},
+    ),
+    (
         "L15: an entry .bat that swallows ffmpeg failure is caught",
         "ffmpeg_probe.bat", True,
         "@echo off\n"

@@ -292,7 +292,15 @@ function run_list() {
         [ -z "$line" ] && continue
         echo "$line"
         bash "$script" "$line" < /dev/null
-        if [ $? -ne 0 ]; then
+        rc=$?
+        # 退出码 4 = 硬件缺失(契约见 test/README 5.2): 它不是"这个文件转坏了",
+        #   而是"这台机器跑不了这个入口"。清单里剩下的条目会一条接一条撞同一堵
+        #   墙, 继续跑没有意义 —— 不跳过、直接中止并原样传回 4。
+        if [ "$rc" -eq 4 ]; then
+            echo -e "\033[43;30m硬件缺失(rc=4): 本入口在这台机器上不可用, 中止整份清单\033[0m"
+            exit 4
+        fi
+        if [ "$rc" -ne 0 ]; then
             echo -e "\033[41;36mConvert failed！\033[0m"
             exit 1
         fi
