@@ -584,6 +584,34 @@ function native_path() {
     printf '%s' "$p"
 }
 
+# ================================================================================
+# dvdauthor 的路径写法 —— 与 ffmpeg 同一个坑, 判别办法不同
+#   2026-09-30 实测: MSYS2 里 /mingw64/bin/dvdauthor 是**原生** mingw 构建(不链
+#   msys-2.0.dll), 给它 /tmp/... 这种 POSIX 路径会直接
+#       ERR: cannot create dir /tmp/.../sample: No such file or directory
+#   造盘那一步就塌, 后面所有用例跟着全 FAIL。Cygwin 的 /usr/bin/dvdauthor 链
+#   cygwin1.dll, 认 POSIX 路径, 不能改写(改了反而绕远)。
+#   判别: 看它链的是不是 cygwin1.dll / msys-2.0.dll; ldd 都没有就按"原生"处理
+#   (纯 Linux 上 native_path 原样返回, 不受影响)。
+# ================================================================================
+function tool_is_posix_aware() {
+    local p dep
+    p="$(command -v "${1:-}" 2>/dev/null)" || return 1
+    [ -n "$p" ] || return 1
+    dep="$(ldd "$p" 2>/dev/null)" || return 1
+    case "$dep" in
+        *cygwin1.dll*|*msys-2.0.dll*) return 0 ;;
+    esac
+    return 1
+}
+
+# da_path <路径> —— 写进 dvdauthor 的 XML(dest / vob file)或 -o 的写法
+function da_path() {
+    local p="${1:-}"
+    [ -n "$p" ] || return 0
+    if tool_is_posix_aware dvdauthor; then printf '%s' "$p"; else native_path "$p"; fi
+}
+
 # ================================================================
 # ff_run / fp_run  ——  会改写路径的 ffmpeg / ffprobe 调用
 #   规则: 参数以 / 开头就当成路径, 换成原生写法; 其余(过滤串、-map、数字、编解码器名)
