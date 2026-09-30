@@ -292,7 +292,6 @@ T8|ffmpeg_h264_vaapi.sh|3836249|h264|VAAPI AVC (Linux-only entry: VAAPI is a Lin
 T19|ffmpeg_hevc_vaapi.sh|2548951|hevc|VAAPI HEVC
 T2|ffmpeg_hevc_nvenc.sh|2548951|hevc|NVENC HEVC
 T14|ffmpeg_av1_nvenc.sh|1707157|av1|AV1 NVENC (needs Ada or newer)
-T20|ffmpeg_hevc_nvenc_cygwin.sh|2548951|hevc|Cygwin variant (cuvid + hwdownload)
 SPECS
 
 # AV1 QSV: keep the explicit override knob (auto = probe, see the header)

@@ -176,7 +176,6 @@ ffmpeg_hevc_nvenc.sh|hevc_nvenc|nvidia|NVIDIA NVENC HEVC
 ffmpeg_av1_nvenc.sh|av1_nvenc|nvidia|AV1 NVENC needs Ada (RTX 40) or newer
 ffmpeg_h264_vaapi.sh|h264_vaapi|render|VAAPI is a Linux kernel API
 ffmpeg_hevc_vaapi.sh|hevc_vaapi|render|VAAPI is a Linux kernel API
-ffmpeg_hevc_nvenc_cygwin.sh|hevc_nvenc|cygwin|Cygwin-only variant (cuvid + hwdownload)
 ffmpeg_copy_to_mp4.sh|-|none|remux only, no encoder involved
 EOF
 }
@@ -213,9 +212,6 @@ classify() {   # classify <entry> <encoder> <device> -> status
         *_vaapi.sh)
             # VAAPI talks straight to the Linux DRM subsystem.
             if [ "$OSFAMILY" != "linux" ]; then echo "N/A-OS"; return; fi ;;
-        *_nvenc_cygwin.sh)
-            if [ "$OSFAMILY" != "cygwin" ]; then echo "N/A-OS"; return; fi
-            has_filter hwdownload || { echo "NO-ENCODER"; return; } ;;
     esac
     case "$dev" in
         none)    echo "OK" ;;

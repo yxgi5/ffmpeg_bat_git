@@ -441,6 +441,8 @@ for /f "delims=" %%i in ('%SRC_CODEC%') do set SRC_CODEC=%%i
 ### 5.8 合并 nvenc 和 nvenc_cygwin
 
 > **✅ 已落地（保留双入口）**：两脚本均已迁移至公共库，差异仅剩 hwaccel 段各自保留（nvenc_cygwin 的 cuvid 硬解 + hwdownload 是 Cygwin 兼容路径）。是否进一步合并为参数化单脚本，待 .bat 重构时一并决策。
+>
+> **2026-09-30 后续（已合并为单入口）**：Cygwin 实测两版解码路径逐字相同 —— `-hwaccel cuvid` 被 ffmpeg 7.x 归一化成 cuda（日志同为 `requested hwaccel method cuda`，同素材均 rc=0 / 376 帧 / speed 53.3x vs 54x）。故删除 `ffmpeg_hevc_nvenc_cygwin.sh`，`convert_from_list_cuda.sh` 三平台统一调 `ffmpeg_hevc_nvenc.sh`；旧驱动需要的 hwdownload 回拷以 `FF_NVENC_HWDOWNLOAD=1` 保留在 nvenc.sh 内。
 
 ---
 

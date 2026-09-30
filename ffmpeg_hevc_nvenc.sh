@@ -137,6 +137,17 @@ CMD=("$FF" -hide_banner -threads 0 -v verbose)
 CMD+=(-hwaccel cuda -hwaccel_output_format cuda)
 CMD+=(-i "$ABS_NAME")
 
+# 旧驱动/旧卡的兼容路径: 硬解后把帧从显存拷回系统内存, 再交给 nvenc。
+#   原 Cygwin 专用变体(ffmpeg_hevc_nvenc_cygwin.sh, -hwaccel cuvid + hwdownload)
+#   已于 2026-09-30 合并回本脚本 —— 实测 ffmpeg 7.x 里 -hwaccel cuvid 会被归一化成
+#   cuda: 两版日志同为 "requested hwaccel method cuda", 解码路径逐字相同, 唯一差异
+#   就是这一次回拷(同素材实测: 均 rc=0, 产物同为 376 帧 / 1.1 MB, speed 53.3x vs 54x)。
+#   默认不回拷(少一次拷贝, 也不再被强制拉回 nv12); 真碰到"cuda 帧直接喂不进 nvenc"
+#   的旧环境时, FF_NVENC_HWDOWNLOAD=1 打开即可 —— 能力留在脚本里, 入口只留一个。
+if [ "${FF_NVENC_HWDOWNLOAD:-0}" = 1 ]; then
+    CMD+=(-filter:v:0 "hwdownload, format=nv12")
+fi
+
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)
     echo "DOWN TARGET FRAME RATE TO 30"
