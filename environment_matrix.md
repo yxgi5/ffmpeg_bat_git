@@ -1670,3 +1670,22 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       `:AUTO_LOOP` 的 `BESTD` 从 0 起、`if %TDI% gtr %BESTD%` → 全 0 时长时一条都选不中，
       与 sh 改前同一个坑。已改 `BESTD=-1` 起步，并在 `:AUTO_DONE` 把**显示值**归零。
       实测 bat 侧用同一张合成盘跑 `MODE=AUTO` 与 `MODE=ALL` 两轮均 rc=0（各出 150 帧 mkv）。
+    * **⑨ 真盘回归（09-30，`H:\Downloads\中高艺\` 下的商业盘）**：挑最小那份
+      `SD特别篇3-媛媛丝袜电影2.iso`（717 MB；title 1 = 816s / 720x576 PAL / ac3 2ch / 6 章节点）。
+      `TITLES=1 TARGET_MB=200` 两个 shell 各跑一遍 **均 rc=0**，数字完全对得上：
+      `自动选定 title 1(共 816s)` → `1821 kbps(按 200 MiB / 816.480s 反推)` → 编 20347 帧 →
+      dvdauthor 1695 VOBU → genisoimage → **203.7 MiB ISO**，UDF 序列与文件清单校验通过。
+      关键是**时长读到了**（816.480s）：修 ⑦ 之前这里正是"一个 title 都没读到"，
+      也就是说 sh 侧这条链路在 Windows 上此前根本走不通。
+      `da_path` 的证据在 MINGW64 那轮的 dvdauthor 日志里 —— 原生构建收到的是
+      `STAT: Processing D:/msys64/tmp/.../title_1.mpg`（Windows 写法），不是 `/tmp/...`。
+    * **⑩ 这一轮又踩到两个环境坑（不是代码问题，但会挡人）**：
+      - **MINGW64 必须用 `msys2_shell.cmd -mingw64` 启动**：直接跑 `D:\msys64\usr\bin\bash.exe -lc`
+        起的是 **MSYS** 环境，PATH 里没有 `/mingw64/bin` → 脚本报"找不到 dvdauthor"。
+        而 dvdauthor / genisoimage 都在 `/mingw64/bin`（`command -v` 只在 MINGW64 环境下命中）。
+      - **中文路径**：Cygwin 在 C locale 下按系统编码转换文件名，脚本里写 UTF-8 字面量匹配不上
+        （实测 `源不存在`），而 `ls` 出来是乱码。绕法：用 `find -printf '%s\t%p\n' | sort -n` 定位，
+        拿到的是真实字节。
+      - 环境差异一笔：MINGW64 的 `/mingw64/bin/genisoimage` 会把 VIDEO_TS 内的文件名转成大写，
+        于是多报一条"文件清单不一致"警告（Cygwin 那份 `/usr/bin/genisoimage` 不报）；脚本已注明
+        不影响播放，非缺陷。
