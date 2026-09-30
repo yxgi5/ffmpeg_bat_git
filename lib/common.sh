@@ -369,6 +369,12 @@ _ff_try() {
     local bin="$1" fl="$2" en="$3" dm="$4" key
     [ -n "$bin" ] || return 1
     [ -x "$bin" ] || return 1
+    # Linux 守门(WSL2 实测 2026-09-30): 那里 /mnt/c 可见且 .exe 可执行, 于是 Windows
+    # 的 gyan.exe 会作为候选被选中 —— 而它吃不了 /tmp/... 这种 Linux 路径, 必然
+    # "No such file"。纯 Linux 上本来就不该有 .exe, 这一档对它零影响。
+    if [ "${_FF_UNAME:-}" = Linux ]; then
+        case "$bin" in *.exe|/mnt/*) return 1 ;; esac
+    fi
     key="${bin%.exe}"
     case " ${_FF_SEEN:-} " in
         *" $key "*) return 1 ;;
@@ -392,6 +398,19 @@ _ff_known_opt_prefixes() {
     local u
     for u in /opt/ffmpeg/*/bin/ffmpeg; do
         [ -x "$u" ] && printf '%s\n' "$u"
+    done
+}
+
+# 内部: Windows 侧"gyan 优先"那一档(2026-09-30)。与 _ff_known_prefixes 里的同一批
+# 路径重复无所谓(_ff_try 按路径去重) —— 这里只负责"排在 PATH 之前"这一件事。
+# 路径一律由 cygpath 生成: MSYS2 写 /c/...、Cygwin 写 /cygdrive/c/..., 硬写必错其一。
+_ff_known_win_prefixes() {
+    local w u
+    command -v cygpath >/dev/null 2>&1 || return 0
+    for w in 'C:\Program Files\ffmpeg\bin' 'C:\ffmpeg\bin' \
+             'C:\Program Files (x86)\ffmpeg\bin'; do
+        u="$(cygpath -u "$w" 2>/dev/null)" || continue
+        [ -n "$u" ] && printf '%s\n' "$u/ffmpeg" "$u/ffmpeg.exe"
     done
 }
 
@@ -424,6 +443,11 @@ function _ff_find_core() {
         esac
     done
     _FF_SEEN=""
+    # 平台判定只在本次定位里算一次(_ff_try 的 Linux 守门要用, 避免每个候选都起 uname)
+    case "$(uname -s 2>/dev/null || printf '')" in
+        Linux*) _FF_UNAME=Linux ;;
+        *)      _FF_UNAME=Other ;;
+    esac
 
     # ---- 阶段一: 显式指定(FFMPEG_BIN 指目录, 与 bat 侧同名同义) ----
     if [ -n "${FFMPEG_BIN:-}" ]; then
@@ -455,10 +479,23 @@ function _ff_find_core() {
         Linux*)
             while IFS= read -r cand; do
                 _ff_try "$cand" "$fl" "$en" "$dm" && return 0
-                _ff_try "$cand.exe" "$fl" "$en" "$dm" && return 0
             done < <(_ff_known_opt_prefixes)
             ;;
     esac
+
+    # ---- 阶段二点七五: Windows 侧 gyan 优先(2026-09-30) ----
+    # 这些 shell 的 PATH 首项常是自己那份原生构建(MSYS2 的 mingw 8.1、Cygwin 的
+    # 7.1.1), 能力不全; 而机器上装着的 gyan full 排在后面。用户的要求是"只要是
+    # Windows, sh 侧也优先 gyan, 原生版本只作功能兜底" —— 所以把它插在 PATH 之前。
+    # 它**仍参与能力筛选**: gyan 干不了的事(某个 encoder / demuxer)照样往下走, 落到
+    # PATH 里的原生构建; 不像 ffmpeg_av1_nvenc.sh 早先那段硬编码 PATH 那样无条件顶替。
+    # 只有有 cygpath 的 shell(Cygwin / MSYS2 / Git Bash)进这一档 —— 纯 Linux 与
+    # WSL2 没有 cygpath, 顺序与改造前逐字一致。
+    if command -v cygpath >/dev/null 2>&1; then
+        while IFS= read -r cand; do
+            _ff_try "$cand" "$fl" "$en" "$dm" && return 0
+        done < <(_ff_known_win_prefixes)
+    fi
 
     # PATH 必须**逐项**看, 不能只问 command -v: 它只回第一个命中, 而"第一个"经常
     # 正是缺能力那个(MSYS2 的 /mingw64/bin 8.1、Cygwin 的 /usr/bin 7.1.1 都没有
@@ -678,17 +715,88 @@ function da_path() {
 # ================================================================
 function _ff_native_exec() {
     local exe="$1"; shift
-    local a out=()
+    local a out=() i=0
     for a in "$@"; do
         case "$a" in
             /*) out+=("$(native_path "$a")") ;;
             *)  out+=("$a") ;;
         esac
     done
+
+    # ---- "-hwaccel auto" 的 D3D 回退(2026-09-30 实测) ----
+    #   Windows 会话处于「已断开 / 锁屏」时 D3D 设备创建被拒, 而 gyan 的 -hwaccel auto
+    #   不是优雅降级, 是**直接崩**(0xC0000005 / Segmentation fault) —— 实测三族
+    #   (cmd、Cygwin、MINGW64)在同一状态下一起崩, 不带 hwaccel 的 copy_to_mp4 与
+    #   dvd 工具链却全过。所以: 只在命令里带 "-hwaccel auto" 时, 把 stderr 收进临时
+    #   文件; 失败且 stderr 出现 D3D 特征码, 就去掉这一对参数重跑一次, 编码器与其余
+    #   参数一字不动。
+    #   不带 -hwaccel auto 的命令(纯软编、QSV/CUDA 专用入口、ffprobe 探测)走老路径,
+    #   行为逐字不变; FF_NO_HWACCEL_FALLBACK=1 可整体关掉。
+    local has_auto=0
+    for ((i = 0; i < ${#out[@]}; i++)); do
+        if [ "${out[i]}" = "-hwaccel" ] && [ "${out[i+1]:-}" = "auto" ]; then
+            has_auto=1
+            break
+        fi
+    done
+    if [ "$has_auto" = 1 ] && [ "${FF_NO_HWACCEL_FALLBACK:-}" != 1 ]; then
+        local tmp rc k nout=()
+        tmp="${TMPDIR:-/tmp}/ff_hwaccel_$$.err"
+        "$exe" ${out[@]+"${out[@]}"} 2> "$tmp"
+        rc=$?
+        if [ "$rc" -ne 0 ] && grep -qaE 'Failed to create Direct3D device|Device creation failed|Failed to create a device' "$tmp" 2>/dev/null; then
+            k=0
+            while [ "$k" -lt "${#out[@]}" ]; do
+                if [ "${out[k]}" = "-hwaccel" ] && [ "${out[k+1]:-}" = "auto" ]; then
+                    k=$((k + 2))
+                    continue
+                fi
+                nout+=("${out[k]}")
+                k=$((k + 1))
+            done
+            cat "$tmp" >&2
+            printf '[ff_run] -hwaccel auto 初始化失败(D3D 设备不可用) -> 去掉 hwaccel 重跑\n' >&2
+            rm -f "$tmp"
+            "$exe" ${nout[@]+"${nout[@]}"}
+            return $?
+        fi
+        cat "$tmp" >&2
+        rm -f "$tmp"
+        return "$rc"
+    fi
+
     "$exe" ${out[@]+"${out[@]}"}
 }
 function ff_run() { _ff_native_exec "$FF" "$@"; }
 function fp_run() { _ff_native_exec "$FP" "$@"; }
+
+# ================================================================
+# Windows 侧 locale 兜底(2026-09-30 实测)
+#   Cygwin / MSYS2 里 LANG 常常只是 zh_CN 或为空(没有 .UTF-8 后缀), 于是 shell 把
+#   路径字节按 **GBK** 转成 UTF-16 喂给原生 exe —— 而文件系统里存的是 UTF-8 字节,
+#   结果连脚本自己的 [ -f "$1" ] 都判"文件不存在"(实测: 中文目录名在 Cygwin 与
+#   MINGW64 下都是 file not exists!, 出口换成 LANG=zh_CN.UTF-8 立刻通过; 同一份
+#   素材在 cmd 里正常, 因为 cmd 直接用宽字符, 不经这层转换)。
+#   所以这里在**有 cygpath 的 shell**(Windows 侧)且当前 locale 不是 UTF-8 时, 挑一个
+#   可用的 UTF-8 locale 顶上。三道限制, 免得伤到别人:
+#     ① 只在有 cygpath 时动手 —— 纯 Linux 与 WSL2 一行都不执行, 行为逐字不变;
+#     ② 已经是 UTF-8 就什么都不做, 不覆盖用户设置;
+#     ③ FF_NO_LOCALE=1 可整体关掉(排查"改了 locale 之后显示不对"这类问题时用)。
+# ================================================================
+if command -v cygpath >/dev/null 2>&1 && [ "${FF_NO_LOCALE:-}" != 1 ]; then
+    case "${LC_ALL:-${LANG:-}}" in
+        *UTF-8*|*utf8*) : ;;
+        *)
+            for _l in C.UTF-8 zh_CN.UTF-8 en_US.UTF-8; do
+                if LC_ALL="$_l" locale >/dev/null 2>&1; then
+                    export LC_ALL="$_l" LANG="$_l"
+                    break
+                fi
+            done
+            unset _l
+            ;;
+    esac
+fi
 
 # ================================================================
 # pick_mkisofs / mkisofs_path  ——  打包器(mkisofs / genisoimage)的挑选与调用
