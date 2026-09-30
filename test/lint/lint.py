@@ -1807,7 +1807,6 @@ ENTRY_WHITELIST = {
     "sh_only": {
         "ffmpeg_h264_vaapi.sh": "VAAPI is a Linux kernel API - no Windows twin",
         "ffmpeg_hevc_vaapi.sh": "VAAPI is a Linux kernel API - no Windows twin",
-        "ffmpeg_hevc_nvenc_cygwin.sh": "Cygwin-specific variant (cuvid + hwdownload)",
     },
     "bat_only": {
         "opencmd.bat": "Windows helper: open a cmd already switched to UTF-8",

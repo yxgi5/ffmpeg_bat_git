@@ -631,8 +631,10 @@ title 2、选中 3304s 的 title 3、输出约 1 Mbps 的 MKV）。首次真机�
   本机跑不起来记 `[SKIP]` 并留下 `gate_<入口>.log`，而不是记 FAIL —— 让「缺硬件」不再伪装成「仓库有缺陷」。
   `ffmpeg_av1_nvenc.bat`（T14）与 `ffmpeg_libx264.bat`（T16）为本轮新增/补齐入口；
   T15（`ffmpeg_av1_qsv.bat`）在无 AV1 核显的机器上记 SKIP，**待 Arrow Lake+ 的 Windows 机器补证**。
-- **架构/对等结论**：两族共享 **12 个编码入口**；`.sh` 独有的 3 个（`h264_vaapi`/`hevc_vaapi`/
-  `hevc_nvenc_cygwin`）分别对应 Linux 内核 API 与 Cygwin 专用链路，`.bat` 侧无编码入口缺口
+- **架构/对等结论**：两族共享 **12 个编码入口**；`.sh` 独有的 2 个（`h264_vaapi`/`hevc_vaapi`）
+  对应 Linux 内核 API，`.bat` 侧无编码入口缺口
+  （原 `.sh` 独有的 `hevc_nvenc_cygwin` 已于 2026-09-30 合并回 `ffmpeg_hevc_nvenc.sh`：
+  实测 ffmpeg 7.x 把 `-hwaccel cuvid` 归一化成 cuda，两版解码路径相同，Cygwin 无需单独入口）
   （`opencmd.bat` 只是开 UTF-8 窗口的辅助脚本）。退出码契约已跨族统一为
   `0 成功 / 1 参数与文件错误（含编码失败、找不到 ffmpeg）/ 2 查表越界 / 3 无视频流 / 5 码率异常`；
   「失败必须传回非零」由 lint **L15**、流映射一致性由 **L16**、moov 前置由 **L17** 静态钉住

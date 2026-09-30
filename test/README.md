@@ -311,7 +311,7 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T17 | 低码率源 clamp（400k 源） | arg | `< 3836249` / h264 | ✅ | ✅ |
 | T18 | `ffmpeg_libx264` stdin 指定码率 900k | stdin | `900k` / h264 | ✅ | — |
 | T19 | `ffmpeg_hevc_vaapi` | arg | 2548951 / hevc | ✅ | 无此入口 |
-| T20 | `ffmpeg_hevc_nvenc_cygwin` | arg | 2548951 / hevc | ✅ | 无此入口 |
+| T20 | 已撤销：Cygwin NVENC 变体 2026-09-30 合并进 T2（`hevc_nvenc`） | — | — | — | — |
 | T21 | 清单 CRLF + UTF-8 BOM | 清单 3 条目 | 3/3 产物 | ✅ | — |
 | T22 | `run_list` 的 `</dev/null` 隔离 | 5 条目清单 | 5/5 产物 | ✅ | — |
 | T23 | 清单条目文件缺失 → 中止 | 清单含不存在的路径 | `rc=1` | ✅ | ✅ |
@@ -518,12 +518,11 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 `ffmpeg_av1_nvenc`、`ffmpeg_libx264`、`ffmpeg_libx265`、`ffmpeg_copy_to_mp4`、
 `convert_from_list_qsv`、`convert_from_list_cuda`、`convert_from_list_libx265`、`repack_from_list`
 
-**sh 独有（3，均有正当理由）**
+**sh 独有（2，均有正当理由）**
 
 | 入口 | 理由 |
 |------|------|
 | `ffmpeg_h264_vaapi.sh` / `ffmpeg_hevc_vaapi.sh` | VAAPI 是 Linux 内核 DRM API，Windows 无对应物 |
-| `ffmpeg_hevc_nvenc_cygwin.sh` | Cygwin 专用变体（`cuvid` + `hwdownload`），与 MSYS2 行为不同 |
 
 **bat 独有（0 个编码入口）**：`opencmd.bat` 是「开一个 UTF-8 控制台」的辅助脚本，
 不是编码入口，因此不计入对等缺口。
@@ -684,6 +683,8 @@ T7（cp65001 守卫是 Windows 控制台特性，sh 侧无对应物）、T15（A
 `T20 ffmpeg_hevc_nvenc_cygwin` 三个硬件用例。这三条在本机原本一直是被探针自身
 判成 SKIP 的，属于「有硬件却静默不测」。这也说明：**探针夹具的规格必须经得起推敲**，
 它本身可以成为覆盖率的隐性上限。
+（2026-09-30 后续：`ffmpeg_hevc_nvenc_cygwin.sh` 已合并进 `ffmpeg_hevc_nvenc.sh`，
+T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重合。）
 
 ### 6.5 待人工补跑
 
