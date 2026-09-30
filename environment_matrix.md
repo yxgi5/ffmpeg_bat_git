@@ -1,6 +1,6 @@
 # ffmpeg 编码环境×硬件 能力矩阵
 
-**更新日期:** 2026-09-16  
+**更新日期:** 2026-09-30（末次补记 2026-09-30 三项：`hevc_nvenc_cygwin` 入口合并、退出码 4「硬件缺失」、10bit 源修法；各历史条目保留当时的日期与结论，只在与现状冲突处就地标注）  
 **维护说明:** 本矩阵随实测进度更新状态标记，每格状态必须有两类依据之一——本仓库会话实测记录，或 ffmpeg 构建清单（`-encoders`/`-hwaccels` 输出）。
 
 ## 状态图例
@@ -20,7 +20,7 @@
 | :-: | ---------------------------- | --------------------------- | --------------- |
 |  A  | i7-9700T                     | UHD 630（核显）                 | 无独立显卡           |
 |  B  | i9-13900HX + RTX 4080 Laptop | UHD Graphics（核显）+ Ada NVENC | **本机（当前开发机）**   |
-|  C  | Ultra 7 265K                 | Arrow Lake 核显               | AV1 编码验证平台（待引入） |
+|  C  | Ultra 7 265K                 | Arrow Lake 核显               | AV1 QSV 验证平台（2026-09-17 **已引入并实测通过**；原记「待引入」为当时状态） |
 
 **目标 OS:** Windows 11 / Ubuntu 22.04  
 **目标环境:** linux bash、Windows cmd、Windows PowerShell、Cygwin64、MSYS2(MINGW64)  
@@ -106,7 +106,8 @@
 | Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  🟡 |   🟡  |    🟡   |   ❌   |   🟡  |     🟡    |  🟡  | ✅ 模式 |   ➖  |
 
 > B 机是矩阵验证最充分的一台：NVENC（含 AV1）三环境通、QSV 双环境通（Cygwin 豁免）、软编双环境通。  
-> **cmd/PowerShell 行的 ✅ 指二进制本身**（ffmpeg.exe 直接调用已验证）；`.bat` 列的 `6/10` = 10 个 bat 中 6 个通过探针实测（4 编码器 + copy_to_mp4 + convert_from_list_qsv），opencmd 属一行起壳脚本不计；剩 3 个 list bat（cuda / libx265 / repack）与本轮所修共享同一行代码，风险低，可选复核。
+> **cmd/PowerShell 行的 ✅ 指二进制本身**（ffmpeg.exe 直接调用已验证）；`.bat` 列的 `6/10` = **2026-09-16 当时** 10 个 bat 中 6 个通过探针实测（4 编码器 + copy_to_mp4 + convert_from_list_qsv），opencmd 属一行起壳脚本不计；剩 3 个 list bat（cuda / libx265 / repack）与本轮所修共享同一行代码，风险低，可选复核。
+> **现值（2026-09-30）**：根目录 `.bat` 入口共 **13 个**（9 个 `ffmpeg_*` + 3 个 `convert_from_list_*` + `repack_from_list`），已全部纳入 `test/bat/` 套件与 `check_env.bat` 覆盖；上表的 10 个是当时的口径，勿再当作当前入口数。
 > **`.sh` 行的本轮复核（AI 在沙箱内直接跑 bash，无需用户介入）**：6 个编码入口 + 4 个 list 脚本全部 rc=0 且产出正确，含静音输入（`-map 0:a?`）、中文/空格文件名、CRLF+BOM 清单；同轮修掉 `check_file_is_text` 悬空调用与 `run_list` 的 CRLF/BOM 兼容（详见 code_review_report.md）。
 >
 > **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash 与命令行工具两条路均被安全策略拦截），改用一次性探针（现位于仓库内 `test/bat/smoke_ffmpeg.bat`〔原名 smoke_ffmpeg_bat.bat〕，一次双击即跑完：4 编码器 + copy_to_mp4 + 交互输入 + 新进程 UTF-8 + 静音输入 + list 模式，日志落 `smoke_logs\`）。
@@ -131,7 +132,7 @@
 | Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  ➖  |   ➖   |  ✅ 已验证  |   ✅ 已验证  |   ✅  |     ✅    | ✅ svtav1/aom | ✅ 已验证（7 入口全绿） |   ➖  |
 
 > C 机是 **QSV AV1 编码的唯一硬件平台**。**结论（2026-09-16 实测）**：master-gpl 构建下 QSV（含 AV1）/VAAPI（含 AV1）/软编/硬解**开箱即用，无需任何 mfx 会话调参**；原生 4.4.2 无 av1_qsv、无 svtav1、QSV 硬解不可用、hevc_vaapi 编码不可用（见下）。
-> **`.bat` 侧（Win11）**：2026-09-16 已把入口备齐到 **7 个**（新增 `ffmpeg_av1_nvenc.bat` 与 `ffmpeg_av1_qsv.bat`），静态自检与同族骨架一致；本表 Win11 三行的**实跑仍待补**（探针 **T14 / T15** 已就位，其中 T15 在无 AV1 QSV 硬件的机器上记 `[SKIP]`）。
+> **`.bat` 侧（Win11）**：2026-09-16 已把入口备齐到 **7 个**（新增 `ffmpeg_av1_nvenc.bat` 与 `ffmpeg_av1_qsv.bat`）**—— 这是当时口径，现为 13 个根入口 `.bat`**；静态自检与同族骨架一致；本表 Win11 三行的**实跑仍待补**（探针 **T14 / T15** 已就位，其中 T15 在无 AV1 QSV 硬件的机器上记 `[SKIP]`）。
 
 ---
 
@@ -440,8 +441,8 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 | ------------- | ---------------------------------------------------------------- | -------------------------------- | -------------------------------------- |
 | `dvdauthor`   | ✅ `/usr/bin` 0.7.2                                               | ✅ `/mingw64/bin` 0.7.2            | `dvd_shrink` / `dvd_repair`（重建 IFO）/ `dvd_make_sample`（建 VIDEO_TS，`NO_VIDEOTS=1` 可绕） |
 | `dvdunauthor` / `spumux` | ✅ `/usr/bin`                                          | ✅ `/mingw64/bin`                  | 反解 / 位图字幕                               |
-| `mkisofs`     | 🟡 `/cygdrive/d/…/WinCDEmu/mkisofs` 3.01a24（**原生 exe**，`pick_mkisofs` 会主动跳过） | ❌ MISSING（**不影响**：脚本都按 `mkisofs → genisoimage` 找） | 打 ISO                                   |
-| `genisoimage` | ✅ `/usr/bin` 1.1.11 (CYGWIN)                                     | ✅ `/mingw64/bin`（09-30 编译装好）        | 打 ISO（`pick_mkisofs` 的第二候选）             |
+| `mkisofs`     | 🟡 `/cygdrive/d/…/WinCDEmu/mkisofs` 3.01a24（**原生 exe**，`pick_mkisofs` 会主动跳过） | ❌ MISSING（**不影响**：脚本按 `genisoimage → mkisofs` 找，`mkisofs` 只作兜底） | 打 ISO                                   |
+| `genisoimage` | ✅ `/usr/bin` 1.1.11 (CYGWIN)                                     | ✅ `/mingw64/bin`（09-30 编译装好）        | 打 ISO（`pick_mkisofs` 的**第一候选**；2026-09-30 起顺序由 `mkisofs` 优先改为 `genisoimage` 优先） |
 | `xorriso`     | ✅ `/usr/bin` 1.5.6                                               | ✅ `/usr/bin` 1.5.8               | 打包后清单校验（可选，缺了就跳过）                       |
 | `xorrisofs`   | ✅ `/usr/bin` 1.5.6                                               | ✅ `/usr/bin` 1.5.8               | mkisofs 兼容前端；**当前只是备用**，`genisoimage` 已够 |
 | `7z`          | ✅ `/usr/bin/7z`                                                  | ✅ `/usr/bin/7z`                 | 校验的回退手段                                 |
@@ -715,8 +716,12 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       mp4 出、且 arg 模式带 `-n` 会与同名输入冲突（与冒烟 T5 的 remux_me.mkv 同思路）。
       PROBE-FAIL 新增一种形态：`rc=0 but no real output (0B) - see run.log`。
     * sh 侧不受影响：入口 .sh 如实传递 ffmpeg 退出码，rc 即判据（C 机深测 fail=4 就是这么抓到的）。
+      **2026-09-30 补充**：rc 仍是判据，但语义已细分 —— 普通失败归一为 `1`、**硬件缺失为 `4`**
+      （`ffmpeg_av1_qsv.{sh,bat}` 先探测编码器，开不起来就退 4 并中止清单）。
     * 沙箱可调 ffmpeg 实证了根因（rc=127、0 字节输出），但探针修复本身是静态改动，
       待用户 `/probe` 复跑确认：本机预期 av1_qsv → PROBE-FAIL，其余 → PROBE-OK out=…B。
+      **2026-09-30 已实测确认（av1_qsv 这一条）**：本机 `ffmpeg_av1_qsv.bat` 返回 **4**、无产物，
+      与预期一致（现记「硬件缺失」而非 PROBE-FAIL）；其余入口仍待复跑。
 33. **soft_pair_calib.sh 入库：calib_av1.sh 的正名与参数化（2026-09-17）**：
     * 当年会话工作区的 `calib_av1.sh`（软编配对校准：SVT-AV1 p8 vs libx265 fast，
       第 25 条 r≈0.53–0.61 的数据来源）按用户要求入库，正名
@@ -779,7 +784,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **T23 由 sh-only 升为两族共享**：sh 侧 T23（清单条目缺失 → 中止）此前只能 sh-only，因为 bat
       wrapper 从不中止；wrapper fail-fast 落地后补齐 bat 孪生（`smoke_ffmpeg.bat` 升 **v9**），并把 sh 侧
       T23 的 wrapper 从 `convert_from_list_qsv.sh` 换成 `convert_from_list_libx265.sh`（软编、无硬件依赖
-      → 两族同夹具且永不被 SKIP）。sh-only 现为 T8/T18/T19/T20/T21/T22/T24/T25；**T24/T25 的 bat 孪生
+      → 两族同夹具且永不被 SKIP）。sh-only 现为 T8/T18/T19/T21/T22/T24/T25（**T20 已于 2026-09-30 撤销**：`ffmpeg_hevc_nvenc_cygwin.sh` 合并进 `ffmpeg_hevc_nvenc.sh`，覆盖与 T2 重合）；**T24/T25 的 bat 孪生
       如今也具备可行性**（失败即非零已成立），留作后续。
     * **bench_calib.bat 潜伏 bug 顺手修（⚠️ 本条记录当时有误，见第 40 条订正）**：全文**从未定义
       `SELF_DIR`**，`"%SELF_DIR%lib\common.bat"` 实为相对路径，只在「cwd = 仓库根」时可用。
@@ -801,6 +806,10 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       MSYS2 MINGW64 → `/mingw64/bin/ffmpeg` **8.1**（软编硬编齐，**无 libvmaf**）；
       Cygwin → `/usr/bin/ffmpeg` **7.1.1**（**无 libx264/libx265**，无 libvmaf，无 VAAPI）。
       结论：**.sh 入口在 MSYS2 下会用 8.1、在 Cygwin 下会用 7.1.1**，能力表跟着 shell 变。
+      **2026-09-30 更新**：上句描述的是当时的定位逻辑。现在 `lib/common.sh` 的 `find_ffmpeg`
+      在 Windows 系 shell 下**优先探测 gyan full**（`C:\Program Files\ffmpeg\bin`），MSYS2 8.1
+      与 Cygwin 7.1.1 退为回退候选（仅当它缺 `--need-*` 指定的能力时才被跳过，见 readme.md
+      「ffmpeg 依赖怎么找」）—— 所以「换 shell 就换 ffmpeg」已不再是必然结论。
     * **Cygwin QSV 核实（用户存疑项）**：编码器**列得出来但真编一律失败**
       （`Error creating a MFX session: -9`，`rc=171`），编码/解码两侧都一样 → 按用户判断
       「Cygwin 略过 QSV」处理。Cygwin 上真实可用的是 **NVENC（h264/hevc/av1 全通）+
@@ -842,7 +851,9 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       lint **L15 加硬**：`.bat` 入口的失败守卫必须是"负数安全"形式，`if errorlevel N` 直接 FAIL
       （selftest 新增 recall 例 + `%ERRORLEVEL% NEQ 0` 形式被接受的 precision 例）。
       清单 wrapper 保留 `if errorlevel 1` 是**正确**的：它的判定在 `for /f` 块内，`%VAR%` 会被
-      一次性展开冻结，而 `if errorlevel` 读的是实时值；且子进程受 L13 约束只返回 `{0,1,2,3,5}`。
+      一次性展开冻结，而 `if errorlevel` 读的是实时值；且子进程受 L13 约束只返回
+      `{0,1,2,3,4,5,6}`（**2026-09-30 新增 `4` 硬件缺失、`6` 产物已存在**）。清单 wrapper 对 `4`
+      另有专门处理：**直接中止整份清单**（硬件不可用则后续条目同样不可用，继续跑无意义）。
     * **探针补第三重判据**：两族深测现在要求 **rc=0 且 `run.log` 里没有 `Conversion failed`**
       （bat 侧另要求真实产物 >4096B）。三层互相独立，任何一层被绕过另外两层仍会说真话。
     * **纠错记录**：上一轮把沙箱 bash 报的 `rc=127` 当成"ffmpeg 真返回 127"，据此写下
@@ -856,6 +867,8 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **本轮基线**：`lint 25 PASS / 0 FAIL / 5 WARN`、`selftest 22 cases / 0 FAIL`。
       `.bat` 侧的负数安全守卫**尚未在真机运行过**（沙箱跑不了 cmd.exe），需用户双击一个必然失败的入口
       （无 AV1 硬编机器上的 `ffmpeg_av1_qsv.bat`）确认窗口打印 `Convert failed! rc=-40`、`%ERRORLEVEL%=1`。
+      **2026-09-30 实测订正**：本机该入口现在返回 **4**（硬件缺失），并先打印「该编码器不受本机硬件支持」
+      的原因行 —— 不再落 0 字节产物，`%ERRORLEVEL%` 也不是 `1` 了；清单 wrapper 遇 4 中止整份清单。
 
 38. **冒烟套件的耗时构成 + sh 侧源探测合并（2026-09-17，用户问「冒烟为什么要十几分钟」）**：
     * **结论先行**：套件墙钟 ≈ **入口调用次数 × 单次入口成本**，与片长/编码器几乎无关。
@@ -1147,7 +1160,10 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       （`"$(cygpath \"F:\\dir\\a.mp4\")"` 或直接传 `"F:\dir\a.mp4"`）；`bench_calib.sh` 的
       "source video not found" 也会在 `$# > 1` 时提示"路径可能被空格拆开了"。
     * **本轮基线**：`lint 30 PASS / 0 FAIL / 5 WARN`、`selftest 38 cases / 0 FAIL`。
-      **待用户真机验证**：双击 `test\bat\bench_calib.bat "<F 盘电影>"`，`delivered` 应出现真实数字
+      **~~待用户真机验证~~ → 2026-09-30 已闭环**：`delivered` 恒为 0 的真因是 cmd 把裸 `=` 当参数
+      分隔符（`stream=bit_rate` 被切成两个参数），修法是 `show_entries` 串改由 `:probe_field` 内部按
+      关键词（`vbr` / `fbr`）展开；实测已取得真实数字（`736259` / `2916820` 量级）。
+      详见 `code_review_report.md` 第 7b 条。原待验命令保留备查：双击 `test\bat\bench_calib.bat "<F 盘电影>"`
       （本机同产物量级 ≈ 736k / 907k / 1360k / 2040k / 2917k），`soft_pair_calib.bat` 的 delivered 列同理。
     * **教训（可复用）**：① **cmd 的参数分隔符不止空格** —— 逗号、分号、**等号**都算；要传"带等号的值"
       必须加引号，或改成关键词让被调用方展开；② **"新增的辅助函数"是最危险的地方** —— 它没有历史行为可对照，
@@ -1224,7 +1240,9 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       原样传递），以及 **`src_stamp()`**（源文件字节数，两族算法一致）；三个 calib 工具的
       全部 ffmpeg/ffprobe 调用已改走包装。**未改**：`smoke_ffmpeg.sh`、
       `smoke_special_chars.sh`、`check_env.sh` 仍直接调用（MSYS2/Linux 靠运行时改写可用，
-      Cygwin 下会失败，待补）。
+      Cygwin 下会失败，待补）。**2026-09-30 进度（只完成一半，仍待补）**：`smoke_ffmpeg.sh` 与
+      `smoke_special_chars.sh` 已改走 `fp_run` / `ff_run`（各 6 / 4 处）；**`check_env.sh` 仍是 0 处**，
+      Cygwin 下照样失败 —— 本项尚未闭环。
     * **实测**（同一片源、`0 1` 段）：Git Bash / MSYS2 / Cygwin 三 shell **逐点数字完全一致**
       （delivered 475776 / 577480 / 868896 / 1314584 / 1765536，VMAF 86.89/88.51/92.01/94.28/95.44），
       fit `vmaf = 4.59 * log2(bitrate) + 0.78`，`RECOMMENDATION (VMAF95): ~1525072 bps` ——

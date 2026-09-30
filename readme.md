@@ -20,6 +20,8 @@ repack_from_list.bat | .sh 按清单批量无损转封装
 tools/dvd_restore.sh      解压出来的 VIDEO_TS 反向还原成可刻录的 DVD-Video ISO
 tools/dvd_repair.sh       补齐解压盘里缺失的 IFO / BUP(缺哪个都行, 整组丢了就用 dvdauthor 重建)
 tools/dvd_make_sample.sh  用本机 ffmpeg 合成 DVD 合规的 MPEG-2 PS, 做成一张已知参数的测试盘
+tools/dvd_shrink.sh       重编码成低码率 MPEG-2, 压进 DVD-5 / DVD-9 目标容量(仍是家用机可播的 DVD-Video)
+tools/dvd_to_data_iso.sh  DVD 先压成 HEVC(复用 ffmpeg_dvd_hevc)再打成 UDF 数据盘(不在乎 DVD 机, 只在乎体积)
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
 archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
 code_review_report.md      多轮代码评审与冒烟记录
@@ -197,10 +199,15 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
   其实在软编）。要换就自己改 `VENC`，或让它自己挑：`VENC=auto`。
 
 ```
-本机实测（2026-09-29，Intel iGPU，无 N 卡）:
+本机实测（2026-09-30 复核，Intel iGPU，无 N 卡）:
   hevc_nvenc / h264_nvenc / av1_nvenc   列表里有，真编失败(cuInit)  -> auto 会跳过
-  hevc_qsv / h264_qsv / av1_qsv         可用                        -> auto 落在 hevc_qsv
+  hevc_qsv / h264_qsv                   可用                        -> auto 落在 hevc_qsv
+  av1_qsv                               列表里有，本机无 AV1 硬件   -> 入口返回 4(硬件缺失), 不产空文件
   libx265 / libx264 / libsvtav1         可用
+
+> 2026-09-29 版曾把 `av1_qsv` 记成「可用」，与 2026-09-30 实测冲突：本机核显无 AV1 硬编，
+> `ffmpeg_av1_qsv.{bat,sh}` 返回 **4**（硬件缺失），且不再留下 0 字节产物。
+> `auto` 探测序列是 `hevc_nvenc → hevc_qsv → libx265`，本来就不含 AV1，不受影响。
 ```
 
 #### `FILT=AUTO`：按源制式选滤镜
