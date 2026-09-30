@@ -65,7 +65,7 @@ if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv
+set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw
 
 SET "SRC_FILE="
 
@@ -94,6 +94,14 @@ rem 失败时传回 1, 与 .sh 侧探测失败报错对齐(2026-09-17 用户裁�
 call "%SELF_DIR%lib\common.bat" probe_source %SRC_FILE%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" exit /b 1
+rem ---------- H.264 High 10 源: QSV 硬解不吃 profile 110 ----------
+rem 实测: 硬解一挂, 10bit 帧退回系统内存, 编码器要硬件表面 -> auto_scale 接不上
+rem -> rc=1 / 产物 0 字节。这种源**不能**要 -hwaccel(它是输入选项, 必须排在 -i 之前)。
+call "%SELF_DIR%lib\common.bat" src_hw_decode_hostile
+set "QSV_HWDEC=1"
+if "%HW_HOSTILE%"=="1" set "QSV_HWDEC=0"
+if "%HW_HOSTILE%"=="1" echo H.264 High 10 source: QSV hwdec unsupported, use soft-dec + hwupload
+if "%QSV_HWDEC%"=="1" set RUN_COM=%RUN_COM% -hwaccel qsv -hwaccel_output_format qsv
 set RUN_COM=%RUN_COM% -i %SRC_FILE%
 echo RUN_COM0=%RUN_COM%
 
@@ -178,7 +186,24 @@ IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认)
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
-if defined BIT set RUN_COM=%RUN_COM% -c:v:0 h264_qsv -profile:v:0 main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
+rem ---------- 10bit 源: 两种症状, 两种修法 (2026-09-30 实测) ----------
+rem   ① H.264 High 10: 卡在**解码**侧(上面的 HW_HOSTILE), 走软解 + hwupload。
+rem      编码器本身没毛病, 所以下面那条 scale_qsv 修不了它 —— 它假定帧已经在
+rem      QSV 表面上, 而这里的帧根本没上去。
+rem   ② 其余 10bit(HEVC Main10 等): 硬解正常, 卡在**编码**侧 —— h264_qsv 吃不下
+rem      10bit 输入("some encoding parameters are not supported by the QSV runtime"
+rem      -> "Error while opening encoder", rc=-40, 0 字节)。修法是 scale_qsv:
+rem      在 QSV 硬件内部转 nv12。不能用软滤镜 format=nv12 —— 帧还在 QSV 表面,
+rem      auto_scale 照样接不上("Impossible to convert ... auto_scale_0")。
+rem   pix_fmt 直接读 probe_source 的 P_* 缓存, 不再单独起一个 ffprobe。
+set "SRC_PIXFMT=%P_streams.stream.0.pix_fmt%"
+if defined SRC_PIXFMT echo SRC_PIXFMT=%SRC_PIXFMT%
+set "QSV_VF="
+call "%SELF_DIR%lib\common.bat" src_is_10bit
+if "%HW_HOSTILE%"=="1" set "QSV_VF= -vf format=nv12,hwupload=extra_hw_frames=64"
+if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" set "QSV_VF= -vf scale_qsv=format=nv12"
+if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" echo 10bit source: scale_qsv=format=nv12 (QSV hw 内降 8bit)
+if defined BIT set RUN_COM=%RUN_COM%%QSV_VF% -c:v:0 h264_qsv -profile:v:0 main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
 echo RUN_COM2:%RUN_COM%
 
 echo.

@@ -48,7 +48,8 @@ _PROBE_RC=0
 
 # 探测并按文件路径缓存源元数据; 返回 ffprobe 的退出码(命中缓存时为上次的)
 # 字段键名与 ffprobe flat 输出一致, 例如:
-#   streams.stream.0.codec_name / .codec_type / .width / .height / .r_frame_rate / .bit_rate
+#   streams.stream.0.codec_name / .codec_type / .profile / .pix_fmt
+#   streams.stream.0.width / .height / .r_frame_rate / .bit_rate
 #   format.size / format.duration / format.bit_rate
 # -select_streams v:0 会把选中的流重新编号为 stream.0; 无视频流时 stream.* 整体缺失
 # (只剩 format.*), 此时 rc 仍为 0 -- 与原实现 v:0 选择器下的表现一致。
@@ -64,7 +65,7 @@ function probe_source() {
     # FP 没定位过时自己补一次, 不静默失败(调用方应已 find_ffprobe, 见各入口顶部)
     [ -n "${FP:-}" ] || FP="$(find_ffprobe "${FF:-}" 2>/dev/null || command -v ffprobe 2>/dev/null || printf '')"
     raw=$(fp_run -v error -hide_banner -select_streams v:0 \
-        -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate \
+        -show_entries stream=codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate \
         -of flat "$f" 2>/dev/null)
     _PROBE_RC=$?
     raw="${raw//$'\r'/}"
@@ -1026,4 +1027,71 @@ function cover_map_gate() {
     m=$((vt - na)); [ "$m" -lt 1 ] && m=1
     for ((i = m; i < vt; i++)); do COVER_MAP+=(-c:v:$i copy); done
     return 0
+}
+
+# ================================================================
+# 10bit / 硬解能力判定 (2026-09-30 实测)
+#
+# 两种 10bit 源, 症状不同、修法也不同, 别混为一谈:
+#
+#   ① H.264 High 10 (profile 110) 源 —— 卡在**解码**侧:
+#        [h264 @ ...] Codec h264 profile 110 not supported for hardware decode.
+#        Failed setup for format vaapi: hwaccel initialisation returned error.
+#      QSV 与 VAAPI 的 H.264 解码器都不吃 High 10。硬解一挂, 帧退回系统内存
+#      (还是 10bit), 而编码器要的是硬件表面, 于是
+#        Impossible to convert between the formats ... auto_scale_0
+#      -> rc=1 / 产物 0 字节。编码器本身没毛病, 所以上一轮给 avc_qsv 加的
+#      scale_qsv=format=nv12 修不了这一路(它假定帧已经在 QSV 表面上)。
+#      修法: 认出这种源就**不用硬解**(软解), 再把 8bit 帧 upload 上去:
+#        实测 h264_qsv / hevc_qsv + H.264 High 10 源 -> rc=0, 产物 yuv420p;
+#        h264_vaapi / hevc_vaapi 同款 -> rc=0。
+#
+#   ② HEVC Main10 源 —— 卡在**编码**侧:
+#      硬解没问题(帧已在硬件表面), 但编码器不吃 10bit:
+#        h264_qsv  : "some encoding parameters are not supported by the QSV runtime"
+#        hevc_vaapi: 脚本写死的 -profile:v:0 main 不接受 10bit 输入
+#      修法: 在硬件内部降到 nv12 —— scale_qsv=format=nv12 / scale_vaapi=format=nv12。
+#      不能用软滤镜 format=nv12(帧在硬件表面, auto_scale 接不上, 见 avc_qsv 注释)。
+#
+# 判定只读 probe_source 已缓存的 profile / pix_fmt, 不起新进程。
+# ================================================================
+
+# src_is_10bit <文件> —— 源像素格式是 10bit(yuv420p10le / p010 ...) 返回 0
+function src_is_10bit() {
+    probe_source "$1"
+    case "${_PROBE[streams.stream.0.pix_fmt]-}" in
+        *10le*|*10be*|*p010*) return 0 ;;
+    esac
+    return 1
+}
+
+# src_hw_decode_hostile <文件> —— 硬件解码器吃不下这个源时返回 0
+#
+# 目前只有一种: H.264 High 10(QSV / VAAPI 的 H.264 解码器均不支持)。
+# profile 取不到时返回 1(保守: 维持原来的硬解路径, 让 ffmpeg 自己报错)。
+function src_hw_decode_hostile() {
+    probe_source "$1"
+    [ "${_PROBE[streams.stream.0.codec_name]-}" = "h264" ] || return 1
+    case "${_PROBE[streams.stream.0.profile]-}" in
+        *10*) return 0 ;;      # "High 10" / "High 10 Intra"
+    esac
+    return 1
+}
+
+# qsv_encoder_ready <编码器名> —— 该 QSV 编码器在本机真能开起来返回 0
+#
+# 用 320x240 的 1 帧 lavfi 源试开一次编码器: 不碰用户文件、不落盘。
+# 320x240 而不是 128x128 —— NVENC 在过小尺寸上拒绝初始化
+#   ("InitializeEncoder failed: invalid argument"), 会把一台 GPU 正常的机器
+#   判成不支持(2026-09-16 实测, 见冒烟套件同款注释)。
+# 用途: av1_qsv 这类"编码器编进 ffmpeg 了、硬件却不支持"的入口
+#   (UHD 770 实测: ffmpeg -encoders 有 av1_qsv, 一开就
+#    "Current codec type is unsupported" / rc=-40, 产物 0 字节)。
+#   与其让它跑到底留下 0 字节, 不如在动源文件之前就说清楚。
+function qsv_encoder_ready() {
+    local enc="${1:-}"
+    [ -n "$enc" ] || return 1
+    ff_run -hide_banner -v error -init_hw_device qsv=hw -filter_hw_device hw \
+        -f lavfi -i color=c=black:s=320x240:r=30 -frames:v 1 \
+        -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v "$enc" -f null - >/dev/null 2>&1
 }

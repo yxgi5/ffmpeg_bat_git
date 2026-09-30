@@ -153,8 +153,30 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # VAAPI 解码+编码需要显式指定渲染设备 (仅 Linux 可用)
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
-CMD+=(-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128)
+# ---------- 10bit 源: 两种症状, 两种修法 (2026-09-30 实测) ----------
+# ① H.264 High 10: 卡在**解码**侧 —— VAAPI 的 H.264 解码器不吃 profile 110
+#    ("Codec h264 profile 110 not supported for hardware decode."), 硬解挂掉后
+#    10bit 帧退回系统内存, 编码器要硬件表面 -> "Impossible to convert ...
+#    auto_scale_0" -> rc=1 / 0 字节。这种源改走软解, 再 hwupload 上去。
+# ② HEVC Main10: 硬解正常, 卡在**编码**侧 —— 本入口写死 -profile:v:0 main, 而
+#    Main 不接受 10bit 输入。修法是 scale_vaapi=format=nv12: 在 VAAPI 硬件内部
+#    降到 8bit。不能用软滤镜 format=nv12(帧还在 VAAPI 表面, auto_scale 接不上)。
+# 8bit 源的命令行一字不改。
+HW_DEC=1
+if src_hw_decode_hostile "$ABS_NAME"; then
+    HW_DEC=0
+    echo "H.264 High 10 源 -> VAAPI 硬解不支持, 改软解 + hwupload"
+    CMD+=(-init_hw_device vaapi=va:/dev/dri/renderD128 -filter_hw_device va)
+else
+    CMD+=(-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device /dev/dri/renderD128)
+fi
 CMD+=(-i "$ABS_NAME")
+if [ "$HW_DEC" = 0 ]; then
+    CMD+=(-vf "format=nv12,hwupload")
+elif src_is_10bit "$ABS_NAME"; then
+    echo "10bit 源 -> scale_vaapi=format=nv12 (VAAPI 硬件内降 8bit)"
+    CMD+=(-vf "scale_vaapi=format=nv12")
+fi
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)

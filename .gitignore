@@ -6,6 +6,7 @@
 *.flv
 *.rm*
 *.mkv
+# 入口测试素材 input_*.mkv 由 test/make_fixtures.sh 生成: 脚本入库, 产物不入库
 *.ts
 *.m2ts
 *.webm

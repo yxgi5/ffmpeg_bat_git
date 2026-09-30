@@ -748,6 +748,53 @@ T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重�
 > `/tmp/fbgit` 后真跑，不是 `git pull` 来的。打包必须带 `--exclude` —— 仓库根目录有 4.3 GB
 > 被 `.gitignore` 忽略的测试片（`*.mp4`/`*.mov`），不排除会把包撑到 4.5 GB 并传断。
 
+### 6.7 四环境全量检测 + 真素材（2026-09-30）
+
+| 环境 | 回归套件 | 元字符矩阵 | DVD 工具链（`tools/` 五个脚本） |
+|---|---|---|---|
+| Windows cmd（`smoke_all.bat` → `smoke_ffmpeg.bat` / `smoke_special_chars.bat`） | **PASS=15 / SKIP=2**（T15 本机无 AV1 QSV；T11 报 UTF-8 清单 fixture 缺失，待补） | 全 PASS（A01–A20 / C81–C83 / Z…） | 无 `.bat` 孪生（`tools/` 只有 `.sh`） |
+| Cygwin64 | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
+| MINGW64（MSYS2，需显式 `MSYSTEM=MINGW64` + `PATH=/mingw64/bin:/usr/bin:/bin`） | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
+| WSL Ubuntu-22.04 | 三套 `rc=0` | 同套 | PASS=22 SKIP=0 |
+| Linux `192.168.31.246`（i7-9700T / UHD 630，ffmpeg master `N-117740`） | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=0 | PASS=22（首轮经非交互 ssh 跑时误报过一次「缺 dvdauthor」，复跑正常 —— `/usr/bin` 里三个工具都在） |
+
+真素材（`H:\Downloads` 的 x265 10bit 剧集、仓库 `input_*.mov`、中高艺 DVD ISO）：
+
+- 完整剧集（路径含中文 + 方括号 + 逗号 + 空格）拖 `ffmpeg_libx264.bat`：端到端 **308 MB** 产物，命令行装配正确；
+- 切 40 s 片段（文件名 `真 素材 [A&B] (测试).mkv`，hevc + ac3 + ass 字幕）跑 6 个 `.bat` 入口：
+  `libx265` / `hevc_qsv` / `hevc_nvenc` / `av1_nvenc` / `copy_to_mp4` 全 rc=0，**`avc_qsv` rc=1、产物 0 字节**（见下）；
+- ISO：`H:\Downloads\中高艺\中高艺丝袜视频DVD系列\DVD001(Canndy)\DVD001(Canndy).iso`（3.4 GB，中文路径 + 括号）
+  走 `ffmpeg_dvd_hevc.bat`：预览识别到正片 720x576 / 1682 s，`APPLY=1` 端到端出片
+  （title1 182 MB、title2 224 MB，speed 25x）。盘本身带 `libdvdread: CHECK_VALUE failed`
+  警告，不影响出片。
+
+**本轮实质缺陷：10bit 源的三个缺口（两族同症状）**
+
+| 缺口 | 根因（实测原话） | 修法 |
+|---|---|---|
+| ① H.264 **High 10** 源 + QSV 三入口（`avc` / `hevc` / `av1_qsv`） | `Codec h264 profile 110 not supported for hardware decode.` —— 卡在**解码**侧，硬解挂掉后 10bit 帧退回系统内存，编码器要硬件表面 → `Impossible to convert ... auto_scale_0` → rc=1 / 0 字节 | 认出这种源就**不加 `-hwaccel`**：软解 + `-vf format=nv12,hwupload=extra_hw_frames=64` |
+| ② 10bit 源 + VAAPI 两入口（`h264` / `hevc_vaapi`） | 同上的 High 10 解码问题 **+** `hevc_vaapi` 写死 `-profile:v:0 main`（Main 不吃 10bit 输入） | High 10 源同上走软解 + `hwupload`；其余 10bit 保留硬解，加 `scale_vaapi=format=nv12` |
+| ③ `av1_qsv` 在本机无 AV1 硬件 | `Current codec type is unsupported` → rc=-40，跑到底只留 0 字节产物 | 入口先用 1 帧 lavfi 源试开编码器，开不起来直接说明并退出，**不产生空产物** |
+
+① 与 ② 里的"编码器不吃 10bit"（HEVC Main10 那种）是**另一回事**，修法是硬件内降 8bit
+（`scale_qsv` / `scale_vaapi=format=nv12`）；软滤镜 `format=nv12` 不行 —— 帧还在硬件表面，
+`auto_scale` 接不上（`Impossible to convert ... auto_scale_0`）。
+
+**素材**：10bit 与 4K 六种源由 `test/make_fixtures.sh` 造（`bash test/make_fixtures.sh [all|10bit|4k|4k60|4k25|<文件名>]`），
+均含 ac3 音轨 + ass 字幕；产物 `input_*.mkv` 被 `.gitignore` 忽略，**入库的只有那个脚本**。
+修完的矩阵（Windows UHD 770 + N 卡 / Linux UHD 630）：
+
+| 入口 | hevc 10bit | h264 10bit | 8bit |
+|---|---|---|---|
+| `avc_qsv` / `hevc_qsv`（bat + sh） | ✅ rc=0 | ✅ rc=0（修前 rc=69/1） | ✅ 命令行一字不改 |
+| `h264_vaapi` / `hevc_vaapi` | ✅ rc=0 | ✅ rc=0（修前 rc=1 / 0 字节） | ✅ |
+| `av1_qsv` | 无硬件 → 明说并退出 | 同左 | 同左 |
+只在探到 10bit 时插入：8bit 源回归实测命令行里 `scale_qsv` 出现 **0 次**（一字未改）。
+`.bat` 侧的探测必须走临时文件 + `set /p`，不能用 `for /f in('...')` —— 文件名里的
+`(` `)` 会被 cmd 当语法，实测探测直接落空（修的就是这一版）。
+
+---
+
 ## 7. 约定与坑（都在本仓库真实发生过）
 
 1. **`.bat` 里 `if cond cmd1 & cmd2` 的 `&` 不受 `if` 约束**，`cmd2` 会无条件执行。

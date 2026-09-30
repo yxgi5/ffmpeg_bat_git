@@ -147,11 +147,39 @@ TARGET_FILE="${ABS_PATH}/${filename_without_suffix}-compressed.mp4"
 echo "ABS_NAME: ${ABS_NAME}"
 echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
+# ---------- 硬件能力门: 有编码器 != 硬件支持 (2026-09-30 实测) ----------
+# ffmpeg -encoders 里列着 av1_qsv, 但 UHD 770 一开编码器就是
+#   [av1_qsv @ ...] Current codec type is unsupported
+#   some encoding parameters are not supported by the QSV runtime.
+#   Error while opening encoder ... rc=-40
+# 跑到底的结果是命令行看着"跑过了", 却只留下一个 0 字节的 mp4。所以在动源文件
+# 之前先拿 1 帧 lavfi 源试开一次: 开不起来就把原因说清楚, 不产空文件。
+# (AV1 QSV 需要 Arrow Lake 及更新的核显; 冒烟套件对它的 SKIP 判定是同一件事,
+#  那边靠先跑一遍整个入口, 这里把判断搬进入口, 直接跑入口时也能得到明确结论。)
+if ! qsv_encoder_ready av1_qsv; then
+    echo -e "\033[43;30m本机没有可用的 AV1 QSV 编码器(需 Arrow Lake 或更新的核显) —— 未生成产物\033[0m"
+    exit 1
+fi
+
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # QSV 解码+编码流程需要显式初始化 QSV 设备
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
-CMD+=(-init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
+CMD+=(-init_hw_device qsv=hw -filter_hw_device hw)
+
+# H.264 High 10 源: QSV 的 H.264 解码器不吃 profile 110, 硬解挂掉后 10bit 帧退回
+# 系统内存, 编码器要硬件表面 -> auto_scale 接不上 -> rc=1 / 0 字节。改软解 + hwupload。
+# -hwaccel 是**输入选项**, 必须排在 -i 之前; -vf 是输出滤镜, 排在 -i 之后。
+HW_DEC=1
+if src_hw_decode_hostile "$ABS_NAME"; then
+    HW_DEC=0
+    echo "H.264 High 10 源 -> QSV 硬解不支持, 改软解 + hwupload"
+else
+    CMD+=(-hwaccel qsv -hwaccel_output_format qsv)
+fi
 CMD+=(-i "$ABS_NAME")
+if [ "$HW_DEC" = 0 ]; then
+    CMD+=(-vf "format=nv12,hwupload=extra_hw_frames=64")
+fi
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)
