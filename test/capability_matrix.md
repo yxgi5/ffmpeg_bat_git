@@ -1,7 +1,11 @@
 # 能力矩阵：环境 × ffmpeg 构建 × 编解码器
 
-> 最后更新 **2026-09-17**。数据来源：B 机（本机）三套构建实测、A/C 机 SSH 实测、
+> 最后更新 **2026-09-30**。数据来源：B 机（本机）三套构建实测、A/C 机 SSH 实测、
 > Pi 4B 早期实测。姊妹文档：`test/README.md`（测试体系）、`environment_matrix.md`（环境事实条目）。
+>
+> 正文含两批晚于上次修订日期的更新：**2026-09-20**（Cygwin 路径改写、`find_ffmpeg` 能力筛选）与
+> **2026-09-28**（编码类封面保留、位图字幕闸门）。2026-09-30 起入口清单以仓库根目录为准
+> （`ffmpeg_hevc_nvenc_cygwin.*` 已合并进 `ffmpeg_hevc_nvenc.*`，见 §8）。
 
 ## 0. 状态图例
 
@@ -83,9 +87,9 @@
 
 | 机器 | ok | fail | 失败者 |
 |------|:--:|:--:|--------|
-| **A**（4.4.2 默认 + /opt 自前置） | 10 | 5 | `av1_nvenc`, `av1_qsv`, `hevc_nvenc`, `hevc_nvenc_cygwin`, `convert_from_list_cuda`（全 CUDA/AV1 系） |
-| **C**（同上） | 11 | 4 | 同上减 `av1_qsv` —— **C 的 av1_qsv 是 PROBE-OK** |
-| **B**（bat 族，原生 gyan） | 12 探针全过（改判产物后 av1_qsv 转为 PROBE-FAIL） | 0 | 见 §6 说明 |
+| **A**（4.4.2 默认 + /opt 自前置） | 10 | 4 | `av1_nvenc`, `av1_qsv`, `hevc_nvenc`, `convert_from_list_cuda`（全 CUDA/AV1 系）。旧版此行 5 项含 `hevc_nvenc_cygwin`，该入口 2026-09-30 已合并进 `ffmpeg_hevc_nvenc.*` |
+| **C**（同上） | 11 | 3 | 同上减 `av1_qsv` —— **C 的 av1_qsv 是 PROBE-OK**（旧版记 4 项，含已合并的 `hevc_nvenc_cygwin`） |
+| **B**（bat 族，原生 gyan） | 12 探针全过（`av1_qsv` **2026-09-30 改判为硬件缺失**：入口返回 **4**、不落 0 字节产物；旧记作 PROBE-FAIL） | 0 | 见 §6 说明 |
 
 ## 4. 解码能力矩阵（B 机三构建）
 
@@ -151,7 +155,7 @@
 |----|------|------|
 | B 机 **Ubuntu 22.04 侧** | ⏳ 未验证 | 双系统，待用户切换后补测（sh 族 + NVENC/VAAPI/QSV） |
 | C 机 `av1_qsv` 真实片源 | ⚠️ 仅探针 | 3s 320×240 探针 PROBE-OK；真实 1080p/4K 迁移率与质量待测 |
-| B 机 bat 族探针新逻辑 | ⏳ 待双击 | 探针改判产物 + 回显原因行，需用户复跑 `/probe` 确认 |
+| B 机 bat 族探针新逻辑 | 🟡 部分确认 | 探针改判产物 + 回显原因行。**2026-09-30 已由 `ffmpeg_av1_qsv.bat` 实测确认**（返回 4、无产物、原因行明确）；其余入口仍需用户复跑 `/probe` |
 | Cygwin 下 sh 族入口整体 | ⏳ 未系统验证 | 已知：软编入口不可用（无 x264/x265）、QSV 不可用、NVENC 可用 |
 | D 机（Pi 4B）本仓库工具 | ⏳ 未补测 | 早期只测过 `h264_v4l2m2m` 硬编与 check_env 误报修复 |
 | Windows 侧 VAAPI | ❌ 不适用 | VAAPI 是 Linux 内核 API，Windows 无设备，无需再验 |
@@ -185,10 +189,12 @@ bash test/sh/check_env.sh                # 秒级静态预筛
 | `ffmpeg_libx265.sh/.bat` | libx265 | 除 Cygwin 7.1.1 外全部 |
 | `ffmpeg_avc_qsv.sh/.bat` | Intel GPU + QSV | A / B / C |
 | `ffmpeg_hevc_qsv.sh/.bat` | Intel GPU + QSV | A / B / C |
-| `ffmpeg_av1_qsv.sh/.bat` | Arrow Lake 或更新 | **仅 C** |
+| `ffmpeg_av1_qsv.sh/.bat` | Arrow Lake 或更新；**不满足时入口返回 4（硬件缺失）并中止清单、不落 0 字节文件** | **仅 C** |
 | `ffmpeg_hevc_nvenc.sh/.bat` | NVIDIA | **仅 B** |
 | `ffmpeg_av1_nvenc.sh/.bat` | Ada (RTX 40) 或更新 | **仅 B** |
 | `ffmpeg_h264_vaapi.sh` / `hevc_vaapi.sh` | Linux + `/dev/dri` | A / C |
+| `ffmpeg_dvd_hevc.bat` / `.sh` | DVD-Video 源（ISO / `VIDEO_TS` / 光驱）+ ffmpeg 带 `libdvdread`/`libdvdnav`（`dvdvideo` 解复用器），否则脚本报错退出 | 有 `dvdvideo` 的构建（本机 gyan full；A / C 的 `/opt` master） |
+| `convert_from_list_{qsv,cuda,libx265}.*` | 清单 wrapper：能力取自被调入口；**被调入口返回 4（硬件缺失）时中止整份清单** | 同各自编码器 |
 | `ffmpeg_copy_to_mp4.*` / `repack_from_list.*` | 只要 ffmpeg/ffprobe | 全部 |
 | （全部 mp4 出口） | 带 `-map 0:a? -map 0:s? -c:s mov_text …`，多音轨/字幕不再被默认选流丢弃（lint L16 钉住）；**视频映射分两类**：编码类 `-map 0:V`（排除封面图等 attached picture，否则 mp4 装不下重编码后的封面 → 0 字节失败），remux 两族 `-map 0:v`（复制路径保留封面）；**封面保留（2026-09-28）**：编码类 `-c:v:0 <编码器>` 只编码主视频，配合 `-map 0:v:disp:attached_pic?` + **由 ffprobe 流表算出**的 `-c:v:<n> copy`（封面在输出侧的 per-type 下标 = [m, m+n)，m = 非封面视频路数；**写死槽位在 m≥2 时整体错位，会让整条转码 rc=127 写 0 字节**）把封面原样带进 mp4 的 `covr` atom（映射与复制同在 lib 变量里，一起开关；探测不可用时退回槽位 1、2）。`disp:` 说明符需 **ffmpeg 7.1+**；两族各有一个能力闸门，不认就只丢封面、不让编码失败。**注意**：早期版本用全局 `-c:v copy -c:v:0 <编码器>`，会和 `-c:v:0` 撞在同一条流上触发 `Multiple -codec` 警告，已废弃（lint L16 拦）。**位图字幕（2026-09-28）**：mp4 装不下 `hdmv_pgs_subtitle` / `dvd_subtitle`，一进 `-c:s mov_text` 就 EINVAL 写 0 字节；闸门按字幕的 per-type 下标发 `-map -0:s:<i>` 逐条排除（**不是** `-map -0:s`，那会把能救的 ass/subrip 一起丢），文本字幕照常转 mov_text。位图名单是黑名单（PGS / DVD / XSUB / DVB，来源封闭），漏列只会回到"跑失败"，不会静默丢字幕 | 全部 |
 | `bench_calib.*` / `soft_pair_calib.*` / `nvenc_pair_calib.*` | **libvmaf** | B（原生 gyan）/ A、C（`/opt` master） |

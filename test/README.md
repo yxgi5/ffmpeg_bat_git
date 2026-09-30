@@ -633,7 +633,9 @@ EOF`、rc=1、产物 0 字节）——要 QSV 解码请走 `ffmpeg_*_qsv` 入口
 | `bash test/sh/smoke_special_chars.sh` | `PASS=28 FAIL=0 SKIP=0`（Linux 上 Z3 反斜杠文件名是真用例） |
 | `bash test/sh/check_env.sh` | 快查：`OK 10 / 不可用 5 / 待深测 0` |
 
-SKIP 的 5 条全为正当硬件/平台 SKIP：T2/T14/T20（无 N 卡）、T15（Gen9.5 无 AV1 QSV）、T7（cp65001 是 Windows 特性）。
+SKIP 的 4 条全为正当硬件/平台 SKIP：T2/T14（无 N 卡）、T15（Gen9.5 无 AV1 QSV）、T7（cp65001 是 Windows 特性）。
+（旧版此处列到 T20；`ffmpeg_hevc_nvenc_cygwin.*` 已于 2026-09-30 合并进 `ffmpeg_hevc_nvenc.*`，
+**T20 随之撤销**，覆盖与 T2 重合，故不再计入 —— 见 §3 的 T20 行。）
 
 ### 6.3 C 机（Ubuntu 22.04 / Ultra 7 265K Arrow Lake / ffmpeg 4.4.2 ESM / 2026-09-16）
 
