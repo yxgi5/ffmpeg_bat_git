@@ -1689,3 +1689,50 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       - 环境差异一笔：MINGW64 的 `/mingw64/bin/genisoimage` 会把 VIDEO_TS 内的文件名转成大写，
         于是多报一条"文件清单不一致"警告（Cygwin 那份 `/usr/bin/genisoimage` 不报）；脚本已注明
         不影响播放，非缺陷。
+
+58. **中文 Windows 的 MSYS2 / Git Bash 会把 UTF-8 源码里的 `${VAR:-中文}` 判成语法错（2026-09-30，接第 57 条）**：
+    跑 `test/sh/smoke_all.sh` 时 MINGW64 那侧的 DVD 段是 `PASS=5 / FAIL=17`，根因不是工具链，
+    是 `tools/dvd_make_sample.sh:371` 直接 `bash: 行 371: 寻找匹配的 `"' 时遇到了未预期的 EOF`
+    —— 而 Cygwin 跑同一个文件一点事没有。
+    * **根因**：MSYS2 / Git Bash 从 Windows 区域继承 `LANG=zh_CN`（= GBK/CP936），bash 5.2 在这个
+      locale 下按 GBK 解释字节，碰到 `${...}` 里的 UTF-8 多字节序列时长度算错，**把闭合引号吞掉**。
+      最小复现 `echo "${X:-读不到帧率}"`：`LC_ALL=C / C.UTF-8 / en_US.UTF-8 / zh_CN.UTF-8` 全 OK，
+      只有 `zh_CN`（GBK）报未闭合引号。Cygwin 默认 `C.UTF-8`，所以只有 MSYS2 系会炸。
+    * **修法**：把中文挪出花括号，用变量中转（`_txt="${X:-}"; [ -n "$_txt" ] || _txt="中文"`）。
+      共 6 处：`ffmpeg_dvd_hevc.sh` ×2、`dvd_make_sample.sh` ×2、`dvd_repair.sh` ×1、`dvd_shrink.sh` ×1。
+      修完 MINGW64 的 DVD 段 `PASS=5/FAIL=17` → `PASS=11/FAIL=11`（剩下的全卡在打包那一环，见第 59 条）。
+    * **教训**：`bash -n` 每个文件**只报第一个**语法错，扫一遍不够 —— 这次是靠「花括号里出现非 ASCII」
+      的正则才把 6 处一次找齐。**新写的 sh 代码不要在 `${...}` 里塞非 ASCII。**
+59. **`pick_mkisofs` 在 MSYS2 上会挑中 WinCDEmu 的 `mkisofs 3.01a24`，打不出 ISO（2026-09-30，接第 58 条）**：
+    修完语法错后 MINGW64 的 DVD 段仍 `FAIL=11`，全部卡在出 ISO 那一步：
+    `No such file or directory. Can't stat 'D:/msys64/tmp/.../sample/'` → `Unable to make a DVD-Video image`。
+    * **根因**：`pick_mkisofs` 原先 `for c in mkisofs genisoimage`（mkisofs 优先），而 MSYS2 的 PATH 上
+      第一个打包器是 WinCDEmu 自带的 `mkisofs`（`i686-pc-mingw32`，**原生 exe**），即便路径已经换成
+      `D:/...` 混合写法它照样 stat 不到；同机的 `/mingw64/bin/genisoimage 1.1.11` 一次就过。
+      注意**这一回 `ldd` 帮不上忙**：`/mingw64/bin` 下的 `genisoimage` / `dvdauthor` 都是 mingw-w64
+      原生构建，`ldd` 里同样没有 `msys-2.0.dll`，所以第 57 条的 `tool_is_posix_aware()` 区分不了它们。
+    * **修法**：挑选顺序改成 **genisoimage 优先**（Cygwin / Linux 上它本来就是事实标准，README 的
+      安装提示同样是 `apt install genisoimage`），`mkisofs` 只作兜底；`tools/dvd_shrink.sh` 原先
+      自己按 mkisofs 优先挑了一遍，改为统一走 `pick_mkisofs()`（口径与另两个脚本一致）。
+    * **结果**：MINGW64 的 DVD 段 **PASS=22 / FAIL=0 / SKIP=0**，与 Cygwin 持平。
+60. **`test/sh/smoke_all.sh` 两 shell 实测（2026-09-30，接第 58/59 条）**：
+
+    | 段 | Cygwin64 | MSYS2 MINGW64 |
+    |----|----------|---------------|
+    | ① `smoke_ffmpeg.sh`（T1-T25） | **rc=2**（环境错） | PASS=22 / FAIL=0 / SKIP=4 |
+    | ② `smoke_special_chars.sh` | **rc=2**（环境错） | PASS=25 / **FAIL=3** / SKIP=1 |
+    | ③ `smoke_dvd_tools.sh` | PASS=22 / FAIL=0 | 修完 58/59 → PASS=22 / FAIL=0 |
+
+    * **Cygwin 前两段为什么是 rc=2**：套件第一步要用 `libx264` 造 1080p60 夹具，而 Cygwin 的
+      ffmpeg 7.1.1 **不带 libx264/libx265**（第 4 节已记）。夹具造不出来 = 环境错误，套件诚实报 2
+      而不是 SKIP。**`.sh` 回归套件的落脚点仍是 MINGW64**（与第 4 节同一结论）。
+    * **MINGW64 三条元字符 FAIL（A06 `[x]` / A08 `;` / A14 `'`）**是另一条线，已定位未修：
+      入口脚本（`ffmpeg_*.sh`）全部**裸调 `$FF`**，没走 `ff_run`（只有 `tools/` 与 calib 系列走了）。
+      MSYS2 运行时替原生 exe 改写 argv 时，**碰到含 `[` `;` `'` 的路径就不改写**，于是原生 ffmpeg
+      收到 `/tmp/...` → `Error opening input: No such file or directory`。不含这三个字符的
+      A01-A05 / A07 / A09-A20 全 PASS。修法是把入口的编码与探测调用改走 `ff_run` / `fp_run`
+      （内部 `native_path()` 用 `cygpath -m` 转成 `X:/...`），涉及 11 个入口的命令行，待排期。
+    * **跑法备注**：`bash.exe -lc 'cd /d/... && ...'` 这种**带空格的整串命令**经 PowerShell
+      `Start-Process` 会被拆开（bash 只收到第一个词 —— 实测只执行了 `export` 并打印全部变量），
+      要写成脚本文件再交给 bash；MINGW64 那侧还得自己 `export MSYSTEM=MINGW64` 并把
+      `/mingw64/bin` 放进 PATH，否则 `-l` 起来的是 MSYS 环境（第 57 条 ⑩）。
