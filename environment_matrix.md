@@ -383,6 +383,85 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 
 ---
 
+## 表 5：DVD 链路 × 三套构建 × 打包器（2026-09-29 实测，HEAD = 120c044）
+
+### ① 谁的 ffmpeg / ffprobe 认 `-f dvdvideo`
+
+| 构建                | 位置（本机）                        | 版本                     | ffmpeg `dvdvideo` | ffprobe `dvdvideo` |
+| ----------------- | ----------------------------- | ---------------------- | :---------------: | :----------------: |
+| Cygwin 包           | `/usr/bin`                    | 7.1.1                  |        ❌         |         ❌         |
+| MSYS2 包           | `/mingw64/bin`                | 8.1                    |        ❌         |         ❌         |
+| gyan full（原生）      | `C:\Program Files\ffmpeg\bin` | 2025-05-01-git-707c04fe06 |        ✅         |         ✅         |
+
+**两个 shell 里 PATH 上的第一份都没有 `dvdvideo`** —— 所以 DVD 链路不能只问 `command -v`：
+必须按能力挑（挑到 gyan 那份），而且**挑完 ffmpeg 之后，ffprobe 也得跟着换到同目录**
+（`/usr/bin/ffprobe` 7.1.1 同样不认 `-f dvdvideo`，留着它探源盘必然"读不到 title"）。
+
+### ② ffprobe 与 ffmpeg 是否同源（HEAD 现状，逐处核对）
+
+| 位置                                | 选法                                                          | 同源? |
+| --------------------------------- | ----------------------------------------------------------- | :--: |
+| `ffmpeg_dvd_hevc.sh:72`           | `FP="$(find_ffprobe "$FF")"`，`FF` 来自 `find_ffmpeg --need-demuxer dvdvideo` |  ✅   |
+| `ffmpeg_dvd_hevc.bat:174`         | `set FP=%FF:ffmpeg.exe=ffprobe.exe%`（同目录字符串替换）                   |  ✅   |
+| `tools/dvd_shrink.sh:138-140`     | `FFPROBE` → `dirname(FF)/ffprobe` → PATH                     |  ✅   |
+| `tools/dvd_repair.sh:306-308`     | `FFPROBE` → `find_ffprobe "$FF"` → PATH                      |  ✅   |
+| `tools/dvd_make_sample.sh:154`    | `FFPROBE` → `find_ffprobe "$FF"` → PATH                      |  ✅   |
+| `tools/dvd_make_sample.sh:205-212`（回读校验用的 `FPDVD`） | 同目录 `ffprobe` / `ffprobe.exe` 两个名字都试，**且逐个过 `has_dvdvideo`** |  ✅   |
+| `tools/dvd_to_data_iso.sh:172`    | `dirname($FFMPEG)/ffprobe`，`FFMPEG` 来自 `pick_ffmpeg`（内部已筛 dvdvideo） |  ✅   |
+| `test/sh/smoke_ffmpeg.sh` 等探针      | `command -v ffprobe`（探针只报环境，不跑 DVD 链路）                        |  🟡   |
+
+> **结论（ffprobe 是否应与 ffmpeg 同位置：是，且 HEAD 已经全部如此）**。
+> 最严的一处是 `dvd_make_sample.sh` 的 `FPDVD`：它不只要求"同目录"，还要求那个 ffprobe
+> **自己也认 `-f dvdvideo`** 才采用（找到能用的 ffmpeg ≠ 同目录 ffprobe 配套），否则 warn 后跳过回读。
+
+### ③ 到底哪些脚本需要"带 dvdvideo 的那份"
+
+| 脚本                         | 需要 dvdvideo? | 机制                                                    |
+| -------------------------- | :----------: | ----------------------------------------------------- |
+| `ffmpeg_dvd_hevc.sh`       |      ✅       | `find_ffmpeg --need-demuxer dvdvideo`（**全仓唯一用该开关的入口**）       |
+| `ffmpeg_dvd_hevc.bat`      |      ✅       | bat 侧同语义能力筛选                                          |
+| `tools/dvd_shrink.sh`      |      ✅       | `pick_ffmpeg()`（内部 `has_dvdvideo` + mpeg2video）       |
+| `tools/dvd_to_data_iso.sh` |      ✅       | `pick_ffmpeg <venc>`（dvdvideo + 指定编码器）                |
+| `tools/dvd_make_sample.sh` |      🟡       | **主流程只筛 mpeg2video+ac3**（合成素材用）；仅**回读校验**那份走 `pick_dvd_ff` 筛 dvdvideo |
+| `tools/dvd_repair.sh`      |      ❌       | 只碰已有 VOB/IFO/BUP，按文件系统读                               |
+| `tools/dvd_restore.sh`     |      ❌       | 只做目录 → ISO 打包                                         |
+
+→ 所以"只有 tools/\*.sh 和 `ffmpeg_dvd_hevc` 才需要 dvdvideo 版本"**基本成立，但要在里面再分两档**：
+`dvd_hevc` / `dvd_shrink` / `dvd_to_data_iso` 是真依赖，`dvd_make_sample` 只有回读那一步依赖，
+`dvd_repair` / `dvd_restore` 完全不需要。
+
+### ④ 打包器与依赖盘点（2026-09-29 实测，两个 shell 都查了）
+
+| 命令            | Cygwin64                                                         | MSYS2 MINGW64                    | 谁要用                                    |
+| ------------- | ---------------------------------------------------------------- | -------------------------------- | -------------------------------------- |
+| `dvdauthor`   | ✅ `/opt/dvdtools/bin` 0.7.2（**自编译，目录不在默认 PATH**）            | ✅ `/opt/dvdtools/bin` 0.7.2（**同上**） | `dvd_shrink` / `dvd_repair`（重建 IFO）/ `dvd_make_sample`（建 VIDEO_TS，`NO_VIDEOTS=1` 可绕） |
+| `mkisofs`     | 🟡 `/cygdrive/d/…/WinCDEmu/mkisofs` 3.01a24（**原生 exe**，`pick_mkisofs` 会主动跳过） | ❌ MISSING                        | 打 ISO                                   |
+| `genisoimage` | ✅ `/usr/bin/genisoimage` 1.1.11 (CYGWIN)                         | ❌ MISSING                        | 打 ISO（`pick_mkisofs` 的第二候选）             |
+| **`xorrisofs`** | ✅ `/opt/dvdtools/bin/xorrisofs` 1.5.6（加 PATH 后）                 | ✅ `/usr/bin/xorrisofs` 1.5.8     | **mkisofs 兼容前端 —— 打包器缺口的现成答案**（`pick_mkisofs` 当前还不认这个名字） |
+| `xorriso`     | ✅ `/opt/dvdtools/bin/xorriso` 1.5.6（加 PATH 后）                   | ✅ `/usr/bin/xorriso` 1.5.8      | 打包后清单校验（可选，缺了就跳过）                       |
+| `7z`          | ✅ `/usr/bin/7z`                                                  | ✅ `/usr/bin/7z`                 | 校验的回退手段                                 |
+| `isoinfo`     | ✅ `/usr/bin/isoinfo`                                             | ❌（功能用 `xorriso -osirrox on -indev <iso> -find / -ls` 替代） | —                                      |
+
+**前提**：`/opt/dvdtools/bin` **不在两个 shell 的默认 PATH 里**（实测 PATH 只到 `/usr/bin`、
+`/mingw64/bin` 那一档）→ 直接 `command -v dvdauthor` 会报 MISSING，**不是没装，是没挂上**。
+下面与「第 56 条」的结论都以 `export PATH="/opt/dvdtools/bin:$PATH"` 为准。
+
+**→ 结论：两个环境都不必再编译任何东西**，只差两件小事：
+
+* **① 把 `/opt/dvdtools/bin` 加进 PATH**（两环境都要，否则 `dvdauthor` / `xorrisofs` 一律 MISSING，
+  `dvd_shrink.sh` / `dvd_repair.sh` 会直接 `die`）：写进 `~/.bashrc`，或 `/etc/profile.d/dvdtools.sh`
+  （后者对 `bash -lc` 这类非交互调用也生效 —— **而本仓库的 sh 入口正是这么被调起的**）。
+* **② 让 `pick_mkisofs` 认 `xorrisofs`**（MINGW64 唯一的真缺口）：`xorrisofs` 随 xorriso 一起装好了
+  （MINGW64 `/usr/bin/xorrisofs` 1.5.8、Cygwin `/opt/dvdtools/bin/xorrisofs` 1.5.6），
+  支持 `-iso-level` 等选项，`xorriso -as mkisofs` 与它是同一套 —— 但 `pick_mkisofs` 只找
+  `mkisofs` / `genisoimage` 两个名字，所以 MINGW64 落 ISO 仍会 `die`。
+  两条路：给 `pick_mkisofs` 加一档 `xorrisofs`（推荐，仓库内可测），或在 `/usr/local/bin/mkisofs`
+  放一个转发包装（不动仓库）。
+* **③ Cygwin 已经能打 ISO**：`pick_mkisofs` 跳过 WinCDEmu 那个原生 exe → 落到 `/usr/bin/genisoimage`；
+  清单校验可用 `/opt/dvdtools/bin/xorriso` 1.5.6（加 PATH 后）。
+
+---
+
 ## 待验证清单（按优先级）
 
 1. ~~**本机 av1_nvenc 实测**~~ ✅ 已完成（2026-09-15：三构建冒烟 + 真实转码全通过）
@@ -1522,3 +1601,24 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **可复用的环境事实**：本机 gyan full 2025-05-01 **有** `dvdvideo` 解复用器与
       `hevc_nvenc`/`hevc_qsv`/`libx265`（三条探测全部 rc=0）；NVENC 压 DVD 约 **74x**
       （1119s 的 title 只花 ~15 s 墙钟），做 DVD 端到端比软编便宜一个量级。
+
+56. **Windows 两个 shell 的 DVD 链路缺口（2026-09-29 实测，接第 55 条与「表 5」）**：
+    * **① `dvdauthor` 0.7.2 两环境都已装**（用户自编译，在 `/opt/dvdtools/bin`，
+      同目录还有 `dvdunauthor` / `spumux` / `xorriso` / `xorrisofs` / `osirrox`），
+      **但该目录不在两个 shell 的默认 PATH** → `command -v dvdauthor` 实测仍是 MISSING，
+      `dvd_shrink.sh` / `dvd_repair.sh` 照样 `die`。补齐方式就是加 PATH（见「表 5 ④」①），
+      **不用再编译**。
+    * **② MINGW64 的打包器也不用编译**：`/usr/bin/xorrisofs` 1.5.8（随 xorriso 的
+      mkisofs 兼容前端，实测 `--version` rc=0、支持 `-iso-level`）已经在了；
+      缺的只是 `pick_mkisofs` 只认 `mkisofs` / `genisoimage` 两个名字。
+      → 待办：加一档 `xorrisofs`（改前确认 `-udf` 与 `-iso-level 3 -J -r` 语义等价），
+      或在 `/usr/local/bin/mkisofs` 放转发包装。
+    * **③ Cygwin 已经能打 ISO**：`pick_mkisofs` 跳过 WinCDEmu 那个原生 exe →
+      `/usr/bin/genisoimage` 1.1.11；加 PATH 后还能用 `/opt/dvdtools/bin/xorriso` 1.5.6
+      做打包后的清单校验（`isoinfo` 也在 `/usr/bin`）。
+    * **④ dvdvideo 两环境都不在 PATH 首份上**（Cygwin 7.1.1 / MINGW64 8.1 都无，
+      只有 gyan full 有）→ 见「表 5 ①」；挑到 gyan 后 ffprobe 必须取同目录那份，
+      HEAD 已逐处落实（见「表 5 ②」）。
+    * **⑤ 待补的实测**：`dvd_make_sample.sh NO_VIDEOTS=1` 在 MINGW64 上跑一遍 ——
+      合成素材这条路不依赖 dvdauthor，只要 ffmpeg 有 mpeg2video+ac3（两环境都有），
+      是"两个 shell 都能跑通"的最小可验路径。
