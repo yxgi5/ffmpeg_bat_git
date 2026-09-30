@@ -131,7 +131,7 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # QSV 解码+编码流程需要显式初始化 QSV 设备
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
-CMD+=(-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
+CMD+=(-init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
 CMD+=(-i "$ABS_NAME")
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then

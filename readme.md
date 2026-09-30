@@ -656,4 +656,19 @@ ffmpeg -hide_banner -decoders  | grep hevc
 vainfo                                  # VAAPI 能力 (新 libva 需 export LIBVA_DRIVER_NAME=iHD)
 ```
 
+### 解码加速器 `FF_HWACCEL`（2026-09-30，仅软编入口）
+
+`ffmpeg_libx264` / `ffmpeg_libx265`（两族 4 个脚本）原先写死 `-hwaccel auto`，现由 `FF_HWACCEL` 决定：
+
+| 值 | 行为 |
+|---|---|
+| `auto`（默认，不设也一样） | 与改动前逐字相同：由 ffmpeg 挑第一个能初始化的加速器 —— 核显与 N 卡并存时**选谁不可控**；且 Windows 锁屏/断开会话下 D3D 设备创建被拒时**直接崩**（0xC0000005），两族都留了一次「去掉 hwaccel 重跑」的回退 |
+| `cuda` | 钉死 N 卡解码。实测 rc=0，日志 `Selecting decoder ... because of requested hwaccel method cuda` |
+| `none` | 一次 `-hwaccel` 都不加，纯软解软编（最稳，软编本来也不靠它省 CPU） |
+| `qsv` / `vaapi` | **软编入口实测跑不通**：qsv 解码出来的是 QSV 表面帧，喂不进 libx264/libx265（`Could not open encoder before EOF` / rc=1 / 产物 0 字节）。要走 QSV 解码请用 `ffmpeg_*_qsv` 入口 |
+
+只影响**解码**加速，编码器仍是本入口的 libx264/libx265；硬编入口（nvenc / qsv / vaapi）
+本来就各自显式指定 hwaccel，不受这个开关影响。
+用法：`FF_HWACCEL=cuda ./ffmpeg_libx264.sh "a.mp4"` / `set FF_HWACCEL=cuda && ffmpeg_libx264.bat "a.mp4"`。
+
 参考：<https://en.wikipedia.org/wiki/Intel_Quick_Sync_Video#Hardware_decoding_and_encoding>

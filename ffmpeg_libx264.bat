@@ -36,7 +36,7 @@ findstr /c:"Failed to create Direct3D device" /c:"Device creation failed" "%FF_H
 if errorlevel 1 exit /b 0
 echo.
 echo [fallback] -hwaccel auto init failed (D3D unavailable), retry without hwaccel
-set RUN_COM=%RUN_COM: -hwaccel auto=%
+set RUN_COM=%RUN_COM: -hwaccel %FF_HWACCEL%=%
 %RUN_COM%
 set "FB_RC=%ERRORLEVEL%"
 exit /b 0
@@ -84,7 +84,16 @@ if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -v verbose -hwaccel auto
+rem 解码加速器可配置 (2026-09-30): FF_HWACCEL=auto(默认, 与改动前逐字相同) / cuda /
+rem qsv / vaapi / d3d11va / dxva2 / none。原先写死 -hwaccel auto —— 由 ffmpeg 挑第一个
+rem 能初始化的(核显与 N 卡并存时选谁不可控), 且锁屏/断开会话下 D3D 会直接崩; 上面
+rem :HWACCEL_FALLBACK 的回退按 FF_HWACCEL 的实际值删参数, 显式指定时同样会回退一次。
+rem 纯 N 卡机器可钉成 cuda; 想彻底不碰硬件设 none(一次 -hwaccel 都不加)。只影响解码,
+rem 编码器仍是本入口的 libx264/libx265。
+if not defined FF_HWACCEL set "FF_HWACCEL=auto"
+set "FF_HW_ARG= -hwaccel %FF_HWACCEL%"
+if /i "%FF_HWACCEL%"=="none" set "FF_HW_ARG="
+set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -v verbose%FF_HW_ARG%
 
 SET "SRC_FILE="
 
