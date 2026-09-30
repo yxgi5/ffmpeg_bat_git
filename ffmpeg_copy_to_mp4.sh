@@ -22,15 +22,21 @@ function check_file_suffix() {
 }
 
 # ---------- 前置检查 ----------
-if ! check_command "ffmpeg"; then
+# ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+# 不能只信 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个
+#   (Linux 上就是发行版那份 4.4.2), 后面那个能用的构建于是永远轮不到
+# 本脚本是 -c copy, 哪个构建都能干, 所以不传能力要求
+if ! FF="$(find_ffmpeg)"; then
     echo -e "\033[41;36mffmpeg command not found!\033[0m"
     exit 1
 fi
-
-if ! check_command "ffprobe"; then
+if ! FP="$(find_ffprobe "$FF")"; then
     echo -e "\033[41;36mffprobe command not found!\033[0m"
     exit 1
 fi
+export FF FP
+echo "ffmpeg : $FF ($(ffmpeg_build_id "$FF"))"
 
 check_param_number "$#"
 param_number=$?
@@ -60,7 +66,7 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 echo
 
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
-CMD=(ffmpeg -hide_banner)
+CMD=("$FF" -hide_banner)
 CMD+=(-i "$ABS_NAME")
 CMD+=(-c:v copy -c:a copy)
 # 流映射与 11 个编码入口完全一致 (2026-09-17 用户裁定): 默认选流只留 1 视频 + 1 音频,

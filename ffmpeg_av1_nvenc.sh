@@ -7,25 +7,11 @@
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
-# AV1 硬编编码器在老版本发行版 ffmpeg 中缺失, Linux 下优先使用新版 ffmpeg
-OS=$(uname -s)
-
-case "$OS" in
-    Linux*)
-        # 发行版 ffmpeg 常缺 av1 硬编编码器, 若存在新版构建则前置 PATH (软偏好, 不存在则回退发行版)
-        if [ -d /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin ]; then
-            export PATH=/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin:$PATH
-        fi
-        ;;
-    CYGWIN*)
-        ;;
-    MSYS*)
-        ;;
-    MINGW*)
-        ;;
-    *)
-        ;;
-esac
+# (2026-09-30) 早先这里有一段"Linux 下把 /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin
+# 前置到 PATH"的补丁, 为了绕开"发行版 ffmpeg 没有 av1_nvenc"。现在前置检查里的
+# find_ffmpeg_for_encoder av1_nvenc 按能力筛选就能摸到那份(实测命中 N-117740),
+# 而这个硬编码目录名还有反作用: 一旦 /opt 下摆的是更旧、能力更少的构建(如 7.0.2
+# static, 连 nvenc/vaapi 都没有), 它会被无条件顶到 PATH 最前面。故删掉。
 
 echo ============================================================
 echo 欢迎使用ffmpeg视频压缩批处理工具
@@ -34,15 +20,22 @@ echo 由 andreas 编写
 echo ============================================================
 
 # ---------- 前置检查 ----------
-if ! check_command "ffmpeg"; then
+# ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+# 不能只信 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个
+#   (Linux 上就是发行版那份 4.4.2), 后面那个能用的构建于是永远轮不到
+# find_ffmpeg_for_encoder 先按"必须带 av1_nvenc 编码器"筛 —— 发行版 ffmpeg 常缺它,
+#   能用的那份往往在 /opt 下且不在 PATH 上; 谁都没有时退回不筛选(保持原有报错路径)
+if ! FF="$(find_ffmpeg_for_encoder av1_nvenc)"; then
     echo -e "\033[41;36mffmpeg command not found!\033[0m"
     exit 1
 fi
-
-if ! check_command "ffprobe"; then
+if ! FP="$(find_ffprobe "$FF")"; then
     echo -e "\033[41;36mffprobe command not found!\033[0m"
     exit 1
 fi
+export FF FP
+echo "ffmpeg : $FF ($(ffmpeg_build_id "$FF"))"
 
 check_param_number "$#"
 param_number=$?
@@ -144,7 +137,7 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 # 说明: 本命令只使用 cuda 解码 + av1_nvenc 编码, 不经过任何 QSV 滤镜/编码器,
 # 因此不带 -init_hw_device qsv=hw:0 (旧版残留参数在 cygwin ffmpeg 下会因
 # MFX 会话创建失败而直接报错, 且对 nvenc 流程毫无作用)
-CMD=(ffmpeg -hide_banner -threads 0 -v verbose)
+CMD=("$FF" -hide_banner -threads 0 -v verbose)
 CMD+=(-hwaccel cuda -hwaccel_output_format cuda)
 CMD+=(-i "$ABS_NAME")
 
@@ -155,7 +148,7 @@ fi
 
 CMD+=(-c:v:0 av1_nvenc -preset p4 -tune:v hq -rc cbr -b:v "$TARGET_BITRATE")
 CMD+=(-g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2)
-cover_map_gate ffmpeg
+cover_map_gate "$FF"
 CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+"${COVER_MAP[@]}"} -c:s mov_text -map_metadata 0 -map_chapters 0)
 CMD+=(-rtbufsize 120m -max_muxing_queue_size 1024 -n "$TARGET_FILE")
 

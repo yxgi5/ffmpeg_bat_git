@@ -15,15 +15,22 @@ echo 由 andreas 编写
 echo ============================================================
 
 # ---------- 前置检查 ----------
-if ! check_command "ffmpeg"; then
+# ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+# 不能只信 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个
+#   (Linux 上就是发行版那份 4.4.2), 后面那个能用的构建于是永远轮不到
+# find_ffmpeg_for_encoder 先按"必须带 h264_qsv 编码器"筛 —— 发行版 ffmpeg 常缺它,
+#   能用的那份往往在 /opt 下且不在 PATH 上; 谁都没有时退回不筛选(保持原有报错路径)
+if ! FF="$(find_ffmpeg_for_encoder h264_qsv)"; then
     echo -e "\033[41;36mffmpeg command not found!\033[0m"
     exit 1
 fi
-
-if ! check_command "ffprobe"; then
+if ! FP="$(find_ffprobe "$FF")"; then
     echo -e "\033[41;36mffprobe command not found!\033[0m"
     exit 1
 fi
+export FF FP
+echo "ffmpeg : $FF ($(ffmpeg_build_id "$FF"))"
 
 check_param_number "$#"
 param_number=$?
@@ -123,7 +130,7 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # QSV 解码+编码流程需要显式初始化 QSV 设备
-CMD=(ffmpeg -hide_banner -threads 0 -v verbose)
+CMD=("$FF" -hide_banner -threads 0 -v verbose)
 CMD+=(-init_hw_device qsv=hw:0 -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
 CMD+=(-i "$ABS_NAME")
 
@@ -134,7 +141,7 @@ fi
 
 CMD+=(-c:v:0 h264_qsv -profile:v:0 main -preset veryfast -b:v "$TARGET_BITRATE")
 CMD+=(-g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2)
-cover_map_gate ffmpeg
+cover_map_gate "$FF"
 CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+"${COVER_MAP[@]}"} -c:s mov_text -map_metadata 0 -map_chapters 0)
 CMD+=(-rtbufsize 120m -max_muxing_queue_size 1024 -n "$TARGET_FILE")
 

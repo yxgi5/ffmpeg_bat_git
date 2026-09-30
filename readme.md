@@ -510,10 +510,13 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
   `FFMPEG_BIN` 环境变量（指向 bin 目录）→ 仓库内 `ffmpeg\bin` → `PATH`（where）→ `C:\Program Files\ffmpeg\bin`
 - **`.sh`**：`lib/common.sh` 的 `find_ffmpeg`，与 `.bat` 同序
-  `FFMPEG_BIN`（bin 目录）/ `FFMPEG`（可执行文件）→ 仓库内 `ffmpeg/bin` → `PATH` **逐项** → 常见安装前缀；
+  `FFMPEG_BIN`（bin 目录）/ `FFMPEG`（可执行文件）→ 仓库内 `ffmpeg/bin` →
+  **[仅 Linux] `/opt/ffmpeg/<构建>/bin`** → `PATH` **逐项** → 常见安装前缀；
   `ffprobe` 由 `find_ffprobe` 取与 ffmpeg 同目录那份（也可用 `FFPROBE=` 指定）。启动时回显实际用到的路径与版本串。
   **不能只信 `command -v`**：它只回第一个命中，而 MSYS2 的 `/mingw64/bin` 8.1、Cygwin 的 `/usr/bin` 7.1.1 常常正是缺能力的那个，
   `dvdvideo` 检查也用定位到的这份 ffmpeg 来做（否则会变成“检查 PATH 里那份、却跑另一份”）
+  2026-09-30：13 个根入口脚本此前硬写裸 `ffmpeg`（`CMD=(ffmpeg ...)`），等于绕过这套定位——
+  `FFMPEG_BIN=` / `FFMPEG=` 设了也被静默忽略。现已全部改成 `CMD=("$FF" ...)`，与 `.bat` 侧对齐。
 
 两族定位成功后都会**醒目回显**最终选定的路径与版本串（`.sh` 走标准错误，`.bat` 直接 `echo`），形如：
 
@@ -528,6 +531,25 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 缺哪项就在查找阶段**跳过**那个候选（诊断走标准错误）。`ffmpeg_dvd_hevc.sh` 用的是 `--need-demuxer dvdvideo`：
 本机 PATH 上的 Ubuntu 4.4.2 没有 dvdvideo，于是自动落到 `/opt` 下的 master build，**不用写死路径**。
 显式指定（`FFMPEG_BIN` / `FFMPEG`）仍然无条件优先——能力不足只报错、不悄悄换掉。
+
+各入口脚本用的是它的包装 `find_ffmpeg_for_encoder <编码器名>`：先按“必须带这个编码器”筛，
+**一台机器上谁都没有时退回不筛选**（`lib/common.sh`）。这么绕一圈是为了不碰退出码契约——
+直接 `find_ffmpeg --need-encoder X` 失败会让脚本还没读到输入文件就退出，把“文件不存在 /
+参数不对”那些各自的退出码全盖成 1；退回之后由 ffmpeg 自己报 `Unknown encoder 'X'`，走的是
+改造前那条路径。要的就是前半段：`ffmpeg_av1_nvenc.sh` 原来靠一段硬编码
+`export PATH=/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin:$PATH` 才能拿到 av1_nvenc，
+现在能力筛选自己就能命中 `/opt` 那份（N-117740），硬编码目录名反而会把 `/opt` 下更旧、
+能力更少的构建（如 7.0.2 static，连 nvenc/vaapi 都没有）顶到 PATH 最前面——那段补丁已删。
+`.bat` 侧仍是裸 `find_ffmpeg`（`lib/common.bat` 明确不做能力筛选）：Windows 上 PATH 首个命中
+通常就是 gyan full build，用不着按能力跳；Linux 的发行版构建才是那个“缺能力的第一个”。
+这是两族一处**有意**的分歧。
+
+**Linux 上调 `/opt` 那一档（2026-09-30）**：`find_ffmpeg` 在 PATH 之前插入
+`/opt/ffmpeg/<构建>/bin/ffmpeg`，于是两处都能干这件事时优先用 `/opt` 那份新构建
+（本机就是 `N-117740`，比发行版 4.4.2 多出 `libsvtav1` / `av1_nvenc`）。两点边界：
+① 它是**候选**而非无条件顶替——仍参与能力筛选，干不了就跳过，所以就算 `/opt` 下摆的是
+能力更少的构建（如 7.0.2 static，连 nvenc/vaapi 都没有）也不会把脚本带坑里；
+② 只有 `uname -s` 为 `Linux*` 才进这一档，Cygwin / MINGW64（MSYS2）构造上不受影响。
 
 Windows 两个 shell 里同一件事更明显：Cygwin 的 `/usr/bin/ffmpeg`(7.1.1) 与 MINGW64 的
 `/mingw64/bin/ffmpeg`(8.1) **都没有 dvdvideo**，只有 gyan full(`C:\Program Files\ffmpeg\bin`) 有 ——
