@@ -577,7 +577,9 @@ Windows 两个 shell 里同一件事更明显：Cygwin 的 `/usr/bin/ffmpeg`(7.1
 | 成对百分号 | 片名形如 `a%b%c`（中间是合法变量名）**不支持**；`100% Wolf.mp4` 这类单个 `%` 安全 |
 | 清单 BOM | `.bat` 侧 `for /f` 读带 BOM 清单尚未实测（记事本存 UTF-8 无 BOM 时不触发）；`.sh` 侧已兼容 |
 | 交互 stdin | 双击后手输不受影响；只有「文件重定向喂 stdin + `chcp 65001`」这一组合读不到（`.bat` 的 UTF-8 守卫所致，非缺陷） |
-| 10bit 片源 | `ffmpeg_avc_qsv`（h264_qsv）**吃不下 10bit 输入**：x265 10bit（`yuv420p10le`）源会报 `some encoding parameters are not supported by the QSV runtime` → rc=-40、**产物 0 字节**（同素材的 `hevc_qsv` / `av1_nvenc` / 软编入口都正常，所以不是硬件不支持）。2026-09-30 起自动探测 `pix_fmt`，命中 10bit 就加 `-vf scale_qsv=format=nv12`（QSV 硬件内降 8bit，实测 rc=0）；**8bit 源的命令行一字不改** |
+| 10bit 片源 —— **解码**侧（H.264 High 10） | QSV 与 VAAPI 的 H.264 解码器都不吃 profile 110（`Codec h264 profile 110 not supported for hardware decode.`），硬解挂掉后 10bit 帧退回系统内存，而编码器要硬件表面 → `Impossible to convert ... auto_scale_0` → rc=1、**产物 0 字节**。与下面那条是**两回事**（编码器没毛病），所以 `scale_qsv` 修不了它。2026-09-30 起认出这种源就**不用硬解**：软解 + `hwupload`（QSV 三入口 × 两族 + VAAPI 两入口，实测 rc=0） |
+| 10bit 片源 —— **编码**侧（HEVC Main10 等） | 硬解正常，卡在编码器：h264_qsv 报 `some encoding parameters are not supported by the QSV runtime` → rc=-40 / 0 字节（同素材 `hevc_qsv` / `av1_nvenc` / 软编入口都正常，所以不是硬件不支持）；`hevc_vaapi` 则因写死 `-profile:v:0 main` 不接受 10bit 输入。2026-09-30 起在**硬件内部**降 8bit：QSV 走 `scale_qsv=format=nv12`、VAAPI 走 `scale_vaapi=format=nv12`。软滤镜 `format=nv12` **不行** —— 帧还在硬件表面，`auto_scale` 接不上；**8bit 源的命令行一字不改** |
+| `av1_qsv` 无硬件支持 | `ffmpeg -encoders` 里列着 `av1_qsv` 不等于硬件支持：UHD 770 实测一开就是 `Current codec type is unsupported` → rc=-40 / **0 字节产物**（AV1 QSV 需 Arrow Lake 或更新的核显）。2026-09-30 起入口先用 1 帧 lavfi 源试开编码器（320x240，不用 128x128 —— 尺寸过小会把好机器判成不支持），开不起来就明说**并不产生空产物**（退出码沿用既有的 1，见 `test/README.md` 退出码契约） |
 | 修改 `.bat` 时的 set 写法 | 值为「已带引号的路径 / 整条命令行」的变量，**一律用非包装写法** `set VAR=值`；包装写法 `set "VAR=值"` 会与值内引号配对闭合，使后续路径段落裸露、被 `&`/`()` 截断 |
 | 块内参数里的裸 `)` | 多行 `( ... )` 块中，**参数文本里未转义的 `)` 会提前关闭该块**（`^( ^)` 转义、全角 `（）`、`[1]`、双引号内、`for %%A in (...)`、`\|\| ( ... )` 均安全）。后果极隐蔽：紧跟其后的语句脱离块、变成**无条件执行**的顶层语句 —— `ffmpeg_dvd_hevc.bat` 首跑就是这样静默 `exit /b 1` 的（打印两行后直接回提示符、零报错）。静态由 **L23** 拦截，实验记录见 `environment_matrix.md` 第 49 条 |
 

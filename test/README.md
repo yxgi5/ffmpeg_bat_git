@@ -768,12 +768,27 @@ T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重�
   （title1 182 MB、title2 224 MB，speed 25x）。盘本身带 `libdvdread: CHECK_VALUE failed`
   警告，不影响出片。
 
-**本轮唯一实质缺陷：10bit 源 + `avc_qsv`（两族同症状）** —— h264_qsv 打不开编码器
-（`some encoding parameters are not supported by the QSV runtime` → `Error while opening
-encoder` → rc=-40 / 0 字节），而同素材 `hevc_qsv`、`av1_nvenc`、软编入口都成功，所以不是
-硬件不支持，是 h264_qsv 吃不下 10bit 输入。修法是 `scale_qsv=format=nv12`：在 QSV 硬件内部
-降到 8bit（实测 rc=0、产物 22 MB）。软滤镜 `format=nv12` **不行** —— 帧还在 QSV 表面，
+**本轮实质缺陷：10bit 源的三个缺口（两族同症状）**
+
+| 缺口 | 根因（实测原话） | 修法 |
+|---|---|---|
+| ① H.264 **High 10** 源 + QSV 三入口（`avc` / `hevc` / `av1_qsv`） | `Codec h264 profile 110 not supported for hardware decode.` —— 卡在**解码**侧，硬解挂掉后 10bit 帧退回系统内存，编码器要硬件表面 → `Impossible to convert ... auto_scale_0` → rc=1 / 0 字节 | 认出这种源就**不加 `-hwaccel`**：软解 + `-vf format=nv12,hwupload=extra_hw_frames=64` |
+| ② 10bit 源 + VAAPI 两入口（`h264` / `hevc_vaapi`） | 同上的 High 10 解码问题 **+** `hevc_vaapi` 写死 `-profile:v:0 main`（Main 不吃 10bit 输入） | High 10 源同上走软解 + `hwupload`；其余 10bit 保留硬解，加 `scale_vaapi=format=nv12` |
+| ③ `av1_qsv` 在本机无 AV1 硬件 | `Current codec type is unsupported` → rc=-40，跑到底只留 0 字节产物 | 入口先用 1 帧 lavfi 源试开编码器，开不起来直接说明并退出，**不产生空产物** |
+
+① 与 ② 里的"编码器不吃 10bit"（HEVC Main10 那种）是**另一回事**，修法是硬件内降 8bit
+（`scale_qsv` / `scale_vaapi=format=nv12`）；软滤镜 `format=nv12` 不行 —— 帧还在硬件表面，
 `auto_scale` 接不上（`Impossible to convert ... auto_scale_0`）。
+
+**素材**：10bit 与 4K 六种源由 `test/make_fixtures.sh` 造（`bash test/make_fixtures.sh [all|10bit|4k|4k60|4k25|<文件名>]`），
+均含 ac3 音轨 + ass 字幕；产物 `input_*.mkv` 被 `.gitignore` 忽略，**入库的只有那个脚本**。
+修完的矩阵（Windows UHD 770 + N 卡 / Linux UHD 630）：
+
+| 入口 | hevc 10bit | h264 10bit | 8bit |
+|---|---|---|---|
+| `avc_qsv` / `hevc_qsv`（bat + sh） | ✅ rc=0 | ✅ rc=0（修前 rc=69/1） | ✅ 命令行一字不改 |
+| `h264_vaapi` / `hevc_vaapi` | ✅ rc=0 | ✅ rc=0（修前 rc=1 / 0 字节） | ✅ |
+| `av1_qsv` | 无硬件 → 明说并退出 | 同左 | 同左 |
 只在探到 10bit 时插入：8bit 源回归实测命令行里 `scale_qsv` 出现 **0 次**（一字未改）。
 `.bat` 侧的探测必须走临时文件 + `set /p`，不能用 `for /f in('...')` —— 文件名里的
 `(` `)` 会被 cmd 当语法，实测探测直接落空（修的就是这一版）。

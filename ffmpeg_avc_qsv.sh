@@ -131,25 +131,34 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # QSV 解码+编码流程需要显式初始化 QSV 设备
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
-CMD+=(-init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
-CMD+=(-i "$ABS_NAME")
+CMD+=(-init_hw_device qsv=hw -filter_hw_device hw)
 
-# 10bit 源: h264_qsv 打不开 -> 让 QSV 自己在硬件里降到 8bit (2026-09-30 实测)
-#   源是 x265 10bit(yuv420p10le)时, h264_qsv 报 "some encoding parameters are
-#   not supported by the QSV runtime" -> "Error while opening encoder", rc=-40,
-#   产物 0 字节 —— 而 hevc_qsv / av1_nvenc 同素材照常成功, 所以不是硬件不支持,
-#   是 h264_qsv 吃不下 10bit 输入。修法是 -vf scale_qsv=format=nv12: 在 QSV 硬件
-#   内部转 nv12(实测 rc=0, 产物正常)。不能用软滤镜 format=nv12 —— 帧还在 QSV
-#   表面, auto_scale 接不上("Impossible to convert ... auto_scale_0")。
-#   只在探到 10bit 时加, 8bit 源的命令行一字不改。
-src_pixfmt=$(fp_run -v error -select_streams v:0 -show_entries stream=pix_fmt \
-             -of csv=p=0 "$ABS_NAME" 2>/dev/null | tr -d '\r')
-case "$src_pixfmt" in
-    *10le*|*p010*)
-        echo "10bit source ($src_pixfmt) -> scale_qsv=format=nv12"
-        CMD+=(-vf "scale_qsv=format=nv12")
-        ;;
-esac
+# ---------- 10bit 源: 两种症状, 两种修法 (2026-09-30 实测) ----------
+# ① H.264 High 10 (profile 110): 卡在**解码**侧 —— QSV 的 H.264 解码器不吃
+#    High 10, 硬解一挂, 10bit 帧退回系统内存, 而编码器要硬件表面, 于是
+#    "Impossible to convert ... auto_scale_0" -> rc=1 / 产物 0 字节。
+#    编码器没毛病, 所以下面那条 scale_qsv 修不了它(它假定帧已在 QSV 表面上)。
+#    修法: 这种源**不用硬解**, 软解之后 hwupload 送上去(实测 rc=0, 产物 yuv420p)。
+# ② 其余 10bit(HEVC Main10 等): 硬解正常, 卡在**编码**侧 —— h264_qsv 吃不下
+#    10bit 输入("some encoding parameters are not supported by the QSV runtime"
+#    -> "Error while opening encoder", rc=-40, 0 字节)。修法是 scale_qsv: 在 QSV
+#    硬件内部转成 nv12。不能用软滤镜 format=nv12 —— 帧还在 QSV 表面, auto_scale
+#    照样接不上。
+# 只在真遇到时改命令行, 8bit + 非 High10 的源一字不改。
+HW_DEC=1
+if src_hw_decode_hostile "$ABS_NAME"; then
+    HW_DEC=0
+    echo "H.264 High 10 源 -> QSV 硬解不支持, 改软解 + hwupload"
+else
+    CMD+=(-hwaccel qsv -hwaccel_output_format qsv)
+fi
+CMD+=(-i "$ABS_NAME")
+if [ "$HW_DEC" = 0 ]; then
+    CMD+=(-vf "format=nv12,hwupload=extra_hw_frames=64")
+elif src_is_10bit "$ABS_NAME"; then
+    echo "10bit 源 -> scale_qsv=format=nv12 (QSV 硬件内降 8bit)"
+    CMD+=(-vf "scale_qsv=format=nv12")
+fi
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)

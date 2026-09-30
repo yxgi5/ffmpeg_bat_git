@@ -131,8 +131,25 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # QSV 解码+编码流程需要显式初始化 QSV 设备
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
-CMD+=(-init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv)
+CMD+=(-init_hw_device qsv=hw -filter_hw_device hw)
+
+# H.264 High 10 源: QSV 的 H.264 解码器不吃 profile 110(实测 "Codec h264 profile
+# 110 not supported for hardware decode"), 硬解一挂帧就退回系统内存, 编码器要硬件
+# 表面 -> auto_scale 接不上 -> rc=1 / 0 字节。这种源改走软解 + hwupload。
+# (HEVC Main10 不在此列: QSV 硬解支持, hevc_qsv 也能吃, 命令行保持原样。)
+# 判据与另一种 10bit 情形的区别见 lib/common.sh 的同名注释。
+# -hwaccel 是**输入选项**, 必须排在 -i 之前; -vf 是输出滤镜, 排在 -i 之后。
+HW_DEC=1
+if src_hw_decode_hostile "$ABS_NAME"; then
+    HW_DEC=0
+    echo "H.264 High 10 源 -> QSV 硬解不支持, 改软解 + hwupload"
+else
+    CMD+=(-hwaccel qsv -hwaccel_output_format qsv)
+fi
 CMD+=(-i "$ABS_NAME")
+if [ "$HW_DEC" = 0 ]; then
+    CMD+=(-vf "format=nv12,hwupload=extra_hw_frames=64")
+fi
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then
     CMD+=(-r 30)

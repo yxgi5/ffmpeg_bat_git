@@ -68,7 +68,7 @@ if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw -hwaccel qsv -hwaccel_output_format qsv
+set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw
 
 SET "SRC_FILE="
 
@@ -97,6 +97,29 @@ rem 失败时传回 1, 与 .sh 侧探测失败报错对齐(2026-09-17 用户裁�
 call "%SELF_DIR%lib\common.bat" probe_source %SRC_FILE%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" exit /b 1
+rem ---------- 硬件能力门: "编码器在 ffmpeg 里" != "硬件支持" ----------
+rem UHD 770 实测: ffmpeg -encoders 里就有 av1_qsv, 一开却是
+rem   [av1_qsv @ ...] Current codec type is unsupported
+rem   some encoding parameters are not supported by the QSV runtime.
+rem   Error while opening encoder ... rc=-40
+rem 跑到底只能留下 0 字节产物, 比"明确说不支持"更糟。所以在动源文件之前拿
+rem 1 帧 lavfi 源先试一次; AV1 QSV 需要 Arrow Lake 或更新的核显。
+call "%SELF_DIR%lib\common.bat" qsv_encoder_ready av1_qsv
+if "%QSV_ENC_OK%"=="1" goto AV1_ENC_READY
+echo 本机没有可用的 AV1 QSV 编码器(需 Arrow Lake 或更新的核显) —— 未生成产物
+exit /b 1
+:AV1_ENC_READY
+
+rem ---------- H.264 High 10 源: QSV 硬解不吃 profile 110 ----------
+rem 硬解挂掉后 10bit 帧退回系统内存, 编码器要硬件表面 -> auto_scale 接不上 ->
+rem rc=1 / 0 字节。这种源不要 -hwaccel(输入选项, 排在 -i 之前), 改软解 + hwupload。
+call "%SELF_DIR%lib\common.bat" src_hw_decode_hostile
+set "QSV_HWDEC=1"
+set "QSV_VF="
+if "%HW_HOSTILE%"=="1" set "QSV_HWDEC=0"
+if "%HW_HOSTILE%"=="1" echo H.264 High 10 source: QSV hwdec unsupported, use soft-dec + hwupload
+if "%HW_HOSTILE%"=="1" set "QSV_VF= -vf format=nv12,hwupload=extra_hw_frames=64"
+if "%QSV_HWDEC%"=="1" set RUN_COM=%RUN_COM% -hwaccel qsv -hwaccel_output_format qsv
 set RUN_COM=%RUN_COM% -i %SRC_FILE%
 echo RUN_COM0=%RUN_COM%
 
@@ -181,7 +204,7 @@ IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认)
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
-if defined BIT set RUN_COM=%RUN_COM% -c:v:0 av1_qsv -profile:v:0 main -preset fast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
+if defined BIT set RUN_COM=%RUN_COM%%QSV_VF% -c:v:0 av1_qsv -profile:v:0 main -preset fast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
 echo RUN_COM2:%RUN_COM%
 
 echo.

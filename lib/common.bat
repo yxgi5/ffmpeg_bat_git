@@ -22,6 +22,9 @@ if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
 if /I "%~1"=="probe_source"          goto probe_source
 if /I "%~1"=="probe_field"           goto probe_field
+if /I "%~1"=="src_is_10bit"          goto src_is_10bit
+if /I "%~1"=="src_hw_decode_hostile"  goto src_hw_decode_hostile
+if /I "%~1"=="qsv_encoder_ready"     goto qsv_encoder_ready
 if /I "%~1"=="cover_map"            goto cover_map
 if /I "%~1"=="check_isvideo"          goto check_isvideo
 if /I "%~1"=="on_exist"               goto on_exist
@@ -203,7 +206,7 @@ exit /b 1
 rem 取回全部源字段: call ... probe_source <文件>
 rem   一次 ffprobe -of flat(字段集与 .sh 侧 lib/common.sh 的 probe_source 逐字对齐),
 rem   结果存入 P_* 变量(值已由 %%~b 剥引号):
-rem     P_streams.stream.0.{codec_type,codec_name,width,height,r_frame_rate,bit_rate}
+rem     P_streams.stream.0.{codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,bit_rate}
 rem     P_format.{size,duration,bit_rate}
 rem   -select_streams v:0 会把选中流重新编号为 stream.0; 无视频流时 stream.* 整体缺失
 rem   (format.* 仍在)而 rc 仍为 0 -- 与原逐字段 v:0 探测的表现一致。
@@ -223,11 +226,54 @@ if not defined FFPROBE_PATH (
 if "%PS_LAST%"=="%PS_FILE%" exit /b %PS_RC%
 set "PS_LAST=%PS_FILE%"
 set "PS_TMP=%TEMP%\ffmpeg_bat_probe_%RANDOM%%RANDOM%.tmp"
-"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate -of flat "%PS_FILE%" > "%PS_TMP%" 2>nul
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate -of flat "%PS_FILE%" > "%PS_TMP%" 2>nul
 set "PS_RC=%ERRORLEVEL%"
 for /f "usebackq tokens=1,* delims==" %%a in ("%PS_TMP%") do set "P_%%a=%%~b"
 del "%PS_TMP%" 2>nul
 exit /b %PS_RC%
+
+:src_is_10bit
+rem 源像素格式是否 10bit -> SRC_IS10=1 / 0
+rem   读 probe_source 已缓存的 P_*(调用方必须先探过), 不再单独起 ffprobe。
+rem   10bit 的写法就这几种: yuv420p10le / yuv422p10le / yuv444p10le / p010le ...
+set "SRC_IS10=0"
+if not defined P_streams.stream.0.pix_fmt exit /b 0
+echo %P_streams.stream.0.pix_fmt% | findstr /i "10le 10be p010" >nul
+if not errorlevel 1 set "SRC_IS10=1"
+exit /b 0
+
+:src_hw_decode_hostile
+rem 硬件解码器吃不下这个源 -> HW_HOSTILE=1
+rem   目前只有一种: H.264 High 10 (profile 110)。实测 QSV 与 VAAPI 的 H.264
+rem   解码器都不支持 —— "Codec h264 profile 110 not supported for hardware decode.",
+rem   硬解挂掉后 10bit 帧退回系统内存, 而编码器要硬件表面, 于是
+rem   "Impossible to convert ... auto_scale_0" -> rc=1 / 产物 0 字节。
+rem   这是**解码**侧的问题, 与"编码器不吃 10bit"是两回事(后者靠 scale_qsv 修)。
+rem   HEVC Main10 不在此列: 硬解支持。
+rem   profile 取不到时按"可以硬解"处理(维持原路径, 让 ffmpeg 自己报错)。
+set "HW_HOSTILE=0"
+if /I not "%P_streams.stream.0.codec_name%"=="h264" exit /b 0
+if not defined P_streams.stream.0.profile exit /b 0
+echo %P_streams.stream.0.profile% | findstr /i "10" >nul
+if not errorlevel 1 set "HW_HOSTILE=1"
+exit /b 0
+
+:qsv_encoder_ready
+rem QSV 编码器能力探测: call ... qsv_encoder_ready <编码器名> -> QSV_ENC_OK=1 / 0
+rem   拿 1 帧 lavfi 源试开一次编码器: 不碰用户文件、不落盘。
+rem   320x240 而不是 128x128 —— 尺寸过小会让"GPU 正常"的机器被判成不支持
+rem   (NVENC 会 InitializeEncoder failed: invalid argument)。
+rem   用途: av1_qsv 这类"编码器编进 ffmpeg 了、硬件却不支持"的入口 ——
+rem   UHD 770 实测 ffmpeg -encoders 里就有 av1_qsv, 一开却是
+rem   "Current codec type is unsupported" / rc=-40, 跑到底只留 0 字节产物。
+rem   负数安全: Windows 版 ffmpeg 失败时返回**负** AVERROR(本机 av1_qsv 是 -40),
+rem   而 `if not errorlevel 1` 是带符号比较, -40 >= 1 不成立 -> 会误判成功。
+set "QSV_ENC_OK=0"
+if "%~2"=="" exit /b 0
+"%FFMPEG_PATH%" -hide_banner -v error -init_hw_device qsv=hw -filter_hw_device hw -f lavfi -i color=c:color=black:s=320x240:r=30 -frames:v 1 -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v %~2 -f null - >nul 2>nul
+set "FB_RC=%ERRORLEVEL%"
+if "%FB_RC%"=="0" set "QSV_ENC_OK=1"
+exit /b 0
 
 :probe_field
 rem 取单个标量并回填变量: call ... probe_field <文件> <条目关键词> <输出变量名>
