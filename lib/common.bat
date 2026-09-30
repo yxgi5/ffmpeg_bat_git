@@ -6,6 +6,8 @@ rem   函数的实际参数从 %2 开始 ( %1 为函数名)
 rem   find_ffmpeg: 四级回退定位 ffmpeg/ffprobe (FFMPEG_BIN > 仓库内 > PATH > 默认目录)
 rem                 本函数**不做能力筛选**(2026-09-20 同日回退, 原因见下方 :find_ffmpeg 注释)
 rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
+rem   on_exist:      产物已存在时的策略(FF_ON_EXIST=skip 默认 / overwrite / fail),
+rem                  导出 FF_OUT_FLAG / FF_EXIST_SKIP / FF_EXIST_FAIL, 见 :on_exist
 rem   call 跨文件共享环境: 函数内 set 的变量(非 setlocal 内)对调用方可见
 rem 注意: 本文件必须保持 CRLF 行尾, 勿用会剥 CR 的编辑器保存
 rem ============================================================
@@ -22,6 +24,7 @@ if /I "%~1"=="probe_source"          goto probe_source
 if /I "%~1"=="probe_field"           goto probe_field
 if /I "%~1"=="cover_map"            goto cover_map
 if /I "%~1"=="check_isvideo"          goto check_isvideo
+if /I "%~1"=="on_exist"               goto on_exist
 echo 未知函数: %~1
 exit /b 1
 
@@ -386,4 +389,41 @@ exit /b 0
 rem 探测不可用 —— 没有 ffprobe 或源探测失败: 退回写死槽位, 至少覆盖 1~2 张封面
 set "COVERMAP=%COVERMAP% -c:v:1 copy -c:v:2 copy"
 :cover_done
+exit /b 0
+
+::on_exist  <target file, quoted>
+rem 2026-09-30: ffmpeg's -n prints "File already exists. Exiting." and then
+rem returns 0, so a run that did NOTHING looks like a success (measured). Make
+rem it explicit here, chosen by FF_ON_EXIST:
+rem   skip      (default) say so and skip; exit code stays 0, so that
+rem              convert_from_list_* can resume a batch without failing it
+rem   overwrite switch -n to -y and really re-encode
+rem   fail      say so and ask the caller to exit 6, so it cannot pass unnoticed
+rem Argument is %~2 (not %~1): %1 is the function name in this library.
+rem Exports (the caller reads them right after this call):
+rem   FF_OUT_FLAG    -n (default) or -y
+rem   FF_EXIST_SKIP  1 = output exists and the policy is skip: do not run ffmpeg
+rem   FF_EXIST_FAIL  1 = output exists and the policy is fail: the caller exits 6
+rem Always returns 0: a `call`ed subroutine cannot terminate the caller, so the
+rem decision travels back in variables instead. Echo text stays ASCII so it
+rem survives any console codepage.
+:on_exist
+set "FF_OUT_FLAG=-n"
+set "FF_EXIST_SKIP="
+set "FF_EXIST_FAIL="
+if "%~2"=="" exit /b 0
+if not exist %2 exit /b 0
+if /i "%FF_ON_EXIST%"=="overwrite" (
+    set "FF_OUT_FLAG=-y"
+    echo [on_exist] output exists, FF_ON_EXIST=overwrite -^> re-encode: %~2
+    exit /b 0
+)
+if /i "%FF_ON_EXIST%"=="fail" (
+    echo [on_exist] output exists, FF_ON_EXIST=fail -^> not overwritten, exit 6: %~2
+    set "FF_EXIST_FAIL=1"
+    exit /b 0
+)
+echo [on_exist] output exists -^> SKIPPED, nothing was encoded: %~2
+echo [on_exist]   FF_ON_EXIST=overwrite to re-encode, =fail to treat it as an error
+set "FF_EXIST_SKIP=1"
 exit /b 0

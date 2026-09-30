@@ -122,12 +122,16 @@ echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
 rem handler name with ) (   call set
+rem ---- 产物已存在时的策略: 见 lib\common.bat 的 :on_exist ----
+if not "%~1"=="" call "%SELF_DIR%lib\common.bat" on_exist %TARGET_FILE%
+if defined FF_EXIST_FAIL exit /b 6
+if defined FF_EXIST_SKIP exit /b 0
 IF "%~1"=="" (
     echo executing 1
     set RUN_COM=%RUN_COM% %TARGET_FILE%
 ) else (
     echo executing 2
-    set RUN_COM=%RUN_COM% -n %TARGET_FILE%
+    set RUN_COM=%RUN_COM% %FF_OUT_FLAG% %TARGET_FILE%
 )
 
 echo RUN_COM2:%RUN_COM%

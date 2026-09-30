@@ -723,6 +723,40 @@ function _ff_native_exec() {
         esac
     done
 
+    # ---- 产物已存在时的策略(2026-09-30 实测) ----
+    #   ffmpeg 的 -n 在输出已存在时打印 "File already exists. Exiting." 却**返回 0**
+    #   —— 调用方(含 convert_from_list_*)会以为这条转好了, 实际一个字节都没动。
+    #   这里把它改成显式行为, 由 FF_ON_EXIST 选:
+    #     skip      (默认) 明确打印"已跳过"; 退出码仍为 0, 保住批量续转语义 —— 清单里
+    #                      已经转过的条目不该让整批失败
+    #     overwrite 把 -n 换成 -y, 真的覆盖重转
+    #     fail      打印提示并返回 6, 让调用方能察觉(6 是本仓库新增的"产物已存在"码)
+    #   只认命令行末尾固定的 "-n <输出文件>" 形态(所有入口都这么拼); 不带 -n 的调用
+    #   (ffprobe 探测、交互模式、dvd 工具链)一字不动。
+    if [ $# -ge 2 ] && [ "${@: -2:1}" = "-n" ]; then
+        local tgt="${@: -1}"
+        if [ -n "$tgt" ] && [ -e "$tgt" ]; then
+            case "${FF_ON_EXIST:-skip}" in
+                overwrite)
+                    printf '[ff_run] 产物已存在, FF_ON_EXIST=overwrite -> 覆盖重转: %s\n' "$tgt" >&2
+                    out[$((${#out[@]} - 2))]="-y"
+                    ;;
+                fail)
+                    printf '[ff_run] 产物已存在, FF_ON_EXIST=fail -> 不覆盖, 退出码 6: %s\n' "$tgt" >&2
+                    # 用 exit 而不是 return: 入口脚本统一写成 `ff_run ...; if [ $? -ne 0 ];
+                    # then exit 1; fi`, return 6 会被那道守卫抹成 1。两族要对齐到同一个
+                    # 6, 所以这里直接结束脚本(与 .bat 侧 `exit /b 6` 对等)。traps 照常跑。
+                    exit 6
+                    ;;
+                *)
+                    printf '[ff_run] 产物已存在 -> 跳过(未重转): %s\n' "$tgt" >&2
+                    printf '[ff_run]   覆盖重转: FF_ON_EXIST=overwrite; 视为失败(6): FF_ON_EXIST=fail\n' >&2
+                    return 0
+                    ;;
+            esac
+        fi
+    fi
+
     # ---- "-hwaccel auto" 的 D3D 回退(2026-09-30 实测) ----
     #   Windows 会话处于「已断开 / 锁屏」时 D3D 设备创建被拒, 而 gyan 的 -hwaccel auto
     #   不是优雅降级, 是**直接崩**(0xC0000005 / Segmentation fault) —— 实测三族

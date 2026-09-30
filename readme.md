@@ -636,7 +636,9 @@ title 2、选中 3304s 的 title 3、输出约 1 Mbps 的 MKV）。首次真机�
   （原 `.sh` 独有的 `hevc_nvenc_cygwin` 已于 2026-09-30 合并回 `ffmpeg_hevc_nvenc.sh`：
   实测 ffmpeg 7.x 把 `-hwaccel cuvid` 归一化成 cuda，两版解码路径相同，Cygwin 无需单独入口）
   （`opencmd.bat` 只是开 UTF-8 窗口的辅助脚本）。退出码契约已跨族统一为
-  `0 成功 / 1 参数与文件错误（含编码失败、找不到 ffmpeg）/ 2 查表越界 / 3 无视频流 / 5 码率异常`；
+  `0 成功 / 1 参数与文件错误（含编码失败、找不到 ffmpeg）/ 2 查表越界 / 3 无视频流 /
+  5 码率异常 / 6 产物已存在且 FF_ON_EXIST=fail`（`6` 为 2026-09-30 新增：ffmpeg 的 `-n`
+  在产物已存在时返回 0 却不转，原来会被当成成功）；
   「失败必须传回非零」由 lint **L15**、流映射一致性由 **L16**、moov 前置由 **L17** 静态钉住
   （`.bat` 入口历史上曾无条件 `exit /b 0` 吞掉失败；而 Windows 版 ffmpeg 的**负**退出码
   `-40/-22/-2` 会让 `if errorlevel 1` 静默失手，故 L15 现在要求 `if not "%FB_RC%"=="0"` 这种负数安全写法）。
