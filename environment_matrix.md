@@ -1240,9 +1240,13 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       原样传递），以及 **`src_stamp()`**（源文件字节数，两族算法一致）；三个 calib 工具的
       全部 ffmpeg/ffprobe 调用已改走包装。**未改**：`smoke_ffmpeg.sh`、
       `smoke_special_chars.sh`、`check_env.sh` 仍直接调用（MSYS2/Linux 靠运行时改写可用，
-      Cygwin 下会失败，待补）。**2026-09-30 进度（只完成一半，仍待补）**：`smoke_ffmpeg.sh` 与
-      `smoke_special_chars.sh` 已改走 `fp_run` / `ff_run`（各 6 / 4 处）；**`check_env.sh` 仍是 0 处**，
-      Cygwin 下照样失败 —— 本项尚未闭环。
+      Cygwin 下会失败，待补）。**2026-10-01 结清**：`smoke_ffmpeg.sh` 与 `smoke_special_chars.sh`
+      已改走 `fp_run` / `ff_run`（各 6 / 4 处）；`check_env.sh` 虽然仍是裸调用（0 处），但**它不走
+      包装也是对的** —— 深测开始时它先用 `cygpath -m` 把工作目录**一次性**正规化为 `C:/...`
+      （该脚本 340–342 行，注释即为此意），此后交给原生 `ffmpeg.exe` 的路径全是混合形式，
+      而 `ff_run` 只改写"以 `/` 开头"的参数，对它本就是 no-op。
+      即：两个冒烟脚本用**逐次包装**、`check_env.sh` 用**路径一次性正规化**，两条路解的是同一个
+      Cygwin 问题，本待办关闭。
     * **实测**（同一片源、`0 1` 段）：Git Bash / MSYS2 / Cygwin 三 shell **逐点数字完全一致**
       （delivered 475776 / 577480 / 868896 / 1314584 / 1765536，VMAF 86.89/88.51/92.01/94.28/95.44），
       fit `vmaf = 4.59 * log2(bitrate) + 0.78`，`RECOMMENDATION (VMAF95): ~1525072 bps` ——
