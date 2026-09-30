@@ -322,6 +322,7 @@ vobs_duration() {
     local v d total=0
     for v in "$@"; do
         d="$(fp_run -v error -show_entries format=duration -of csv=p=0 "$v" 2>/dev/null |
+            tr -d '\r' |
             awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
         [ -n "$d" ] || d=0
         total="$(awk -v a="$total" -v b="$d" 'BEGIN{printf "%.3f", a + b}')"
@@ -339,6 +340,7 @@ detect_scenes() {
                     if ($i ~ /^pts_time:/) { t = substr($i, 10) + 0; if (t > 1) printf "%.3f\n", t + o }
             }'
         dur="$(fp_run -v error -show_entries format=duration -of csv=p=0 "$v" 2>/dev/null |
+            tr -d '\r' |
             awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
         [ -n "$dur" ] || dur=0
         off="$(awk -v a="$off" -v b="$dur" 'BEGIN{printf "%.3f", a + b}')"
@@ -414,9 +416,9 @@ rebuild_group() {
 
     [ "$KEEPMENU" = "1" ] && [ -f "$VTS/VTS_${g}_0.VOB" ] && menu="$VTS/VTS_${g}_0.VOB"
 
-    w="$(fp_run -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
-    h="$(fp_run -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
-    acodec="$(fp_run -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "${tvobs[0]}" 2>/dev/null | awk -F, '$1 ~ /^[a-z0-9_]+$/ { print $1 }' | tail -1)"
+    w="$(fp_run -v error -select_streams v:0 -show_entries stream=width  -of csv=p=0 "${tvobs[0]}" 2>/dev/null | tr -d '\r' | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
+    h="$(fp_run -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "${tvobs[0]}" 2>/dev/null | tr -d '\r' | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
+    acodec="$(fp_run -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "${tvobs[0]}" 2>/dev/null | tr -d '\r' | awk -F, '$1 ~ /^[a-z0-9_]+$/ { print $1 }' | tail -1)"
 
     if [ -n "${FORMAT:-}" ]; then
         fmt="$(printf '%s' "$FORMAT" | tr 'A-Z' 'a-z')"
@@ -434,6 +436,7 @@ rebuild_group() {
     i=0
     while [ "$i" -lt "${#tvobs[@]}" ]; do
         vdur+=("$(fp_run -v error -show_entries format=duration -of csv=p=0 "${tvobs[$i]}" 2>/dev/null |
+            tr -d '\r' |
             awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)")
         [ -n "${vdur[$i]}" ] || vdur[$i]=0
         i=$((i + 1))
@@ -456,12 +459,12 @@ rebuild_group() {
         build_ch_attr "$attempt"
         rm -rf "$dest"; mkdir -p "$dest" || return 1
         {
-            printf '<dvdauthor dest="%s">\n' "$(xml_attr "$dest")"
+            printf '<dvdauthor dest="%s">\n' "$(xml_attr "$(da_path "$dest")")"
             printf '  <vmgm />\n'
             printf '  <titleset>\n'
             if [ -n "$menu" ]; then
                 printf '    <menus>\n      <video format="%s" />\n' "$fmt"
-                printf '      <pgc><vob file="%s" /></pgc>\n' "$(xml_attr "$menu")"
+                printf '      <pgc><vob file="%s" /></pgc>\n' "$(xml_attr "$(da_path "$menu")")"
                 printf '    </menus>\n'
             fi
             printf '    <titles>\n      <video format="%s" />\n' "$fmt"
@@ -472,9 +475,9 @@ rebuild_group() {
             i=0
             while [ "$i" -lt "${#tvobs[@]}" ]; do
                 if [ "$attempt" = "none" ]; then
-                    printf '        <vob file="%s" />\n' "$(xml_attr "${tvobs[$i]}")"
+                    printf '        <vob file="%s" />\n' "$(xml_attr "$(da_path "${tvobs[$i]}")")"
                 else
-                    printf '        <vob file="%s" chapters="%s" />\n' "$(xml_attr "${tvobs[$i]}")" "${CH_ATTR[$i]}"
+                    printf '        <vob file="%s" chapters="%s" />\n' "$(xml_attr "$(da_path "${tvobs[$i]}")")" "${CH_ATTR[$i]}"
                 fi
                 i=$((i + 1))
             done
@@ -495,7 +498,7 @@ rebuild_group() {
 
         # 复核: dest 是只有这一组的独立 DVD 树, 里面的 title 1 就是这条 PGC
         got="$(fp_run -v error -f dvdvideo -title 1 -show_entries format=duration \
-              -of csv=p=0 "$dest" 2>/dev/null | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
+              -of csv=p=0 "$dest" 2>/dev/null | tr -d '\r' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ { print $1 }' | tail -1)"
         if [ -z "$got" ] || awk -v a="$got" -v b="$total" 'BEGIN{exit !(a >= b - 2)}'; then
             [ "$attempt" = "full" ] && info "VTS_$g 时长   : ${got:-?}s(基准 $(printf '%.0f' "$total")s) —— 章节保住了"
             [ "$attempt" = "zero" ] && warn "VTS_$g: 带章节会把时长写短 —— 已退回只保留首章, 章节没保住"
@@ -536,7 +539,7 @@ ensure_format() {
         for v in "$VTS"/VTS_*_1.VOB "$VTS"/VIDEO_TS.VOB; do
             [ -f "$v" ] || continue
             h="$(fp_run -v error -select_streams v:0 -show_entries stream=height \
-                -of csv=p=0 "$v" 2>/dev/null | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
+                -of csv=p=0 "$v" 2>/dev/null | tr -d '\r' | awk -F, '$1 ~ /^[0-9]+$/ { print $1 }' | tail -1)"
             [ -n "$h" ] && break
         done
         if [ "${h:-0}" -ge 500 ]; then VIDEO_FORMAT="PAL"; else VIDEO_FORMAT="NTSC"; fi
@@ -549,7 +552,8 @@ regen_vmg() {
     ensure_format
     [ -f "$VTS/VIDEO_TS.IFO" ] && mv_away "$VTS/VIDEO_TS.IFO"
     [ -f "$VTS/VIDEO_TS.BUP" ] && mv_away "$VTS/VIDEO_TS.BUP"
-    dvdauthor -T -o "$DVD_ROOT" >"$WORK/vmg.log" 2>&1 || { warn "重生成 VIDEO_TS.IFO 失败, 日志: $WORK/vmg.log"; return 1; }
+    # -o 也走 da_path: 原生 dvdauthor 吃不下 POSIX 路径(与上面 XML 里的 dest 同理)
+    dvdauthor -T -o "$(da_path "$DVD_ROOT")" >"$WORK/vmg.log" 2>&1 || { warn "重生成 VIDEO_TS.IFO 失败, 日志: $WORK/vmg.log"; return 1; }
     [ -f "$VTS/VIDEO_TS.IFO" ] || return 1
     return 0
 }

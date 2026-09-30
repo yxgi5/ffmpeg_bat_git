@@ -411,13 +411,15 @@ for ((i = 1; i < NS; i++)); do CH="$CH,$(fmt_time $((i * SCENE_LEN)))"; done
 
 XML="$WORK/dvd.xml"
 {
-    printf '<dvdauthor dest="%s">\n' "$OUT"
+    # dest 与 vob 路径走 da_path: MSYS2 的 dvdauthor 是原生 exe, 认不了 /tmp/... 这种
+    # POSIX 路径(实测 "cannot create dir"), 要给它 X:/... 的写法
+    printf '<dvdauthor dest="%s">\n' "$(da_path "$OUT")"
     printf '  <vmgm />\n'
     for mpg in "${MPGS[@]}"; do
         printf '  <titleset>\n    <titles>\n'
         printf '      <video format="%s" />\n' "$VFMT"
         printf '      <audio format="ac3" lang="en" />\n'
-        printf '      <pgc>\n        <vob file="%s" chapters="%s"/>\n' "$mpg" "$CH"
+        printf '      <pgc>\n        <vob file="%s" chapters="%s"/>\n' "$(da_path "$mpg")" "$CH"
         printf '      </pgc>\n    </titles>\n  </titleset>\n'
     done
     printf '</dvdauthor>\n'

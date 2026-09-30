@@ -190,25 +190,33 @@ info "ffmpeg      : $FF"
 #       必须按**字段**判
 # =========================================================================
 probe_field() {
+    # tr -d '\r' 必须在最前面: gyan 这类**原生**构建的行尾是 CRLF, CR 会粘在最后一个
+    # 字段/整行末尾 -> 行级 ^...$ 永远匹配不上, 于是"时长恒空 -> 读不到 title"
+    # (2026-09-30 实测: fp_run 直出是 6.000000, 过一遍下面的 tr+awk 就成空)。
+    # 宽高那种按**字段**匹配的侥幸不受影响(CR 落在第 3 个字段上), 但一样要剥。
     fp_run -v error -f dvdvideo -title "$1" "${@:3}" -of csv=p=0 "$SRC" 2>/dev/null |
-        tr ',' '\n' | awk -v want="$2" 'BEGIN{ n = 0 } $0 ~ /^[0-9]+(\.[0-9]+)?$/ { n++; if (n == want) print $0 }' | tail -1
+        tr -d '\r' | tr ',' '\n' | awk -v want="$2" 'BEGIN{ n = 0 } $0 ~ /^[0-9]+(\.[0-9]+)?$/ { n++; if (n == want) print $0 }' | tail -1
 }
 
 probe_title() {
     local t="$1" wh dur
     wh="$(fp_run -v error -f dvdvideo -title "$t" -select_streams v:0 \
           -show_entries stream=width,height -of csv=p=0 "$SRC" 2>/dev/null |
-          tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ { print $1, $2 }' | tail -1)"
+          tr -d '\r' | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ { print $1, $2 }' | tail -1)"
     [ -n "$wh" ] || return 1
     dur="$(probe_field "$t" 1 -show_entries format=duration)"
-    [ -n "$dur" ] || return 1
+    # 时长读不出来就记 0, 而不是判这条 title 读不到: width/height 已经探到, title
+    # 确实存在, 缺时长只影响"挑最长那条"和"按容量反推码率"。实测 dvdauthor 造的
+    # 样例盘 format=duration 就是 N/A(2026-09-30) —— 按老写法整盘一条 title 都
+    # 选不出来, shrink 在第一道门就退出了。
+    [ -n "$dur" ] || { dur=0; DUR_UNKNOWN="${DUR_UNKNOWN:+$DUR_UNKNOWN,}$t"; }
     printf '%s %s\n' "$wh" "$dur"
 }
 
 probe_chapters() {
     fp_run -v error -f dvdvideo -title "$1" -show_entries chapter=start_time \
         -of csv=p=0 "$SRC" 2>/dev/null |
-        awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ && $1 + 0 > 0 { printf "%s\n", $1 }'
+        tr -d '\r' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ && $1 + 0 > 0 { printf "%s\n", $1 }'
 }
 
 # 音轨: 打印 "编码 码率" 每行一条。AC3/MP2 可以直接 copy, 其余(LPCM 等)要重编
@@ -238,7 +246,9 @@ case "$MODE" in
     *)
         # AUTO: title 编号**不连续**(实测有的盘缺中间号), 读不到不能 break,
         # 容忍连续 MISS_MAX 次才收尾; 挑时长最长的那条
-        BEST=0; DVD_TITLE=""; miss=0; n=1
+        # BEST 从 -1 起: 时长全读不出来(dur=0)时也要能选中第一条, 否则下面那句
+        # "一个 title 都没读到" 会把整盘拦下
+        BEST=-1; DVD_TITLE=""; miss=0; n=1
         while [ "$n" -le 99 ]; do
             if line="$(probe_title "$n")"; then
                 miss=0
@@ -251,7 +261,11 @@ case "$MODE" in
         done
         [ -n "$DVD_TITLE" ] || die "一个 title 都没读到, 检查源路径 / 是否受 CSS 保护"
         TITLES="$DVD_TITLE"
-        info "自动选定    : title $DVD_TITLE(共 ${BEST}s, 最长)"
+        if [ "$BEST" -gt 0 ]; then
+            info "自动选定    : title $DVD_TITLE(共 ${BEST}s, 最长)"
+        else
+            warn "每条 title 的时长都读不出来(title ${DUR_UNKNOWN:-?}; 合成盘 / 无导航信息时常见) —— 按读到的第一条 title $DVD_TITLE 处理, 容量反推做不了, 要精确码率请显式给 VBITRATE=xxxxk"
+        fi
         ;;
 esac
 [ -n "$TITLES" ] || die "没选到任何 title"
@@ -278,7 +292,7 @@ fi
 # =========================================================================
 #  反推码率
 # =========================================================================
-DUR_TOTAL="0"; AUD_WEIGHTED="0"; AENC_KIND=""
+DUR_TOTAL="0"; AUD_WEIGHTED="0"; AENC_KIND=""; DUR_UNKNOWN=""
 for t in $TITLES; do
     line="$(probe_title "$t")" || die "读不到 title $t"
     d="$(awk '{print $3}' <<<"$line")"
@@ -290,7 +304,10 @@ for t in $TITLES; do
     [ -z "$AENC_KIND" ] && AENC_KIND="$(probe_audio "$t" | awk 'NR==1{print $1}')"
 done
 
-AUD_AVG="$(awk -v a="$AUD_WEIGHTED" -v d="$DUR_TOTAL" 'BEGIN{printf "%d", a / d}')"
+# DUR_TOTAL=0 = 一条时长都没读到: 凡是"按容量反推/估算"的都得绕开, 否则 awk 除零
+DUR_OK="$(awk -v d="$DUR_TOTAL" 'BEGIN{print (d+0 > 0) ? 1 : 0}')"
+AUD_AVG=""
+[ "$DUR_OK" = 1 ] && AUD_AVG="$(awk -v a="$AUD_WEIGHTED" -v d="$DUR_TOTAL" 'BEGIN{printf "%d", a / d}')"
 [ -n "$AUD_AVG" ] && [ "$AUD_AVG" -gt 0 ] || AUD_AVG=192000
 
 if [ -n "${VBITRATE:-}" ]; then
@@ -300,6 +317,9 @@ if [ -n "${VBITRATE:-}" ]; then
         *)     VB_KB="$(awk -v v="$VBITRATE" 'BEGIN{printf "%d", v / 1000}')" ;;
     esac
     info "视频码率    : ${VB_KB} kbps(VBITRATE 直接指定)"
+elif [ "$DUR_OK" != 1 ]; then
+    VB_KB="${VB_UNKNOWN:-5000}"
+    info "视频码率    : ${VB_KB} kbps(时长读不出, 没法按容量反推; 可用 VBITRATE=xxxxk 或 VB_UNKNOWN=xxxx 覆盖)"
 else
     # 容量 * 8 / 总时长 - 音频 = 每秒比特数, **再 /1000 才是 kbps**。
     # 漏掉这一步会得到 28 623 411 这种数(实测打印成 "28623411 kbps"), 而它一旦
@@ -326,10 +346,14 @@ ABIT_KB="$(awk -v a="$AUD_AVG" 'BEGIN{printf "%d", a / 1000}')"
 # IFO/BUP 的余量。实测这个估算在**中低码率**很准(目标 300 MiB -> 估 302, 实出 306);
 # 高目标会偏大: 给很高的 -b:v 时 mpeg2video 撞 qmin=2 根本编不到那么多
 # (8500k 与 5839k 两条实测出一样大, 都停在 ~5.3 Mbps), 所以它是上界
-EST_MB="$(awk -v v="$VB_KB" -v a="$ABIT_KB" -v d="$DUR_TOTAL" \
-          'BEGIN{printf "%d", (v + a) * 1000 * d / 8 / 1048576 * 1.03}')"
-info "产物估算    : 约 ${EST_MB} MiB(上界, 实际通常更小)"
-[ "$EST_MB" -gt "$TARGET_MB" ] && warn "按 ${VB_KB} kbps 也要 ~${EST_MB} MiB, 超过目标 ${TARGET_MB} MiB —— 请提高 TARGET_MB(双层填 8000)或少选几条 title"
+if [ "$DUR_OK" = 1 ]; then
+    EST_MB="$(awk -v v="$VB_KB" -v a="$ABIT_KB" -v d="$DUR_TOTAL" \
+              'BEGIN{printf "%d", (v + a) * 1000 * d / 8 / 1048576 * 1.03}')"
+    info "产物估算    : 约 ${EST_MB} MiB(上界, 实际通常更小)"
+    [ "$EST_MB" -gt "$TARGET_MB" ] && warn "按 ${VB_KB} kbps 也要 ~${EST_MB} MiB, 超过目标 ${TARGET_MB} MiB —— 请提高 TARGET_MB(双层填 8000)或少选几条 title"
+else
+    EST_MB=0
+fi
 
 # 原盘码率粗估: 目录就累加 VIDEO_TS, ISO/设备就用文件体积
 src_size=""
@@ -342,7 +366,7 @@ if [ -d "$SRC" ]; then
 elif [ -f "$SRC" ]; then
     src_size="$(stat -c%s "$SRC")"
 fi
-if [ -n "$src_size" ] && [ "$src_size" -gt 0 ]; then
+if [ "$DUR_OK" = 1 ] && [ -n "$src_size" ] && [ "$src_size" -gt 0 ]; then
     orig_kb="$(awk -v s="$src_size" -v d="$DUR_TOTAL" 'BEGIN{printf "%d", s * 8 / d / 1000}')"
     info "原盘总码率  : ~${orig_kb} kbps(含音频)"
     [ "$VB_KB" -ge "$orig_kb" ] && warn "目标码率 ${VB_KB} kbps 不低于原盘 ${orig_kb} kbps —— 重编码纯属掉画质, 原样还原请改用 tools/dvd_restore.sh"
@@ -433,7 +457,7 @@ fmt_time() {
 }
 
 XML="$WORK/dvd.xml"
-AUTHOR_ESC="$(xml_attr "$AUTHOR")"
+AUTHOR_ESC="$(xml_attr "$(da_path "$AUTHOR")")"
 {
     printf '<dvdauthor dest="%s">\n' "$AUTHOR_ESC"
     printf '  <vmgm />\n'
@@ -443,7 +467,7 @@ AUTHOR_ESC="$(xml_attr "$AUTHOR")"
             [ -n "$cs" ] && ch="$ch,$(fmt_time "$cs")"
         done < <(probe_chapters "$t")
         printf '  <titleset>\n    <titles>\n      <pgc>\n'
-        printf '        <vob file="%s" chapters="%s"/>\n' "$(xml_attr "$WORK/title_${t}.mpg")" "$ch"
+        printf '        <vob file="%s" chapters="%s"/>\n' "$(xml_attr "$(da_path "$WORK/title_${t}.mpg")")" "$ch"
         printf '      </pgc>\n    </titles>\n  </titleset>\n'
     done
     printf '</dvdauthor>\n'
