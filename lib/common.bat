@@ -126,7 +126,11 @@ exit /b 0
 
 :find_ffmpeg
 rem 定位 ffmpeg/ffprobe 所在 bin 目录: call ... find_ffmpeg <输出变量名>
-rem 优先级: 环境变量 FFMPEG_BIN(指向bin目录) > 仓库内 ffmpeg\bin > PATH(where) > C:\Program Files\ffmpeg\bin
+rem 优先级: 环境变量 FFMPEG_BIN(指向bin目录) > 仓库内 ffmpeg\bin > gyan 默认安装目录 > PATH(where) > 其余常见目录
+rem   gyan 那一档刻意排在 PATH **之前**(2026-09-30): 只要是 Windows, 就强制用 gyan
+rem   full —— PATH 里第一个常常是别的打包版本(choco / scoop / 某软件的私有副本),
+rem   能力不全。显式 FFMPEG_BIN 仍是最高优先级, 不会被这一档顶掉; gyan 目录不存在
+rem   时照旧回落到 PATH 与其余兜底目录(那时行为与改动前一致)。
 rem 命中: 输出变量=bin目录(无尾部反斜杠), 返回 0; 未找到: 返回 1
 rem 本函数刻意不做"能力筛选"(2026-09-20 回退, 曾加过第 3 参数 + :ff_satisfies):
 rem   那里的 "%1\ffmpeg.exe" 是双引号叠加 —— 调用方传进来的是**带引号**的 %FFBIN%,
@@ -139,12 +143,15 @@ if not defined FF_OUT exit /b 1
 set "FFBIN="
 if defined FFMPEG_BIN if exist "%FFMPEG_BIN%\ffmpeg.exe" set "FFBIN=%FFMPEG_BIN%"
 if not defined FFBIN if exist "%~dp0..\ffmpeg\bin\ffmpeg.exe" for %%I in ("%~dp0..\ffmpeg\bin") do set "FFBIN=%%~fI"
+rem gyan full 的默认安装位置优先于 PATH(见上方优先级说明)
+if not defined FFBIN if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files\ffmpeg\bin"
 if not defined FFBIN (
     for /f "delims=" %%p in ('where ffmpeg.exe 2^>nul') do (
         if not defined FFBIN for %%I in ("%%p") do set "FFBIN=%%~dpI"
     )
 )
-if not defined FFBIN if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files\ffmpeg\bin"
+if not defined FFBIN if exist "C:\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\ffmpeg\bin"
+if not defined FFBIN if exist "C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files (x86)\ffmpeg\bin"
 if not defined FFBIN (
     echo [find_ffmpeg] 未找到 ffmpeg.exe: 请安装 ffmpeg 或设置环境变量 FFMPEG_BIN 指向其 bin 目录
     set "%FF_OUT%="

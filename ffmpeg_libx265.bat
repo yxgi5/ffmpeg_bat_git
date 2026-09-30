@@ -24,6 +24,21 @@ chcp 65001 >nul
 cmd /c call "%~f0" %*
 exit /b %errorlevel%
 
+rem ---- HWACCEL_FALLBACK: -hwaccel auto 的 D3D 回退(2026-09-30 实测) ----
+rem 会话「已断开/锁屏」时 D3D 设备创建被拒, ffmpeg 不是降级而是直接崩(0xC0000005)。
+rem 主流程失败且 stderr 出现 D3D 特征码时, 去掉 -hwaccel auto 重跑一次。
+rem 位置刻意放在 exit /b 与 :main 之间的纯 ASCII 区: 既不会被顺序执行到,
+rem 也避开了文件后段中文按代码页读取造成的标签偏移(见上方 cp65001 守卫注释)。
+:HWACCEL_FALLBACK
+findstr /c:"Failed to create Direct3D device" /c:"Device creation failed" "%FF_HWERR%" >nul 2>&1
+if errorlevel 1 exit /b 0
+echo.
+echo [fallback] -hwaccel auto init failed (D3D unavailable), retry without hwaccel
+set RUN_COM=%RUN_COM: -hwaccel auto=%
+%RUN_COM%
+set "FB_RC=%ERRORLEVEL%"
+exit /b 0
+
 :main
 
 rem ============================================================
@@ -207,7 +222,14 @@ IF "%~1"=="" (
 
 echo RUN_COM4:%RUN_COM%
 echo.
-%RUN_COM%
+rem D3D fallback (2026-09-30): when the Windows session is disconnected/locked,
+rem D3D device creation is refused and "-hwaccel auto" crashes ffmpeg (0xC0000005).
+rem Capture stderr so the run can be retried without -hwaccel when that shows up.
+set "FF_HWERR=%TEMP%\ff_hwaccel_%RANDOM%.err"
+%RUN_COM% 2>"%FF_HWERR%"
+set "FB_RC=%ERRORLEVEL%"
+if exist "%FF_HWERR%" type "%FF_HWERR%"
+if not "%FB_RC%"=="0" call :HWACCEL_FALLBACK
 rem 负退出码陷阱 (2026-09-17 实测根因): Windows 版 ffmpeg 失败时常常
 rem 返回「负」的 AVERROR 值 —— 本机 av1_qsv 拿不到编码器时 ffmpeg.exe
 rem 退出码是 -40 (Function not implemented), 而 cmd 的 `if errorlevel N`
@@ -217,7 +239,6 @@ rem 改成「不等于 0」判定: 它同时兜住负数与正数, 且赋值到�
 rem 走字符串相等比较, 不依赖 cmd 对负数的数值解析;
 rem 值空时也会判成失败(安全侧), 而 if errorlevel 写法在值为空时
 rem 只会报语法错误并继续往下跑.
-set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo.
     echo Convert failed! rc=%FB_RC%
