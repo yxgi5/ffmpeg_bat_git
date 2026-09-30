@@ -768,8 +768,11 @@ def shutil_which(cmd):
 
 
 # ---------------------------------------------------------------- L13
-ALLOWED_BAT_EXITS = {0, 1, 2, 3, 5}
-ALLOWED_SH_EXITS = {0, 1, 2, 3, 5, 8, 9}   # 8/9: harness-level setup errors
+ALLOWED_BAT_EXITS = {0, 1, 2, 3, 5, 6}
+ALLOWED_SH_EXITS = {0, 1, 2, 3, 5, 6, 8, 9}   # 6: output exists and FF_ON_EXIST=fail
+                                              #    (2026-09-30; see lib/common.sh
+                                              #    ff_run and lib/common.bat :on_exist)
+                                              # 8/9: harness-level setup errors
 
 
 def check_exit_codes(inv):
