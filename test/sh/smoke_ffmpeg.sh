@@ -50,14 +50,18 @@ PART="${1:-all}"
 EXPECT_AV1_QSV="${EXPECT_AV1_QSV:-auto}"
 WIPE="${WIPE:-1}"
 
-FF="$(command -v ffmpeg || true)"
-FP="$(command -v ffprobe || true)"
-
 # ---------- setup guards (exit 2 = setup error, not a test failure) ----------
 if [ ! -f "$REPO/lib/common.sh" ]; then
     echo "FATAL: repo not found at $REPO (expected $REPO/lib/common.sh)" >&2
     exit 2
 fi
+
+# 定位走 lib/common.sh 的 find_ffmpeg, 与**被测脚本**同口径(2026-09-30):
+# 套件自己造素材、报版本用的这份 ffmpeg, 必须和脚本真跑编码的那份是同一份 ——
+# 否则会出现"套件报 4.4.2、脚本其实在跑 /opt 下的新构建"这种自相矛盾的日志
+. "$REPO/lib/common.sh" >/dev/null 2>&1
+FF="$(find_ffmpeg 2>/dev/null || command -v ffmpeg || true)"
+FP="$(find_ffprobe "$FF" 2>/dev/null || command -v ffprobe || true)"
 if [ -z "$FF" ] || [ -z "$FP" ]; then
     echo "FATAL: ffmpeg/ffprobe not on PATH" >&2
     exit 2

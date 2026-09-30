@@ -315,11 +315,15 @@ function run_list() {
 #   ffmpeg_build_id <ffmpeg 路径>
 #     打印版本串(如 "8.1" / "2025-05-01-git-707c04fe06-full_build-www.gyan.dev")
 #
-# 优先级(与 lib/common.bat 的 :find_ffmpeg 对齐):
-#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH > 常见安装前缀
+# 优先级:
+#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin
+#     > [仅 Linux] /opt/ffmpeg/<构建>/bin > PATH > 常见安装前缀
 # 显式指定一旦存在就无条件采用 —— 即使能力不足也只报错、不再往下找(不把用户
-# 明确的选择悄悄换掉)。后面三级则**跳过**能力不足的候选并在标准错误里说明原因:
+# 明确的选择悄悄换掉)。其余各级则**跳过**能力不足的候选并在标准错误里说明原因:
 # 只要机器上存在一个能做这件事的构建, 就不会因为 PATH 恰好指错而失败。
+# 那个 [仅 Linux] 一档(2026-09-30)是"新构建优先": 发行版 ffmpeg 常年停在 4.x,
+# 而 /opt 下那份常是完整 gpl 构建; 它仍是候选、仍参与能力筛选, 不是无条件顶替。
+# Cygwin / MINGW64 的 uname 是 CYGWIN* / MINGW* / MSYS*, 构造上不进这一档。
 # ================================================================
 
 # 内部: 一条定位诊断(标准错误, 前缀统一, 便于检索)
@@ -378,6 +382,15 @@ _ff_try() {
 # 2026-09-20 用户报的"两个 shell 行为不一致"就出在这里: 同一条硬写的 /c/... 在
 # MSYS2 命中、在 Cygwin 必然落空, 于是 Cygwin 直接报 no ffmpeg with the libvmaf
 # filter was found, 而 MSYS2 却找到了(随后倒在别的检查上, 见该日文档记录)。
+# 内部: /opt 下的构建(Linux 侧"新构建优先"那一档用; 与 _ff_known_prefixes 里的
+# 同一批路径重复无所谓 —— _ff_try 按路径去重, 不会重复探测)
+_ff_known_opt_prefixes() {
+    local u
+    for u in /opt/ffmpeg/*/bin/ffmpeg; do
+        [ -x "$u" ] && printf '%s\n' "$u"
+    done
+}
+
 _ff_known_prefixes() {
     local w u
     if command -v cygpath >/dev/null 2>&1; then
@@ -425,6 +438,23 @@ function _ff_find_core() {
     for cand in "$repo_root/ffmpeg/bin/ffmpeg" "$repo_root/ffmpeg/bin/ffmpeg.exe"; do
         _ff_try "$cand" "$fl" "$en" "$dm" && return 0
     done
+
+    # ---- 阶段二点五: Linux 下 /opt 里的新构建优先(2026-09-30) ----
+    # 发行版 ffmpeg 常年停在 4.x(本机 4.4.2, 缺 libsvtav1 / av1_nvenc), 而
+    # /opt/ffmpeg/<构建>/bin 下那份常是完整 gpl 构建。把它作为**候选**放在 PATH 之前:
+    # 两处都能干这件事时优先用新的; 它仍然参与能力筛选 —— 干不了就跳过, 不像
+    # ffmpeg_av1_nvenc.sh 早先那段硬编码 `export PATH=/opt/...:$PATH` 那样无条件顶到
+    # 最前(那份若换成能力更少的 static 构建, 反而会把 nvenc/vaapi 全废掉)。
+    # 只有 Linux 走这一档: Cygwin / MINGW64 的 uname 是 CYGWIN* / MINGW* / MSYS*,
+    # 构造上不受影响(它们的 Windows 构建叫 ffmpeg.exe, 也不在 /opt 下)。
+    case "$(uname -s 2>/dev/null || printf '')" in
+        Linux*)
+            while IFS= read -r cand; do
+                _ff_try "$cand" "$fl" "$en" "$dm" && return 0
+                _ff_try "$cand.exe" "$fl" "$en" "$dm" && return 0
+            done < <(_ff_known_opt_prefixes)
+            ;;
+    esac
 
     # PATH 必须**逐项**看, 不能只问 command -v: 它只回第一个命中, 而"第一个"经常
     # 正是缺能力那个(MSYS2 的 /mingw64/bin 8.1、Cygwin 的 /usr/bin 7.1.1 都没有
@@ -488,6 +518,30 @@ function find_ffprobe() {
     p="$(command -v ffprobe 2>/dev/null || true)"
     [ -n "$p" ] && { echo "$p"; return 0; }
     return 1
+}
+
+# ================================================================
+#  find_ffmpeg_for_encoder <编码器名>
+#  先按"必须带这个编码器"筛; 一台机器上谁都没有时, 退回不筛选的 find_ffmpeg。
+#
+#  为什么不直接用 `find_ffmpeg --need-encoder <名>` 了事(2026-09-30):
+#    能力不足时它返回 1, 入口脚本于是**还没碰到输入文件**就退出 —— 而"文件不存在 /
+#    后缀不对"这类检查各有自己的退出码(见 exit-code 契约), 提前退出会把它们全盖成 1。
+#    退回不筛选则让 ffmpeg 自己报 Unknown encoder '<名>', 走的是改造前那条路径。
+#  真正要的是前半段: 发行版 ffmpeg 常缺硬编/新编码器(本机 4.4.2 就没有 av1_nvenc
+#  与 libsvtav1), 而能用的那份在 /opt 下且**不在 PATH 上** —— 只有加了能力要求,
+#  定位才会跳过 PATH 里第一个去摸 /opt(实测: --need-encoder libsvtav1 命中
+#  /opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg)。
+# ================================================================
+function find_ffmpeg_for_encoder() {
+    local enc="${1:-}" bin
+    [ -n "$enc" ] || { find_ffmpeg; return $?; }
+    if bin="$(find_ffmpeg --need-encoder "$enc")"; then
+        printf '%s\n' "$bin"
+        return 0
+    fi
+    _ff_note "没有任何构建带编码器 $enc —— 退回不做能力筛选的定位(让 ffmpeg 自己报错, 保持原退出码)"
+    find_ffmpeg
 }
 
 function ffmpeg_build_id() {
@@ -780,8 +834,12 @@ function cover_map_gate() {
     COVER_MAP=()
     [ "$_COVER_OK" = 1 ] && COVER_MAP=(-map "0:v:disp:attached_pic?")
     local src="${ABS_NAME:-$SRC_FILE}"
-    local probe vt na m i si idx codec type
-    probe=$(ffprobe -v error -show_entries stream=codec_name,codec_type \
+    local fpx probe vt na m i si idx codec type
+    # 用调用方定位到的那份 ffprobe(入口脚本已 find_ffprobe 过), 而不是裸 ffprobe:
+    # 后者会去 PATH 上另抓一份, 于是"编码用新构建、流表判断用老构建"—— 封面下标
+    # 与位图字幕的判断就可能和真正跑编码的那份不一样
+    fpx="${FP:-ffprobe}"
+    probe=$("$fpx" -v error -show_entries stream=codec_name,codec_type \
                     -show_entries stream_disposition=attached_pic -of csv=p=0 "$src" 2>/dev/null | tr -d '\r')
 
     # ②a 位图字幕 -> 负映射逐条排除。**不看 ① 的 disp: 能力**: 老 ffmpeg 一样死在这。
