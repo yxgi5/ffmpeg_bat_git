@@ -5,7 +5,7 @@
 | 层 | 文件 | 回答的问题 | 耗时 | 需要硬件 |
 |----|------|-----------|------|---------|
 | ① 静态 + 对等检查 | `lint/lint.py` | 代码本身有没有结构性问题？两族是否对等？ | < 1 秒 | 否 |
-| ② 冒烟套件 | `sh/smoke_ffmpeg.sh`、`sh/smoke_special_chars.sh`、`bat/smoke_ffmpeg.bat`、`bat/smoke_special_chars.bat` | 每一次真实编码跑通了吗？断言对不对？ | 数分钟 | 部分是（无则 SKIP） |
+| ② 冒烟套件 | `sh/smoke_ffmpeg.sh`、`sh/smoke_special_chars.sh`、`sh/smoke_dvd_tools.sh`、`bat/smoke_ffmpeg.bat`、`bat/smoke_special_chars.bat` | 每一次真实编码跑通了吗？断言对不对？ | 数分钟 | 部分是（无则 SKIP） |
 | ③ 环境能力报告 | `sh/check_env.sh`、`bat/check_env.bat` | **这台机器**能用哪些入口？为什么不能用？ | 秒级 / 深测数十秒 | 否（深测会真跑） |
 
 三层的退出码语义一致：**`0` = 干净，非 0 = 有问题**（能力报告例外，见 §4）。
@@ -16,8 +16,13 @@
 |------|----------|-----------|
 | T 编号回归套件 | `test/sh/smoke_ffmpeg.sh` | `test/bat/smoke_ffmpeg.bat` |
 | 元字符文件名矩阵 | `test/sh/smoke_special_chars.sh` | `test/bat/smoke_special_chars.bat` |
+| DVD 工具链（`tools/` 五个脚本） | `test/sh/smoke_dvd_tools.sh` | （暂无，见下） |
 | 一键串跑 | `test/sh/smoke_all.sh` | `test/bat/smoke_all.bat` |
 | 环境能力报告 | `test/sh/check_env.sh` | `test/bat/check_env.bat` |
+
+**例外（已记录在案）**：`smoke_dvd_tools.sh` 目前只有 `.sh`。它依赖 `dvdauthor` +
+`genisoimage/mkisofs`，Windows 上基本没有，孪生过去只会整片 SKIP；等 `tools/` 那五个脚本
+有了 `.bat` 版本再一起补。缺工具链的机器也是整段 SKIP（SKIP 不算失败）。
 
 ---
 
@@ -35,6 +40,7 @@ bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T25）
 bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
 bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
 bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
+bash test/sh/smoke_dvd_tools.sh        # tools/ 五个 DVD 脚本端到端（需 dvdauthor + genisoimage）
 
 # ③ 环境能力报告
 bash test/sh/check_env.sh              # 快查：秒级，静态盘点
@@ -122,7 +128,8 @@ test/
 ├── sh/
 │   ├── smoke_ffmpeg.sh          sh 族回归套件（与 bat 套件同 T 编号）
 │   ├── smoke_special_chars.sh   sh 族元字符矩阵（与 bat 套件同 part 字母）
-│   ├── smoke_all.sh             sh 族一键串跑
+│   ├── smoke_dvd_tools.sh       tools/ 五个 DVD 脚本端到端（样例盘 -> 体检 -> 出盘）
+│   ├── smoke_all.sh             sh 族一键串跑（含上面三套）
 │   ├── check_env.sh             sh 族环境能力报告
 │   ├── bench_calib.sh           单片源码率标尺（软编基准，见 ③b）
 │   ├── nvenc_pair_calib.sh      NVENC AV1/HEVC 配对校准（bat 孪生）
