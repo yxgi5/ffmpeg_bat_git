@@ -671,4 +671,24 @@ vainfo                                  # VAAPI 能力 (新 libva 需 export LIB
 本来就各自显式指定 hwaccel，不受这个开关影响。
 用法：`FF_HWACCEL=cuda ./ffmpeg_libx264.sh "a.mp4"` / `set FF_HWACCEL=cuda && ffmpeg_libx264.bat "a.mp4"`。
 
+### `-init_hw_device` / `-filter_hw_device` 到底在做什么（2026-09-30）
+
+`-init_hw_device 类型=名字:设备` —— 进程一启动就**显式创建**一个设备上下文并给它起名字
+（`cuda=hw` / `qsv=hw`，名字供后面引用）。不写时 ffmpeg 会在真要用到硬件时才懒创建：
+实测不带它跑 nvenc 也能编（日志 `1 CUDA capable devices found`）。
+
+- `:设备` 段只在「驱动确实按标识选设备」时有效：vaapi 是 `/dev/dri/renderD128`，cuda 是 GPU 序号。
+  **qsv 不吃这一段**：实测 `qsv=hw:0` / `qsv=hw:9` / `qsv=hw:ZZZ` 三条命令的日志逐字相同
+  （都由 child device 默认 D3D11VA 选到 `8086:a788`），因为 oneVPL 路径下选哪块 GPU 是
+  child device 那层的事。故本仓库统一写 `qsv=hw`。
+- `-filter_hw_device 名字` —— 指定**滤镜图**用哪个设备。只有命令里出现硬件滤镜
+  （`scale_cuda` / `hwupload` / `yadif_cuda` / `overlay_cuda` / `scale_qsv` …）时才必需；
+  纯「硬解 + 硬编 + 拷贝封面」的流程没有滤镜消费者，带了也不起作用。
+
+所以 nvenc 两入口（两族 4 个脚本）在 2026-09-30 去掉了 `-init_hw_device cuda=hw
+-filter_hw_device hw`：它们是早年从 QSV 脚本抄来的残留（那版在 Cygwin 下带
+`-init_hw_device qsv=hw:0` 会 MFX 会话创建失败），而入口里一个 CUDA 滤镜都没有（封面
+走 `-map` + `-c:v:N copy` 的纯流拷贝）。本机（N 卡）实测去掉后 rc=0、产物正常。
+将来真要在 nvenc 入口挂 CUDA 滤镜时，两族一起加回来。
+
 参考：<https://en.wikipedia.org/wiki/Intel_Quick_Sync_Video#Hardware_decoding_and_encoding>
