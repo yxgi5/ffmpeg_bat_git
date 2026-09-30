@@ -151,7 +151,9 @@ printf 'RUN_COM:'
 printf ' %q' "${CMD[@]}"
 printf '\n'
 
-"${CMD[@]}"
+# 走 ff_run 而不是直接执行数组: 它会把以 / 开头的参数改写成原生路径
+# (Cygwin/MINGW64 下选到原生 Windows 构建时, POSIX 路径会 No such file); Linux 上恒等
+ff_run "${CMD[@]:1}"
 if [ $? -ne 0 ]; then
     echo -e "\033[41;36mConvert failed！\033[0m"
     exit 1

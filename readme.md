@@ -544,6 +544,14 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 通常就是 gyan full build，用不着按能力跳；Linux 的发行版构建才是那个“缺能力的第一个”。
 这是两族一处**有意**的分歧。
 
+**编码 / 探测一律走 `ff_run` / `fp_run`**（2026-09-30）：11 个根入口此前是 `CMD=("$FF" ...)`
+后直接执行数组，`lib/common.sh` 的 `probe_source` 与 `cover_map_gate` 里也是裸 `ffprobe`。
+这两个包装做同一件事：把**以 `/` 开头的参数**按当前 shell 改写成原生路径
+（`native_path`：有 `cygpath` 时 `/cygdrive/c/x` → `C:/x`，Linux 上恒等）。
+不改在 Linux 上看不出问题，但一旦定位选中的是**原生 Windows 构建**（gyan）——
+能力筛选之后这在 Cygwin / MINGW64 下更常见了——POSIX 路径会被当成不存在的路径。
+现在根入口统一 `ff_run "${CMD[@]:1}"`，两处探测统一 `fp_run`。
+
 **Linux 上调 `/opt` 那一档（2026-09-30）**：`find_ffmpeg` 在 PATH 之前插入
 `/opt/ffmpeg/<构建>/bin/ffmpeg`，于是两处都能干这件事时优先用 `/opt` 那份新构建
 （本机就是 `N-117740`，比发行版 4.4.2 多出 `libsvtav1` / `av1_nvenc`）。两点边界：

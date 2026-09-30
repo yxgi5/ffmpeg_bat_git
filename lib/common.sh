@@ -59,7 +59,11 @@ function probe_source() {
     fi
     _PROBE_FILE="$f"
     _PROBE=()
-    raw=$(ffprobe -v error -hide_banner -select_streams v:0 \
+    # 走 fp_run(不是裸 ffprobe): ① 用调用方定位到的那份, 别去 PATH 上另抓一份;
+    # ② 原生 Windows 构建吃不了 /cygdrive/c/... 这种 POSIX 路径, fp_run 会改写。
+    # FP 没定位过时自己补一次, 不静默失败(调用方应已 find_ffprobe, 见各入口顶部)
+    [ -n "${FP:-}" ] || FP="$(find_ffprobe "${FF:-}" 2>/dev/null || command -v ffprobe 2>/dev/null || printf '')"
+    raw=$(fp_run -v error -hide_banner -select_streams v:0 \
         -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate \
         -of flat "$f" 2>/dev/null)
     _PROBE_RC=$?
@@ -834,12 +838,13 @@ function cover_map_gate() {
     COVER_MAP=()
     [ "$_COVER_OK" = 1 ] && COVER_MAP=(-map "0:v:disp:attached_pic?")
     local src="${ABS_NAME:-$SRC_FILE}"
-    local fpx probe vt na m i si idx codec type
-    # 用调用方定位到的那份 ffprobe(入口脚本已 find_ffprobe 过), 而不是裸 ffprobe:
-    # 后者会去 PATH 上另抓一份, 于是"编码用新构建、流表判断用老构建"—— 封面下标
-    # 与位图字幕的判断就可能和真正跑编码的那份不一样
-    fpx="${FP:-ffprobe}"
-    probe=$("$fpx" -v error -show_entries stream=codec_name,codec_type \
+    local probe vt na m i si idx codec type
+    # 走 fp_run(不是裸 ffprobe): ① 用调用方定位到的那份, 别去 PATH 上另抓一份, 否则
+    # "编码用新构建、流表判断用老构建", 封面下标与位图字幕的判断就可能对不上;
+    # ② 原生 Windows 构建吃不了 /cygdrive/c/... 这种 POSIX 路径, fp_run 会改写。
+    # FP 没定位过时自己补一次, 不静默失败(调用方应已 find_ffprobe, 见各入口顶部)
+    [ -n "${FP:-}" ] || FP="$(find_ffprobe "${FF:-}" 2>/dev/null || command -v ffprobe 2>/dev/null || printf '')"
+    probe=$(fp_run -v error -show_entries stream=codec_name,codec_type \
                     -show_entries stream_disposition=attached_pic -of csv=p=0 "$src" 2>/dev/null | tr -d '\r')
 
     # ②a 位图字幕 -> 负映射逐条排除。**不看 ① 的 disp: 能力**: 老 ffmpeg 一样死在这。

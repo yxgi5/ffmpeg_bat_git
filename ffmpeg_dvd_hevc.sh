@@ -274,7 +274,9 @@ SRC_ACODEC="$(probe_acodec "$REF_TITLE" 2>/dev/null)"
 #  不可用(仓库 test/README.md 记过这个假 SKIP)。
 # =========================================================================
 venc_usable() {
-    "$FF" -hide_banner -v error -f lavfi -i testsrc2=s=320x240:r=25:d=1 \
+    # 没有文件参数(-f null -), 改写是恒等的; 仍走 ff_run, 好让"有没有直调 $FF"
+    # 这类检查可以直接 grep 出来, 不必逐个判断这一处到底有没有路径
+    ff_run -hide_banner -v error -f lavfi -i testsrc2=s=320x240:r=25:d=1 \
           -c:v "$1" -frames:v 2 -f null - >/dev/null 2>&1
 }
 
