@@ -118,30 +118,28 @@ echo ============================================================
 
 # =========================================================================
 #  依赖: ffmpeg 要同时有 dvdvideo 解复用器与 mpeg2video 编码器。
-#  不能只问 command -v ffmpeg: PATH 上第一个常常是发行版老构建(这里实测
-#  /usr/bin/ffmpeg 没有 dvdvideo), 而能用的那份在 /opt/ffmpeg 下。
+#  不能只问 command -v ffmpeg: PATH 上第一个常常是发行版老构建 —— 本机实测
+#  Cygwin 的 /usr/bin/ffmpeg(7.1.1) 与 MINGW64 的 /mingw64/bin/ffmpeg(8.1)
+#  **都没有** dvdvideo, 唯一带它的是 gyan full(C:\Program Files\ffmpeg\bin)。
+#
+#  这里早先自带一份 pick_ffmpeg, 候选只到 "PATH 各项 + /opt/ffmpeg/*/bin +
+#  /usr/local/bin + /usr/bin": Linux 上够用(能用的那份常在 /opt 下), **Windows
+#  上就挑不到** —— 缺的是"Windows 安装前缀"那一级, 而它只有 lib/common.sh 的
+#  find_ffmpeg 才有(实测它在这两个 shell 里都能自动落到 gyan)。
+#  所以统一改用 find_ffmpeg, 免得同一套定位逻辑在仓库里写两份、各漏一半。
 # =========================================================================
-pick_ffmpeg() {
-    local d c
-    if [ -n "${FFMPEG:-}" ] && [ -x "${FFMPEG}" ]; then echo "$FFMPEG"; return 0; fi
-    for c in $(IFS=:; for d in ${PATH:-/usr/bin}; do [ -n "$d" ] && echo "$d/ffmpeg"; done) \
-             /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
-        [ -x "$c" ] || continue
-        "$c" -hide_banner -demuxers 2>/dev/null | awk '{ if ($1 == "D" && $2 == "dvdvideo") f = 1 } END{ exit !f }' || continue
-        "$c" -hide_banner -encoders 2>/dev/null | awk '{ if ($2 == "mpeg2video") f = 1 } END{ exit !f }' || continue
-        echo "$c"; return 0
-    done
-    return 1
-}
-
-FF="$(pick_ffmpeg)" || die "找不到同时具备 dvdvideo 解复用器与 mpeg2video 编码器的 ffmpeg(可用 FFMPEG=/path/to/ffmpeg 指定)"
+FF="$(find_ffmpeg --need-demuxer dvdvideo --need-encoder mpeg2video)" \
+    || die "找不到同时具备 dvdvideo 解复用器与 mpeg2video 编码器的 ffmpeg(可用 FFMPEG=/path/to/ffmpeg 指定)"
 FP="${FFPROBE:-}"
-[ -n "$FP" ] && [ -x "$FP" ] || FP="$(dirname "$FF")/ffprobe"
+[ -n "$FP" ] && [ -x "$FP" ] || FP="$(find_ffprobe "$FF" 2>/dev/null)"
 [ -x "$FP" ] || FP="$(command -v ffprobe 2>/dev/null)"
 [ -n "$FP" ] || die "找不到 ffprobe"
 export FF FP
 
-command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 的官方源里没有这个包, 建议改在 WSL 或 Linux 上跑本脚本"
+# dvdauthor: Linux 有现成的包; Cygwin / MSYS2 **官方源没有**, 但自己编译一份不难
+# (实测 0.7.2, 装进 /usr/bin 或 /mingw64/bin 即可被 command -v 找到 —— 2026-09-30
+#  本机两个环境都这么装上了, 本脚本在 Windows 侧因此也能完整跑)。
+command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 官方源没有这个包, 需自行编译后放进 /usr/bin 或 /mingw64/bin"
 MKISOFS=""
 for c in mkisofs genisoimage; do command -v "$c" >/dev/null 2>&1 && { MKISOFS="$(command -v "$c")"; break; }; done
 [ -n "$MKISOFS" ] || die "找不到 mkisofs / genisoimage(最后一步打包 ISO 要用到)"

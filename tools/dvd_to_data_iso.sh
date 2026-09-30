@@ -61,21 +61,12 @@ human_size() {
 DVD5=$((2298496 * 2048))
 DVD9=$((4173824 * 2048))
 
-# 挑一份"有 dvdvideo 解复用器 + 有指定编码器"的 ffmpeg。
-# 逐个候选真跑一遍 -demuxers / -encoders, 而不是只问 command -v: PATH 上第一个
-# 常常是缺能力的发行版构建(这台机器 /usr/bin/ffmpeg 就没编 dvdvideo)。
-pick_ffmpeg() {
-    local enc="$1" d c
-    if [ -n "${FFMPEG:-}" ] && [ -x "${FFMPEG}" ]; then echo "$FFMPEG"; return 0; fi
-    for c in $(IFS=:; for d in ${PATH:-/usr/bin}; do [ -n "$d" ] && echo "$d/ffmpeg"; done) \
-             /opt/ffmpeg/*/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
-        [ -x "$c" ] || continue
-        "$c" -hide_banner -demuxers 2>/dev/null | awk '{ if ($1 == "D" && $2 == "dvdvideo") f = 1 } END{ exit !f }' || continue
-        "$c" -hide_banner -encoders 2>/dev/null | awk -v e="$enc" '{ if ($2 == e) f = 1 } END{ exit !f }' || continue
-        echo "$c"; return 0
-    done
-    return 1
-}
+# 挑一份"有 dvdvideo 解复用器 + 有指定编码器"的 ffmpeg —— 由 lib/common.sh 的
+# find_ffmpeg 完成(逐个候选真跑 -demuxers / -encoders, 而不是只问 command -v)。
+# 这里早先自带一份 pick_ffmpeg, 候选只到 "PATH 各项 + /opt/ffmpeg/*/bin +
+# /usr/local/bin + /usr/bin": Linux 上够用, **Windows 两个 shell 上挑不到** ——
+# 缺"Windows 安装前缀"那一级, 而只有 find_ffmpeg 有(实测它能落到 gyan full)。
+# 统一改用 find_ffmpeg: 同一套定位逻辑不在仓库里写两份。
 
 SRC="${1:-}"
 OUT="${2:-}"
@@ -165,12 +156,15 @@ if [ "$ENCODE" = 1 ]; then
     VENC="${VENC:-libx265}"
 
     # 挑一份"有 dvdvideo 解复用器 + 有 $VENC 编码器"的 ffmpeg。
-    # 不能指望 PATH 上第一个: 这台机器 /usr/bin/ffmpeg 就没有 dvdvideo。
+    # 不能指望 PATH 上第一个: 本机 Cygwin 的 /usr/bin/ffmpeg(7.1.1) 与 MINGW64 的
+    # /mingw64/bin/ffmpeg(8.1) 都没编 dvdvideo, 只有 gyan full 有 —— find_ffmpeg
+    # 会跳过不合格的候选并把"跳过谁、为什么"打到标准错误上。
     # 而且必须连 PATH 一起给子进程: ffmpeg_dvd_hevc.sh 的能力检查用的是裸
     # `ffmpeg`(实测因此在这台机器上直接 exit 1), 光 export FFMPEG= 救不了它。
-    FFMPEG="$(pick_ffmpeg "$VENC")" || die "找不到同时具备 dvdvideo 解复用器与 $VENC 编码器的 ffmpeg(可用 FFMPEG=/path/to/ffmpeg 指定)"
-    FFPROBE="$(dirname "$FFMPEG")/ffprobe"
-    [ -x "$FFPROBE" ] || FFPROBE="$(command -v ffprobe)"
+    FFMPEG="$(find_ffmpeg --need-demuxer dvdvideo --need-encoder "$VENC")" \
+        || die "找不到同时具备 dvdvideo 解复用器与 $VENC 编码器的 ffmpeg(可用 FFMPEG=/path/to/ffmpeg 指定)"
+    FFPROBE="$(find_ffprobe "$FFMPEG" 2>/dev/null)"
+    [ -n "$FFPROBE" ] && [ -x "$FFPROBE" ] || FFPROBE="$(command -v ffprobe)"
     export FFMPEG FFPROBE
 
     info "先压 HEVC  : -> $STAGE (VENC=$VENC MODE=${HENC_MODE:-ALL})"

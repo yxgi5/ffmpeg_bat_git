@@ -217,7 +217,7 @@ if dvd_ff="$(pick_dvd_ff 2>/dev/null)" && [ -n "$dvd_ff" ]; then
 fi
 
 if [ "$NO_VIDEOTS" != 1 ]; then
-    command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor(安装: sudo apt install dvdauthor)。只要 mpg 就加 NO_VIDEOTS=1"
+    command -v dvdauthor >/dev/null 2>&1 || die "找不到 dvdauthor(Linux: sudo apt install dvdauthor;Cygwin/MSYS2 官方源没有这个包, 需自行编译后放进 /usr/bin 或 /mingw64/bin)。只要 mpg 就加 NO_VIDEOTS=1"
     if [ "$NO_ISO" != 1 ]; then
         [ -x "$SCRIPT_DIR/dvd_restore.sh" ] || die "缺少同目录的 dvd_restore.sh(打 ISO 由它完成)。不打 ISO 就加 NO_ISO=1"
     fi

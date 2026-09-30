@@ -430,35 +430,36 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 `dvd_hevc` / `dvd_shrink` / `dvd_to_data_iso` 是真依赖，`dvd_make_sample` 只有回读那一步依赖，
 `dvd_repair` / `dvd_restore` 完全不需要。
 
-### ④ 打包器与依赖盘点（2026-09-29 实测，两个 shell 都查了）
+### ④ 打包器与依赖盘点（2026-09-30 复测：工具已装进系统目录）
+
+> 2026-09-29 那轮查到 `dvdauthor` 等在 `/opt/dvdtools/bin` 且**不在 PATH 上**；
+> 之后这些工具被编译安装到了**系统目录**（`/usr/bin` / `/mingw64/bin`），
+> 所以**不用再改 PATH**。下表是 09-30 的复测结果。
 
 | 命令            | Cygwin64                                                         | MSYS2 MINGW64                    | 谁要用                                    |
 | ------------- | ---------------------------------------------------------------- | -------------------------------- | -------------------------------------- |
-| `dvdauthor`   | ✅ `/opt/dvdtools/bin` 0.7.2（**自编译，目录不在默认 PATH**）            | ✅ `/opt/dvdtools/bin` 0.7.2（**同上**） | `dvd_shrink` / `dvd_repair`（重建 IFO）/ `dvd_make_sample`（建 VIDEO_TS，`NO_VIDEOTS=1` 可绕） |
-| `mkisofs`     | 🟡 `/cygdrive/d/…/WinCDEmu/mkisofs` 3.01a24（**原生 exe**，`pick_mkisofs` 会主动跳过） | ❌ MISSING                        | 打 ISO                                   |
-| `genisoimage` | ✅ `/usr/bin/genisoimage` 1.1.11 (CYGWIN)                         | ❌ MISSING                        | 打 ISO（`pick_mkisofs` 的第二候选）             |
-| **`xorrisofs`** | ✅ `/opt/dvdtools/bin/xorrisofs` 1.5.6（加 PATH 后）                 | ✅ `/usr/bin/xorrisofs` 1.5.8     | **mkisofs 兼容前端 —— 打包器缺口的现成答案**（`pick_mkisofs` 当前还不认这个名字） |
-| `xorriso`     | ✅ `/opt/dvdtools/bin/xorriso` 1.5.6（加 PATH 后）                   | ✅ `/usr/bin/xorriso` 1.5.8      | 打包后清单校验（可选，缺了就跳过）                       |
+| `dvdauthor`   | ✅ `/usr/bin` 0.7.2                                               | ✅ `/mingw64/bin` 0.7.2            | `dvd_shrink` / `dvd_repair`（重建 IFO）/ `dvd_make_sample`（建 VIDEO_TS，`NO_VIDEOTS=1` 可绕） |
+| `dvdunauthor` / `spumux` | ✅ `/usr/bin`                                          | ✅ `/mingw64/bin`                  | 反解 / 位图字幕                               |
+| `mkisofs`     | 🟡 `/cygdrive/d/…/WinCDEmu/mkisofs` 3.01a24（**原生 exe**，`pick_mkisofs` 会主动跳过） | ❌ MISSING（**不影响**：脚本都按 `mkisofs → genisoimage` 找） | 打 ISO                                   |
+| `genisoimage` | ✅ `/usr/bin` 1.1.11 (CYGWIN)                                     | ✅ `/mingw64/bin`（09-30 编译装好）        | 打 ISO（`pick_mkisofs` 的第二候选）             |
+| `xorriso`     | ✅ `/usr/bin` 1.5.6                                               | ✅ `/usr/bin` 1.5.8               | 打包后清单校验（可选，缺了就跳过）                       |
+| `xorrisofs`   | ✅ `/usr/bin` 1.5.6                                               | ✅ `/usr/bin` 1.5.8               | mkisofs 兼容前端；**当前只是备用**，`genisoimage` 已够 |
 | `7z`          | ✅ `/usr/bin/7z`                                                  | ✅ `/usr/bin/7z`                 | 校验的回退手段                                 |
-| `isoinfo`     | ✅ `/usr/bin/isoinfo`                                             | ❌（功能用 `xorriso -osirrox on -indev <iso> -find / -ls` 替代） | —                                      |
+| `isoinfo`     | ✅ `/usr/bin`                                                     | ✅ `/mingw64/bin`                 | **`tools/` 里没有引用**，缺不缺都不影响脚本             |
 
-**前提**：`/opt/dvdtools/bin` **不在两个 shell 的默认 PATH 里**（实测 PATH 只到 `/usr/bin`、
-`/mingw64/bin` 那一档）→ 直接 `command -v dvdauthor` 会报 MISSING，**不是没装，是没挂上**。
-下面与「第 56 条」的结论都以 `export PATH="/opt/dvdtools/bin:$PATH"` 为准。
+**→ 结论（09-30）：命令层面两环境都齐了**，`mkisofs` 字面缺失与 `isoinfo` 都不构成阻塞
+（前者由 `genisoimage` 兜住，后者脚本根本不用）。
 
-**→ 结论：两个环境都不必再编译任何东西**，只差两件小事：
+**剩下的那个坑是 ffmpeg 定位，已于 09-30 修掉（不是环境缺口，是仓库自己的重复实现）**：
 
-* **① 把 `/opt/dvdtools/bin` 加进 PATH**（两环境都要，否则 `dvdauthor` / `xorrisofs` 一律 MISSING，
-  `dvd_shrink.sh` / `dvd_repair.sh` 会直接 `die`）：写进 `~/.bashrc`，或 `/etc/profile.d/dvdtools.sh`
-  （后者对 `bash -lc` 这类非交互调用也生效 —— **而本仓库的 sh 入口正是这么被调起的**）。
-* **② 让 `pick_mkisofs` 认 `xorrisofs`**（MINGW64 唯一的真缺口）：`xorrisofs` 随 xorriso 一起装好了
-  （MINGW64 `/usr/bin/xorrisofs` 1.5.8、Cygwin `/opt/dvdtools/bin/xorrisofs` 1.5.6），
-  支持 `-iso-level` 等选项，`xorriso -as mkisofs` 与它是同一套 —— 但 `pick_mkisofs` 只找
-  `mkisofs` / `genisoimage` 两个名字，所以 MINGW64 落 ISO 仍会 `die`。
-  两条路：给 `pick_mkisofs` 加一档 `xorrisofs`（推荐，仓库内可测），或在 `/usr/local/bin/mkisofs`
-  放一个转发包装（不动仓库）。
-* **③ Cygwin 已经能打 ISO**：`pick_mkisofs` 跳过 WinCDEmu 那个原生 exe → 落到 `/usr/bin/genisoimage`；
-  清单校验可用 `/opt/dvdtools/bin/xorriso` 1.5.6（加 PATH 后）。
+* `dvd_shrink.sh` 与 `dvd_to_data_iso.sh` 原先各自带一份 `pick_ffmpeg`，候选只到
+  **PATH 各项 + `/opt/ffmpeg/*/bin` + `/usr/local/bin` + `/usr/bin`** —— Linux 上够用，
+  **Windows 上挑不到**：本机唯一带 `dvdvideo` 的是 gyan full（`C:\Program Files\ffmpeg\bin`），
+  而"Windows 安装前缀"这一级只有 `lib/common.sh` 的 `find_ffmpeg` 有。
+* 已改为 `find_ffmpeg --need-demuxer dvdvideo --need-encoder <enc>`（两处），
+  `ffprobe` 同步改用 `find_ffprobe "$FF"`。实测（Cygwin）：
+  `--need-demuxer dvdvideo --need-encoder mpeg2video` → `/cygdrive/c/Program Files/ffmpeg/bin/ffmpeg` ✅，
+  `--need-encoder libx265` 同样命中。改动后 7 个脚本 `bash -n` 全过。
 
 ---
 
@@ -1602,23 +1603,25 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       `hevc_nvenc`/`hevc_qsv`/`libx265`（三条探测全部 rc=0）；NVENC 压 DVD 约 **74x**
       （1119s 的 title 只花 ~15 s 墙钟），做 DVD 端到端比软编便宜一个量级。
 
-56. **Windows 两个 shell 的 DVD 链路缺口（2026-09-29 实测，接第 55 条与「表 5」）**：
-    * **① `dvdauthor` 0.7.2 两环境都已装**（用户自编译，在 `/opt/dvdtools/bin`，
-      同目录还有 `dvdunauthor` / `spumux` / `xorriso` / `xorrisofs` / `osirrox`），
-      **但该目录不在两个 shell 的默认 PATH** → `command -v dvdauthor` 实测仍是 MISSING，
-      `dvd_shrink.sh` / `dvd_repair.sh` 照样 `die`。补齐方式就是加 PATH（见「表 5 ④」①），
-      **不用再编译**。
-    * **② MINGW64 的打包器也不用编译**：`/usr/bin/xorrisofs` 1.5.8（随 xorriso 的
-      mkisofs 兼容前端，实测 `--version` rc=0、支持 `-iso-level`）已经在了；
-      缺的只是 `pick_mkisofs` 只认 `mkisofs` / `genisoimage` 两个名字。
-      → 待办：加一档 `xorrisofs`（改前确认 `-udf` 与 `-iso-level 3 -J -r` 语义等价），
-      或在 `/usr/local/bin/mkisofs` 放转发包装。
-    * **③ Cygwin 已经能打 ISO**：`pick_mkisofs` 跳过 WinCDEmu 那个原生 exe →
-      `/usr/bin/genisoimage` 1.1.11；加 PATH 后还能用 `/opt/dvdtools/bin/xorriso` 1.5.6
-      做打包后的清单校验（`isoinfo` 也在 `/usr/bin`）。
+56. **Windows 两个 shell 的 DVD 链路（2026-09-29 盘点 → 09-30 收口，接第 55 条与「表 5」）**：
+    * **① 依赖已全部就位**：`dvdauthor` 0.7.2 / `dvdunauthor` / `spumux` / `genisoimage` /
+      `isoinfo` 在 Cygwin64 落到 `/usr/bin`、在 MINGW64 落到 `/mingw64/bin`（`xorriso` 两环境
+      都在 `/usr/bin`）→ **不用再改 PATH**；`mkisofs` 字面缺失由 `genisoimage` 兜住，
+      `isoinfo` 脚本根本不用，**两者都不构成阻塞**。
+    * **② 真正的阻塞项是仓库自己的重复实现（09-30 已修）**：`dvd_shrink.sh` 与
+      `dvd_to_data_iso.sh` 各自那份 `pick_ffmpeg`，候选只到 "PATH 各项 + `/opt/ffmpeg/*/bin`
+      + `/usr/local/bin` + `/usr/bin`"，**缺 "Windows 安装前缀" 这一级** —— 而本机唯一带
+      `dvdvideo` 的是 gyan full，于是这两个脚本在 Windows 两个 shell 下都会 `die`。
+      已改为 `find_ffmpeg --need-demuxer dvdvideo --need-encoder <enc>`（ffprobe 同步改
+      `find_ffprobe "$FF"`）；实测两种编码器形参都命中 gyan。**教训：同一套"按能力挑构建"
+      的逻辑在仓库里写两份，各漏一半 —— 定位器应当只有 `lib/common.sh` 一个。**
+    * **③ 顺带更新过时提示**：`dvd_shrink.sh` / `dvd_repair.sh` / `dvd_make_sample.sh` 里
+      "dvdauthor 在 Cygwin/MSYS2 官方源没有，建议改在 WSL 或 Linux 上跑"已改为
+      "需自行编译后放进 `/usr/bin` 或 `/mingw64/bin`"（实测 0.7.2 可用）。
     * **④ dvdvideo 两环境都不在 PATH 首份上**（Cygwin 7.1.1 / MINGW64 8.1 都无，
       只有 gyan full 有）→ 见「表 5 ①」；挑到 gyan 后 ffprobe 必须取同目录那份，
       HEAD 已逐处落实（见「表 5 ②」）。
-    * **⑤ 待补的实测**：`dvd_make_sample.sh NO_VIDEOTS=1` 在 MINGW64 上跑一遍 ——
-      合成素材这条路不依赖 dvdauthor，只要 ffmpeg 有 mpeg2video+ac3（两环境都有），
-      是"两个 shell 都能跑通"的最小可验路径。
+    * **⑤ 待补的实测**（依赖齐了，可以动真格）：远端已合入 `test/sh/smoke_dvd_tools.sh`
+      （`tools/` 五个脚本 D01–D17 共 22 用例，用**合成盘** 2 title × 30s × 3 章节）——
+      **两个 shell 各跑一遍**；MINGW64 那轮尤其能验证 ② 的修复（D10 `dvd_shrink`、
+      D11/D12 `dvd_to_data_iso` 都要靠它挑到 gyan 才走得下去）。

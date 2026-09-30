@@ -529,6 +529,14 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 本机 PATH 上的 Ubuntu 4.4.2 没有 dvdvideo，于是自动落到 `/opt` 下的 master build，**不用写死路径**。
 显式指定（`FFMPEG_BIN` / `FFMPEG`）仍然无条件优先——能力不足只报错、不悄悄换掉。
 
+Windows 两个 shell 里同一件事更明显：Cygwin 的 `/usr/bin/ffmpeg`(7.1.1) 与 MINGW64 的
+`/mingw64/bin/ffmpeg`(8.1) **都没有 dvdvideo**，只有 gyan full(`C:\Program Files\ffmpeg\bin`) 有 ——
+`find_ffmpeg` 的"常见安装前缀"那一级会按 `cygpath` 生成这些 Windows 路径，因此能自动落到它。
+`tools/` 下的 DVD 脚本一律走 `find_ffmpeg`（`dvd_shrink.sh` 要 `dvdvideo + mpeg2video`，
+`dvd_to_data_iso.sh` 要 `dvdvideo + $VENC`）；这两处早先各自带了一份 `pick_ffmpeg`，
+候选里少了 Windows 前缀那一级，在 Windows 上反而挑不到，已于 2026-09-30 统一合并过来 ——
+**定位器只在 `lib/common.sh` 有一份，不要在脚本里另写**。
+
 ## 已知边界与注意事项
 
 | 项 | 说明 |

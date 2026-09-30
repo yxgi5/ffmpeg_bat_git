@@ -298,7 +298,10 @@ fi
 #  依赖: 只有真的要重建时才需要
 # =========================================================================
 if [ "$NEED_TOOLS" = "1" ]; then
-    command -v dvdauthor >/dev/null 2>&1 || die "要重建 IFO/BUP, 但找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 的官方源里没有这个包, 建议改在 WSL 或 Linux 上跑本脚本"
+    # Cygwin / MSYS2 官方源没有 dvdauthor, 但可以自己编译(实测 0.7.2), 装进
+    # /usr/bin 或 /mingw64/bin 后 command -v 就能找到 —— 2026-09-30 本机两个
+    # 环境都已这么装上, 重建这条路在 Windows 侧同样跑得通。
+    command -v dvdauthor >/dev/null 2>&1 || die "要重建 IFO/BUP, 但找不到 dvdauthor。Linux: sudo apt install dvdauthor;Cygwin/MSYS2 官方源没有这个包, 需自行编译后放进 /usr/bin 或 /mingw64/bin"
     FF="${FFMPEG:-}"
     [ -n "$FF" ] && [ -x "$FF" ] || FF="$(find_ffmpeg 2>/dev/null)"
     [ -n "$FF" ] && [ -x "$FF" ] || FF="$(command -v ffmpeg 2>/dev/null)"
