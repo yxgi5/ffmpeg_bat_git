@@ -94,7 +94,8 @@ say() { echo "$@" | tee -a "$SUM"; }
 # min-size rule must hold for every fixture in this repo, not just the
 # hardware ones - see test/README.md) ----------
 mk_base() {
-    "$FF" -hide_banner -loglevel error \
+    # 走 ff_run(不是直接 "$FF"): 原生 Windows 构建吃不了 /tmp/... 这类 POSIX 路径
+    ff_run -hide_banner -loglevel error \
         -f lavfi -i "testsrc2=size=320x240:rate=10" \
         -f lavfi -i "sine=frequency=440:sample_rate=44100" \
         -t 1 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -y "$1"
@@ -110,7 +111,8 @@ CDIR="$W/chars"
 probe_codec() {   # probe_codec <file> -> codec_name or none
     [ -f "$1" ] || { echo "NOFILE"; return; }
     local c
-    c=$("$FP" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null | tr -d '\r')
+    # fp_run(不是裸 "$FP"): 被测文件是 POSIX 路径, 原生 Windows 构建要改写后才能读
+    c=$(fp_run -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null | tr -d '\r')
     echo "${c:-none}"
 }
 

@@ -101,7 +101,8 @@ mk_fixture() {
     fi
     vopt+=(-t "$secs" -c:v libx264 -preset ultrafast -b:v "$br" -pix_fmt yuv420p)
     [ "$audio" = "1" ] && vopt+=(-c:a aac -b:a 128k -shortest)
-    "$FF" "${vopt[@]}" -y "$out" || return 1
+    # 走 ff_run(不是直接 "$FF"): 原生 Windows 构建吃不了 /tmp/... 这类 POSIX 路径
+    ff_run "${vopt[@]}" -y "$out" || return 1
     return 0
 }
 
@@ -119,7 +120,7 @@ TINY="$W/tiny/tiny.mp4"
 
 [ -f "$QUIET" ] || mk_fixture "$QUIET" 1920x1080 60 2 18M 0 || { echo "FATAL: silent fixture failed" >&2; exit 2; }
 [ -f "$INMOV" ] || mk_fixture "$INMOV" 1920x1080 60 1 18M 1 || { echo "FATAL: mov fixture failed" >&2; exit 2; }
-[ -f "$AONLY" ] || "$FF" -hide_banner -loglevel error -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 2 -c:a aac -b:a 128k -y "$AONLY" || { echo "FATAL: audio fixture failed" >&2; exit 2; }
+[ -f "$AONLY" ] || ff_run -hide_banner -loglevel error -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 2 -c:a aac -b:a 128k -y "$AONLY" || { echo "FATAL: audio fixture failed" >&2; exit 2; }
 # low-bitrate source: 400k < table(1080p AVC)/2 = 3836249 -> the documented
 # "keep the source bitrate" clamp must fire in ARG mode too (T17).
 [ -f "$LOW" ] || mk_fixture "$LOW" 1920x1080 30 2 400k 1 || { echo "FATAL: low-bitrate fixture failed" >&2; exit 2; }
@@ -150,13 +151,14 @@ say "---- verdicts ----"
 probe_codec() {   # probe_codec <file> -> codec_name or NOFILE
     [ -f "$1" ] || { echo "NOFILE"; return; }
     local c
-    c=$("$FP" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null | tr -d '\r')
+    # fp_run(不是裸 "$FP"): 被测文件是 POSIX 路径, 原生 Windows 构建要改写后才能读
+    c=$(fp_run -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" 2>/dev/null | tr -d '\r')
     echo "${c:-none}"
 }
 
 probe_sidecar() {  # probe_sidecar <file> <out.txt>
     [ -f "$1" ] || return 0
-    "$FP" -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate \
+    fp_run -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate \
         -of default=noprint_wrappers=1 "$1" > "$2" 2>&1
 }
 
