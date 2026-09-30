@@ -1621,7 +1621,52 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **④ dvdvideo 两环境都不在 PATH 首份上**（Cygwin 7.1.1 / MINGW64 8.1 都无，
       只有 gyan full 有）→ 见「表 5 ①」；挑到 gyan 后 ffprobe 必须取同目录那份，
       HEAD 已逐处落实（见「表 5 ②」）。
-    * **⑤ 待补的实测**（依赖齐了，可以动真格）：远端已合入 `test/sh/smoke_dvd_tools.sh`
-      （`tools/` 五个脚本 D01–D17 共 22 用例，用**合成盘** 2 title × 30s × 3 章节）——
-      **两个 shell 各跑一遍**；MINGW64 那轮尤其能验证 ② 的修复（D10 `dvd_shrink`、
-      D11/D12 `dvd_to_data_iso` 都要靠它挑到 gyan 才走得下去）。
+    * **⑤ 实测已补**：两个 shell 各跑一遍 `test/sh/smoke_dvd_tools.sh`（D01–D17 共 22 用例），
+      修完下面两条后**双双 PASS=22 / FAIL=0 / SKIP=0**（详见第 57 条）。
+
+57. **DVD 链路两 shell 冒烟收口（2026-09-30，接第 56 条）**：
+    * **① 冒烟结果**：合成盘 2 title × 6s，`test/sh/smoke_dvd_tools.sh` 两个 shell 各跑一遍 ——
+      Cygwin64 由 **PASS=18 / FAIL=2 / SKIP=2**、MINGW64 由 **PASS=7 / FAIL=15** 一起收敛到
+      **双双 PASS=22 / FAIL=0 / SKIP=0**。
+    * **② MINGW64 全塌的真因不是挑不到 ffmpeg，是 dvdauthor**：`/mingw64/bin/dvdauthor` 是
+      **原生 mingw 构建**（不链 `msys-2.0.dll`），给它 `dvdauthor -o /tmp/.../sample` 这种
+      **尚不存在**的 POSIX 路径会直接 `ERR: cannot create dir /tmp/...: No such file or directory`
+      → D01 造盘失败 → 后面 15 个用例连锁 FAIL。Cygwin 的 `/usr/bin/dvdauthor` 链 `cygwin1.dll`、
+      认 POSIX 路径，所以那边 D01 一直能过。
+      **两个 shell 的关键差别**：MSYS2 会给原生子进程改写 argv 里的路径，但**只对已存在的路径
+      改写**；Cygwin 一律不改写（这一点 `lib/common.sh:562` 早有记载）。所以"待创建目录"这类
+      参数即使在 MSYS2 下也是漏网的 —— 光靠 shell 兜不住，得脚本自己转。
+    * **③ 修法（按用户意见：不重编译 dvdauthor 的 msys 版）**：`lib/common.sh` 新增
+      `tool_is_posix_aware()`（用 `ldd` 看链的是不是 `cygwin1.dll` / `msys-2.0.dll`）与
+      `da_path()`（原生就走 `native_path` 转成 `X:/...`，否则原样返回）；调用侧五处全部改走
+      `da_path`：`dvd_make_sample.sh` 的 XML `dest`、`dvd_shrink.sh` / `dvd_repair.sh` 的 XML
+      `dest` 与 `<vob file>`、`dvd_repair.sh` 的 `dvdauthor -T -o`。
+    * **④ `probe_title` 对时长要求过严（两处同一个坑）**：`dvd_shrink.sh` 与 `ffmpeg_dvd_hevc.sh`
+      都写 `[ -n "$dur" ] || return 1`，而时长一旦读不出来（**真因是 ⑦ 的 CR，不是 N/A**）→
+      整盘一条 title 都选不出来（Cygwin 的 D10 / D12 由此 FAIL）。已改为"读不出时长记 0"
+      （宽高探到就说明 title 在），AUTO 的 `BEST` 初值改 `-1` 好让 0 也能选中；`dvd_shrink`
+      里所有"按容量反推 / 产物估算"的算式加 `DUR_OK` 保护（否则 awk 除零），时长读不出时默认
+      `VB_UNKNOWN=5000` kbps，并提示可用 `VBITRATE=xxxxk` 覆盖。`ffmpeg_dvd_hevc.sh` 的时长
+      只用于体积估算显示（原本就有 `if [ -n "$SRC_DUR" ]` 保护），放宽无副作用。
+    * **⑤ 冒烟脚本自身的口径 bug**：`FF` 只取 `command -v ffmpeg`（Cygwin 是 7.1.1，没 libx265）
+      → D12 被误判成 SKIP，而脚本真跑时走 `find_ffmpeg` 挑的是 gyan（有 libx265）。已改成
+      `find_ffmpeg --need-demuxer dvdvideo`，与脚本同口径。**教训：测试的能力探针必须和被
+      测脚本用同一个定位器，否则会低估本机能力。**
+    * **⑥ 补第 56 条 ④ 的环境事实**：Cygwin64 的 PATH **含** gyan 目录（排在 `/usr/bin` 之后），
+      MINGW64 的 PATH **不含**。所以修复前的 `pick_ffmpeg` 在 Cygwin 其实挑得到、在 MINGW64
+      必 `die` —— 统一到 `find_ffmpeg` 后两边一致命中 gyan，`fp_run` / `ff_run` 负责把
+      POSIX 路径改写成它认得的写法（裸调 gyan 读 `/tmp/...` 会 `libdvdread: Can't stat`）。
+    * **⑦ 最隐蔽的一条：原生 ffprobe 的输出行尾带 CR（09-30 修，真盘同样会踩）**：gyan 这类
+      **原生**构建写出来的是 CRLF。`fp_run` 直出看着完全正常（`6.000000`），但过一遍
+      `tr ',' '\n' | awk '/^[0-9]+(\.[0-9]+)?$/'` 就成**空** —— CR 粘在行尾，整行正则永远
+      匹配不上。宽高那种按**字段**匹配的侥幸不受影响（CR 落在第 3 个字段上），于是同一份盘
+      "读得到 720x576、读不到时长"，表象就是 `读不到 title N`。
+      仓库里 `ffmpeg_dvd_hevc.bat:205` 早有一处 `tr -d '\r'`（作者踩过），sh 侧漏了：
+      `dvd_shrink.sh`（`probe_field` / 宽高 / 章节）、`ffmpeg_dvd_hevc.sh`（宽高 / 时长）、
+      `dvd_repair.sh` 七处，全部补上 `tr -d '\r'`。修完 `dvd_shrink` 的 D10 从"兜底分支
+      （读不到时长 → 默认 5000 kbps）"变成真读到 `6.000s` 并正常反推码率 —— 说明 ④ 那条
+      兜底**必要，但不能替代根治**（兜底会静默按固定码率编，真盘遇上也只是不报错而已）。
+    * **⑧ bat 侧同步**：`ffmpeg_dvd_hevc.bat` 的 `:PROBE` 早把 N/A 当 0（比 sh 早），但
+      `:AUTO_LOOP` 的 `BESTD` 从 0 起、`if %TDI% gtr %BESTD%` → 全 0 时长时一条都选不中，
+      与 sh 改前同一个坑。已改 `BESTD=-1` 起步，并在 `:AUTO_DONE` 把**显示值**归零。
+      实测 bat 侧用同一张合成盘跑 `MODE=AUTO` 与 `MODE=ALL` 两轮均 rc=0（各出 150 帧 mkv）。

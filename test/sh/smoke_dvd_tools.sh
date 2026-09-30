@@ -46,6 +46,16 @@ SCENE="${SCENE:-10}"
 
 FF="$(command -v ffmpeg || true)"
 FP="$(command -v ffprobe || true)"
+# 能力探针要和脚本同口径: 脚本走 find_ffmpeg(挑得出带 dvdvideo 的那份), 这里若只看
+# PATH 第一个就会低估本机能力 —— 2026-09-30 实测 Cygwin PATH 首份 7.1.1 没有 libx265,
+# D12 因此被误判成 SKIP, 而脚本真跑时用的是 gyan 那份(有 libx265)。
+if [ -f "$REPO/lib/common.sh" ]; then
+    . "$REPO/lib/common.sh" >/dev/null 2>&1
+    # 带 --need-demuxer dvdvideo: 与 dvd_to_data_iso / dvd_shrink 的挑选口径一致
+    # (裸 find_ffmpeg 会挑回 PATH 首份, Cygwin 下那是 7.1.1, 没有 libx265, D12 会误 SKIP)
+    _ff="$(find_ffmpeg --need-demuxer dvdvideo 2>/dev/null)"; [ -n "${_ff:-}" ] && FF="$_ff"
+    _fp="$(find_ffprobe "$FF" 2>/dev/null)"; [ -n "${_fp:-}" ] && FP="$_fp"
+fi
 
 # ---------- setup guards ----------
 if [ ! -f "$REPO/lib/common.sh" ]; then
