@@ -158,7 +158,10 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 #  那边靠先跑一遍整个入口, 这里把判断搬进入口, 直接跑入口时也能得到明确结论。)
 if ! qsv_encoder_ready av1_qsv; then
     echo -e "\033[43;30m本机没有可用的 AV1 QSV 编码器(需 Arrow Lake 或更新的核显) —— 未生成产物\033[0m"
-    exit 1
+    # 退出码 4 = 硬件缺失(契约见 test/README 5.2), 与"转码失败"(1)分开:
+    #   前者对清单里每一个文件都成立, convert_from_list_* 因此直接中止而不是
+    #   逐条重试; 后者只是这一个文件的问题。
+    exit 4
 fi
 
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------

@@ -107,7 +107,10 @@ rem 1 帧 lavfi 源先试一次; AV1 QSV 需要 Arrow Lake 或更新的核显。
 call "%SELF_DIR%lib\common.bat" qsv_encoder_ready av1_qsv
 if "%QSV_ENC_OK%"=="1" goto AV1_ENC_READY
 echo 本机没有可用的 AV1 QSV 编码器(需 Arrow Lake 或更新的核显) —— 未生成产物
-exit /b 1
+rem 退出码 4 = 硬件缺失(契约见 test\README.md 5.2), 与"这一个文件转失败"(1)分开:
+rem   4 对清单里每一个文件都成立, convert_from_list_* 因此直接中止整份清单,
+rem   而不是把同一堵墙再撞一遍; 1 只是当前文件的问题。
+exit /b 4
 :AV1_ENC_READY
 
 rem ---------- H.264 High 10 源: QSV 硬解不吃 profile 110 ----------

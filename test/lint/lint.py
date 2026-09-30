@@ -768,11 +768,17 @@ def shutil_which(cmd):
 
 
 # ---------------------------------------------------------------- L13
-ALLOWED_BAT_EXITS = {0, 1, 2, 3, 5, 6}
-ALLOWED_SH_EXITS = {0, 1, 2, 3, 5, 6, 8, 9}   # 6: output exists and FF_ON_EXIST=fail
-                                              #    (2026-09-30; see lib/common.sh
-                                              #    ff_run and lib/common.bat :on_exist)
-                                              # 8/9: harness-level setup errors
+ALLOWED_BAT_EXITS = {0, 1, 2, 3, 4, 5, 6}
+ALLOWED_SH_EXITS = {0, 1, 2, 3, 4, 5, 6, 8, 9}  # 4: hardware missing - the encoder is
+                                                #    listed by ffmpeg -encoders but the
+                                                #    device cannot open it (av1_qsv on
+                                                #    UHD 770). List wrappers ABORT the
+                                                #    whole run on it (2026-09-30, user
+                                                #    call: no point retrying every file).
+                                                # 6: output exists and FF_ON_EXIST=fail
+                                                #    (2026-09-30; see lib/common.sh
+                                                #    ff_run and lib/common.bat :on_exist)
+                                                # 8/9: harness-level setup errors
 
 
 def check_exit_codes(inv):
@@ -839,8 +845,9 @@ def check_exit_codes(inv):
 # their test sits INSIDE a `for /f ... do ( ... )` block, where every `%VAR%`
 # is expanded once when the block is parsed, so a `%ERRORLEVEL%` test would be
 # frozen at the block's entry value. `if errorlevel` reads the live status
-# instead - and the children are constrained by L13 to {0,1,2,3,5}, all
-# non-negative, so the signed compare cannot miss one.
+# instead - and the children are constrained by L13 to {0,1,2,3,4,5,6}, all
+# non-negative, so the signed compare cannot miss one. (4 is only read through
+# `if errorlevel 4 if not errorlevel 5`, i.e. exactly 4, so it cannot swallow 5/6.)
 def check_fail_propagation(inv):
     bads = []
     checked = 0

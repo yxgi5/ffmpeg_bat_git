@@ -182,7 +182,7 @@ test/
 | L10 | `lib/common.sh` 的 `run_list` 仍做 `</dev/null` 重定向 | 5 条目清单只跑第一条的历史回归 |
 | L11 | 每个编码入口的 `-i` 出现在 `-c:v` 之前 | 选项顺序错误会让 `-c:v` 被当成输入选项 |
 | L12 | `bash -n` 语法检查（找不到 bash 则 SKIP） | 最廉价的一道防线 |
-| L13 | `exit` / `exit /b` 取值在白名单内（bat `0,1,2,3,5,6`；sh 另允许 `6,8,9`） | 让 §5.2 的退出码契约不漂移（`6` 为 2026-09-30 新增的「产物已存在」） |
+| L13 | `exit` / `exit /b` 取值在白名单内（bat `0,1,2,3,4,5,6`；sh 另允许 `6,8,9`） | 让 §5.2 的退出码契约不漂移（`4` 为 2026-09-30 新增的「硬件缺失」，`6` 为同日新增的「产物已存在」） |
 | L14 | `test/` 下的 `.sh` 在 **git 索引**里必须是 `100755`（读 `git ls-files -s`，不读文件系统） | Windows 上 `core.fileMode=false`，pull 出来丢执行位 |
 | L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`。**且 `.bat` 入口的守卫必须是「负数安全」的**（`if not "%X%"=="0"` 或 `%X% NEQ 0`，`X` = `%ERRORLEVEL%` 或紧接着从它赋值的变量），不允许用 `if errorlevel N` | **2026-09-17 实际缺口（两层）**：① `.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）；② 改成 `if errorlevel 1` 后**仍然没修好**——它是**带符号比较**，而 Windows 版 ffmpeg 失败时返回**负** AVERROR（本机 `av1_qsv` 退出码 **-40 / Function not implemented**），`-40 >= 1` 不成立 → 守卫不触发 → 依旧落到 `exit /b 0`。用户正是在复跑探针时看到 `rc=0 but no real output (0B) \| ERRORLEVEL:-40` 才揪出来的。L13 只查取值词表，查不出「失败路径根本不可达」 |
 | L16 | **流映射一致性**：每个 mp4 出口（两族 21 个 `ffmpeg_*`）都必须带 `-map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`，且**视频映射按出口类型区分**：编码类必须 `-map 0:V`，remux 两族必须 `-map 0:v`（两边写反都报 FAIL）；**且编码类必须"保留封面"**：① 引用封面映射变量（`.sh` 的 `${COVER_MAP[@]}` / `.bat` 的 `%COVERMAP%`）② **不得出现未加流号的 `-c:v copy`**（会和 `-c:v:0` 撞在同一条流上，ffmpeg 报 `Multiple -codec ... only the last option will be used`；只有 remux 允许）③ 必须有 `-c:v:0 <编码器>` ④ 不得出现未加作用域的 `-profile:v`（会打死 copy 流）；⑤ **闸门变量必须排在 `-map 0:s?` 之后**（变量里兼带位图字幕的负映射 `-map -0:s:<i>`，而负映射只排除"已映射进来"的流，顺序反了就失效 → 位图字幕把整条打成 0 字节）；`lib/common.{sh,bat}` 必须定义封面映射字面量**且**带上封面复制指令 `-c:v:1 copy`**且**定义位图字幕名单（含 `hdmv_pgs_subtitle`）（封面复制下标**由 ffprobe 数流算出**，写死槽位在多路视频源上会错位到「整条 rc=127 写 0 字节」，`-c:v:1 copy` 现为探测失败时的兜底字面量；remux 与 DVD 入口按白名单豁免） | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露。<br>**2026-09-28 实际缺口（用户报障「前一个命令失败，后一个命令成功」）**：编码类的 `-map 0:v` 会把 **mkvmerge 写入的封面图**（attached picture）当成第二路输出视频流送进编码器，而 mp4 只能把封面存成 mjpeg/png/bmp → `Could not find tag for codec hevc in stream #1, codec not currently supported in container` → `Could not write header … Invalid argument` → **0 字节、整条白跑**（用户那份 2h13m 的 mkv 第 4 条流就是 `mjpeg (attached pic)`，ffprobe `attached_pic=1`）。改 `-map 0:V` 修掉，共 19 文件 21 处。remux 两族**不能**跟着改：它们 `-c:v copy`，mp4 存得下复制过来的 mjpeg 封面（实测输出 3 条流全在、`attached_pic=1`），改成 `0:V` 反而会把今天还在的封面悄悄丢掉。<br>**2026-09-28 同日，用户追加要求「如果有封面的尽可能保留封面呗」**：`0:V` 只是"别炸"，封面本身还是丢了。真正保留封面的写法是「**复制默认 + 只编码主视频**」—— `-c:v copy -c:v:0 libx264`，配 `-map 0:v:disp:attached_pic?`（按 **disposition** 选流，**几层封面都能一起选中**，也不用去数封面在第几路）。`disp:` 是 ffmpeg 7.1+ 才有的说明符，老构建视为**语法错误**、结尾的 `?` 救不了 → 两族各加一个**能力闸门**（`.sh` 的 `cover_map_gate` / `.bat` 的 `:cover_map`：lavfi 假源探一次，不认就只丢封面、绝不让整条编码失败）。copy 流会吃下未加作用域的编码参数，实测**只有 `-profile:v` 致命**（`Error setting up codec context options`）→ profile 一律写 `-profile:v:0`，Cygwin 入口的 `-vf` 同理改 `-filter:v:0`。详见 `environment_matrix.md` 第 52/53 条。<br>**2026-09-28 再追加，位图字幕（用户给了 7 个 DVD ISO 样本后实测）**：`-c:s mov_text` 只能吃文本字幕，遇到 `hdmv_pgs_subtitle` / `dvd_subtitle` 会报 `Subtitle encoding currently only possible from text to text or bitmap to bitmap` → rc=-22 **写 0 字节**。扫用户 838 条清单（657 可访问）**命中 14 个**（Chernobyl 全 5 集、花と蛇 8 部等）。修法：lib 数流时按字幕的 **per-type 下标**发 `-map -0:s:<i>` 负映射（用下标而非 `-map -0:s`，否则同文件里能救的 ass/subrip 会一起丢），随同一变量下发 → 入口零改动。详见 `environment_matrix.md` 第 54 条 |
@@ -537,11 +537,25 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 | `1` | 参数错误 / 输入文件不存在 / 清单非文本 / 清单条目缺失 / **编码或转换失败**（ffmpeg 非零返回原样传回）/ **找不到 ffmpeg** |
 | `2` | 查表越界（像素数超出码率表范围） |
 | `3` | 输入没有视频流 |
+| `4` | **硬件缺失**：编码器在 ffmpeg 里列着，但这台机器的硬件打不开它（2026-09-30 新增，见下） |
 | `5` | 码率异常（`percentage <= 0`） |
 | `6` | 产物已存在且 `FF_ON_EXIST=fail`（一个字节都没转，且调用方要求察觉；默认策略 `skip` 仍是 `0`） |
 
 `lib/common.sh` 的 `check_file_isvideo` 与 10 个 `.sh` 入口的码率异常分支
-已在 2026-09-16 从 `1`/`4` 统一为 `3`/`5`，与 `.bat` 侧数值一致。
+已在 2026-09-16 从 `1`/`4` 统一为 `3`/`5`，与 `.bat` 侧数值一致。（`4` 这个号当时
+被腾空，2026-09-30 复用为「硬件缺失」，见下。）
+
+**`4` = 硬件缺失（2026-09-30 新增）**：`ffmpeg -encoders` 里列着 `av1_qsv` 不代表这台
+机器能用它 —— UHD 770 实测一开编码器就是 `Current codec type is unsupported`、
+`rc=-40`，跑到最后只留下一个 0 字节的 mp4。入口在动源文件之前先拿 1 帧 lavfi 源试
+开一次（`qsv_encoder_ready`），开不起来就返回 `4`，不再产空文件。它与 `1` 的区别是
+**作用域**：`1` 只是这一个文件转失败了，`4` 对清单里**每一个**文件都成立 —— 所以
+`convert_from_list_*`（两族：`.bat` 的 for 块、`lib/common.sh` 的 `run_list`）遇到 `4`
+**既不跳过也不继续，直接中止整份清单并把 `4` 原样传回**（用户裁定：剩下的条目只会
+一条接一条撞同一堵墙）。`.bat` 侧判定写成 `if errorlevel 4 if not errorlevel 5`：
+for 块里 `%ERRORLEVEL%` 在块解析时就冻结了，读不到子调用的返回值；而
+「`if errorlevel 4` + `if not errorlevel 5`」才是「正好等于 `4`」——不会把 `5`/`6`
+截走，负的 AVERROR（`-40`）也进不来（带符号比较）。
 
 **`FF_HWACCEL`：软编入口的解码加速器（2026-09-30 新增）**：`ffmpeg_libx264` /
 `ffmpeg_libx265`（两族 4 个脚本）原先写死 `-hwaccel auto` —— 由 ffmpeg 挑第一个能初
