@@ -275,6 +275,51 @@ head1 "part parity: 1080p60 fixture, arg mode (same T-ids as the .bat harness)"
 # --- software paths: asserted unconditionally (no hardware involved) ---
 run_arg T4  ffmpeg_libx265.sh ok 2548951 hevc "arg: soft HEVC"
 run_arg T16 ffmpeg_libx264.sh ok 3836249 h264 "arg: soft AVC (bat twin added 2026-09-16)"
+# T26: EXT=mkv -> both the auto output name and the muxer must follow the
+# switch. Default stays mp4 (T4/T16 cover that branch); this is the other one.
+# Same threefold check as the .bat twin: rc=0, clip-compressed.mkv exists and
+# probes as matroska, and no .mp4 was written for the same job.
+d="$W/cases/T26_libx265_mkv"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+rm -f "$d/clip-compressed.mkv" "$d/clip-compressed.mp4"
+LOGF="$LOG/T26_libx265_mkv.log"; OUT="$d/clip-compressed.mkv"
+EXT=mkv bash "$REPO/ffmpeg_libx265.sh" "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+judge T26 libx265_mkv ok INFO hevc "arg: EXT=mkv -> -compressed.mkv"
+FMT="none"
+[ -f "$OUT" ] && FMT="$(fp_run -v error -show_entries format=format_name -of csv=p=0 "$OUT" 2>/dev/null | tr -d '\r')"
+case "$FMT" in
+    *matroska*) say "       | T26 container=$FMT (want matroska)" ;;
+    *) FAIL=$((FAIL+1)); say "[FAIL] T26 libx265_mkv container=$FMT want matroska" ;;
+esac
+if [ -f "$d/clip-compressed.mp4" ]; then
+    FAIL=$((FAIL+1)); say "[FAIL] T26 libx265_mkv wrote an mp4 anyway"
+fi
+
+# T27: EXT=mkv against a source whose soft subtitles are mov_text. Matroska
+# cannot hold mov_text and -c:s copy makes ffmpeg exit with rc=-40 leaving a
+# 0-byte file (measured 2026-10-02), so the switch has to fall back to -c:s ass
+# for exactly that source. Assertions: rc=0, output exists, is not 0 bytes,
+# and the subtitle track survived as ass.
+d="$W/cases/T27_libx265_movtext"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+printf '1\n00:00:00,000 --> 00:00:02,000\nEXT mkv smoke line\n' > "$d/sub.srt"
+ff_run -hide_banner -loglevel error -i "$d/clip.mp4" -i "$d/sub.srt" \
+    -map 0:v -map 0:a -map 1:s -c copy -c:s mov_text -y "$d/movtxt.mp4" \
+    > "$LOG/T27_mksrc.log" 2>&1
+LOGF="$LOG/T27_libx265_movtext.log"; OUT="$d/movtxt-compressed.mkv"; rm -f "$OUT"
+EXT=mkv bash "$REPO/ffmpeg_libx265.sh" "$d/movtxt.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+judge T27 libx265_movtext ok INFO hevc "arg: EXT=mkv, mov_text source -> ass"
+SUBC="none"; SZ=0
+[ -f "$OUT" ] && {
+    SUBC="$(fp_run -v error -select_streams s:0 -show_entries stream=codec_name -of csv=p=0 "$OUT" 2>/dev/null | tr -d '\r')"
+    SZ=$(wc -c < "$OUT" | tr -d ' ')
+}
+if [ "${SUBC:-none}" = ass ] && [ "$SZ" -gt 0 ]; then
+    say "       | T27 subtitle=${SUBC} size=${SZ} (want ass, non-empty)"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T27 subtitle=${SUBC:-none} size=${SZ} want ass, non-empty"
+fi
+
 # T17: 400k source vs table(1080p AVC)/2 = 3836249 -> the documented clamp
 # ("keep the source bitrate") must fire in ARG mode, not only interactively.
 run_arg T17 ffmpeg_libx264.sh ok LT:3836249 h264 "arg: low-bitrate source keeps source bitrate" "$LOW"

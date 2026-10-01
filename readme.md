@@ -29,7 +29,7 @@ environment_matrix.md      机器 × 平台 × ffmpeg 来源 实测矩阵与待�
 test/README.md             测试体系说明（三层：静态检查 / 冒烟套件 / 能力报告）
 test/lint/lint.py          静态 + 跨族对等检查器（零依赖，1 秒内跑完）
 test/lint/selftest.py      检查器自身的回归测试（recall + precision 双向验证）
-test/sh/smoke_ffmpeg.sh    Linux 侧回归套件（T1–T25，与 .bat 套件同 T 编号）
+test/sh/smoke_ffmpeg.sh    Linux 侧回归套件（T1–T27，与 .bat 套件同 T 编号）
 test/bat/smoke_*.bat       Windows 侧冒烟套件（T1–T17 回归 + 元字符矩阵 + 合并运行器）
 test/sh/check_env.sh       Linux 侧能力报告（快查 / --probe 深测）
 test/bat/check_env.bat     Windows 侧能力报告（双击快查，`/probe` 深测）
@@ -126,6 +126,53 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 - **发行版自带 ffmpeg 偏旧**：`hevc_vaapi` 在 **4.4.x 全系对 Arrow Lake 核显失效**（4.4.2 与另一个打包者的 4.4.3 报同一错误，**5.1.2 起恢复**；Gen9.5 等老核显的 4.4.2 反而可用 —— 取决于核显代际），AV1 硬编同样要新构建；`av1_qsv.sh`、`hevc_vaapi.sh`、`av1_nvenc.sh` 对 `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin` 有**软偏好**（存在即前置 PATH，不存在则回退发行版）。**装了这个目录不会改变整机默认**（`which ffmpeg` 仍是 `/usr/bin/ffmpeg`），只有上面 3 个脚本会切到它
 - **Linux 的 QSV 硬解只在 master 构建上生效**：发行版 ffmpeg（如 4.4.2）遇到 `-hwaccel qsv` 会**静默回退软解**（不报错，但滤镜像素格式仍是源格式），实际是「软解+硬编」；显式要求硬件设备才报 `Device setup failed for decoder`。想要名实相符的全硬解链路，请把 `/opt/ffmpeg/.../bin` 前置到 `PATH`
 - 清单兼容 CRLF 与 UTF-8 BOM（记事本直接存即可）
+
+## 输出容器开关 `EXT`（mp4 默认 / mkv 可选）
+
+`ffmpeg_dvd_hevc` 之外的每个顶层入口（`ffmpeg_av1_nvenc` / `av1_qsv` / `avc_qsv` /
+`hevc_nvenc` / `hevc_qsv` / `hevc_vaapi` / `h264_vaapi` / `libx264` / `libx265` /
+`copy_to_mp4`，两族同名）都认这个开关 —— 与 DVD 脚本的 `EXT` **同名同义**，
+区别只在默认值：那里默认 `mkv`，这里默认 `mp4`。
+
+```
+rem Windows: 开关写在脚本之前; 引号形式最稳(set EXT=mkv && ... 会把空格一起塞进值里,
+rem 入口已做了去空格兜底, 但 set "EXT=mkv" 是推荐写法)
+set "EXT=mkv" && ffmpeg_libx265.bat  "D:\video\xxx.mp4"
+set "EXT=mkv" && ffmpeg_copy_to_mp4.bat "D:\video\xxx.mov"
+
+# Linux / Cygwin / MSYS2
+EXT=mkv ./ffmpeg_libx265.sh  xxx.mp4
+EXT=mkv ./ffmpeg_copy_to_mp4.sh xxx.mov
+```
+
+不设就是 `mp4`，命令行与加开关之前**逐字相同**。`EXT` 不分大小写（`MKV` 同 `mkv`）；
+写成别的值（比如 `avi`）**报错退出**（`.bat` 返 1、`.sh` 返 1），不静默退回 mp4 —— 拼错了
+就该当场说，而不是产出一个没人要的容器。
+
+选 `mkv` 实际换掉三样东西：
+
+| | `mp4`（默认） | `mkv` |
+| --- | --- | --- |
+| 自动输出名 | `xxx-compressed.mp4`（remux 是 `xxx.mp4`） | `xxx-compressed.mkv`（remux 是 `xxx.mkv`） |
+| 字幕怎么装 | `-c:s mov_text` | `-c:s copy`（见下） |
+| remux 的"已转过"判据 | 后缀已是 `.mp4` 就退出 | 后缀已是 `.mkv` 就退出 |
+
+**字幕这块为什么不是无条件 `copy`**：2026-10-02 实测，源里的软字幕是 `mov_text`
+（mp4 的软字幕格式，本仓库自己的产物就是）时，`-c:s copy` 进 mkv 会走到
+`Codec for stream ... not supported` 并以 **rc=-40 写 0 字节** —— 所以 out 到 mkv 时
+按源字幕格式二选一，由 `lib/common.{bat,sh}` 的封面闸门顺路数出来（同一个 ffprobe，
+不额外起进程）：
+
+| 源字幕 | EXT=mkv 时用 | 理由（实测） |
+| --- | --- | --- |
+| 无 / ass / subrip / 位图（PGS 等） | `-c:s copy` | mkv 装得下，**位图字幕也能保住** —— 这正是选 mkv 的主要理由；mp4 那条路至今只能丢掉它们 |
+| 含 `mov_text` | `-c:s ass` | 上面那条 0 字节;转成 ass 实测 rc=0（文本转文本，内容不丢） |
+
+顺带把位图字幕的排除规则也跟着 EXT 走：`mp4` 仍旧无条件排除（原有的 0 字节保护），
+`EXT=mkv` 只在**还要转 ass**（源里同时有 `mov_text`）时才排除 —— 因为 ass 同样吃不下位图。
+
+`-movflags +faststart` 对 mkv 是空操作（2026-10-02 实测 rc=0、产物正常），所以 remux
+入口照旧保留它，不为容器分叉。
 
 ## DVD-Video 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
 

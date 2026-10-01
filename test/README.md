@@ -36,7 +36,7 @@ python3 test/lint/lint.py --parity-only# 只做对等检查
 python3 test/lint/selftest.py          # 检查检查器自己（38 个用例）
 
 # ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
-bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T25）
+bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T27）
 bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
 bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
 bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
@@ -317,6 +317,8 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T23 | 清单条目文件缺失 → 中止 | 清单含不存在的路径 | `rc=1` | ✅ | ✅ |
 | T24 | 输入文件不存在 | 不存在的路径 | `rc=1` | ✅ | — |
 | T25 | 清单不是文本文件 | 传一个 mp4 当清单 | `rc=1` | ✅ | — |
+| T26 | `EXT=mkv`：输出名与容器都跟开关走 | `ffmpeg_libx265` arg | `xxx-compressed.mkv` 且 ffprobe `format_name=matroska`；不得同时写出 `.mp4` | ✅ | ✅ |
+| T27 | `EXT=mkv` 遇 `mov_text` 软字幕源 | mux 一条 mov_text 字幕的 mp4 当源 | rc=0，产物非 0 字节，字幕流 `ass`（`-c:s copy` 在此是 rc=-40 / 0 字节） | ✅ | ✅ |
 
 补充断言（两族都有）：`banner check` —— 任何日志里都不得出现
 `is not recognized`（守卫标记泄漏回归）。

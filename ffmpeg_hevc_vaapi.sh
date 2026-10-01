@@ -36,6 +36,19 @@ echo
 echo 由 andreas 编写
 echo ============================================================
 
+# ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
+# 与 ffmpeg_dvd_hevc 的 EXT 同名同义。两处写法是刻意的:
+#   1) 只在**未定义**时设默认值 —— 写成 EXT=mp4 会把调用方预设的值冲掉;
+#   2) 认不出来的值报错退出, 不静默回退 mp4 —— EXT 拼错就该当场说。
+# mp4 是默认值: 命令行与改动前逐字相同。mkv 只改三处 —— 输出名后缀、
+# 字幕流怎么装(-c:s)、以及交给 ffmpeg 的那个输出文件名后缀。
+EXT="${EXT:-mp4}"
+EXT="${EXT,,}"
+case "$EXT" in
+    mp4) SENC=(-c:s mov_text) ;;
+    mkv) SENC=(-c:s copy) ;;
+    *) echo "EXT 只能是 mp4 或 mkv: $EXT" >&2; exit 1 ;;
+esac
 # ---------- 前置检查 ----------
 # ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
 #   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
@@ -145,7 +158,7 @@ ABS_NAME=$(realpath "$SRC_FILE")
 ABS_PATH=$(dirname "$ABS_NAME")
 filename=$(basename "$ABS_NAME")
 filename_without_suffix="${filename%.*}"
-TARGET_FILE="${ABS_PATH}/${filename_without_suffix}-compressed.mp4"
+TARGET_FILE="${ABS_PATH}/${filename_without_suffix}-compressed.${EXT}"
 
 echo "ABS_NAME: ${ABS_NAME}"
 echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
@@ -186,7 +199,12 @@ fi
 CMD+=(-c:v:0 hevc_vaapi -profile:v:0 main -b:v "$TARGET_BITRATE")
 CMD+=(-g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2)
 cover_map_gate "$FF"
-CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+"${COVER_MAP[@]}"} -c:s mov_text -map_metadata 0 -map_chapters 0)
+# EXT=mkv 时字幕默认原样复制(-c:s copy): mkv 装得下位图字幕, 比 mp4 少丢东西。
+# 唯一例外是源里带 mov_text —— mp4 的软字幕格式, matroska 装不下, 实测
+# -c:s copy 在这里直接 rc=-40 / 0 字节 —— 所以这种源把文本字幕转成 ass。
+# CM_MOV 由上面的封面闸门顺路数出来, 没有额外起 ffprobe。
+if [ "$EXT" = mkv ] && [ "${CM_MOV:-0}" = 1 ]; then SENC=(-c:s ass); fi
+CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+"${COVER_MAP[@]}"} "${SENC[@]}" -map_metadata 0 -map_chapters 0)
 CMD+=(-rtbufsize 120m -max_muxing_queue_size 1024 -n "$TARGET_FILE")
 
 printf 'RUN_COM:'

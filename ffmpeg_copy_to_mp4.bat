@@ -64,6 +64,31 @@ call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
+rem ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
+rem 与 ffmpeg_dvd_hevc 的 EXT 同名同义。两处写法是刻意的:
+rem   1) 只在**未定义**时设默认值 —— 写成 set EXT=mp4 会把调用方预设的
+rem      EXT=mkv 悄悄冲掉;
+rem   2) 认不出来的值报错退出, 不静默回退 mp4 —— EXT 拼错就该当场说,
+rem      而不是产出一个没人要的 mp4。
+rem mp4 是默认值: 命令行与改动前逐字相同。mkv 只改三处 —— 输出名后缀、
+rem 字幕流怎么装(-c:s)、以及交给 ffmpeg 的那个输出文件名后缀。
+if not defined EXT set "EXT=mp4"
+rem cmd 的 "set EXT=mkv && ffmpeg_xxx.bat" 会把 && 前面那个空格一起塞进变量值里,
+rem 于是 %EXT% 是 "mkv " —— 下面的 == 比较会直接否掉。先把空格抹掉再比。
+if defined EXT set "EXT=%EXT: =%"
+if /i "%EXT%"=="mp4" goto EXT_MP4
+if /i "%EXT%"=="mkv" goto EXT_MKV
+echo [错误] EXT 只能是 mp4 或 mkv: %EXT%
+exit /b 1
+:EXT_MP4
+set "EXT=mp4"
+set "SENC=-c:s mov_text"
+goto EXT_DONE
+:EXT_MKV
+set "EXT=mkv"
+set "SENC=-c:s copy"
+goto EXT_DONE
+:EXT_DONE
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set RUN_COM="%FFMPEG_PATH%" -hide_banner
 
@@ -89,27 +114,32 @@ echo SRC_FILE:%SRC_FILE%
 if defined SRC_FILE call "%SELF_DIR%lib\common.bat" get_suffix %SRC_FILE% SUFFIX
 echo SUFFIX:%SUFFIX%
 
-if /I "%SUFFIX%" == ".mp4" (
-    echo "suffix is mp4, no need to convert"
+rem EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
+if /I "%SUFFIX%" == ".%EXT%" (
+    echo "suffix is %EXT%, no need to convert"
     goto :eof
 ) else (
-    echo "suffix is not mp4, need to convert"
+    echo "suffix is not %EXT%, need to convert"
 )
 
 rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
 call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
+rem EXT=mkv 而 matroska 装不下 mov_text 软字幕(实测 rc=-40 / 0 字节), 所以要先
+rem 知道源里有没有 —— 顺路用一次封面闸门, 它已经把每条流的 codec 数过一遍了。
+if "%EXT%"=="mkv" call "%SELF_DIR%lib\common.bat" cover_map
+if "%EXT%"=="mkv" if "%CM_MOV%"=="1" set "SENC=-c:s ass"
 rem moov 前置 (faststart): 默认 mp4 把索引 moov 写在 mdat 后面,
 rem 播放器要拿到文件末尾才能起播;本仓库的成品常被拷走/边下边播,
 rem 所以 remux 出口统一加 -movflags +faststart, 把 moov 挑到文件头部.
 rem 实测 (2026-09-17, 320x240/3s): 不加 = ftyp/free/mdat/moov, 加了 =
 rem ftyp/moov/free/mdat, 且两者字节数完全相同(ffmpeg 就地搬移索引, 不涨体积).
-set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy -map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0 -movflags +faststart
+set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy -map 0:v -map 0:a? -map 0:s? %SENC% -map_metadata 0 -map_chapters 0 -movflags +faststart
 echo RUN_COM0=%RUN_COM%
 
 echo.
 echo SRC_FILE:%SRC_FILE%
-if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME
+if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME %EXT%
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
