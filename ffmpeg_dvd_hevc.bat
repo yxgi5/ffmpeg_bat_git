@@ -123,6 +123,7 @@ if not defined VFILT_EXTRA set VFILT_EXTRA=
 rem AUDIO=copy  MKV 下保留原始 AC3 / DTS / MP2，零重损失，最快。
 rem             唯一例外: 源音轨是 LPCM(pcm_dvd) 时 Matroska 装不下(实测报
 rem             "No wav codec tag found for codec pcm_dvd")，会自动转成 AAC
+rem             按**每条 title 各自**探测: 一张盘的 title 1 与 title 2 音轨可以不同
 rem AUDIO=aac   强制重编码成 AAC 192k(MP4 下强制用这个)
 rem AUDIO=flac  强制重编码成 FLAC，无损，体积约为 LPCM 的一半
 if not defined AUDIO set AUDIO=copy
@@ -384,8 +385,10 @@ if not defined SRC_ACODEC goto CFG_MKV_DONE
 rem 含 pcm_dvd 就转: cmd 里没有 contains, 用"去掉子串后是否变短"来判断
 if "%SRC_ACODEC:pcm_dvd=%"=="%SRC_ACODEC%" goto CFG_MKV_DONE
 set AENC=-c:a aac -b:a 192k
-echo 注意: 源音轨是 LPCM(pcm_dvd)，Matroska 装不下，自动转 AAC 192k（要无损就设 AUDIO=flac）
+echo 注意: 参考 title %REF_TITLE% 的音轨是 LPCM(pcm_dvd)，Matroska 装不下，自动转 AAC 192k（要无损就设 AUDIO=flac；ALL 模式下其余 title 逐条重新探测）
 :CFG_MKV_DONE
+rem AENC_BASE = 不含任何单条 title 音轨成分的基线 -c:a，每条 title 编码前据此重算
+set "AENC_BASE=%AENC%"
 set SENC=-c:s copy
 set SMAP=-map 0:s?
 goto RUN_ALL
@@ -394,6 +397,7 @@ goto RUN_ALL
 echo 注意: MP4 只能保留 1 条 DVD 位图字幕，其余会丢；要全留请用 EXT=mkv
 rem 编码器参数(-c:v 的名字与 -b:v)由上面 :VENC_PICKED / :VENC_ARGS 组装
 set AENC=-c:a aac -b:a 192k
+set "AENC_BASE=%AENC%"
 set SENC=-c:s dvdsub
 set SMAP=-map 0:s:0?
 goto RUN_ALL
@@ -470,6 +474,8 @@ set "T=%~1"
 set "OUTN=%~2"
 set "CS=%~3"
 set "CE=%~4"
+rem 逐 title 重算 -c:a: 拿 title 1 的音轨套所有 title 会漏掉 LPCM(见 :ENC_AENC)
+call :ENC_AENC %T%
 set "CHOP="
 if not "%CS%"=="0" set CHOP=-chapter_start %CS%
 if not "%CE%"=="0" set CHOP=%CHOP% -chapter_end %CE%
@@ -494,6 +500,8 @@ exit /b 0
 :ENC_EXTRA
 set "T=%~1"
 set "OUTN=%~2"
+rem 同上: 附加 title 的音轨同样可能与正片不同
+call :ENC_AENC %T%
 echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
 set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
 %RUN_COM%
@@ -503,6 +511,27 @@ if not "%FB_RC%"=="0" (
     exit /b 1
 )
 >>"%WORK%\_outs.txt" echo "%OUTDIR%\%OUTN%.%EXT%"
+exit /b 0
+
+rem =========================================================================
+rem  子过程 ENC_AENC  <title>  ->  按该 title 的音轨重设全局 AENC
+rem  为什么不能只探一次: ALL 会跑多条 title, 各条音轨可以不一样 —— 拿其中一条的
+rem  探测结果套全部, 就会漏掉 LPCM。2026-10-01 实测 FRY001.ISO:
+rem    title 1 = AC3(能 copy) / title 2 = LPCM, 于是 title 2 拿着 -c:a copy 去装
+rem    pcm_dvd, ffmpeg 写头即失败 rc=-22: "No wav codec tag found for codec pcm_dvd"
+rem  只对 AUDIO=copy + MKV 生效: 其余组合的 -c:a 与源音轨无关, 不用逐条重探。
+rem =========================================================================
+:ENC_AENC
+set "AENC=%AENC_BASE%"
+set "TAC="
+call :PROBE_ACODEC %1 TAC
+if not defined TAC exit /b 0
+if not "%AUDIO%"=="copy" exit /b 0
+if not "%EXT%"=="mkv" exit /b 0
+rem 含 pcm_dvd 就转: cmd 里没有 contains, 用"去掉子串后是否变短"来判断
+if "%TAC:pcm_dvd=%"=="%TAC%" exit /b 0
+set AENC=-c:a aac -b:a 192k
+echo   本条音轨是 LPCM(pcm_dvd) -^> 自动转 AAC 192k（要无损就设 AUDIO=flac）
 exit /b 0
 
 rem =========================================================================
