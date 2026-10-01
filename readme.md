@@ -174,6 +174,51 @@ EXT=mkv ./ffmpeg_copy_to_mp4.sh xxx.mov
 `-movflags +faststart` 对 mkv 是空操作（2026-10-02 实测 rc=0、产物正常），所以 remux
 入口照旧保留它，不为容器分叉。
 
+## 公共开关/默认值：`lib/defaults.cfg`（改一处，两族全生效）
+
+`EXT` 这类「所有入口都一样」的开关，默认值与技术细节集中放在一处，而不是散在每个脚本里：
+
+| 文件 | 放什么 |
+| --- | --- |
+| `lib/defaults.cfg` | 开关的**默认值**（一行一个 `KEY=VALUE`，`#` 开头是注释） |
+| `lib/common.sh` 的 `load_defaults()` / `init_ext()` | 读文件 + 校验 + 由它派生出 `-c:s` 的写法 |
+| `lib/common.bat` 的 `:load_defaults` / `:init_ext` | 同上（cmd 版） |
+
+所以**加一个新容器、改一下默认口径，只动 `lib/defaults.cfg` 那一行** —— 20 个入口不用碰。
+现在里面就两条：
+
+| 键 | 默认 | 意思 |
+| --- | --- | --- |
+| `EXT` | `mp4` | 输出容器（`mp4` / `mkv`），见上一节 |
+| `BITRATE_NO_HALF` | `0` | `1` = 目标码率**不除 2**，直接用查表原值（见下） |
+
+优先级：**命令行/环境变量 > 配置文件**。`load_defaults` 只补「还没设过」的键，
+所以 `set "EXT=mkv" && ...` / `EXT=mkv ./ffmpeg_xxx.sh` 这种临时覆盖完全不受影响。
+想换一整份配置跑（比如两条清单用不同口径），用 `FB_DEFAULTS` 指到另一个文件：
+
+```
+set "FB_DEFAULTS=D:\cfg\mkv.cfg" && convert_from_list_libx265.bat night.txt
+FB_DEFAULTS=/srv/cfg/archive.cfg ./convert_from_list_qsv.sh list0.txt
+```
+
+它还一路往下传：清单驱动（`convert_from_list_*` / `repack_from_list`）启动时同样读这份配置，
+再靠环境变量传给每条被它调起的入口 —— 所以一次设好，整份清单都按同一个口径跑（2026-10-02
+实测两族四种清单驱动，`EXT` 与 `BITRATE_NO_HALF` 都完整透传到最终产物）。
+
+## 码率开关 `BITRATE_NO_HALF`（要不要把查表值除以 2）
+
+三张码率表（HEVC / AVC / AV1）历来都不是直接用：查出来的表值会**再除以 2** 当目标码率。
+想保留表值原样（想要高一点码率、或表本身已经按新口径标定时），把这个开关打开即可：
+
+```
+set "BITRATE_NO_HALF=1" && ffmpeg_libx265.bat  "D:\video\xxx.mp4"
+BITRATE_NO_HALF=1 ./ffmpeg_libx265.sh xxx.mp4
+```
+
+- 影响范围：**两族所有编码入口**，含 `ffmpeg_dvd_hevc`（它也是「查表再 /2」同一口径）；
+- 只对自动推算的码率生效 —— 交互模式手输的码率（`900k` 那种）是显式指定，不参与换算；
+- 想让它成为默认（整批都按不除 2 跑）就把 `lib/defaults.cfg` 里那行设成 `1`。
+
 ## DVD-Video 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
 
 普通视频脚本**不能**直接拿来压 DVD，四个坑（均为实测）：

@@ -354,7 +354,7 @@ if [ -z "$VBITRATE" ]; then
     # 与 .bat / ffmpeg_hevc_nvenc.sh 同口径: 查表值 /2, 单位 bits/s(裸数字),
     # 不加 k —— 636021 就是 636 kbps; 加了 k 会变成 636 Mbps 被 NVENC 拒
     # 表按编码器选(hevc/avc/av1), 三张表都是 /2, 与仓库其余入口同口径
-    VBITRATE="$(awk -v b="$BIT" 'BEGIN{printf "%d", b/2}')"
+    VBITRATE="$(bitrate_from_table "$BIT")"
 fi
 echo "ref TARGET_BITRATE = ${VBITRATE} bit/s (~$(( VBITRATE / 1000 )) kbps)"
 

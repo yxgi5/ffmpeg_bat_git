@@ -324,7 +324,9 @@ if not defined BIT (
     echo [错误] %SRC_PIX% 不在码率表范围内
     exit /b 2
 )
-set /a VBITRATE=%BIT% / 2
+set "VBITRATE=%BIT%"
+call "%SELF_DIR%lib\common.bat" bitrate_from_table VBITRATE
+if errorlevel 1 exit /b 1
 :HAVE_BIT
 echo 目标视频码率: %VBITRATE% bit/s
 rem -b:v 要等码率算完才能拼进来，所以参数在这里组装(模板见 :VENC_ARGS)

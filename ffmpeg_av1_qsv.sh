@@ -34,18 +34,10 @@ echo 由 andreas 编写
 echo ============================================================
 
 # ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
-# 与 ffmpeg_dvd_hevc 的 EXT 同名同义。两处写法是刻意的:
-#   1) 只在**未定义**时设默认值 —— 写成 EXT=mp4 会把调用方预设的值冲掉;
-#   2) 认不出来的值报错退出, 不静默回退 mp4 —— EXT 拼错就该当场说。
-# mp4 是默认值: 命令行与改动前逐字相同。mkv 只改三处 —— 输出名后缀、
-# 字幕流怎么装(-c:s)、以及交给 ffmpeg 的那个输出文件名后缀。
-EXT="${EXT:-mp4}"
-EXT="${EXT,,}"
-case "$EXT" in
-    mp4) SENC=(-c:s mov_text) ;;
-    mkv) SENC=(-c:s copy) ;;
-    *) echo "EXT 只能是 mp4 或 mkv: $EXT" >&2; exit 1 ;;
-esac
+# 默认值写在 lib/defaults.cfg(两族共用一份), 校验 / 去空白 / -c:s 的选法统统在
+# lib/common.sh 的 init_ext 里 —— 加容器、改默认都只动那一处, 入口不再各写一遍。
+# 命令行 EXT=mkv 优先于配置文件(load_defaults 只补没设过的键)。
+init_ext || exit 1
 # ---------- 前置检查 ----------
 # ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
 #   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
@@ -122,7 +114,8 @@ if [ $? -ne 0 ] || [ -z "$BIT" ]; then
     exit 2
 fi
 
-TARGET_BITRATE=$(( BIT / 2 ))
+# 目标码率口径在同一处: BITRATE_NO_HALF=1 时跳过 /2(见 lib/common.sh)
+TARGET_BITRATE=$(bitrate_from_table "$BIT")
 echo "ref TARGET_BITRATE: $TARGET_BITRATE"
 
 percentage=$(( TARGET_BITRATE * 100 / SRC_BITRATE ))

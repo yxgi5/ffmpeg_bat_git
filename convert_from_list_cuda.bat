@@ -38,6 +38,15 @@ if not "%~1"=="" (
     SET "SRC_FILE=list.txt"
 )
 echo SRC_FILE="%SRC_FILE%"
+rem ---------- 开关透传(无人值守留痕) ----------
+rem 本脚本不解析任何开关: 它们全部以环境变量的形式原样传给下游入口 ——
+rem   EXT(输出容器) / BITRATE_NO_HALF(目标码率不除 2) / FF_HWACCEL(软硬解) /
+rem   FF_ON_EXIST(同名产物策略), 以及各入口自己的开关(见 readme.md 的开关表)。
+rem 默认值统一写在 lib\defaults.cfg —— 无人值守前改那个文件即可, 命令行
+rem   set XXX=... 的临时覆盖优先。 load_defaults 把默认值装进本进程环境(子进程
+rem   继承), 再回显一行: 跑一整晚的日志里能一眼看出这份清单是按什么设置转的。
+call "%~dp0lib\common.bat" load_defaults
+echo SWITCHES: EXT=%EXT% BITRATE_NO_HALF=%BITRATE_NO_HALF% FF_ON_EXIST=%FF_ON_EXIST%
 
 rem NOTE: usebackq + quotes makes the list path a FILE, not a literal
 rem string; CALL is required or cmd never returns from the encoder and

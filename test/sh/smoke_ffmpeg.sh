@@ -320,6 +320,43 @@ else
     FAIL=$((FAIL+1)); say "[FAIL] T27 subtitle=${SUBC:-none} size=${SZ} want ass, non-empty"
 fi
 
+# T28: BITRATE_NO_HALF=1 skips the historical "table value / 2" step, so the
+# computed target has to come out exactly twice what the default run prints for
+# the SAME clip (1080p60 fixture: 2548951 -> 5097902). The switch default lives
+# in lib/defaults.cfg; this is the same T-id as test/bat/smoke_ffmpeg.bat.
+d="$W/cases/T28_libx265_nohalf"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+rm -f "$d/clip-compressed.mp4"
+LOGF="$LOG/T28_default.log"
+bash "$REPO/ffmpeg_libx265.sh" "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+TB1=$(grep -a "real TARGET_BITRATE" "$LOGF" | tail -1 | grep -ao "[0-9]\+$")
+rm -f "$d/clip-compressed.mp4"
+LOGF="$LOG/T28_nohalf.log"
+BITRATE_NO_HALF=1 bash "$REPO/ffmpeg_libx265.sh" "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+TB2=$(grep -a "real TARGET_BITRATE" "$LOGF" | tail -1 | grep -ao "[0-9]\+$")
+judge T28 libx265_nohalf ok INFO hevc "arg: BITRATE_NO_HALF=1 -> target x2"
+if [ -n "${TB1:-}" ] && [ -n "${TB2:-}" ] && [ "$TB2" -eq $(( TB1 * 2 )) ]; then
+    say "       | T28 target ${TB1} -> ${TB2} (want exactly x2)"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T28 target ${TB1:-none} -> ${TB2:-none} want exactly x2"
+fi
+
+# T29: lib/defaults.cfg really is the single source of truth -- point FB_DEFAULTS
+# at a throwaway file that flips EXT to mkv and run WITHOUT any command-line
+# override. Nothing in the repo gets touched by the test.
+d="$W/cases/T29_cfgfile"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+rm -f "$d/clip-compressed.mkv" "$d/clip-compressed.mp4"
+printf 'EXT=mkv\nBITRATE_NO_HALF=0\n' > "$d/alt.cfg"
+LOGF="$LOG/T29_cfgfile.log"; OUT="$d/clip-compressed.mkv"
+FB_DEFAULTS="$d/alt.cfg" bash "$REPO/ffmpeg_libx265.sh" "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+judge T29 libx265_cfgfile ok INFO hevc "arg: no env override, alternate config file -> mkv"
+if [ -f "$OUT" ] && [ ! -f "$d/clip-compressed.mp4" ]; then
+    say "       | T29 the config file drove the container with no command-line override"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T29 alternate config did not produce clip-compressed.mkv"
+fi
+
 # T17: 400k source vs table(1080p AVC)/2 = 3836249 -> the documented clamp
 # ("keep the source bitrate") must fire in ARG mode, not only interactively.
 run_arg T17 ffmpeg_libx264.sh ok LT:3836249 h264 "arg: low-bitrate source keeps source bitrate" "$LOW"

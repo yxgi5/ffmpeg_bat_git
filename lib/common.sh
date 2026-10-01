@@ -1118,3 +1118,75 @@ function qsv_encoder_ready() {
         -f lavfi -i color=c=black:s=320x240:r=30 -frames:v 1 \
         -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v "$enc" -f null - >/dev/null 2>&1
 }
+
+# ================================================================
+# 公共默认值 / 公共开关 (2026-10-02)
+#
+# 由来: 输出容器(EXT)原先在每个入口各写一份"默认值 + 校验 + -c:s 怎么选",
+#   加一个容器要改 20 个文件。现在: 默认值集中在 lib/defaults.cfg 的一行里,
+#   校验与派生值集中在下面三个函数里, 各入口只剩一句调用。
+# ================================================================
+_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# FB_DEFAULTS: 换一份配置文件(批量里按清单给不同口径时用得着), 缺省是本文件旁边的
+#   defaults.cfg。环境变量会被子进程继承, 所以清单驱动设一次, 每条条目都按它走。
+_DEFAULTS_CFG_DEFAULT="${_LIB_DIR}/defaults.cfg"
+
+# 去掉首尾空白(纯 bash 内建, 不起 sed/tr): "$(_trim "  mkv ")" -> "mkv"
+function _trim() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+}
+
+# 把 defaults.cfg 里的 KEY=VALUE 装进环境: 已经设过的不覆盖
+#   —— 命令行临时值优先, 文件只补没设过的键。文件缺失直接返回 0: 入口有内置
+#   兜底值, 不该因为少一个配置文件就全线跑不起来。
+function load_defaults() {
+    local line k v cfg="${FB_DEFAULTS:-$_DEFAULTS_CFG_DEFAULT}"
+    [ -f "$cfg" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in ''|'#'*) continue ;; esac
+        k="$(_trim "${line%%=*}")"
+        v="$(_trim "${line#*=}")"
+        [ -n "$k" ] || continue
+        if [ -z "${!k+x}" ]; then
+            export -- "$k=$v"
+        fi
+    done < "$cfg"
+}
+
+# ---------- 输出容器开关 EXT ----------
+# 默认值(lib/defaults.cfg) -> 校验 -> 定出 -c:s 的写法。
+#   导出 EXT(去空白 + 转小写) 与 SENC 数组("-c:s mov_text" / "-c:s copy")。
+#   mp4 是默认值: 命令行与改动前逐字相同。
+#   认不出来的值报错返回 1(调用方 exit 1), 不静默回退 mp4 —— EXT 拼错就该当场说,
+#   而不是产出一个没人要的 mp4。
+# mkv 时 -c:s copy 装不下 mov_text 软字幕(实测 rc=-40 / 0 字节产物), 那种源要在
+#   封面闸门之后换成 -c:s ass —— 判定在入口里, 因为要先数过整张流表才知道。
+function init_ext() {
+    load_defaults
+    EXT="$(_trim "${EXT:-}")"
+    EXT="${EXT,,}"
+    case "$EXT" in
+        mp4) SENC=(-c:s mov_text) ;;
+        mkv) SENC=(-c:s copy) ;;
+        '')  EXT=mp4; SENC=(-c:s mov_text) ;;
+        *)   printf 'EXT 只能是 mp4 或 mkv: %s\n' "$EXT" >&2; return 1 ;;
+    esac
+    export EXT
+    return 0
+}
+
+# ---------- 目标码率口径 ----------
+# 历史口径是把查表值再 /2(三张表都这么写)。BITRATE_NO_HALF=1 时跳过这一步,
+#   直接用查表原值 —— 开关的默认值与含义都写在 lib/defaults.cfg, 两族同口径。
+#   交互模式手输的码率不经过这里(那是显式指定, 不做任何换算)。
+function bitrate_from_table() {
+    local raw="$1"
+    load_defaults
+    case "${BITRATE_NO_HALF:-0}" in
+        1) printf '%s\n' "$raw" ;;
+        *) printf '%s\n' "$(( raw / 2 ))" ;;
+    esac
+}

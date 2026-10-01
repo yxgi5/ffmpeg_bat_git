@@ -65,30 +65,11 @@ if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 rem ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
-rem 与 ffmpeg_dvd_hevc 的 EXT 同名同义。两处写法是刻意的:
-rem   1) 只在**未定义**时设默认值 —— 写成 set EXT=mp4 会把调用方预设的
-rem      EXT=mkv 悄悄冲掉;
-rem   2) 认不出来的值报错退出, 不静默回退 mp4 —— EXT 拼错就该当场说,
-rem      而不是产出一个没人要的 mp4。
-rem mp4 是默认值: 命令行与改动前逐字相同。mkv 只改三处 —— 输出名后缀、
-rem 字幕流怎么装(-c:s)、以及交给 ffmpeg 的那个输出文件名后缀。
-if not defined EXT set "EXT=mp4"
-rem cmd 的 "set EXT=mkv && ffmpeg_xxx.bat" 会把 && 前面那个空格一起塞进变量值里,
-rem 于是 %EXT% 是 "mkv " —— 下面的 == 比较会直接否掉。先把空格抹掉再比。
-if defined EXT set "EXT=%EXT: =%"
-if /i "%EXT%"=="mp4" goto EXT_MP4
-if /i "%EXT%"=="mkv" goto EXT_MKV
-echo [错误] EXT 只能是 mp4 或 mkv: %EXT%
-exit /b 1
-:EXT_MP4
-set "EXT=mp4"
-set "SENC=-c:s mov_text"
-goto EXT_DONE
-:EXT_MKV
-set "EXT=mkv"
-set "SENC=-c:s copy"
-goto EXT_DONE
-:EXT_DONE
+rem 默认值写在 lib\defaults.cfg(两族共用一份), 校验 / 去空格 / -c:s 的选法统统在
+rem lib\common.bat 的 :init_ext 里 —— 加容器、改默认都只动那一处, 入口不再各写一遍。
+rem 命令行 set EXT=mkv 优先于配置文件(:load_defaults 只补没设过的键)。
+call "%SELF_DIR%lib\common.bat" init_ext
+if errorlevel 1 exit /b 1
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -hwaccel cuda -hwaccel_output_format cuda
 
@@ -175,7 +156,8 @@ if not defined BIT (
     echo SRC_PIX=%SRC_PIX% 超出码率表范围, Manual handle it
     exit /b 2
 )
-set /a BIT=%BIT% / 2
+call "%SELF_DIR%lib\common.bat" bitrate_from_table BIT
+if errorlevel 1 exit /b 1
 set TARGET_BITRATE=%BIT%
 echo TARGET_BITRATE=%TARGET_BITRATE%
 set "percentage="
