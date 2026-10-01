@@ -458,6 +458,7 @@ enc() {
         echo "          3) ${VENC_NAME} 参数不被接受 -> 换 VENC=libx265 或 VENC=auto"
         return 1
     fi
+    OUT_FILES+=("${OUTDIR}/${out}.${EXT}")
     return 0
 }
 
@@ -472,20 +473,30 @@ enc_extra() {
     CMD+=(-c:v "$VENC_NAME")
     CMD+=(${VENC_ARGS[@]+"${VENC_ARGS[@]}"} ${AENC[@]+"${AENC[@]}"}
           "${OUTDIR}/${out}.${EXT}")
-    "${CMD[@]}"
+    "${CMD[@]}" || return 1
+    OUT_FILES+=("${OUTDIR}/${out}.${EXT}")
+    return 0
 }
 
 # ---------- 开跑 ----------
 # 逐个跑完再统一判失败: 一个 title 挂掉不该让后面的特典连跑都不跑,
 # 但退出码必须真的传出去(与 .bat 侧的 exit /b 1 对齐)。
 RC=0
+OUT_FILES=()      # 本次真正写出的产物, 结尾据此统计"产物合计"(比估算准)
+ALL_DUR=0         # MODE=ALL 下各 title 时长之和(体积估算的正确口径)
+N_TITLE=0
 if [ "$MODE" = "ALL" ]; then
     MISS_MAX="${MISS_MAX:-5}"
     miss=0
     n=1
     while [ "$n" -le 99 ]; do
-        if probe_title "$n" >/dev/null 2>&1; then
+        # probe_title 顺带回了该 title 的时长, 这里攒起来而不是丢掉: 结尾的体积
+        # 估算必须按"全部 title 合计"算 —— 只用 title 1 的时长会把一张 3 title
+        # 的盘估成 5MB(2026-10-01 实测同一张盘实际产出 845MB)
+        if line="$(probe_title "$n" 2>/dev/null)"; then
             miss=0
+            ALL_DUR=$(( ALL_DUR + $(awk '{printf "%d", $3}' <<<"$line") ))
+            N_TITLE=$(( N_TITLE + 1 ))
             enc "$n" "${PREFIX}_title${n}" || RC=1
         else
             miss=$(( miss + 1 ))
@@ -513,8 +524,28 @@ fi
 echo
 echo ============================================================
 echo " 输出目录: $OUTDIR"
-if [ -n "$SRC_DUR" ]; then
-    DI="$(awk '{printf "%d", $1}' <<<"$SRC_DUR")"
+
+# 产物合计: 编码已经跑完, 直接统计本次真正写出的文件 —— 比按码率估准, 而且天然
+# 覆盖 MODE=ALL 的每个 title / SPLIT_CHAPTER 的两段 / EXTRA_TITLES 的附加 title
+if [ ${#OUT_FILES[@]} -gt 0 ]; then
+    TOTAL_BYTES=0; N_OUT=0
+    for f in "${OUT_FILES[@]}"; do
+        [ -f "$f" ] || continue
+        sz="$(wc -c <"$f" 2>/dev/null | tr -d ' ')"
+        case "$sz" in ''|*[!0-9]*) continue ;; esac
+        TOTAL_BYTES=$(( TOTAL_BYTES + sz ))
+        N_OUT=$(( N_OUT + 1 ))
+    done
+    if [ "$N_OUT" -gt 0 ]; then
+        echo " 产物合计: ${N_OUT} 个文件, $(( TOTAL_BYTES / 1048576 )) MB"
+    fi
+fi
+
+# 体积估算: 时长口径必须是"本次实际处理的全部 title 合计"。MODE=ALL 下 SRC_DUR
+# 只是拿来定码率档位的 title 1 的时长, 拿它估算会差两个数量级(实测 5MB vs 845MB)
+if [ "$MODE" = "ALL" ]; then EST_DUR="$ALL_DUR"; else EST_DUR="${SRC_DUR:-}"; fi
+if [ -n "$EST_DUR" ] && [ "$EST_DUR" != 0 ]; then
+    DI="$(awk '{printf "%d", $1}' <<<"$EST_DUR")"
     # VBITRATE 可能是裸 bits/s, 也可能被覆盖成 "636k" / "2m"
     case "$VBITRATE" in
         *[kK]) VBN=$(( ${VBITRATE%[kK]} * 1000 )) ;;
@@ -524,7 +555,11 @@ if [ -n "$SRC_DUR" ]; then
     # 先 /1024 再乘时长, 避免大数(与 sh 的 64 位无关, 纯粹为了和 .bat 的 32 位
     # set /a 保持同一套算式, 两边结果才会一致)
     EST_MB=$(( VBN / 1024 * DI / 8192 ))
-    echo " 体积估算: 视频 ~$(( VBN / 1000 )) kbps x ${DI}s ≈ ${EST_MB} MB（另加音频）"
+    if [ "$MODE" = "ALL" ]; then
+        echo " 体积估算: 视频 ~$(( VBN / 1000 )) kbps x ${DI}s（${N_TITLE} 个 title 合计）≈ ${EST_MB} MB（另加音频）"
+    else
+        echo " 体积估算: 视频 ~$(( VBN / 1000 )) kbps x ${DI}s ≈ ${EST_MB} MB（另加音频）"
+    fi
 fi
 echo ============================================================
 exit 0
