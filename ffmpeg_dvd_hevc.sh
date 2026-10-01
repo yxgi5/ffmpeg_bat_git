@@ -405,7 +405,7 @@ case "$EXT" in
             case "$SRC_ACODEC" in
                 *pcm_dvd*)
                     AENC=(-c:a aac -b:a 192k)
-                    echo "注意: 源音轨是 LPCM(pcm_dvd), Matroska 装不下 -> 自动转 AAC 192k（要无损设 AUDIO=flac）"
+                    echo "注意: 参考 title $REF_TITLE 的音轨是 LPCM(pcm_dvd), Matroska 装不下 -> 自动转 AAC 192k（要无损设 AUDIO=flac；ALL 模式下其余 title 逐条重新探测）"
                     ;;
             esac
         fi
@@ -424,13 +424,37 @@ case "$EXT" in
         ;;
 esac
 
+# AENC_BASE = 不含任何单条 title 音轨成分的基线 -c:a，每条 title 编码前据此重算
+AENC_BASE=(${AENC[@]+"${AENC[@]}"})
+
 # =========================================================================
 #  enc <title> <输出名(无扩展)> [chapter_start] [chapter_end]
 #  刻意不用 -ss: dvdvideo 解复用器 seek 后时间轴不可靠, 实测会让章节整体偏移,
 #  靠 -chapter_start/-chapter_end 才是准的
 # =========================================================================
+#  按单条 title 的音轨重设全局 AENC
+#  为什么不能只探一次: ALL / EXTRA_TITLES 会处理多条 title, 各条音轨可以不一样
+#  (2026-10-01 实测 FRY001.ISO: title 1 = AC3 能 copy, title 2 = LPCM; 拿 title 1
+#   的结果套 title 2 -> 写头失败 "No wav codec tag found for codec pcm_dvd")
+#  只对 AUDIO=copy + MKV 生效: 其余组合的 -c:a 与源音轨无关, 不用逐条重探
+# =========================================================================
+set_aenc_for_title() {
+    AENC=(${AENC_BASE[@]+"${AENC_BASE[@]}"})
+    [ "$AUDIO" = "copy" ] || return 0
+    [ "$EXT" = "mkv" ]    || return 0
+    local tac
+    tac="$(probe_acodec "$1" 2>/dev/null)"
+    case "$tac" in
+        *pcm_dvd*)
+            AENC=(-c:a aac -b:a 192k)
+            echo "  本条音轨是 LPCM(pcm_dvd) -> 自动转 AAC 192k（要无损设 AUDIO=flac）"
+            ;;
+    esac
+}
+
 enc() {
     local t="$1" out="$2" cs="${3:-0}" ce="${4:-0}"
+    set_aenc_for_title "$t"
     local chop=()
     [ "$cs" != "0" ] && chop+=(-chapter_start "$cs")
     [ "$ce" != "0" ] && chop+=(-chapter_end "$ce")
@@ -464,6 +488,7 @@ enc() {
 
 enc_extra() {
     local t="$1" out="$2"
+    set_aenc_for_title "$t"
     echo "> 附加 title $t -> ${out}.${EXT}"
     local CMD=(ff_run -y -hide_banner -v error -stats
                -f dvdvideo -title "$t")
