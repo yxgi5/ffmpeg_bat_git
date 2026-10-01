@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg.bat (v9)   *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg.bat (v10)  *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -10,6 +10,14 @@ rem   C) fresh process     -> console already UTF-8 (opencmd.bat style)
 rem Every run captures stdout+stderr into smoke_logs\*.log, and a verdict
 rem table is written to smoke_logs\summary.txt
 rem
+rem v10 changes vs v9 (2026-10-02):
+rem   - new cases T26 / T27 for the EXT container switch (mp4 default, mkv
+rem     optional). Same T-ids as test/sh/smoke_ffmpeg.sh. T26: EXT=mkv must
+rem     move the auto output name (-compressed.mkv) AND the muxer (probes as
+rem     matroska), and must not write an .mp4 for the same job. T27: a source
+rem     carrying a mov_text subtitle track must still come out usable --
+rem     plain -c:s copy into mkv ends with rc=-40 and a 0-byte file, so the
+rem     switch has to fall back to -c:s ass there.
 rem v9 changes vs v8:
 rem   - new case T23: a missing list entry must abort the wrapper
 rem     (rc != 0). It mirrors T23 in test/sh/smoke_ffmpeg.sh. It could
@@ -173,6 +181,65 @@ rem Soft AVC fallback: no hardware needed, so it runs on every box.
 rem 1080p AVC table / 2 = 3836249 - the same value the .sh twin asserts.
 chcp %CP0% >nul
 call :runA ffmpeg_libx264   "%IN%" T16_libx264_A    3836249 S A h264
+
+rem ============ T26: EXT=mkv -- name AND muxer follow the switch ==========
+rem Added 2026-10-02 together with the EXT switch (see readme.md). Default is
+rem still mp4 (T4/T16 cover that branch); EXT=mkv must move the auto output
+rem name AND the container, so the verdict is threefold: rc=0, the file
+rem clip-compressed.mkv exists, and it probes as matroska -- plus the negative
+rem one, no .mp4 may be written for the same job.
+chcp %CP0% >nul
+set "T26D=%WORK%\cases\T26_libx265_mkv"
+if not exist "%T26D%" mkdir "%T26D%" >nul 2>&1
+copy /y "%IN%" "%T26D%\clip.mp4" >nul
+del /q "%T26D%\clip-compressed.mkv" >nul 2>&1
+del /q "%T26D%\clip-compressed.mp4" >nul 2>&1
+set "T26LOG=%LOGDIR%\T26_libx265_mkv.log"
+set "T26OUT=%T26D%\clip-compressed.mkv"
+set "EXT=mkv"
+call "%REPO%\ffmpeg_libx265.bat" "%T26D%\clip.mp4" < nul > "%T26LOG%" 2>&1
+set "RC26=%errorlevel%"
+set "EXT="
+set "V26=PASS"
+set "N26="
+if not "%RC26%"=="0" ( set "V26=FAIL" & set "N26=%N26% rc=%RC26% want0;" )
+if not exist "%T26OUT%" ( set "V26=FAIL" & set "N26=%N26% noClipCompressedMkv;" )
+if exist "%T26D%\clip-compressed.mp4" ( set "V26=FAIL" & set "N26=%N26% mp4WrittenAnyway;" )
+if exist "%T26OUT%" "%FP%" -v error -show_entries format=format_name -of csv=p=0 "%T26OUT%" > "%LOGDIR%\T26_container.txt" 2>&1
+findstr /i /c:"matroska" "%LOGDIR%\T26_container.txt" >nul 2>&1
+if errorlevel 1 ( set "V26=FAIL" & set "N26=%N26% notMatroska;" )
+echo [%V26%] T26 EXT=mkv libx265 rc=%RC26% >> "%SUM%"
+if not "%N26%"=="" echo        why: %N26% >> "%SUM%"
+
+rem ============ T27: EXT=mkv against a mov_text subtitle source ===========
+rem Such a source cannot go into mkv with -c:s copy: ffmpeg ends with rc=-40
+rem and leaves a 0-byte file (measured 2026-10-02). The switch must fall back
+rem to -c:s ass for exactly this case, so the assertions are: rc=0, output
+rem exists, is not 0 bytes, and its subtitle track survived -- as ass.
+chcp %CP0% >nul
+set "T27D=%WORK%\cases\T27_libx265_movtext"
+if not exist "%T27D%" mkdir "%T27D%" >nul 2>&1
+copy /y "%IN%" "%T27D%\clip.mp4" >nul
+>  "%T27D%\sub.srt" echo 1
+>> "%T27D%\sub.srt" echo 00:00:00,000 --^> 00:00:02,000
+>> "%T27D%\sub.srt" echo EXT mkv smoke line
+"%FF%" -hide_banner -loglevel error -i "%T27D%\clip.mp4" -i "%T27D%\sub.srt" -map 0:v -map 0:a -map 1:s -c copy -c:s mov_text -y "%T27D%\movtxt.mp4" > "%LOGDIR%\T27_mksrc.log" 2>&1
+set "T27OUT=%T27D%\movtxt-compressed.mkv"
+del /q "%T27OUT%" >nul 2>&1
+set "EXT=mkv"
+call "%REPO%\ffmpeg_libx265.bat" "%T27D%\movtxt.mp4" < nul > "%LOGDIR%\T27_libx265_movtext.log" 2>&1
+set "RC27=%errorlevel%"
+set "EXT="
+set "V27=PASS"
+set "N27="
+if not "%RC27%"=="0" ( set "V27=FAIL" & set "N27=%N27% rc=%RC27% want0;" )
+if not exist "%T27OUT%" ( set "V27=FAIL" & set "N27=%N27% noOutput;" )
+if exist "%T27OUT%" "%FP%" -v error -select_streams s:0 -show_entries stream=codec_name -of csv=p=0 "%T27OUT%" > "%LOGDIR%\T27_sub.txt" 2>&1
+findstr /i /c:"ass" "%LOGDIR%\T27_sub.txt" >nul 2>&1
+if errorlevel 1 ( set "V27=FAIL" & set "N27=%N27% subNotAss;" )
+if exist "%T27OUT%" for %%A in ("%T27OUT%") do if %%~zA LEQ 0 ( set "V27=FAIL" & set "N27=%N27% zeroByte;" )
+echo [%V27%] T27 EXT=mkv mov_text source rc=%RC27% >> "%SUM%"
+if not "%N27%"=="" echo        why: %N27% >> "%SUM%"
 
 rem ============ T17: low-bitrate source (clamp regression) ============
 rem A 400k source must keep its own bitrate instead of being re-encoded up

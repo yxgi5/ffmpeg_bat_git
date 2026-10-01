@@ -113,7 +113,10 @@ set %~3="%~dp2"
 rem 获取到文件盘符
 rem 获取到文件名称
 rem 获取到文件后缀
-set %~4="%~n2-compressed.mp4"
+rem 第 4 参是容器后缀(EXT 开关), 省略按 mp4
+set "EX_SUF=%~5"
+if not defined EX_SUF set "EX_SUF=mp4"
+set %~4="%~n2-compressed.%EX_SUF%"
 exit /b 0
 
 :get_suffix
@@ -126,8 +129,11 @@ rem 拆分文件路径(remux 用, 输出名不加后缀): call ... extract_mp4 <
 rem   输出形如 "D:\dir\" 与 "name.mp4"
 rem 获取到文件路径
 set %~3="%~dp2"
+rem 同上: 第 4 参是容器后缀, 省略按 mp4
+set "EX_SUF=%~5"
+if not defined EX_SUF set "EX_SUF=mp4"
 rem 获取到文件名称
-set %~4="%~n2.mp4"
+set %~4="%~n2.%EX_SUF%"
 exit /b 0
 
 :find_ffmpeg
@@ -369,6 +375,7 @@ set "CM_NA=0"
 set "CM_SI=0"
 set "CM_SUBDROP="
 set "CM_DVD=0"
+set "CM_MOV=0"
 set "CM_TMP=%TEMP%\ffbat_cover_%RANDOM%.tmp"
 rem ---- 先数流 ----
 if not defined FFPROBE_PATH goto cover_probe_done
@@ -390,6 +397,8 @@ for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
         if "%%B"=="subtitle" (
             set "CM_IDX=!CM_SI!"
             set /a CM_SI=!CM_SI!+1
+            rem mov_text 是 mp4 的软字幕格式, matroska 装不下 -> 记下来给 EXT=mkv 用
+            if "%%A"=="mov_text" set "CM_MOV=1"
             set "CM_BMP="
             if "%%A"=="hdmv_pgs_subtitle" set "CM_BMP=%%A"
             if "%%A"=="dvd_subtitle" set "CM_BMP=%%A"
@@ -399,15 +408,19 @@ for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
         )
     )
 )
-endlocal & set "CM_VT=%CM_VT%" & set "CM_NA=%CM_NA%" & set "CM_SUBDROP=%CM_SUBDROP%" & set "CM_DVD=%CM_DVD%"
+endlocal & set "CM_VT=%CM_VT%" & set "CM_NA=%CM_NA%" & set "CM_SUBDROP=%CM_SUBDROP%" & set "CM_DVD=%CM_DVD%" & set "CM_MOV=%CM_MOV%"
 :cover_probe_done
 del "%CM_TMP%" 2>nul
 rem 导航包只在 DVD-Video 的 ISO / VOB 里有, 实测 192 个 mpg/m2ts 片源 0 命中
 if "%CM_DVD%"=="1" echo [dvd] 本源是 DVD-Video —— 不带 -f dvdvideo 会被当 MPEG-PS 胡乱揭开, 内容不对; 请改用 ffmpeg_dvd_hevc.bat
 rem ---- 位图字幕排除: 与 disp: 能力无关, 老 ffmpeg 一样会整片写 0 字节 ----
+rem EXT=mkv 走 -c:s copy, 而 mkv 装得下位图字幕 —— 不排除; 只有当还要把文本
+rem 字幕转成 ass 时(源里同时有 mov_text)ass 才同样吃不下位图, 那时才排除。
+if "%EXT%"=="mkv" if not "%CM_MOV%"=="1" goto cover_aftersub
 if not defined CM_SUBDROP goto cover_aftersub
 set "COVERMAP=%COVERMAP% %CM_SUBDROP%"
-echo [sub] 含位图字幕 —— mp4 装不下, 本次不保留; 要保留请出 mkv
+echo [sub] 含位图字幕 —— 本次决定不保留
+echo [sub]   mp4 装不下位图字幕; EXT=mkv 时若要保住它, 请让源里不要带 mov_text
 :cover_aftersub
 rem ---- 封面部分 ----
 if not defined FFMPEG_PATH goto cover_noff

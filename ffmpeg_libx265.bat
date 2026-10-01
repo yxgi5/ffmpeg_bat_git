@@ -81,6 +81,31 @@ call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
 set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
+rem ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
+rem 与 ffmpeg_dvd_hevc 的 EXT 同名同义。两处写法是刻意的:
+rem   1) 只在**未定义**时设默认值 —— 写成 set EXT=mp4 会把调用方预设的
+rem      EXT=mkv 悄悄冲掉;
+rem   2) 认不出来的值报错退出, 不静默回退 mp4 —— EXT 拼错就该当场说,
+rem      而不是产出一个没人要的 mp4。
+rem mp4 是默认值: 命令行与改动前逐字相同。mkv 只改三处 —— 输出名后缀、
+rem 字幕流怎么装(-c:s)、以及交给 ffmpeg 的那个输出文件名后缀。
+if not defined EXT set "EXT=mp4"
+rem cmd 的 "set EXT=mkv && ffmpeg_xxx.bat" 会把 && 前面那个空格一起塞进变量值里,
+rem 于是 %EXT% 是 "mkv " —— 下面的 == 比较会直接否掉。先把空格抹掉再比。
+if defined EXT set "EXT=%EXT: =%"
+if /i "%EXT%"=="mp4" goto EXT_MP4
+if /i "%EXT%"=="mkv" goto EXT_MKV
+echo [错误] EXT 只能是 mp4 或 mkv: %EXT%
+exit /b 1
+:EXT_MP4
+set "EXT=mp4"
+set "SENC=-c:s mov_text"
+goto EXT_DONE
+:EXT_MKV
+set "EXT=mkv"
+set "SENC=-c:s copy"
+goto EXT_DONE
+:EXT_DONE
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 rem 解码加速器可配置 (2026-09-30): FF_HWACCEL=auto(默认, 与改动前逐字相同) / cuda /
 rem qsv / vaapi / d3d11va / dxva2 / none。原先写死 -hwaccel auto —— 由 ffmpeg 挑第一个
@@ -204,12 +229,17 @@ IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认)
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
-if defined BIT set RUN_COM=%RUN_COM% -c:v:0 libx265 -profile:v:0 main -preset fast -b:v %BIT% -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% -c:s mov_text -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
+rem EXT=mkv 时字幕默认原样复制(-c:s copy): mkv 装得下位图字幕, 比 mp4 少丢东西。
+rem 唯一例外是源里带 mov_text —— mp4 的软字幕格式, matroska 装不下, 实测
+rem -c:s copy 在这里直接 rc=-40 / 0 字节 —— 所以这种源把文本字幕转成 ass。
+rem CM_MOV 由上面的封面闸门顺路数出来, 没有额外起 ffprobe。
+if "%EXT%"=="mkv" if "%CM_MOV%"=="1" set "SENC=-c:s ass"
+if defined BIT set RUN_COM=%RUN_COM% -c:v:0 libx265 -profile:v:0 main -preset fast -b:v %BIT% -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024
 echo RUN_COM2:%RUN_COM%
 
 echo.
 echo SRC_FILE:%SRC_FILE%
-if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract %SRC_FILE% TARGET_PATH TARGET_NAME
+if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract %SRC_FILE% TARGET_PATH TARGET_NAME %EXT%
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 

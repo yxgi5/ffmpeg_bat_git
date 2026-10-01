@@ -987,6 +987,7 @@ function cover_map_gate() {
     #    的位图字幕。每次调用都重算 —— 一个入口进程可能连着处理多个文件, 流表不能
     #    跨文件复用。
     COVER_MAP=()
+    CM_MOV=0
     [ "$_COVER_OK" = 1 ] && COVER_MAP=(-map "0:v:disp:attached_pic?")
     local src="${ABS_NAME:-$SRC_FILE}"
     local probe vt na m i si idx codec type
@@ -999,6 +1000,9 @@ function cover_map_gate() {
                     -show_entries stream_disposition=attached_pic -of csv=p=0 "$src" 2>/dev/null | tr -d '\r')
 
     # ②a 位图字幕 -> 负映射逐条排除。**不看 ① 的 disp: 能力**: 老 ffmpeg 一样死在这。
+    #    判据要读**整张流表**才能定(见下面那条注释), 所以循环里只记账, 排除动作放到
+    #    循环之后 —— 顺序跟 lib\common.bat 的 :cover_map 一致。
+    local bmpidx=""
     if [ -n "$probe" ]; then
         si=0
         while IFS=, read -r codec type _; do
@@ -1013,14 +1017,25 @@ function cover_map_gate() {
             fi
             [ "$type" = "subtitle" ] || continue
             idx=$si; si=$((si + 1))
+            # mov_text 是 mp4 的软字幕格式, matroska 装不下 -> 记下来给 EXT=mkv 用
+            [ "$codec" = "mov_text" ] && CM_MOV=1
             case " $_SUB_BITMAP " in
-                *" $codec "*)
-                    COVER_MAP+=(-map "-0:s:$idx")
-                    printf '[sub] %s 含位图字幕 %s —— mp4 装不下, 本次不保留该条(要保留请出 mkv)\n' \
-                        "$(basename "$src")" "$codec" >&2
-                    ;;
+                *" $codec "*) bmpidx="$bmpidx $idx/$codec" ;;
             esac
         done <<< "$probe"
+    fi
+    # —— EXT=mkv 时出口是 `-c:s copy`, 而 mkv 装得下位图字幕, 不该排除;
+    #    例外: 源里同时有 mov_text(CM_MOV=1) -> 文本字幕要转成 ass, 而 ass 同样吃不下
+    #    位图, 那时两条路都得排除。这里读的是整张表(不是"看到这一行时的状态"),
+    #    所以 [位图在前 / mov_text 在后] 的混合源不会被漏判 —— bat 侧是先数完再判,
+    #    两侧必须同一个结果。
+    if [ -n "$bmpidx" ] && { [ "${EXT:-mp4}" != "mkv" ] || [ "$CM_MOV" = 1 ]; }; then
+        for b in $bmpidx; do
+            COVER_MAP+=(-map "-0:s:${b%%/*}")
+            printf '[sub] %s 含位图字幕 %s —— 本次决定不保留该条\n' \
+                "$(basename "$src")" "${b#*/}" >&2
+        done
+        printf '[sub] (mp4 装不下位图字幕; EXT=mkv 时若要保住它, 请让源里不要带 mov_text)\n' >&2
     fi
 
     # ②b 封面: 数出 `-map 0:V` 命中几路(m)和有几张封面(n), 输出下标 = [m, m+n)。

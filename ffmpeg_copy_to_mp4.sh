@@ -13,14 +13,28 @@ function check_file_suffix() {
     local filename extension
     filename="$(basename "$1")"
     extension="${filename#*.}"
-    if [ "${extension,,}" == "mp4" ]; then
-        echo -e "suffix ${extension,,} 已经是mp4文件，不需要转换"
+    # EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
+    if [ "${extension,,}" == "${EXT}" ]; then
+        echo -e "suffix ${extension,,} 已经是${EXT}文件，不需要转换"
         exit 0
     else
-        echo "suffix ${extension,,} not mp4 file, need to convert"
+        echo "suffix ${extension,,} not ${EXT} file, need to convert"
     fi
 }
 
+# ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
+# 与 ffmpeg_dvd_hevc 的 EXT 同名同义。两处写法是刻意的:
+#   1) 只在**未定义**时设默认值 —— 写成 EXT=mp4 会把调用方预设的值冲掉;
+#   2) 认不出来的值报错退出, 不静默回退 mp4 —— EXT 拼错就该当场说。
+# mp4 是默认值: 命令行与改动前逐字相同。mkv 只改三处 —— 输出名后缀、
+# 字幕流怎么装(-c:s)、以及交给 ffmpeg 的那个输出文件名后缀。
+EXT="${EXT:-mp4}"
+EXT="${EXT,,}"
+case "$EXT" in
+    mp4) SENC=(-c:s mov_text) ;;
+    mkv) SENC=(-c:s copy) ;;
+    *) echo "EXT 只能是 mp4 或 mkv: $EXT" >&2; exit 1 ;;
+esac
 # ---------- 前置检查 ----------
 # ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
 #   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
@@ -60,10 +74,17 @@ echo "ABS_NAME: ${ABS_NAME}"
 ABS_PATH="$(dirname "$ABS_NAME")"
 filename="$(basename "$ABS_NAME")"
 filename_without_suffix="${filename%.*}"
-TARGET_FILE="${ABS_PATH}/${filename_without_suffix}.mp4"
+TARGET_FILE="${ABS_PATH}/${filename_without_suffix}.${EXT}"
 
 echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 echo
+
+# EXT=mkv 而 matroska 装不下 mov_text 软字幕(实测 rc=-40 / 0 字节), 所以要先
+# 知道源里有没有 —— 顺路用一次封面闸门, 它已经把每条流的 codec 数过一遍了。
+if [ "$EXT" = mkv ]; then
+    cover_map_gate "$FF"
+    [ "${CM_MOV:-0}" = 1 ] && SENC=(-c:s ass)
+fi
 
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 CMD=("$FF" -hide_banner)
@@ -71,7 +92,7 @@ CMD+=(-i "$ABS_NAME")
 CMD+=(-c:v copy -c:a copy)
 # 流映射与 11 个编码入口完全一致 (2026-09-17 用户裁定): 默认选流只留 1 视频 + 1 音频,
 # 多音轨/多字幕会被静默丢掉; 图形字幕(PGS/VobSub)转 mov_text 会失败, 属已知代价。
-CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0)
+CMD+=(-map 0:v -map 0:a? -map 0:s? "${SENC[@]}" -map_metadata 0 -map_chapters 0)
 # moov 前置 (faststart): 默认 mp4 把索引 moov 写在 mdat 后面, 播放器必须
 # 拿到文件末尾才能起播;成品常被拷走/边下边播, 故统一加 faststart.
 # 实测: 不加 = ftyp/free/mdat/moov, 加了 = ftyp/moov/free/mdat, 字节数相同.
