@@ -6,7 +6,7 @@ echo "=== shell: $BASH ==="
 echo "=== PATH ==="
 printf '%s\n' "$PATH" | tr ':' '\n'
 echo "=== tools ==="
-for t in genisoimage mkisofs dvdauthor xorriso ffmpeg ffprobe isoinfo lsdvd dvdtree; do
+for t in genisoimage mkisofs dvdauthor xorriso isoinfo lsdvd dvdtree; do
     p="$(command -v "$t" 2>/dev/null)"
     if [ -n "$p" ]; then
         printf '%-12s = %s\n' "$t" "$p"
@@ -15,7 +15,7 @@ for t in genisoimage mkisofs dvdauthor xorriso ffmpeg ffprobe isoinfo lsdvd dvdt
     fi
 done
 echo "=== versions ==="
-for t in genisoimage mkisofs dvdauthor ffmpeg; do
+for t in genisoimage mkisofs dvdauthor; do
     p="$(command -v "$t" 2>/dev/null)"
     [ -n "$p" ] || continue
     printf '%-12s : %s\n' "$t" "$("$t" --version 2>&1 | head -1)"
