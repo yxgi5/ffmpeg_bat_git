@@ -409,8 +409,12 @@ set /a TOTDUR=0
 set /a N_TITLE=0
 rem 体积估算的正确口径: MODE=ALL 下是"各 title 时长之和", 不是 title 1 的时长
 rem (2026-10-01 实测: 3 title 的盘按 title 1 估成 5MB, 实际产出 845MB)
-rem _outs.txt 记录本次真正写出的产物, 结尾据此统计"产物合计"
-if exist "%WORK%\_outs.txt" del "%WORK%\_outs.txt" 2>nul
+rem 本次真正写出的产物清单, 结尾据此统计"产物合计"。文件名**必须**带随机后缀:
+rem 固定名 %WORK%\_outs.txt 落在全局临时目录, 会跨运行/跨进程互相踩 —— 2026-10-01
+rem 实测: 本次合计里混进上一次运行的条目(H:\...\DVD081_title1.mkv), 而本次自己的
+rem 两条又被另一个实例的 del 吞掉, 于是报 "4 个文件 466MB"(实为 5 个 267MB)。
+if not defined OUTS set "OUTS=%WORK%\_outs_%RANDOM%%RANDOM%.txt"
+del "%OUTS%" 2>nul
 rem 不用 if(...)else(...) 包住 %VFILT%: 值里一旦出现 ASCII 右括号就会提前关块。
 rem 先落进普通变量再 echo, 块外单行 if 不参与括号计数。
 set "VF_SHOW=[无]"
@@ -494,7 +498,7 @@ if not "%FB_RC%"=="0" (
     echo            [3] %VCODEC% 的参数不被接受 → 换 VENC=libx265 或 VENC=auto
     exit /b 1
 )
->>"%WORK%\_outs.txt" echo "%OUTDIR%\%OUTN%.%EXT%"
+>>"%OUTS%" echo "%OUTDIR%\%OUTN%.%EXT%"
 exit /b 0
 
 :ENC_EXTRA
@@ -510,7 +514,7 @@ if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
     exit /b 1
 )
->>"%WORK%\_outs.txt" echo "%OUTDIR%\%OUTN%.%EXT%"
+>>"%OUTS%" echo "%OUTDIR%\%OUTN%.%EXT%"
 exit /b 0
 
 rem =========================================================================
@@ -663,15 +667,15 @@ echo ============================================================
 echo  输出目录: %OUTDIR%
 rem ---- 产物合计: 编码已跑完, 直接统计本次真正写出的文件(比按码率估准) ----
 rem 用 KB 累加再折算 MB: cmd 的 set /a 是 32 位有符号, 大文件直接累加字节会溢出
+rem 取大小走 call :ACC_OUT 的 %~z1(cmd 对"参数"的标准行为)。注: 实测 %%~zF 在
+rem for /f 里同样能取到正确字节数, 换写法只是与其余子过程同风格 —— 真正让合计
+rem 算错的坑是上面那份清单的固定文件名(跨运行残留), 已改随机名, 见 :RUN_ALL。
 set /a TOTKB=0
 set /a N_OUT=0
-if exist "%WORK%\_outs.txt" for /f "usebackq delims=" %%F in ("%WORK%\_outs.txt") do if exist %%F (
-    set /a TOTKB+=%%~zF/1024
-    set /a N_OUT+=1
-)
+if exist "%OUTS%" for /f "usebackq delims=" %%F in ("%OUTS%") do if exist %%F call :ACC_OUT %%F
 set /a TOTMB=%TOTKB%/1024
 if %N_OUT% gtr 0 echo  产物合计: %N_OUT% 个文件, %TOTMB% MB
-del "%WORK%\_outs.txt" 2>nul
+del "%OUTS%" 2>nul
 rem ---- 体积估算: MODE=ALL 下时长口径是"各 title 合计", 不是 title 1 ----
 if "%MODE%"=="ALL" (set "DI=%TOTDUR%") else (set "DI=%SRC_DUR%")
 if not defined DI goto DONE_END
@@ -694,4 +698,14 @@ if defined FAILED (
     echo [失败] 至少一个 title 编码失败
     exit /b 1
 )
+exit /b 0
+
+rem =========================================================================
+rem  子过程 ACC_OUT  <带引号的产物路径>  ->  累加进 TOTKB / N_OUT
+rem  %~z1 是 cmd 对"参数"的标准行为(取该文件的字节数), 路径两边的引号由 %~ 自动
+rem  剥掉。实测 for /f 变量的 %%~zF 也返回同样的值, 两者都可用。
+rem =========================================================================
+:ACC_OUT
+set /a TOTKB+=%~z1/1024
+set /a N_OUT+=1
 exit /b 0
