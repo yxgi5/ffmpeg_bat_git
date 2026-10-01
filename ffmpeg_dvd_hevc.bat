@@ -401,6 +401,12 @@ goto RUN_ALL
 :RUN_ALL
 rem 一个 title 失败不立刻退出: 后面的分段/特典还要跑完, 但退出码必须真的传出去
 set FAILED=
+set /a TOTDUR=0
+set /a N_TITLE=0
+rem 体积估算的正确口径: MODE=ALL 下是"各 title 时长之和", 不是 title 1 的时长
+rem (2026-10-01 实测: 3 title 的盘按 title 1 估成 5MB, 实际产出 845MB)
+rem _outs.txt 记录本次真正写出的产物, 结尾据此统计"产物合计"
+if exist "%WORK%\_outs.txt" del "%WORK%\_outs.txt" 2>nul
 rem 不用 if(...)else(...) 包住 %VFILT%: 值里一旦出现 ASCII 右括号就会提前关块。
 rem 先落进普通变量再 echo, 块外单行 if 不参与括号计数。
 set "VF_SHOW=[无]"
@@ -436,6 +442,13 @@ set MISS=0
 call :PROBE %N% TW TH TD
 if not defined TW goto NEXT_MISS
 set MISS=0
+rem 攒该 title 的时长给结尾的体积估算(非数字如 N/A 按 0 处理, 否则 set /a 会报
+rem Missing operator —— 与 :DONE 里对 SRC_DUR 的防护同款)
+set "TDI=%TD%"
+for /f "tokens=1 delims=." %%D in ("%TD%") do set "TDI=%%D"
+for /f "delims=0123456789" %%E in ("%TDI%") do set "TDI=0"
+set /a TOTDUR+=%TDI%
+set /a N_TITLE+=1
 call :ENC %N% "%PREFIX%_title%N%" 0 0
 if errorlevel 1 set FAILED=1
 goto NEXT_STEP
@@ -475,6 +488,7 @@ if not "%FB_RC%"=="0" (
     echo            [3] %VCODEC% 的参数不被接受 → 换 VENC=libx265 或 VENC=auto
     exit /b 1
 )
+>>"%WORK%\_outs.txt" echo "%OUTDIR%\%OUTN%.%EXT%"
 exit /b 0
 
 :ENC_EXTRA
@@ -488,6 +502,7 @@ if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
     exit /b 1
 )
+>>"%WORK%\_outs.txt" echo "%OUTDIR%\%OUTN%.%EXT%"
 exit /b 0
 
 rem =========================================================================
@@ -617,9 +632,22 @@ exit /b 0
 echo.
 echo ============================================================
 echo  输出目录: %OUTDIR%
-if not defined SRC_DUR goto DONE_END
+rem ---- 产物合计: 编码已跑完, 直接统计本次真正写出的文件(比按码率估准) ----
+rem 用 KB 累加再折算 MB: cmd 的 set /a 是 32 位有符号, 大文件直接累加字节会溢出
+set /a TOTKB=0
+set /a N_OUT=0
+if exist "%WORK%\_outs.txt" for /f "usebackq delims=" %%F in ("%WORK%\_outs.txt") do if exist %%F (
+    set /a TOTKB+=%%~zF/1024
+    set /a N_OUT+=1
+)
+set /a TOTMB=%TOTKB%/1024
+if %N_OUT% gtr 0 echo  产物合计: %N_OUT% 个文件, %TOTMB% MB
+del "%WORK%\_outs.txt" 2>nul
+rem ---- 体积估算: MODE=ALL 下时长口径是"各 title 合计", 不是 title 1 ----
+if "%MODE%"=="ALL" (set "DI=%TOTDUR%") else (set "DI=%SRC_DUR%")
+if not defined DI goto DONE_END
 if not defined VBITRATE goto DONE_END
-for /f "tokens=1 delims=." %%A in ("%SRC_DUR%") do set DI=%%A
+for /f "tokens=1 delims=." %%A in ("%DI%") do set DI=%%A
 if not defined DI set DI=0
 rem 同 :AUTO_LOOP: "N/A" 之类的非数字会让 set /a 报 Missing operator
 for /f "delims=0123456789" %%B in ("%DI%") do set DI=0
@@ -630,7 +658,7 @@ if /i "%VBITRATE:~-1%"=="m" set /a VBN=%VBITRATE:~0,-1%*1000000
 rem 先 /1024 再乘时长：cmd 的 set /a 是 32 位有符号，直接乘会溢出
 set /a EST_MB=%VBN%/1024*%DI%/8192
 set /a EST_KB=%VBN%/1000
-echo  体积估算: 视频 ~%EST_KB%kbps x %DI%s ≈ %EST_MB% MB（另加音频）
+if "%MODE%"=="ALL" (echo  体积估算: 视频 ~%EST_KB%kbps x %DI%s（%N_TITLE% 个 title 合计） ≈ %EST_MB% MB（另加音频）) else (echo  体积估算: 视频 ~%EST_KB%kbps x %DI%s ≈ %EST_MB% MB（另加音频）)
 :DONE_END
 echo ============================================================
 if defined FAILED (
