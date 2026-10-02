@@ -983,7 +983,7 @@ def check_fail_propagation(inv):
 # (ffmpeg_copy_to_mp4.{bat,sh}) did not until 2026-09-17, found by the user
 # asking what `-map 0:v` was doing there. This rule pins the set for EVERY
 # mp4-producing entry in both families.
-STREAM_MAP_TOKENS = ("-map 0:a?", "-map 0:s?", "-c:s mov_text",
+STREAM_MAP_TOKENS = ("-map 0:a?", "-map 0:s?",
                      "-map_metadata 0", "-map_chapters 0")
 
 # 2026-09-28: the VIDEO token is no longer the same for every exit.
@@ -1061,6 +1061,17 @@ COVER_MAP_LITERAL = "0:v:disp:attached_pic"
 COVER_COPY_LITERAL = "-c:v:1 copy"
 COVER_MAP_LIB = ("lib/common.sh", "lib/common.bat")
 
+# 字幕出口 -c:s (2026-10-02): 原先每个入口各写一份 `-c:s mov_text`(mp4) 与
+# `-c:s copy`(EXT=mkv), 加一个容器要改 20 个文件; 现在两个出口都由 lib 的 SENC
+# 下发(默认值与合法值集中在 lib/defaults.cfg), 入口只引用变量 —— 于是这里改成和
+# 封面映射同一套"引用 + 定义分开检查": 引用在入口, 定义在 lib, 两边都不能少。
+# 为什么必须钉住: mov_text 源配 copy 会 rc=-40 / 0 字节产物, ass 配 mp4 又装不下,
+# 容器与字幕出口是配套的 —— 哪个入口漏了变量, 那一族的 EXT 开关就悄悄失效。
+# 例外仍是两个 dvd 入口(见 STREAM_MAP_EXEMPT): dvdvideo 是位图字幕, 走自己的 copy。
+SUB_ENC_REF = {"bat": "%SENC%", "sh": "SENC[@]"}
+SUB_ENC_LITERALS = ("-c:s mov_text", "-c:s copy")
+SUB_ENC_LIB = ("lib/common.sh", "lib/common.bat")
+
 # 位图字幕(2026-09-28): mp4 只能装 mov_text, 位图字幕一进 `-c:s mov_text` 就 EINVAL,
 # 整片写 0 字节。排除指令 `-map -0:s:<i>` 由 lib 的闸门产出并**随封面变量一起下发**
 # (入口零改动), 所以 lib 里那份位图名单是本规则的命根子 —— 名单被删 = 又变 0 字节。
@@ -1105,6 +1116,12 @@ def check_stream_map(inv):
                 bads.append("%s: lacks %s - ffmpeg default selection keeps only 1 video "
                             "+ 1 audio, so extra audio/subtitle tracks are dropped"
                             % (f, ", ".join(missing)))
+            # ---- 字幕出口: 引用 lib 的 SENC(定义在 lib 里, 见 SUB_ENC_* 注释) ----
+            if f not in STREAM_MAP_EXEMPT and SUB_ENC_REF[fam] not in body:
+                bads.append("%s: 没有引用字幕出口变量 %s —— mp4 要 mov_text、EXT=mkv 要 "
+                            "copy, 两者都由 lib 按容器下发; 少了它字幕会被 ffmpeg 按容器 "
+                            "默认挑, mov_text 源进 mkv 直接 rc=-40 / 0 字节产物"
+                            % (f, SUB_ENC_REF[fam]))
             # ---- 封面映射 + 成对约定 (2026-09-28, 见上方 COVER_MAP_* 注释) ----
             if f not in COVER_MAP_SKIP:
                 if re.search(r"-c:v\s+copy", body):
@@ -1167,12 +1184,24 @@ def check_stream_map(inv):
                         "`-map -0:s:<i>` 会跟着消失, 带 PGS / dvd_subtitle 的源一跑就 "
                         "EINVAL 写 0 字节(实测用户清单里 14 个这样的文件)"
                         % (rel, SUB_BITMAP_LITERAL))
+    for rel in SUB_ENC_LIB:
+        p = os.path.join(ROOT, rel)
+        if not os.path.isfile(p):
+            continue
+        _, libtext = read_text(p)
+        for lit in SUB_ENC_LITERALS:
+            if lit not in libtext:
+                bads.append("%s: 没有定义字幕出口 %s —— 入口引用的 SENC(%%SENC%% / "
+                            "${SENC[@]})会缺一半: mp4 要 mov_text, EXT=mkv 要 copy, "
+                            "缺哪个哪个容器就退化成 ffmpeg 默认选择(静默丢字幕 / "
+                            "rc=-40 写 0 字节)" % (rel, lit))
     if bads:
         for m in bads[:8]:
             bad("L16", m)
     else:
         ok("L16", "all %d mp4 entries (both families) keep every stream "
-                  "(-map 0:V/-map 0:a?/-map 0:s? + mov_text; %d encoder entries also map "
+                  "(-map 0:V/-map 0:a?/-map 0:s? + %%SENC%%, whose mov_text/copy pair is "
+                  "defined in both libs; %d encoder entries also map "
                   "the cover back in and copy it by stream index (-c:v:0 <enc> + "
                   "-c:v:1/-c:v:2 copy, no bare -c:v copy); the 2 remux entries "
                   "keep -map 0:v, which already carries it). the gate variable sits "

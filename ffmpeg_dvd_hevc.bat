@@ -100,8 +100,18 @@ if not defined PREFIX set "PREFIX=dvd"
 
 rem EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
 rem EXT=mp4  只能 HEVC + AAC + 1 条字幕，且 AC3 必须重编码
-rem 同上: 不覆盖调用方预设的值(与 .sh 侧 ${EXT:-mkv} 同义)
-if not defined EXT set EXT=mkv
+rem 同上: 不覆盖调用方预设的值(与 .sh 侧同口径)。默认值来自 lib\defaults.cfg 的
+rem   DVD_EXT(DVD 链路单列一个键, 理由见那个文件里的注释): 公共 EXT 的默认是 mp4,
+rem   而 mp4 装不下第 2 条 DVD 位图字幕, 让公共默认值盖过来等于悄悄降级产物。
+rem   优先级: 命令行显式给的 EXT > DVD_EXT > 公共 EXT > mkv。判定"是不是显式给的"
+rem   必须在 load_defaults 之前做 —— 它只补没设过的键, 跑完就分不清是谁设的。
+if defined EXT (set "EXT_GIVEN=1") else (set "EXT_GIVEN=")
+call "%SELF_DIR%lib\common.bat" load_defaults
+if defined EXT_GIVEN goto HAVE_EXT
+if not defined DVD_EXT set "DVD_EXT=%EXT%"
+if not defined DVD_EXT set "DVD_EXT=mkv"
+set "EXT=%DVD_EXT%"
+:HAVE_EXT
 
 rem AUTO(默认) 按源制式选: NTSC 29.97i -> IVTC 还原 23.976p; PAL 25i -> BWDIF 去交错
 rem           保留 25p; 源已是 23.976p -> 不加滤镜。读不到帧率就按高度猜(576/288=PAL,
@@ -324,7 +334,9 @@ if not defined BIT (
     echo [错误] %SRC_PIX% 不在码率表范围内
     exit /b 2
 )
-set /a VBITRATE=%BIT% / 2
+set "VBITRATE=%BIT%"
+call "%SELF_DIR%lib\common.bat" bitrate_from_table VBITRATE
+if errorlevel 1 exit /b 1
 :HAVE_BIT
 echo 目标视频码率: %VBITRATE% bit/s
 rem -b:v 要等码率算完才能拼进来，所以参数在这里组装(模板见 :VENC_ARGS)

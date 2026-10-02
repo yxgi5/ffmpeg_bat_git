@@ -8,6 +8,9 @@ rem                 本函数**不做能力筛选**(2026-09-20 同日回退, 原
 rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
 rem   on_exist:      产物已存在时的策略(FF_ON_EXIST=skip 默认 / overwrite / fail),
 rem                  导出 FF_OUT_FLAG / FF_EXIST_SKIP / FF_EXIST_FAIL, 见 :on_exist
+rem   load_defaults: 读 lib\defaults.cfg 的 KEY=VALUE(公共开关默认值)
+rem   init_ext:      EXT 容器开关 -> EXT + SENC, 见 :init_ext
+rem   bitrate_from_table: 目标码率口径(要不要 /2), 见 :bitrate_from_table
 rem   call 跨文件共享环境: 函数内 set 的变量(非 setlocal 内)对调用方可见
 rem 注意: 本文件必须保持 CRLF 行尾, 勿用会剥 CR 的编辑器保存
 rem ============================================================
@@ -28,6 +31,9 @@ if /I "%~1"=="qsv_encoder_ready"     goto qsv_encoder_ready
 if /I "%~1"=="cover_map"            goto cover_map
 if /I "%~1"=="check_isvideo"          goto check_isvideo
 if /I "%~1"=="on_exist"               goto on_exist
+if /I "%~1"=="load_defaults"       goto load_defaults
+if /I "%~1"=="init_ext"            goto init_ext
+if /I "%~1"=="bitrate_from_table"  goto bitrate_from_table
 echo 未知函数: %~1
 exit /b 1
 
@@ -485,4 +491,57 @@ if /i "%FF_ON_EXIST%"=="fail" (
 echo [on_exist] output exists -^> SKIPPED, nothing was encoded: %~2
 echo [on_exist]   FF_ON_EXIST=overwrite to re-encode, =fail to treat it as an error
 set "FF_EXIST_SKIP=1"
+exit /b 0
+:load_defaults
+rem 读 lib\defaults.cfg 的 KEY=VALUE 默认值: call ... load_defaults
+rem   已经 set 过的同名变量不覆盖(命令行 set EXT=mkv 优先, 文件只补没设过的键);
+rem   文件缺失直接返回 0 —— 入口有内置兜底值, 不该因为少一个配置文件就全线跑不起来。
+rem   写法沿用 :probe_source 那一处(for /f + tokens=1,* delims==), eol=# 顺手吃掉注释行。
+rem   实测 cmd 会把 CRLF 行尾那个 CR 一起吞掉: 同一份文件存成 LF 或 CRLF, 取到的值
+rem   逐字节相同(已用同一份 cfg 的两种行尾对照过), 所以这里不需要再去 CR。
+rem   FB_DEFAULTS: 换一份配置文件(批量里按清单给不同口径时用得着), 缺省是本文件旁边
+rem     的 defaults.cfg; 环境变量由子进程继承, 所以清单驱动设一次, 每条条目都按它走。
+set "DF_FILE=%FB_DEFAULTS%"
+if not defined DF_FILE set "DF_FILE=%~dp0defaults.cfg"
+if not exist "%DF_FILE%" exit /b 0
+for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%DF_FILE%") do (
+    if not defined %%a set "%%a=%%~b"
+)
+exit /b 0
+
+:init_ext
+rem 输出容器开关: call ... init_ext -> EXT(mp4|mkv) + SENC(-c:s mov_text|copy)
+rem   默认值与取值来自 lib\defaults.cfg; 校验和派生值在这里统管, 各入口不再各写一遍。
+rem   认不出来的值报错返回 1(调用方 exit /b 1), 不静默回退 mp4。
+rem   EXT 若含空格(set EXT=mkv && xxx.bat 那种写法会带进来)先抹掉再比较。
+call "%~f0" load_defaults
+if defined EXT set "EXT=%EXT: =%"
+if not defined EXT goto IE_MP4
+if /i "%EXT%"=="mp4" goto IE_MP4
+if /i "%EXT%"=="mkv" goto IE_MKV
+echo [错误] EXT 只能是 mp4 或 mkv: %EXT%
+exit /b 1
+:IE_MP4
+set "EXT=mp4"
+set "SENC=-c:s mov_text"
+exit /b 0
+:IE_MKV
+set "EXT=mkv"
+set "SENC=-c:s copy"
+exit /b 0
+
+:bitrate_from_table
+rem 目标码率口径: call ... bitrate_from_table <变量名>
+rem   BITRATE_NO_HALF=1 -> 变量保持查表原值; 否则原地 / 2(历史口径)。
+rem   默认值同样来自 lib\defaults.cfg。缺参数返回 2。
+call "%~f0" load_defaults
+if "%~2"=="" exit /b 2
+setlocal EnableDelayedExpansion
+set /a _BT_VAL=!%~2!
+if "%BITRATE_NO_HALF%"=="1" (
+    set /a _BT_OUT=_BT_VAL
+) else (
+    set /a _BT_OUT=_BT_VAL / 2
+)
+endlocal & set /a %~2=%_BT_OUT%
 exit /b 0

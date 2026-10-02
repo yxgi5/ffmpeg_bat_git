@@ -38,6 +38,15 @@ if not "%~1"=="" (
     SET "SRC_FILE=list.txt"
 )
 echo SRC_FILE="%SRC_FILE%"
+rem ---------- 开关透传(无人值守留痕) ----------
+rem 本脚本不解析任何开关: 它们全部以环境变量的形式原样传给下游入口 ——
+rem   EXT(输出容器) / BITRATE_NO_HALF(目标码率不除 2) / FF_HWACCEL(软硬解) /
+rem   FF_ON_EXIST(同名产物策略), 以及各入口自己的开关(见 readme.md 的开关表)。
+rem 默认值统一写在 lib\defaults.cfg —— 无人值守前改那个文件即可, 命令行
+rem   set XXX=... 的临时覆盖优先。 load_defaults 把默认值装进本进程环境(子进程
+rem   继承), 再回显一行: 跑一整晚的日志里能一眼看出这份清单是按什么设置转的。
+call "%~dp0lib\common.bat" load_defaults
+echo SWITCHES: EXT=%EXT% BITRATE_NO_HALF=%BITRATE_NO_HALF% FF_ON_EXIST=%FF_ON_EXIST%
 
 rem NOTE: usebackq + quotes makes the list path a FILE, not a literal
 rem string; CALL is required or cmd never returns from the encoder and
@@ -52,12 +61,29 @@ rem 判定只能用 if errorlevel: for 块里 %VAR% 在块解析时就冻结了,
 rem   读不到子调用的返回值; 且 "if errorlevel 4" + "if not errorlevel 5" 才是
 rem   "正好等于 4"(不会把 5/6 截走), ffmpeg 的负 AVERROR(如 av1_qsv 的 -40)
 rem   也进不来 —— 带符号比较下 -40 < 4。
+rem ---------- UTF-8 BOM(记事本存出来的清单) ----------
+rem 清单第一条若带 BOM, cmd 的 for /f 会把它一并吃进路径 —— check_isvideo 于是
+rem   判"不是视频"并把整份清单打成 rc=3(sh 侧 run_list 早就剥了, 实测 T21 在 sh 侧
+rem   PASS / bat 侧 FAIL)。剥除放在子程序里做: for 块内不能展开 %LINE:~1%(块解析时
+rem   就冻结), 而开延迟展开又会吃掉片名里的 '!'(Tora! Tora! Tora!.mp4 那一类),
+rem   所以这里 call 到 :RUN_ONE, 在子程序里按普通展开处理。
+rem   只处理第一行 —— BOM 只可能出现在文件开头。
+
 for /f "usebackq delims=" %%i in ("%SRC_FILE%") do (
-    call "%~dp0ffmpeg_hevc_nvenc.bat" "%%i"
+    call :RUN_ONE "%%i"
     if errorlevel 4 if not errorlevel 5 goto LIST_HWFAIL
     if errorlevel 1 goto LIST_FAIL
 )
 exit /b 0
+
+:RUN_ONE
+set "LINE=%~1"
+rem 第一个字符是 UTF-8 BOM(U+FEFF, 下面那个引号里就是它, 不可见)时才剁;
+rem   for /f 在 cp65001 下会把 EF BB BF 解成这一个字符。
+if "%LINE:~0,1%"=="﻿" set "LINE=%LINE:~1%"
+call "%~dp0ffmpeg_hevc_nvenc.bat" "%LINE%"
+set "RC=%errorlevel%"
+exit /b %RC%
 
 :LIST_HWFAIL
 echo 硬件缺失(rc=4): 这台机器跑不了这个入口, 后续条目同样跑不了 —— 中止整份清单

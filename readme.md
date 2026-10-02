@@ -174,6 +174,52 @@ EXT=mkv ./ffmpeg_copy_to_mp4.sh xxx.mov
 `-movflags +faststart` 对 mkv 是空操作（2026-10-02 实测 rc=0、产物正常），所以 remux
 入口照旧保留它，不为容器分叉。
 
+## 公共开关/默认值：`lib/defaults.cfg`（改一处，两族全生效）
+
+`EXT` 这类「所有入口都一样」的开关，默认值与技术细节集中放在一处，而不是散在每个脚本里：
+
+| 文件 | 放什么 |
+| --- | --- |
+| `lib/defaults.cfg` | 开关的**默认值**（一行一个 `KEY=VALUE`，`#` 开头是注释） |
+| `lib/common.sh` 的 `load_defaults()` / `init_ext()` | 读文件 + 校验 + 由它派生出 `-c:s` 的写法 |
+| `lib/common.bat` 的 `:load_defaults` / `:init_ext` | 同上（cmd 版） |
+
+所以**加一个新容器、改一下默认口径，只动 `lib/defaults.cfg` 那一行** —— 20 个入口不用碰。
+现在里面就三条：
+
+| 键 | 默认 | 意思 |
+| --- | --- | --- |
+| `EXT` | `mp4` | 输出容器（`mp4` / `mkv`），见上一节 |
+| `BITRATE_NO_HALF` | `0` | `1` = 目标码率**不除 2**，直接用查表原值（见下） |
+| `DVD_EXT` | `mkv` | DVD 链路（`ffmpeg_dvd_hevc`）的输出容器默认值。它为什么不直接用 `EXT`：mp4 装不下第 2 条 DVD 位图字幕，而 `EXT` 的默认是 mp4；命令行显式给 `EXT` 时仍以 `EXT` 为准 |
+
+优先级：**命令行/环境变量 > 配置文件**。`load_defaults` 只补「还没设过」的键，
+所以 `set "EXT=mkv" && ...` / `EXT=mkv ./ffmpeg_xxx.sh` 这种临时覆盖完全不受影响。
+想换一整份配置跑（比如两条清单用不同口径），用 `FB_DEFAULTS` 指到另一个文件：
+
+```
+set "FB_DEFAULTS=D:\cfg\mkv.cfg" && convert_from_list_libx265.bat night.txt
+FB_DEFAULTS=/srv/cfg/archive.cfg ./convert_from_list_qsv.sh list0.txt
+```
+
+它还一路往下传：清单驱动（`convert_from_list_*` / `repack_from_list`）启动时同样读这份配置，
+再靠环境变量传给每条被它调起的入口 —— 所以一次设好，整份清单都按同一个口径跑（2026-10-02
+实测两族四种清单驱动，`EXT` 与 `BITRATE_NO_HALF` 都完整透传到最终产物）。
+
+## 码率开关 `BITRATE_NO_HALF`（要不要把查表值除以 2）
+
+三张码率表（HEVC / AVC / AV1）历来都不是直接用：查出来的表值会**再除以 2** 当目标码率。
+想保留表值原样（想要高一点码率、或表本身已经按新口径标定时），把这个开关打开即可：
+
+```
+set "BITRATE_NO_HALF=1" && ffmpeg_libx265.bat  "D:\video\xxx.mp4"
+BITRATE_NO_HALF=1 ./ffmpeg_libx265.sh xxx.mp4
+```
+
+- 影响范围：**两族所有编码入口**，含 `ffmpeg_dvd_hevc`（它也是「查表再 /2」同一口径）；
+- 只对自动推算的码率生效 —— 交互模式手输的码率（`900k` 那种）是显式指定，不参与换算；
+- 想让它成为默认（整批都按不除 2 跑）就把 `lib/defaults.cfg` 里那行设成 `1`。
+
 ## DVD-Video 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
 
 普通视频脚本**不能**直接拿来压 DVD，四个坑（均为实测）：
@@ -210,7 +256,7 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 | `MODE` | `ALL` / `AUTO` / `TITLE` | `ALL` | `ALL` 每个 title 各出一个文件（**默认**）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE` |
 | `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE`（命令行第 3 参优先） |
 | `PREFIX` | 名字 | 源文件名（去扩展名） | 输出文件名前缀：`<PREFIX>_title<N>.<EXT>`（`MODE=ALL`）/ `<PREFIX>.<EXT>`（单条） |
-| `EXT` | `mkv` / `mp4` | `mkv` | 大小写都认（`EXT=MP4` 与 `mp4` 等价）。**建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码 |
+| `EXT` | `mkv` / `mp4` | `mkv` | 大小写都认（`EXT=MP4` 与 `mp4` 等价）。**建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码。默认值取自 `lib/defaults.cfg` 的 `DVD_EXT`（不设时即 `mkv`；显式给 `EXT` 以 `EXT` 为准） |
 | `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | `AUTO` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
 | `VFILT_EXTRA` | 滤镜串 | 空 | 追加到滤镜链末尾。**默认不改 SAR、不裁边**；确要修填 `setsar=32:27` / `crop=704:480:8:0,setsar=40:33` |
 | `AUDIO` | `copy` / `aac` / `flac` | `copy` | `copy`＝原样保留 AC3 / DTS / MP2（零损失、最快），**唯一例外**：源音轨是 LPCM 时自动转 AAC（见下）；`aac`＝强制重编码 192k；`flac`＝强制重编码，无损，体积约为 LPCM 的一半；mp4 下强制 `aac` |

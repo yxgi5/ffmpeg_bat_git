@@ -98,7 +98,17 @@ PREFIX="${PREFIX:-$(basename "${SRC%.*}")}"
 
 # EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
 # EXT=mp4  只能 HEVC + AAC + 1 条字幕, 且 AC3 必须重编码
-EXT="${EXT:-mkv}"
+# 默认值来自 lib/defaults.cfg: DVD 链路单列一个 DVD_EXT 键 —— 公共 EXT 的默认是 mp4,
+#   而 mp4 装不下第 2 条 DVD 位图字幕(实测只剩 1 条), 让公共默认值盖过来等于悄悄降级
+#   产物。优先级: 命令行/环境显式给的 EXT > DVD_EXT > 公共 EXT > mkv。
+#   「是不是显式给的」必须在 load_defaults 之前判: 它只补没设过的键, 跑完就分不清
+#   EXT 到底是命令行带来的还是配置文件补的。
+EXT_GIVEN="${EXT:+1}"
+load_defaults
+if [ -z "$EXT_GIVEN" ]; then
+    EXT="${DVD_EXT:-${EXT:-mkv}}"
+fi
+unset EXT_GIVEN
 # 归一成小写: 输出文件后缀是直接取 $EXT 拼的, 不归一的话 EXT=MP4 会产出 ".MP4"
 EXT="${EXT,,}"
 
@@ -354,7 +364,7 @@ if [ -z "$VBITRATE" ]; then
     # 与 .bat / ffmpeg_hevc_nvenc.sh 同口径: 查表值 /2, 单位 bits/s(裸数字),
     # 不加 k —— 636021 就是 636 kbps; 加了 k 会变成 636 Mbps 被 NVENC 拒
     # 表按编码器选(hevc/avc/av1), 三张表都是 /2, 与仓库其余入口同口径
-    VBITRATE="$(awk -v b="$BIT" 'BEGIN{printf "%d", b/2}')"
+    VBITRATE="$(bitrate_from_table "$BIT")"
 fi
 echo "ref TARGET_BITRATE = ${VBITRATE} bit/s (~$(( VBITRATE / 1000 )) kbps)"
 
