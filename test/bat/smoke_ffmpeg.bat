@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg.bat (v10)  *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg.bat (v11)  *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -10,6 +10,15 @@ rem   C) fresh process     -> console already UTF-8 (opencmd.bat style)
 rem Every run captures stdout+stderr into smoke_logs\*.log, and a verdict
 rem table is written to smoke_logs\summary.txt
 rem
+rem v11 changes vs v10 (2026-10-02):
+rem   - new case T30: a Notepad-style list (CRLF line ends + UTF-8 BOM) must
+rem     still produce one output per entry. The .sh side has covered this
+rem     since T21 (run_list strips the BOM); the .bat wrappers did not -- cmd's
+rem     for /f swallowed the BOM into the first path, check_isvideo then said
+rem     "not a video" and the whole list died with rc=3. The BOM here is made
+rem     on the fly with certutil (three bytes EF BB BF prepended to the list),
+rem     so the case needs no external fixture and no invisible character in
+rem     this file. Runs on the libx265 wrapper -> no hardware, never SKIPped.
 rem v10 changes vs v9 (2026-10-02):
 rem   - new cases T26 / T27 for the EXT container switch (mp4 default, mkv
 rem     optional). Same T-ids as test/sh/smoke_ffmpeg.sh. T26: EXT=mkv must
@@ -381,6 +390,40 @@ findstr /i /c:"is not recognized" "%LOGDIR%\T23_list_abort.log" >nul 2>&1
 if not errorlevel 1 ( set "V23=FAIL" & set "N23=%N23% bannerParseErr;" )
 echo [%V23%] T23 missing list entry aborts the wrapper rc=%RC23% >> "%SUM%"
 if not "%N23%"=="" echo        why: %N23% >> "%SUM%"
+
+rem ============ T30: CRLF + UTF-8 BOM list (twin of sh T21) ============
+rem sh T21 has covered this since the beginning: run_list strips a leading
+rem BOM from the first list line. The .bat wrappers did not, so a list saved
+rem by Notepad lost its first entry and the whole run died with rc=3
+rem (check_isvideo saw "\xEF\xBB\xBFclip.mp4"). The four wrappers now strip
+rem it in :RUN_ONE; this case pins that down: 3 entries -> 3 outputs, rc=0.
+rem The BOM is generated here (certutil -decodehex of "ef bb bf" + copy /b)
+rem instead of shipping a fixture: nothing external, nothing invisible.
+chcp %CP0% >nul
+set "T30D=%WORK%\cases\T30_list_crlf_bom"
+if not exist "%T30D%" mkdir "%T30D%" >nul 2>&1
+copy /y "%IN%" "%T30D%\bom1.mp4" >nul
+copy /y "%IN%" "%T30D%\bom2.mp4" >nul
+copy /y "%IN%" "%T30D%\bom3.mp4" >nul
+del /q "%T30D%\*-compressed.mp4" >nul 2>&1
+>  "%T30D%\names.txt" echo %T30D%\bom1.mp4
+>> "%T30D%\names.txt" echo %T30D%\bom2.mp4
+>> "%T30D%\names.txt" echo %T30D%\bom3.mp4
+>  "%T30D%\bom.hex" echo ef bb bf
+certutil -decodehex "%T30D%\bom.hex" "%T30D%\bom.bin" >nul 2>&1
+copy /b "%T30D%\bom.bin" + "%T30D%\names.txt" "%T30D%\list.txt" >nul 2>&1
+call "%REPO%\convert_from_list_libx265.bat" "%T30D%\list.txt" < nul > "%LOGDIR%\T30_list_crlf_bom.log" 2>&1
+set "RC30=%errorlevel%"
+set "CNT30=0"
+for %%c in ("%T30D%\*-compressed.mp4") do set /a CNT30+=1
+set "V30=PASS"
+set "N30="
+if not "%RC30%"=="0" ( set "V30=FAIL" & set "N30=%N30% rc=%RC30% want0;" )
+if not "%CNT30%"=="3" ( set "V30=FAIL" & set "N30=%N30% outputs=%CNT30% want3;" )
+findstr /i /c:"is not recognized" "%LOGDIR%\T30_list_crlf_bom.log" >nul 2>&1
+if not errorlevel 1 ( set "V30=FAIL" & set "N30=%N30% bannerParseErr;" )
+echo [%V30%] T30 CRLF + UTF-8 BOM list : %CNT30% of 3 outputs, rc=%RC30% >> "%SUM%"
+if not "%N30%"=="" echo        why: %N30% >> "%SUM%"
 
 :LISTONLY
 rem T9/T11/T12 run convert_from_list_qsv.bat, which needs QSV AVC hardware.
