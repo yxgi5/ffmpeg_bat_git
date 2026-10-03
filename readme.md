@@ -774,6 +774,36 @@ vainfo                                  # VAAPI 能力 (新 libva 需 export LIB
 本来就各自显式指定 hwaccel，不受这个开关影响。
 用法：`FF_HWACCEL=cuda ./ffmpeg_libx264.sh "a.mp4"` / `set FF_HWACCEL=cuda && ffmpeg_libx264.bat "a.mp4"`。
 
+### 同名产物策略 `FF_ON_EXIST`（2026-09-30）
+
+转过的文件再次碰到时怎么办 —— 所有编码入口和清单驱动都认：
+
+| 值 | 行为 |
+|---|---|
+| `skip`（默认） | 打印「已跳过」，rc=0 不变，保住整份清单的续转语义 —— 已经转过的不该让整批失败 |
+| `overwrite` | 把 `-n` 换成 `-y`，真覆盖重转 |
+| `fail` | 不覆盖，回退出码 6（与「文件其实没转成」区分开，见退出码契约）；适合「这批必须全新、不许混入陈货」的场景 |
+
+⚠️ **这是环境变量，不是命令行参数，三种壳写法不一样**：写错就静默按默认 `skip` 跑，看着像「没生效」。
+
+```
+rem Windows cmd（一行用 && 串；分两行 set 也行，变量会留在会话里）
+set "FF_ON_EXIST=overwrite" && ffmpeg_libx265.bat "D:\video\xxx.mp4"
+
+# PowerShell（$env: 前缀，注意不是 set）
+$env:FF_ON_EXIST='overwrite'; .\ffmpeg_libx265.bat "D:\video\xxx.mp4"
+
+# Linux / Cygwin / MSYS2（bash 的 VAR=val command 前缀）
+FF_ON_EXIST=overwrite ./ffmpeg_libx265.sh xxx.mp4
+```
+
+为什么 `FF_ON_EXIST=overwrite .\xxx.bat` 在 cmd 下报 `is not recognized`：那是 bash 的
+「前缀赋值」语法，cmd 不认，会把整段当一条命令去执行。cmd 没有这种写法，只能先 `set`
+再运行。它也不在 `lib/defaults.cfg` 里（默认 `skip` 写死在 `lib/common.{sh,bat}` 的
+`:on_exist` / `ff_run` 中），所以「长期固定」要么写进调用方脚本，要么等本仓库正在评估的
+「开关参数化」方案（把 `EXT` / `FF_ON_EXIST` / `FF_HWACCEL` 等统一成 `--key value`，
+三环境字面一致的命令行参数）。
+
 ### `-init_hw_device` / `-filter_hw_device` 到底在做什么（2026-09-30）
 
 `-init_hw_device 类型=名字:设备` —— 进程一启动就**显式创建**一个设备上下文并给它起名字
