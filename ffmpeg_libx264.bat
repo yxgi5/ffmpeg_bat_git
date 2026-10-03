@@ -210,7 +210,7 @@ if %percentage% geq 100 (
     set TARGET_BITRATE=%SRC_BITRATE%
 )
 
-if %percentage% leq 0 (
+if %TARGET_BITRATE% leq 0 (
    echo bitrate abnormal, please check
    exit /b 5
 )
