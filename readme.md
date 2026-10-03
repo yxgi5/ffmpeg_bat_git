@@ -89,7 +89,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
-| `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video** 专用：ISO / `VIDEO_TS` 目录 / 光驱 → HEVC MKV。需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
+| `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video / 蓝光** 专用：ISO / `VIDEO_TS` 目录 / `BDMV` 目录 / 光驱 / 单个 `.m2ts` → HEVC MKV。DVD 那一路需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出；蓝光那一路走 `m2ts` 直读，不需要它。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
 
@@ -220,7 +220,7 @@ BITRATE_NO_HALF=1 ./ffmpeg_libx265.sh xxx.mp4
 - 只对自动推算的码率生效 —— 交互模式手输的码率（`900k` 那种）是显式指定，不参与换算；
 - 想让它成为默认（整批都按不除 2 跑）就把 `lib/defaults.cfg` 里那行设成 `1`。
 
-## DVD-Video 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
+## DVD-Video / 蓝光 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
 
 普通视频脚本**不能**直接拿来压 DVD，四个坑（均为实测）：
 
@@ -232,20 +232,43 @@ BITRATE_NO_HALF=1 ./ffmpeg_libx265.sh xxx.mp4
 ```
 ffmpeg_dvd_hevc.bat <源> [输出目录] [title号]
 
-  源        ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱(如 E:；.sh 侧为 /dev/sr0)
+  源        DVD: ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱(如 E:；.sh 侧为 /dev/sr0)
+            BD : .iso 镜像(.bat 自动挂载/结束卸载) / 含 BDMV 的目录 / 单个 .m2ts
   输出目录  省略 = <源所在目录>\HEVC_OUT
   title号   给了这个就等价于 MODE=TITLE，只处理这一条
 ```
 
 ```
-ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 每个 title 各出一个文件(默认 MODE=ALL)
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 每个 title 各出一个文件(DVD 默认 MODE=ALL)
 ffmpeg_dvd_hevc.bat "D:\xxx.ISO" D:\out 5         :: 指定输出目录 + 只压 title 5
 set MODE=AUTO && ffmpeg_dvd_hevc.bat "D:\xxx.ISO" :: 只挑时长最长的那条当正片
 set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两段(前編/後編)
+ffmpeg_dvd_hevc.bat "D:\BD.iso"                   :: 蓝光: 自动挂载、挑最长的 m2ts 当正片
+ffmpeg_dvd_hevc.bat "E:\"                         :: 已挂载的蓝光盘(BDMV 目录)
 ```
 
 `.sh` 侧开关是同名环境变量（`MODE=AUTO ./ffmpeg_dvd_hevc.sh ...`），`VENC=libx265` 走软编、
 `VENC=h264_qsv` 走 QSV，与 `.bat` 侧一致。
+
+### 蓝光(BD)这一路（2026-10-03 实测 `BD-M28.iso`，19.25 GB / 90 分钟）
+
+同一套脚本认蓝光，但口径与 DVD 不同，**先知道边界再用**：
+
+- **按 `BDMV\STREAM\*.m2ts` 逐条直读**（一条 m2ts = 一个 title），不走 `-f bluray`：
+  实测三份 ffmpeg 都没有 `bluray` 解复用器——gyan full build 只有 `dvdvideo`；MSYS2 的
+  8.1 配置里写着 `--enable-libbluray`，`ffmpeg -demuxers` 里却没有；WSL 那份两者都没有。
+- **`.iso` 自动挂载**（仅 `.bat`）：先按 DVD 试，读不到就 `Mount-DiskImage` 挂成 UDF 卷再找
+  `BDMV`，结束时自动卸载；中途 Ctrl-C 漏掉的手动补 `Dismount-DiskImage -ImagePath "<iso>"`。
+  `.sh` 侧挂载要 root，不擅自做，直接打印 `mount -o loop` / `hdiutil attach` 命令退出。
+- **`MODE` 默认 `AUTO`**（DVD 是 `ALL`）：盘里 m2ts 多半是菜单/特典碎片——实测这张 10 条里
+  9 条 ≤211 MB，`ALL` 会把 1 MB 的菜单也编一遍。
+- **`FILT` 默认 `NONE`**（DVD 是 `AUTO`）：BD 的 1080i 多是**真隔行**，DVD 那套
+  NTSC29→IVTC 会掉帧。要去交错显式 `FILT=BWDIF`（`mode=0`，29.97p）/ `yadif=1`（59.94p）。
+- **音频**：`pcm_bluray`(LPCM) 与 `pcm_dvd` 一样装不进 Matroska（写头即失败），自动转 AAC 192k。
+- **字幕**：PGS 位图字幕只能进 MKV；`EXT=mp4` 时**整条丢弃**（实测 `-c:s dvdsub` 在 PGS 上
+  写 trailer 就失败），不会留半个坏文件。
+- **`SPLIT_CHAPTER` 无效**：章节写在 `mpls` 里，直读 m2ts 拿不到，会被忽略并打印一行说明。
+- **产物命名**：`MODE=ALL` 时用流文件名（`<PREFIX>_00005.mkv`），比纯序号好认哪条是正片。
 
 ### 参数说明
 
@@ -253,14 +276,14 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 
 | 开关 | 取值 | 默认 | 作用 |
 | --- | --- | --- | --- |
-| `MODE` | `ALL` / `AUTO` / `TITLE` | `ALL` | `ALL` 每个 title 各出一个文件（**默认**）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE` |
+| `MODE` | `ALL` / `AUTO` / `TITLE` | DVD `ALL` / BD `AUTO` | `ALL` 每个 title 各出一个文件（DVD 默认）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片（BD 默认，见上一节）；`TITLE` 只处理 `DVD_TITLE` |
 | `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE`（命令行第 3 参优先） |
 | `PREFIX` | 名字 | 源文件名（去扩展名） | 输出文件名前缀：`<PREFIX>_title<N>.<EXT>`（`MODE=ALL`）/ `<PREFIX>.<EXT>`（单条） |
 | `EXT` | `mkv` / `mp4` | `mkv` | 大小写都认（`EXT=MP4` 与 `mp4` 等价）。**建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码。默认值取自 `lib/defaults.cfg` 的 `DVD_EXT`（不设时即 `mkv`；显式给 `EXT` 以 `EXT` 为准） |
-| `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | `AUTO` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
+| `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | DVD `AUTO` / BD `NONE` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
 | `VFILT_EXTRA` | 滤镜串 | 空 | 追加到滤镜链末尾。**默认不改 SAR、不裁边**；确要修填 `setsar=32:27` / `crop=704:480:8:0,setsar=40:33` |
 | `AUDIO` | `copy` / `aac` / `flac` | `copy` | `copy`＝原样保留 AC3 / DTS / MP2（零损失、最快），**唯一例外**：源音轨是 LPCM 时自动转 AAC（见下）；`aac`＝强制重编码 192k；`flac`＝强制重编码，无损，体积约为 LPCM 的一半；mp4 下强制 `aac` |
-| `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切 |
+| `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切。**BD 下无效**（章节在 mpls 里），会给一行提示后忽略 |
 | `EXTRA_TITLES` | 空格分隔的 title 号 | 空 | 正片之外额外再导出的 title，例 `1 4 5` |
 | `VBITRATE` | 裸数字（bit/s） | 空 | 空＝查表再把结果 `/2`（推荐，用哪张表由 `VENC` 定，见下）；填了就覆盖。**单位是 bit/s，别写 `636k`**——会被当成 636 Mbps 把编码器顶回去 |
 | `VENC` | 见下 | `auto` | 编码器。空 / `auto`＝依次探测 `hevc_nvenc`→`hevc_qsv`→`libx265` 取第一个能编的；显式填名字就用那个 |

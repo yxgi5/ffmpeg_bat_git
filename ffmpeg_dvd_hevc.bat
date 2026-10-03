@@ -28,9 +28,26 @@ rem  ffmpeg_dvd_hevc.bat  -  DVD-Video(ISO / VIDEO_TS 目录 / 光驱) -> HEVC
 rem
 rem  用法:
 rem    ffmpeg_dvd_hevc.bat <源> [输出目录] [title号]
-rem      源       ISO 镜像、含 VIDEO_TS 的目录、或光驱盘符(如 E:)
+rem      源       DVD: ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱盘符(如 E:)
+rem               BD : .iso 镜像(自动挂载) / 含 BDMV 的目录 / 单个 .m2ts
 rem      输出目录 默认 <源所在目录>\HEVC_OUT
-rem      title号  给了这个就切到 MODE=TITLE 只处理这一条
+rem      title号  给了这个就切到 MODE=TITLE 只处理这一条(BD 下填序号即可)
+rem
+rem  蓝光(BD)这一块的口径与边界(2026-10-03 实测 BD-M28.iso, 19.25GB / 90 分钟):
+rem    * 本机三份 ffmpeg 都没有 bluray 解复用器(gyan full build 只有 dvdvideo;
+rem      MSYS2 的 8.1 配置里写着 --enable-libbluray 但 demuxer 列表里没有), 所以
+rem      不碰 -f bluray: BD 按 BDMV\STREAM\*.m2ts 逐条直读(mpegts), 一条 = 一个 title
+rem    * .iso 先按 DVD 试, 读不到就调 PowerShell 挂载(UDF 卷)再找 BDMV, 结束时卸载;
+rem      中途 Ctrl-C 中断请手动: Dismount-DiskImage -ImagePath "<iso>"
+rem    * 章节写在 mpls 里, 直读 m2ts 拿不到 —— BD 下 SPLIT_CHAPTER 会被忽略
+rem    * BD 的 MODE 默认 AUTO(挑最长那条 = 正片): 盘里通常十几条 m2ts, 大部分是
+rem      菜单/特典碎片(实测这张 10 条里 9 条 ≤211MB), MODE=ALL 会把 1MB 菜单也编一遍
+rem    * 音频: pcm_bluray(LPCM) 装不进 Matroska(实测写头即失败 rc=-22), 与 pcm_dvd
+rem      同一口径自动转 AAC 192k
+rem    * 字幕: PGS(hdmv_pgs_subtitle) 只能进 MKV; EXT=mp4 时整条丢弃 —— 实测
+rem      -c:s dvdsub 在 PGS 上写 trailer 就失败
+rem    * 隔行: BD 的 FILT 默认 NONE(原样编码), 与 DVD 的默认 AUTO 不同 —— 1080i
+rem      真隔行硬套 IVTC 会掉帧。要去交错显式 FILT=BWDIF
 rem
 rem  为什么不能直接拿 ffmpeg_hevc_nvenc.bat 用:
 rem    1) 它用 -i 直接喂文件, ffmpeg 不认 UDF 镜像/IFO。裸 -i 喂 ISO **不会报错**,
@@ -121,6 +138,9 @@ rem IVTC    3:2 pulldown -> 23.976p，NTSC 动画/电影 DVD 多数是这种
 rem BWDIF   去交错但保留原帧率(PAL 25i -> 25p)。注意 bwdif=mode=1 是 send_field,
 rem         帧率直接翻倍(实测 25i -> 50p), 帧数翻倍会把码率摊薄, 故这里用 mode=0
 rem NONE    原样编码，不做去交错
+rem BD 的默认滤镜与 DVD 不同(见文件头"蓝光(BD)这一块的口径与边界"), 所以要先记下
+rem FILT 是不是调用方显式给的 —— 与上面 EXT 那套 EXT_GIVEN 同口径
+if defined FILT (set "FILT_GIVEN=1") else (set "FILT_GIVEN=")
 if not defined FILT set FILT=AUTO
 
 rem 追加到滤镜链末尾的可选处理（通用化：默认空，不改 SAR 也不裁边）
@@ -143,9 +163,12 @@ rem MODE=AUTO   自动扫描所有 title，挑时长最长的那条当正片
 rem MODE=TITLE  只处理 DVD_TITLE 指定的一条
 rem 不覆盖调用方预设的值: setlocal 挡不住继承来的环境变量, 写成 set MODE=ALL 会把
 rem "set MODE=AUTO && ffmpeg_dvd_hevc.bat ..." 里的 AUTO 悄悄冲掉
+rem 同上: BD 的默认 MODE 是 AUTO, 先记下 MODE 是不是显式给的
+if defined MODE (set "MODE_GIVEN=1") else (set "MODE_GIVEN=")
 if not defined MODE set MODE=ALL
 set "DVD_TITLE=%~3"
 if defined DVD_TITLE set MODE=TITLE
+if defined DVD_TITLE set "MODE_GIVEN=1"
 
 rem SPLIT_CHAPTER=N  按第 N 章把正片切成两段(例如前編/後編)，0 = 不切
 rem   第 1 段 = 第 1 章到第 N-1 章，第 2 段 = 第 N 章到结尾
@@ -194,14 +217,17 @@ rem for /f "usebackq" 读文件, 见 lib\common.bat 的 probe_source / probe_fie
 if not defined WORK set "WORK=%TEMP%"
 if not defined WORK set "WORK=%SELF_DIR%"
 
-rem dvdvideo 解复用器依赖 libdvdread/libdvdnav，精简构建没有
-"%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
-if errorlevel 1 (
-    echo [错误] 这份 ffmpeg 没有 dvdvideo 解复用器
-    echo        需要带 libdvdread + libdvdnav 的构建（gyan.dev full build 有）
-    echo        实测命令: ffmpeg -demuxers ^| findstr /i dvdvideo
-    exit /b 1
-)
+rem ---------------------------- 识别源类型(DVD / BD) ----------------------------
+rem dvdvideo 解复用器依赖 libdvdread/libdvdnav，精简构建没有 —— 但只有 DVD 源需要它，
+rem BD 是 mpegts 直读，所以这项检查挪进 :DETECT，不再一上来就把所有源都拦下。
+call :DETECT
+if not defined SRC_KIND exit /b 1
+echo 源类型  : %SRC_KIND_DESC%
+rem BD 的两个默认值与 DVD 不同(理由见文件头):
+rem   MODE=AUTO  盘里 m2ts 多是菜单/特典碎片, ALL 会把 1MB 的菜单也编一遍
+rem   FILT=NONE  BD 的 1080i 多是真隔行, DVD 那套 NTSC29 -> IVTC 会掉帧
+if "%SRC_KIND%"=="bd" if not defined MODE_GIVEN set "MODE=AUTO"
+if "%SRC_KIND%"=="bd" if not defined FILT_GIVEN set "FILT=NONE"
 
 if not exist "%OUTDIR%" md "%OUTDIR%"
 
@@ -243,7 +269,7 @@ set /a MISS=%MISS%+1
 if %MISS% geq 5 goto AUTO_DONE
 :AUTO_NEXT
 set /a N=%N%+1
-if %N% gtr 99 goto AUTO_DONE
+if %N% gtr %TITLE_MAX% goto AUTO_DONE
 goto AUTO_LOOP
 :AUTO_DONE
 if %BESTD% lss 0 set BESTD=0
@@ -272,6 +298,13 @@ if not defined SRC_W (
     exit /b 1
 )
 echo 正片: title %DVD_TITLE%  %SRC_W%x%SRC_H%  时长 %SRC_DUR%s
+rem BD 顺带打出流文件名: 后面产物名与它同名, 日志里能对上是哪一条
+if not "%SRC_KIND%"=="bd" goto HAVE_TITLE_NM
+rem MODE=ALL 时 DVD_TITLE 是空的(码率档位用的是 title 1), 没有"正片"这一条可查
+if not defined DVD_TITLE goto HAVE_TITLE_NM
+call :BD_NAME %DVD_TITLE% BDNAME
+if defined BDNAME echo 正片文件: %BDNAME%
+:HAVE_TITLE_NM
 set /a SRC_PIX=%SRC_W%*%SRC_H%
 rem 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条
 if "%MODE%"=="ALL" (set REF_TITLE=1) else (set REF_TITLE=%DVD_TITLE%)
@@ -394,10 +427,11 @@ if "%AUDIO%"=="aac" set AENC=-c:a aac -b:a 192k
 if "%AUDIO%"=="flac" set AENC=-c:a flac
 if not "%AUDIO%"=="copy" goto CFG_MKV_DONE
 if not defined SRC_ACODEC goto CFG_MKV_DONE
-rem 含 pcm_dvd 就转: cmd 里没有 contains, 用"去掉子串后是否变短"来判断
-if "%SRC_ACODEC:pcm_dvd=%"=="%SRC_ACODEC%" goto CFG_MKV_DONE
+rem LPCM 就转: DVD 是 pcm_dvd, BD 是 pcm_bluray, 两个 Matroska 都装不下
+call :IS_PCM "%SRC_ACODEC%"
+if not defined ISPCM goto CFG_MKV_DONE
 set AENC=-c:a aac -b:a 192k
-echo 注意: 参考 title %REF_TITLE% 的音轨是 LPCM(pcm_dvd)，Matroska 装不下，自动转 AAC 192k（要无损就设 AUDIO=flac；ALL 模式下其余 title 逐条重新探测）
+echo 注意: 参考 title %REF_TITLE% 的音轨是 LPCM(%ISPCM%)，Matroska 装不下，自动转 AAC 192k（要无损就设 AUDIO=flac；ALL 模式下其余 title 逐条重新探测）
 :CFG_MKV_DONE
 rem AENC_BASE = 不含任何单条 title 音轨成分的基线 -c:a，每条 title 编码前据此重算
 set "AENC_BASE=%AENC%"
@@ -412,6 +446,12 @@ set AENC=-c:a aac -b:a 192k
 set "AENC_BASE=%AENC%"
 set SENC=-c:s dvdsub
 set SMAP=-map 0:s:0?
+if not "%SRC_KIND%"=="bd" goto RUN_ALL
+rem BD 的字幕是 PGS(hdmv_pgs_subtitle), mp4 装不下: 实测 -c:s dvdsub 在 PGS 上
+rem 写 trailer 就失败(rc=-22 "Error writing trailer"), 所以整条丢弃而不是让它炸
+echo 注意: BD 的 PGS 位图字幕装不进 MP4，已丢弃全部字幕轨；要保留请用 EXT=mkv
+set SENC=
+set SMAP=
 goto RUN_ALL
 
 :RUN_ALL
@@ -440,6 +480,14 @@ rem 切分用 goto 而不是 if(...) 块: 块内 %CE% 会在解析时就被展�
 rem 前缀一律用双引号包住: 源文件名可能含空格与小括号(实测那张盘叫
 rem "[DVDISO](18禁アニメ) ...「過ちの夜 」+後編「確かめ合う気持ち」"), 不包的话
 rem call :ENC 会按空格把它切成好几个参数, OUTN 与章节号全部错位。
+rem BD 按 m2ts 直读, 章节表在 mpls 里拿不到; 而且 -chapter_start/-chapter_end 是
+rem dvdvideo 专用选项, 喂给 mpegts 会被当成未知参数
+rem 用 goto 而不是 if(...) 块: 提示语里那个 ASCII 右括号会把块提前关掉
+if not "%SRC_KIND%"=="bd" goto SPLIT_CHK
+if %SPLIT_CHAPTER% leq 0 goto SPLIT_CHK
+echo 注意: BD 直读 m2ts 拿不到章节（章节写在 mpls 里），SPLIT_CHAPTER 已忽略
+set SPLIT_CHAPTER=0
+:SPLIT_CHK
 if %SPLIT_CHAPTER% gtr 0 goto DO_SPLIT
 call :ENC %DVD_TITLE% "%PREFIX%" 0 0
 if errorlevel 1 set FAILED=1
@@ -469,7 +517,13 @@ for /f "tokens=1 delims=." %%D in ("%TD%") do set "TDI=%%D"
 for /f "delims=0123456789" %%E in ("%TDI%") do set "TDI=0"
 set /a TOTDUR+=%TDI%
 set /a N_TITLE+=1
-call :ENC %N% "%PREFIX%_title%N%" 0 0
+rem BD 用流文件名当产物名(00005.m2ts -> _00005): 比纯序号好认哪条是正片
+set "OUTN=%PREFIX%_title%N%"
+if not "%SRC_KIND%"=="bd" goto OUTN_DONE
+call :BD_NAME %N% BDF
+if defined BDF for %%S in ("%BDF%") do set "OUTN=%PREFIX%_%%~nS"
+:OUTN_DONE
+call :ENC %N% "%OUTN%" 0 0
 if errorlevel 1 set FAILED=1
 goto NEXT_STEP
 :NEXT_MISS
@@ -477,7 +531,7 @@ set /a MISS=%MISS%+1
 if %MISS% geq 5 goto DONE
 :NEXT_STEP
 set /a N=%N%+1
-if %N% gtr 99 goto DONE
+if %N% gtr %TITLE_MAX% goto DONE
 goto NEXT_TITLE
 
 rem =========================================================================
@@ -490,6 +544,12 @@ set "T=%~1"
 set "OUTN=%~2"
 set "CS=%~3"
 set "CE=%~4"
+rem 取这条 title 的输入参数: DVD 是 -f dvdvideo -title N + 整张镜像, BD 是那个 m2ts
+call :INARGS %T%
+if not defined IN_FILE (
+    echo [错误] title %T% 取不到输入文件
+    exit /b 1
+)
 rem 逐 title 重算 -c:a: 拿 title 1 的音轨套所有 title 会漏掉 LPCM(见 :ENC_AENC)
 call :ENC_AENC %T%
 set "CHOP="
@@ -497,7 +557,7 @@ if not "%CS%"=="0" set CHOP=-chapter_start %CS%
 if not "%CE%"=="0" set CHOP=%CHOP% -chapter_end %CE%
 echo ------------------------------------------------------------
 echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% %CHOP% -i "%SRC%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats %IN_DEMUX% %CHOP% -i "%IN_FILE%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
 %RUN_COM%
 rem 负退出码陷阱: Windows ffmpeg 失败时返回负的 AVERROR 值, 而 cmd 的
@@ -516,10 +576,15 @@ exit /b 0
 :ENC_EXTRA
 set "T=%~1"
 set "OUTN=%~2"
+call :INARGS %T%
+if not defined IN_FILE (
+    echo [错误] title %T% 取不到输入文件
+    exit /b 1
+)
 rem 同上: 附加 title 的音轨同样可能与正片不同
 call :ENC_AENC %T%
 echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
-set RUN_COM="%FF%" -y -hide_banner -v error -stats -f dvdvideo -title %T% -i "%SRC%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats %IN_DEMUX% -i "%IN_FILE%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
 %RUN_COM%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
@@ -544,10 +609,226 @@ call :PROBE_ACODEC %1 TAC
 if not defined TAC exit /b 0
 if not "%AUDIO%"=="copy" exit /b 0
 if not "%EXT%"=="mkv" exit /b 0
-rem 含 pcm_dvd 就转: cmd 里没有 contains, 用"去掉子串后是否变短"来判断
-if "%TAC:pcm_dvd=%"=="%TAC%" exit /b 0
+rem LPCM 就转(DVD 是 pcm_dvd, BD 是 pcm_bluray)
+call :IS_PCM "%TAC%"
+if not defined ISPCM exit /b 0
 set AENC=-c:a aac -b:a 192k
-echo   本条音轨是 LPCM(pcm_dvd) -^> 自动转 AAC 192k（要无损就设 AUDIO=flac）
+echo   本条音轨是 LPCM(%ISPCM%) -^> 自动转 AAC 192k（要无损就设 AUDIO=flac）
+exit /b 0
+
+rem =========================================================================
+rem  子过程 DETECT  ->  SRC_KIND(dvd / bd) / SRC_KIND_DESC / TITLE_MAX
+rem                    BD_ROOT / BD_LIST / BD_N / BD_ONE / BD_STATE / BD_ISO
+rem  判定顺序刻意"先看目录结构，再试读": BDMV / VIDEO_TS 两个目录名是硬指标，
+rem  .iso 才需要真去读 —— 先按 DVD 试 dvdvideo，读不到再挂载找 BDMV。其余后缀
+rem  (.vob / .mpg / 光驱盘符 ...)一律按 DVD 处理，与加 BD 之前的行为一致。
+rem =========================================================================
+:DETECT
+set "SRC_KIND="
+set "SRC_KIND_DESC="
+set "BD_ROOT="
+set "BD_ONE="
+set "BD_STATE="
+set "BD_ISO="
+set "BD_LIST="
+set "BD_N=0"
+set "TITLE_MAX=99"
+set "SRC_EXT="
+for %%A in ("%SRC%") do set "SRC_EXT=%%~xA"
+if exist "%SRC%\BDMV\" (
+    set "BD_ROOT=%SRC%"
+    call :BD_NORM
+    goto DET_BD
+)
+if exist "%SRC%\VIDEO_TS\" goto DET_DVD
+rem 直接给到 BDMV 这一层也算(取它的上一级当 BD 根)
+if not exist "%SRC%\STREAM\" goto DET_NOTSTREAM
+for %%A in ("%SRC%\..") do set "BD_ROOT=%%~fA"
+call :BD_NORM
+goto DET_BD
+:DET_NOTSTREAM
+if /i "%SRC_EXT%"==".m2ts" goto DET_BD_ONE
+if /i "%SRC_EXT%"==".mts" goto DET_BD_ONE
+if /i "%SRC_EXT%"==".iso" goto DET_ISO
+if /i "%SRC_EXT%"==".img" goto DET_ISO
+goto DET_DVD
+
+:DET_BD_ONE
+rem 单个 .m2ts(从盘里拷出来的散文件也算): 就这一条，不去 BDMV 里找
+set "BD_ONE=%SRC%"
+goto DET_BD
+
+:DET_ISO
+rem 先按 DVD 试: 得有 dvdvideo 解复用器才试得动
+"%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
+if errorlevel 1 goto DET_ISO_MOUNT
+set "SRC_KIND=dvd"
+call :PROBE 1 TW TH TD
+if defined TW goto DET_DVD
+if defined TD goto DET_DVD
+set "SRC_KIND="
+:DET_ISO_MOUNT
+echo 按 DVD-Video 读不到，试着当蓝光挂载...
+call :BD_MOUNT
+if not defined BD_ROOT goto DET_FAIL
+goto DET_BD
+
+:DET_DVD
+set "SRC_KIND=dvd"
+rem DVD 必须有 dvdvideo: 精简构建没有，而裸 -i 喂 ISO 不报错、只会解出废品
+"%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
+if not errorlevel 1 goto DET_DVD_OK
+echo [错误] 这份 ffmpeg 没有 dvdvideo 解复用器，读不了 DVD-Video
+echo        需要带 libdvdread + libdvdnav 的构建（gyan.dev full build 有）
+echo        实测命令: ffmpeg -demuxers ^| findstr /i dvdvideo
+set "SRC_KIND="
+exit /b 0
+:DET_DVD_OK
+goto DET_DONE
+
+:DET_BD
+set "SRC_KIND=bd"
+call :BD_LIST
+if %BD_N% gtr 0 goto DET_DONE
+echo [错误] BDMV\STREAM 下没找到 .m2ts
+set "SRC_KIND="
+exit /b 0
+
+:DET_FAIL
+echo [错误] 既读不出 DVD-Video 也挂不出 BDMV，检查源路径 / 是否受保护
+echo        蓝光 .iso 也可以先手动挂载，再把挂载点(盘符)当源传进来:
+echo          Mount-DiskImage -ImagePath "<iso>"
+set "SRC_KIND="
+exit /b 0
+
+:DET_DONE
+if "%SRC_KIND%"=="bd" (
+    set "SRC_KIND_DESC=Blu-ray（BDMV, m2ts 直读）"
+    set "TITLE_MAX=%BD_N%"
+) else (
+    set "SRC_KIND_DESC=DVD-Video（dvdvideo）"
+)
+exit /b 0
+
+rem =========================================================================
+rem  子过程 BD_MOUNT  ->  BD_ROOT(盘符或卷路径, 一律带尾反斜杠) / BD_STATE
+rem  Windows 没有 -o loop，UDF 镜像必须挂成一个卷才读得到；挂上后当普通目录用即可
+rem  (m2ts 走 mpegts 直读，不需要 bluray 解复用器)。
+rem  两处刻意的写法:
+rem   * 源路径走环境变量而不是命令行: 路径里常有中文/日文，命令行在 cmd 与
+rem     PowerShell 之间过一道容易被编码拆坏，环境变量是原样传的
+rem   * PowerShell 语句先落成 .ps1 再跑: 整段塞进 for /f 的反引号里，里面的圆括号
+rem     会跟 for 自己的括号打架
+rem =========================================================================
+:BD_MOUNT
+set "BD_ROOT="
+set "BD_STATE="
+set "BD_BDMV="
+set "BD_ISO=%SRC%"
+set "BD_PS=%WORK%\_bdmount_%RANDOM%.ps1"
+>"%BD_PS%" echo $ErrorActionPreference='Stop'
+>>"%BD_PS%" echo $img = Get-DiskImage -ImagePath $env:BD_ISO
+>>"%BD_PS%" echo if (-not $img.Attached) { $img = Mount-DiskImage -ImagePath $env:BD_ISO -PassThru; Write-Output 'STATE:MOUNTED' } else { Write-Output 'STATE:ALREADY' }
+>>"%BD_PS%" echo $v = $img ^| Get-Volume
+>>"%BD_PS%" echo if ($v.DriveLetter) { $root = $v.DriveLetter + ':\' } else { $root = $v.Path }
+>>"%BD_PS%" echo Write-Output ('PATH:' + $root)
+>>"%BD_PS%" echo if (Test-Path -LiteralPath ($root + 'BDMV')) { Write-Output 'BDMV:1' }
+for /f "usebackq tokens=1,* delims=:" %%A in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%BD_PS%" 2^>nul`) do (
+    if "%%A"=="STATE" set "BD_STATE=%%B"
+    if "%%A"=="PATH" set "BD_ROOT=%%B"
+    if "%%A"=="BDMV" set "BD_BDMV=%%B"
+)
+del "%BD_PS%" 2>nul
+if not defined BD_ROOT exit /b 0
+if "%BD_BDMV%"=="1" exit /b 0
+echo 挂载成功，但卷里没有 BDMV（不是蓝光）
+set "BD_ROOT="
+exit /b 0
+
+rem =========================================================================
+rem  子过程 BD_LIST  ->  BD_LIST(临时文件, 每行 "序号:文件名") / BD_N
+rem  用 PowerShell 列目录而不是 dir: 挂载出来的常常是 \\?\Volume{GUID}\ 这种卷路径,
+rem  cmd 的 dir 认不了(盘符形式的路径本来也行，这里统一走一条路)。
+rem =========================================================================
+:BD_LIST
+set "BD_N=0"
+set "BD_LIST=%WORK%\_bdlist_%RANDOM%%RANDOM%.txt"
+del "%BD_LIST%" 2>nul
+if defined BD_ONE goto BD_LIST_ONE
+rem 目录 / 挂载卷: 用 PowerShell 列目录 —— 挂载出来的常常是 \\?\Volume{GUID}\ 这种
+rem 卷路径，cmd 的 dir 认不了；盘符形式的路径本来也行，这里统一走一条路。
+rem 不用 if(...)else(...) 块: 块内 set 的变量在同一块里取不到(解析时就展开了)
+set "BD_STREAM=%BD_ROOT%BDMV\STREAM\"
+set "BD_PS=%WORK%\_bdls_%RANDOM%.ps1"
+>"%BD_PS%" echo Get-ChildItem -LiteralPath $env:BD_STREAM -Filter *.m2ts -File ^| Sort-Object Name ^| ForEach-Object { Write-Output $_.Name }
+for /f "usebackq delims=" %%A in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%BD_PS%" 2^>nul ^| findstr /n "^"`) do >>"%BD_LIST%" echo %%A
+del "%BD_PS%" 2>nul
+goto BD_LIST_CNT
+:BD_LIST_ONE
+for %%A in ("%BD_ONE%") do >"%BD_LIST%" echo 1:%%~nxA
+:BD_LIST_CNT
+if not exist "%BD_LIST%" exit /b 0
+for /f "usebackq delims=" %%A in ("%BD_LIST%") do set /a BD_N+=1
+exit /b 0
+
+rem =========================================================================
+rem  子过程 BD_NORM  ->  BD_ROOT 一律以反斜杠收尾(后面直接拼 BDMV\STREAM\)
+rem  目录型源可能带尾斜杠也可能不带(光驱盘符更是只有一个冒号), 不归一就拼成
+rem  "D:\xxxBDMV" 这种东西
+rem =========================================================================
+:BD_NORM
+if not defined BD_ROOT exit /b 0
+if "%BD_ROOT:~-1%"=="\" set "BD_ROOT=%BD_ROOT:~0,-1%"
+set "BD_ROOT=%BD_ROOT%\"
+exit /b 0
+
+rem =========================================================================
+rem  子过程 BD_NAME  <序号>  ->  &2=该序号对应的 m2ts 文件名(没有则空)
+rem =========================================================================
+:BD_NAME
+set "%~2="
+if not defined BD_LIST exit /b 0
+if not exist "%BD_LIST%" exit /b 0
+for /f "usebackq tokens=1,2 delims=:" %%A in ("%BD_LIST%") do if "%%A"=="%~1" set "%~2=%%B"
+exit /b 0
+
+rem =========================================================================
+rem  子过程 INARGS  <title>  ->  IN_DEMUX(解复用器参数, BD 为空) / IN_FILE(输入路径)
+rem  两族共用的"这一条 title 到底喂什么给 ffmpeg":
+rem    DVD: -f dvdvideo -title N  + 整张镜像(解复用器自己挑 title)
+rem    BD : 直接喂那条 m2ts(mpegts 自动识别, 不用 -f)
+rem =========================================================================
+:INARGS
+set "IN_DEMUX="
+set "IN_FILE=%SRC%"
+if "%SRC_KIND%"=="dvd" (
+    set "IN_DEMUX=-f dvdvideo -title %~1"
+    exit /b 0
+)
+if defined BD_ONE (
+    set "IN_FILE=%BD_ONE%"
+    exit /b 0
+)
+set "BDNAME="
+call :BD_NAME %1 BDNAME
+if not defined BDNAME exit /b 1
+set "IN_FILE=%BD_ROOT%BDMV\STREAM\%BDNAME%"
+exit /b 0
+
+rem =========================================================================
+rem  子过程 IS_PCM  <codec 列表>  ->  ISPCM=命中的 LPCM 编码器名，没命中则空
+rem  cmd 里没有 contains，用"去掉子串后是否变短"来判断(与原来判 pcm_dvd 同款写法)
+rem  BD 的 LPCM 叫 pcm_bluray，与 DVD 的 pcm_dvd 一样装不进 Matroska(实测 rc=-22)
+rem =========================================================================
+:IS_PCM
+set "ISPCM="
+set "PCMV=%~1"
+if not defined PCMV exit /b 0
+if not "%PCMV:pcm_dvd=%"=="%PCMV%" (
+    set "ISPCM=pcm_dvd"
+    exit /b 0
+)
+if not "%PCMV:pcm_bluray=%"=="%PCMV%" set "ISPCM=pcm_bluray"
 exit /b 0
 
 rem =========================================================================
@@ -633,7 +914,9 @@ rem  形状过滤(只留纯 "数字/数字" 或纯 codec 名那些行)
 rem =========================================================================
 :PROBE_RATE
 set "%~2="
-"%FP%" -v error -f dvdvideo -title %1 -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*,*$" > "%WORK%\_p3.txt"
+call :INARGS %1
+if not defined IN_FILE exit /b 0
+"%FP%" -v error %IN_DEMUX% -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%IN_FILE%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*,*$" > "%WORK%\_p3.txt"
 rem 只留数值行(libdvdread 的 CHECK_VALUE 抱怨在这类盘上是打到标准输出的, 见下面
 rem :PROBE_ACODEC), 但正则必须容忍尾逗号: csv=p=0 对单字段也打 "25/1," 这种形式,
 rem 原来的 ^...$ 锚匹配不上 -> SRC_RATE 恒为空, 制式只能退化成按高度猜(日志里
@@ -644,7 +927,9 @@ exit /b 0
 
 :PROBE_ACODEC
 set "%~2="
-"%FP%" -v error -f dvdvideo -title %1 -select_streams a -show_entries stream=codec_name -of csv=p=0 "%SRC%" 2>nul | findstr /r "^[a-z][a-z0-9_]*$" > "%WORK%\_p4.txt"
+call :INARGS %1
+if not defined IN_FILE exit /b 0
+"%FP%" -v error %IN_DEMUX% -select_streams a -show_entries stream=codec_name -of csv=p=0 "%IN_FILE%" 2>nul | findstr /r "^[a-z][a-z0-9_]*$" > "%WORK%\_p4.txt"
 if exist "%WORK%\_p4.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p4.txt") do call set "%~2=%%%~2%% %%A"
 del "%WORK%\_p4.txt" 2>nul
 exit /b 0
@@ -659,8 +944,10 @@ rem =========================================================================
 set "%~2="
 set "%~3="
 set "%~4="
-"%FP%" -v error -f dvdvideo -title %1 -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "%SRC%" > "%WORK%\_p1.txt" 2>nul
-"%FP%" -v error -f dvdvideo -title %1 -show_entries format=duration -of csv=p=0 "%SRC%" > "%WORK%\_p2.txt" 2>nul
+call :INARGS %1
+if not defined IN_FILE exit /b 0
+"%FP%" -v error %IN_DEMUX% -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "%IN_FILE%" > "%WORK%\_p1.txt" 2>nul
+"%FP%" -v error %IN_DEMUX% -show_entries format=duration -of csv=p=0 "%IN_FILE%" > "%WORK%\_p2.txt" 2>nul
 for /f "usebackq tokens=1,2 delims=," %%A in ("%WORK%\_p1.txt") do (
     set "%~2=%%A"
     set "%~3=%%B"
@@ -674,6 +961,12 @@ del "%WORK%\_p1.txt" "%WORK%\_p2.txt" 2>nul
 exit /b 0
 
 :DONE
+rem 本次自己挂的就自己卸: 调用方事先挂好的(STATE=ALREADY)不动它
+if not "%BD_STATE%"=="MOUNTED" goto DONE_KEEP
+echo 卸载本次挂载的镜像: %BD_ISO%
+powershell -NoProfile -Command "Dismount-DiskImage -ImagePath $env:BD_ISO ^| Out-Null" >nul 2>&1
+:DONE_KEEP
+if defined BD_LIST del "%BD_LIST%" 2>nul
 echo.
 echo ============================================================
 echo  输出目录: %OUTDIR%
