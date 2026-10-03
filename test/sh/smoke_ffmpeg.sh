@@ -66,6 +66,10 @@ if [ -z "$FF" ] || [ -z "$FP" ]; then
     echo "FATAL: ffmpeg/ffprobe not on PATH" >&2
     exit 2
 fi
+# 开跑前先把"这份套件到底用哪个 ffmpeg / ffprobe"打到屏幕上: find_ffmpeg 自带那块
+# 牌子被上面的 2>/dev/null 吃掉了, 而套件元信息只写进 summary.txt(不在屏幕上), 于是
+# "套件报 4.4.2、脚本其实在跑 /opt 下新构建"这种自相矛盾的日志一直没人看见。
+ff_report "$FF" "$FP"
 [ "$WIPE" = "1" ] && rm -rf "$W"
 mkdir -p "$W" "$W/tiny" "$W/cases" "$W/probe" "$LOG"
 

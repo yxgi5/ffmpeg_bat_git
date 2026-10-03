@@ -554,11 +554,14 @@ function ff_report() {
     # 只在终端里上色; 重定向到文件时留下纯文本, 免得日志里一堆转义序列
     if [ -t 2 ]; then b="\033[1;7m"; e="\033[0m"; fi
     [ -n "$ff" ] || return 0
-    printf '\n%b\n' "${b}${bar}${e}" >&2
-    printf '%b\n' "${b} 使用 ffmpeg : ${ff} ${e}" >&2
-    [ -n "$fp" ] && printf ' 使用 ffprobe: %s\n' "$fp" >&2
-    printf ' 版本       : %s\n' "$(ffmpeg_build_id "$ff")" >&2
-    printf '%b\n' "${b}${bar}${e}" >&2
+    # 四行套同一对 b/e: 早先只有分隔条与"使用 ffmpeg"上色, ffprobe 与版本两行是纯
+    # 文本, 同一块牌子看着像两截(2026-10-03 用户指出), 这里统一成整块反白。
+    # 路径与版本串一律走 %s, 不拼进 %b 的格式串 —— 它们可能含 %, 当格式符会出错。
+    printf '\n%b%s%b\n' "$b" "$bar" "$e" >&2
+    printf '%b%s%b\n' "$b" " 使用 ffmpeg : $ff " "$e" >&2
+    if [ -n "$fp" ]; then printf '%b%s%b\n' "$b" " 使用 ffprobe: $fp " "$e" >&2; fi
+    printf '%b%s%b\n' "$b" " 版本       : $(ffmpeg_build_id "$ff") " "$e" >&2
+    printf '%b%s%b\n' "$b" "$bar" "$e" >&2
 }
 
 # 对外入口: 承接 _ff_find_core 的能力筛选, 并在成功时醒目回显选定的那一份

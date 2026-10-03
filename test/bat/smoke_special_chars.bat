@@ -58,10 +58,24 @@ set "FF="
 if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FF=C:\Program Files\ffmpeg\bin\ffmpeg.exe"
 if not defined FF for /f "delims=" %%p in ('where ffmpeg.exe 2^>nul') do if not defined FF set "FF=%%p"
 if not defined FF (
-    echo [FATAL] ffmpeg.exe not found - install ffmpeg or set FFMPEG_BIN
+    echo [FATAL] ffmpeg.exe not found - install ffmpeg or set FFMPEG
     pause
     exit /b 1
 )
+rem ffprobe 取与 ffmpeg 同目录那份(与 lib\common.bat find_ffmpeg 的同目录约定一致)
+for %%I in ("%FF%") do set "FP=%%~dpIffprobe.exe"
+rem 开跑前把"这份套件用哪个 ffmpeg / ffprobe"打到屏幕上 —— 其余信息只写进 summary.txt
+echo ============================================================
+echo  使用 ffmpeg : %FF%
+echo  使用 ffprobe: %FP%
+rem 版本串走"先落临时文件再 for /f 回读"(与 lib\common.bat find_ffmpeg 同款):
+rem 绝不在 for /f 反引号里直接跑带空格路径的 ffmpeg.exe
+set "FFVER="
+if defined TEMP "%FF%" -hide_banner -version > "%TEMP%\ffmpeg_bat_chars_ver.tmp" 2>nul
+if defined TEMP if exist "%TEMP%\ffmpeg_bat_chars_ver.tmp" for /f "usebackq tokens=3" %%v in ("%TEMP%\ffmpeg_bat_chars_ver.tmp") do if not defined FFVER set "FFVER=%%v"
+if defined TEMP del "%TEMP%\ffmpeg_bat_chars_ver.tmp" 2>nul
+if defined FFVER echo  版本       : %FFVER%
+echo ============================================================
 
 rem ---------------- fixtures ----------------
 echo generating fixtures ...

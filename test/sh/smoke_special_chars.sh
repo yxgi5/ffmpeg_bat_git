@@ -73,6 +73,9 @@ if [ -z "$FF" ] || [ -z "$FP" ]; then
     echo "FATAL: ffmpeg/ffprobe not on PATH" >&2
     exit 2
 fi
+# 与 smoke_ffmpeg.sh 同口径: 屏幕上一开始就报出 ffmpeg / ffprobe 路径与版本,
+# 免得"套件用的"和"脚本真跑的"不是同一份却无人察觉。
+ff_report "$FF" "$FP"
 [ "$WIPE" = "1" ] && rm -rf "$W"
 mkdir -p "$W" "$W/chars" "$W/chars/sub & dir (x)" "$W/chars/lst" "$LOG"
 
