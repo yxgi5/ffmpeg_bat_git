@@ -129,7 +129,8 @@ call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
 rem 统一源探测: 一次 ffprobe 取回全部字段(同文件对 check_isvideo 的探测命中缓存);
 rem 失败时传回 1, 与 .sh 侧探测失败报错对齐(2026-09-17 用户裁定修"假判据")。
-call "%SELF_DIR%lib\common.bat" probe_source %SRC_FILE%
+set "FF_SRC_FILE=%SRC_FILE:"=%"
+call "%SELF_DIR%lib\common.bat" probe_source
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" exit /b 1
 set RUN_COM=%RUN_COM% -i %SRC_FILE%

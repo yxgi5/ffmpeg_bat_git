@@ -209,7 +209,10 @@ if not defined FFPROBE_PATH (
 )
 rem 2026-09-17: 探测统一走 probe_source(一次 ffprobe); 入口随后用同文件再调
 rem probe_source 时命中缓存, 不再起第二个 ffprobe 进程。
-call "%~f0" probe_source "%CV_FILE%"
+rem 2026-10-03: 路径含 &/空格时, 把值经环境变量传给 probe_source, 避免
+rem   call 把引号内的 & 当命令分隔符拆坏(CV_FILE 已完整, 但二次 call 传参会坏)。
+set "FF_SRC_FILE=%CV_FILE%"
+call "%~f0" probe_source
 rem 注意: 下面这行刻意不进括号块、且给路径加引号 —— 路径含 ) 或 & 时才不会被解析坏
 if defined P_streams.stream.0.codec_type exit /b 0
 echo [check_isvideo] "%CV_FILE%" 不是视频文件, 未检测到视频流
@@ -228,6 +231,7 @@ rem   check_isvideo 先探一次, 入口紧接的 probe_source 调用是零进�
 rem   P_* 不清理: 每个入口进程只探一个源文件, 重复调用按同键覆盖。
 rem   注意: 本函数不 setlocal -- P_*/PS_* 必须对调用方可见(本文件函数约定)。
 set "PS_FILE=%~2"
+if not defined PS_FILE set "PS_FILE=%FF_SRC_FILE%"
 if not defined PS_FILE (
     echo [probe_source] missing file argument
     exit /b 1
