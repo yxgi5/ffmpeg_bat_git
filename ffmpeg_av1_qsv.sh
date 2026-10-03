@@ -12,7 +12,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 #   优先级 参数 > 环境变量 > defaults.cfg; 没给的参数回退 env / cfg(老 set 写法仍兼容)
 #   其余位置参数(文件名)交还给 $@, 下方 check_param_number 照常处理
 parse_switches "$@"
-set -- ${PS_REST[@]+"${PS_REST[@]}"}"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
 # AV1 硬编编码器在老版本发行版 ffmpeg 中缺失, Linux 下优先使用新版 ffmpeg
 OS=$(uname -s)
 

@@ -21,7 +21,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 #   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
 #   清单路径从剩余位置参数取(默认 list.txt)
 parse_switches "$@"
-set -- ${PS_REST[@]+"${PS_REST[@]}"}"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
 
 LIST_FILE=""
 check_param_number "$#"

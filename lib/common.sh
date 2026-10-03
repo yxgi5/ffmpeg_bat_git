@@ -1222,6 +1222,7 @@ function parse_switches() {
                 if [[ "$raw" == *=* ]]; then
                     val="${raw#*=}"; key="${raw%%=*}"
                 else
+                    key="$raw"
                     val="${2:-}"; shift
                 fi
                 key="$(_switch_env "$key")"

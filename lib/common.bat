@@ -479,19 +479,24 @@ set "FF_EXIST_SKIP="
 set "FF_EXIST_FAIL="
 if "%~2"=="" exit /b 0
 if not exist %2 exit /b 0
-if /i "%FF_ON_EXIST%"=="overwrite" (
-    set "FF_OUT_FLAG=-y"
-    echo [on_exist] output exists, FF_ON_EXIST=overwrite -^> re-encode: %~2
-    exit /b 0
-)
-if /i "%FF_ON_EXIST%"=="fail" (
-    echo [on_exist] output exists, FF_ON_EXIST=fail -^> not overwritten, exit 6: %~2
-    set "FF_EXIST_FAIL=1"
-    exit /b 0
-)
+rem 2026-10-03 修括号 bug: 文件名含半角 ) (如 "...(獸皇)28...") 时, %%2 这个参数
+rem   是在解析期被替换进命令的, 若落在 if(...)(...) 块里, cmd 会把值里的 )
+rem   当成块结束符, 后面的文字被当成命令执行, 报 "28 was unexpected at this time"。
+rem   改用 goto 分支, 让所有带 %%2 的 echo 都放在顶层(无括号块) —— 顶层命令里
+rem   的 ) 在引号/普通文本中是安全的(与 :cover_map 那套括号纪律同源)。
+if /i "%FF_ON_EXIST%"=="overwrite" goto oe_overwrite
+if /i "%FF_ON_EXIST%"=="fail" goto oe_fail
 echo [on_exist] output exists -^> SKIPPED, nothing was encoded: %~2
 echo [on_exist]   FF_ON_EXIST=overwrite to re-encode, =fail to treat it as an error
 set "FF_EXIST_SKIP=1"
+exit /b 0
+:oe_overwrite
+set "FF_OUT_FLAG=-y"
+echo [on_exist] output exists, FF_ON_EXIST=overwrite -^> re-encode: %~2
+exit /b 0
+:oe_fail
+echo [on_exist] output exists, FF_ON_EXIST=fail -^> not overwritten, exit 6: %~2
+set "FF_EXIST_FAIL=1"
 exit /b 0
 :load_defaults
 rem 读 lib\defaults.cfg 的 KEY=VALUE 默认值: call ... load_defaults
