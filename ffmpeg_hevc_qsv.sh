@@ -79,17 +79,21 @@ SRC_SIZE=$(check_file_size "$SRC_FILE")
 SRC_DURATION=$(check_file_duration "$SRC_FILE")
 SRC_BITRATE=$(check_file_bitrate "$SRC_FILE")
 
-# 码率无效时按 文件大小*8/时长 估算
+# 码率兜底: check_file_bitrate 已优先 stream.bit_rate, 再 format.bit_rate;
+#          均无效则按 文件大小*8/时长 估算(需有效时长)
 if ! [[ "$SRC_BITRATE" =~ ^[0-9]+$ ]] || [ "$SRC_BITRATE" -le 0 ]; then
-    TMP=$(( SRC_SIZE * 8 ))
-    DURATION_INT=$(printf "%.0f" "$SRC_DURATION")
-
-    if [ "$DURATION_INT" -le 0 ]; then
-        echo "duration异常"
-        exit 1
+    DURATION_INT=$(printf "%.0f" "$SRC_DURATION" 2>/dev/null || echo 0)
+    if [ "${DURATION_INT:-0}" -gt 0 ]; then
+        SRC_BITRATE=$(( SRC_SIZE * 8 / DURATION_INT ))
     fi
+fi
 
-    SRC_BITRATE=$(( TMP / DURATION_INT ))
+# 时长兜底: format.duration 不可用时, 用 size*8/bitrate 反推(需有效码率)
+if ! [[ "$SRC_DURATION" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [ "$(printf '%.0f' "$SRC_DURATION" 2>/dev/null || echo 0)" -le 0 ]; then
+    if [[ "$SRC_BITRATE" =~ ^[0-9]+$ ]] && [ "$SRC_BITRATE" -gt 0 ]; then
+        DURATION_INT=$(( SRC_SIZE * 8 / SRC_BITRATE ))
+        [ "$DURATION_INT" -gt 0 ] && SRC_DURATION="$DURATION_INT"
+    fi
 fi
 
 echo "SRC_BITRATE: $SRC_BITRATE"
@@ -105,11 +109,15 @@ fi
 TARGET_BITRATE=$(bitrate_from_table "$BIT")
 echo "ref TARGET_BITRATE: $TARGET_BITRATE"
 
-percentage=$(( TARGET_BITRATE * 100 / SRC_BITRATE ))
-echo "compress percentage: ${percentage}%"
-
-if [ "$percentage" -ge 100 ]; then
-    TARGET_BITRATE=$SRC_BITRATE
+if [ "${SRC_BITRATE:-0}" -gt 0 ]; then
+    percentage=$(( TARGET_BITRATE * 100 / SRC_BITRATE ))
+    echo "compress percentage: ${percentage}%"
+    if [ "$percentage" -ge 100 ]; then
+        TARGET_BITRATE=$SRC_BITRATE
+    fi
+else
+    percentage=0
+    echo "compress percentage: N/A (源码率未知)"
 fi
 
 # 码率异常: 退出码 5, 与 .bat 侧(exit /b 5)数值一致
