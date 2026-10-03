@@ -10,6 +10,7 @@
 *.ts
 *.m2ts
 *.webm
+dvd_sample.iso
 
 # ===== .bat 脚本产生的临时文件 =====
 temp
