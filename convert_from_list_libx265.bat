@@ -87,6 +87,7 @@ set "LINE=%~1"
 rem 第一个字符是 UTF-8 BOM(U+FEFF, 下面那个引号里就是它, 不可见)时才剁;
 rem   for /f 在 cp65001 下会把 EF BB BF 解成这一个字符。
 if "%LINE:~0,1%"=="﻿" set "LINE=%LINE:~1%"
+rem %FWD% 以 --key=value 形式收集(见 :fwd_one), 在 for 块内 call 时值不会被吞
 call "%~dp0ffmpeg_libx265.bat" %FWD% "%LINE%"
 set "RC=%errorlevel%"
 exit /b %RC%
@@ -100,13 +101,13 @@ echo Convert failed! rc=%ERRORLEVEL%
 exit /b 1
 
 :fwd_one
-rem 把已知开关(已定义时)收集成 --key value 追加到 FWD(见 :main 的 for 循环)
-rem   这些开关的值都不含空格(mp4/mkv/overwrite/auto...), 不加内部引号最稳;
-rem   含空格的(DVD 专属 filt/vfilt_extra/audio)由 DVD 清单驱动单独按引号包裹转发
+rem 把已知开关(已定义时)收集成 --key=value 追加到 FWD(见 :main 的 for 循环)
+rem   用 = 形式(而非空格分隔)是关键: 在 for 块内 call 时, 含空格的 %FWD% 展开会把
+rem   空格分隔的值 token 吞掉; = 形式把 key=value 绑成单一 token, 规避该 cmd 陷阱
 set "FK=%~1"
-if /I "%FK%"=="ext" if defined EXT set "FWD=%FWD% --ext %EXT%" & exit /b 0
-if /I "%FK%"=="bitrate_no_half" if defined BITRATE_NO_HALF set "FWD=%FWD% --bitrate_no_half %BITRATE_NO_HALF%" & exit /b 0
-if /I "%FK%"=="ff_on_exist" if defined FF_ON_EXIST set "FWD=%FWD% --ff_on_exist %FF_ON_EXIST%" & exit /b 0
-if /I "%FK%"=="ff_hwaccel" if defined FF_HWACCEL set "FWD=%FWD% --ff_hwaccel %FF_HWACCEL%" & exit /b 0
-if /I "%FK%"=="dvd_ext" if defined DVD_EXT set "FWD=%FWD% --dvd_ext %DVD_EXT%" & exit /b 0
+if /I "%FK%"=="ext" if defined EXT set "FWD=%FWD% --ext=%EXT%" & exit /b 0
+if /I "%FK%"=="bitrate_no_half" if defined BITRATE_NO_HALF set "FWD=%FWD% --bitrate_no_half=%BITRATE_NO_HALF%" & exit /b 0
+if /I "%FK%"=="ff_on_exist" if defined FF_ON_EXIST set "FWD=%FWD% --ff_on_exist=%FF_ON_EXIST%" & exit /b 0
+if /I "%FK%"=="ff_hwaccel" if defined FF_HWACCEL set "FWD=%FWD% --ff_hwaccel=%FF_HWACCEL%" & exit /b 0
+if /I "%FK%"=="dvd_ext" if defined DVD_EXT set "FWD=%FWD% --dvd_ext=%DVD_EXT%" & exit /b 0
 exit /b 0

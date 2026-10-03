@@ -26,6 +26,12 @@ exit /b %errorlevel%
 
 :main
 
+rem 命令行开关解析: --key value / --key=value -> 同名大写环境变量(见 lib\common.bat 的 :parse_switches)
+rem   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
+rem   位置参数(文件名)记在 PARSE_POS, 下面取它取代 %~1
+call "%SELF_DIR%lib\common.bat" parse_switches %*
+if errorlevel 2 exit /b 2
+
 rem ============================================================
 rem ffmpeg_hevc_qsv.bat - HEVC QSV 硬件加速压缩 (P1 重构版)
 rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址
@@ -75,8 +81,8 @@ set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filt
 
 SET "SRC_FILE="
 
-if not "%~1"=="" (
-    set "SRC_FILE=%~1"
+if defined PARSE_POS (
+    SET "SRC_FILE=%PARSE_POS%"
 )
 
 if not defined SRC_FILE (
@@ -193,7 +199,7 @@ if %percentage% leq 0 (
    exit /b 5
 )
 
-IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
+IF not defined PARSE_POS SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
@@ -211,7 +217,7 @@ if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract %SRC_FILE% TARGET_PA
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
-IF "%~1"=="" SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
+IF not defined PARSE_POS SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
 if not defined TARGET_FILE set "TARGET_FILE=output.mp4"
 rem 统一给输出路径补引号: 用户手输的可能不带引号, 而不带引号的路径
 rem 一旦含 空格/&/( ) 就会被 RUN_COM 的展开拆开
@@ -222,10 +228,10 @@ echo TARGET_FILE=%TARGET_FILE%
 echo RUN_COM3:%RUN_COM%
 rem handler name with ) (   call set
 rem ---- 产物已存在时的策略: 见 lib\common.bat 的 :on_exist ----
-if not "%~1"=="" call "%SELF_DIR%lib\common.bat" on_exist %TARGET_FILE%
+if defined PARSE_POS call "%SELF_DIR%lib\common.bat" on_exist %TARGET_FILE%
 if defined FF_EXIST_FAIL exit /b 6
 if defined FF_EXIST_SKIP exit /b 0
-IF "%~1"=="" (
+IF not defined PARSE_POS (
     echo executing 1
     set RUN_COM=%RUN_COM% %TARGET_FILE%
 ) else (

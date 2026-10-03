@@ -17,6 +17,12 @@ SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
+# 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.sh)
+#   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
+#   清单路径从剩余位置参数取(默认 list.txt)
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}"
+
 LIST_FILE=""
 check_param_number "$#"
 param_number=$?
@@ -36,6 +42,15 @@ echo "LIST_FILE = ${LIST_FILE}"
 # load_defaults 把配置里的默认值装进本进程环境(子进程继承), 再回显一行: 跑一整晚的
 #   日志里能一眼看出这份清单是按什么设置转的(2026-10-02: 即将无人值守)。
 load_defaults
+# 转发参数: 把所有生效开关(参数/env/cfg 设过的)收集成 --key value 数组, 显式传给
+#   每个入口调用(透传层不再靠子进程继承 env, 见 lib/common.sh 的 run_list)
+FWD=()
+for k in "${SWITCH_KEYS[@]}"; do
+    ek="$(_switch_env "$k")"
+    if [ -n "${!ek+x}" ]; then
+        FWD+=(--"$k" "${!ek}")
+    fi
+done
 echo "SWITCHES : EXT=${EXT:-} BITRATE_NO_HALF=${BITRATE_NO_HALF:-} FF_ON_EXIST=${FF_ON_EXIST:-}"
 check_file_is_text "${LIST_FILE}"
 
