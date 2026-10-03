@@ -331,7 +331,7 @@ function run_list() {
 #     打印版本串(如 "8.1" / "2025-05-01-git-707c04fe06-full_build-www.gyan.dev")
 #
 # 优先级:
-#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin
+#   FFMPEG(可执行文件) > 仓库内 ffmpeg/bin
 #     > [仅 Linux] /opt/ffmpeg/<构建>/bin > PATH > 常见安装前缀
 # 显式指定一旦存在就无条件采用 —— 即使能力不足也只报错、不再往下找(不把用户
 # 明确的选择悄悄换掉)。其余各级则**跳过**能力不足的候选并在标准错误里说明原因:
@@ -460,28 +460,23 @@ function _ff_find_core() {
         *)      _FF_UNAME=Other ;;
     esac
 
-    # ---- 阶段零: FFMPEG_BIN / FFMPEG 路径规范化(2026-10-03) ----
-    # Windows 上用户常按 bat 习惯把 FFMPEG_BIN 写成 D:\xxx\bin, 但 bash 会把反斜杠
-    # 当转义序列(\t \f \b ...), 路径被切碎。有 cygpath 时把 Windows 风格(含 \ 或盘符:)
-    # 统一转成 posix, 两种写法都能用。纯 Linux / WSL 没有 cygpath, 原样不动。
+    # ---- 阶段零: FFMPEG 路径规范化(文件式, 2026-10-03) ----
+    # Windows 上用户若把 FFMPEG 写成 D:\path\ffmpeg.exe, bash 会把反斜杠当转义序列,
+    # 路径被切碎。有 cygpath 时把 Windows 风格(含 \ 或盘符:)统一转成 posix。纯 Linux / WSL 没有 cygpath, 原样不动。
+    # 注: 目录式 FFMPEG_BIN 已废弃移除(2026-10-03 决策): 两族统一为文件式 FFMPEG / FFPROBE。
     if command -v cygpath >/dev/null 2>&1; then
-        case "${FFMPEG_BIN:-}" in
-            *\\*|[A-Za-z]:*) FFMPEG_BIN="$(cygpath -u -- "$FFMPEG_BIN" 2>/dev/null)" || true ;;
-        esac
         case "${FFMPEG:-}" in
             *\\*|[A-Za-z]:*) FFMPEG="$(cygpath -u -- "$FFMPEG" 2>/dev/null)" || true ;;
         esac
     fi
-    FFMPEG_BIN="${FFMPEG_BIN%/}"
-    FFMPEG="${FFMPEG%/}"
+    # 去尾部斜杠前必须先判空: 调用方(各冒烟脚本)开了 set -u, 裸写 ${FFMPEG%/} 在
+    # 用户没设 FFMPEG 时会以"未绑定的变量"当场中止 —— find_ffmpeg 于是静默返回 1,
+    # 调用方的 `find_ffmpeg || command -v ffmpeg` 兜底就把 PATH 上那份能力最少的构
+    # 建选中了(Cygwin 的 7.1.1 无 libx264、Ubuntu 的 4.4.2), 而 gyan 与 /opt 下的
+    # 新构建一次都轮不到。2026-10-03 实测两端同症状, 故改为判空后再处理。
+    if [ -n "${FFMPEG:-}" ]; then FFMPEG="${FFMPEG%/}"; fi
 
-    # ---- 阶段一: 显式指定(FFMPEG_BIN 指目录, 与 bat 侧同名同义) ----
-    if [ -n "${FFMPEG_BIN:-}" ]; then
-        for cand in "$FFMPEG_BIN/ffmpeg" "$FFMPEG_BIN/ffmpeg.exe"; do
-            [ -x "$cand" ] && { _ff_adopt "$cand" "$fl" "$en" "$dm" FFMPEG_BIN; return $?; }
-        done
-        _ff_note "FFMPEG_BIN=$FFMPEG_BIN 下没有可执行的 ffmpeg, 继续自动查找"
-    fi
+    # ---- 阶段一: 显式指定(FFMPEG 指向可执行文件, 最高优先, 不做能力筛选) ----
     if [ -n "${FFMPEG:-}" ]; then
         [ -x "$FFMPEG" ] && { _ff_adopt "$FFMPEG" "$fl" "$en" "$dm" FFMPEG; return $?; }
         _ff_note "FFMPEG=$FFMPEG 不可执行, 继续自动查找"

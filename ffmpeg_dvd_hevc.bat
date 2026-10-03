@@ -203,15 +203,20 @@ rem ==================================================================
 
 rem ---------------------------- 找 ffmpeg ----------------------------
 set "FF="
-if exist "%SELF_DIR%lib\common.bat" call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
+set "FP="
+rem 阶段一: 显式文件式 FFMPEG / FFPROBE(最高优先, 与 .bat 其余入口及 .sh 同契约)
+if defined FFMPEG if exist "%FFMPEG%" set "FF=%FFMPEG%"
+if defined FFPROBE if exist "%FFPROBE%" set "FP=%FFPROBE%"
+rem 阶段二: 复用公共定位器(目录式回退), 再补 gyan / PATH 兜底
+if not defined FF if exist "%SELF_DIR%lib\common.bat" call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if defined FF_BIN set "FF=%FF_BIN%\ffmpeg.exe"
 if not defined FF if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FF=C:\Program Files\ffmpeg\bin\ffmpeg.exe"
 if not defined FF for /f "delims=" %%A in ('where ffmpeg 2^>nul') do if not defined FF set "FF=%%A"
 if not defined FF (
-    echo [错误] 找不到 ffmpeg.exe
+    echo [错误] 找不到 ffmpeg.exe: 请安装 ffmpeg 或设置环境变量 FFMPEG 指向 ffmpeg 可执行文件
     exit /b 1
 )
-set FP=%FF:ffmpeg.exe=ffprobe.exe%
+if not defined FP set "FP=%FF:ffmpeg.exe=ffprobe.exe%"
 echo ffmpeg    : %FF%
 echo 源        : "%SRC%"
 rem 探针结果先落到 %WORK% 下的临时文件, 再用 for /f "usebackq" 回读。

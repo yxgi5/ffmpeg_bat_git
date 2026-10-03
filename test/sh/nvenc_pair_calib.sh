@@ -24,7 +24,7 @@
 #   Exit code: 0 = results.csv written; 2 = setup error
 #   Requires: ffmpeg/ffprobe with libvmaf, NVIDIA GPU with
 #   HEVC NVENC + AV1 NVENC (Ada or newer). ASCII only, LF.
-#   Env knobs: WORK=<dir>, FFMPEG_BIN=<bin dir> / FFMPEG=<file> to pin
+#   Env knobs: WORK=<dir>, FFMPEG=<file> to pin
 #   the ffmpeg (otherwise find_ffmpeg in lib/common.sh picks a build
 #   that actually has libvmaf, instead of trusting PATH).
 # ============================================================
@@ -32,7 +32,7 @@
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
-# lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
+# lib/common.bat: FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
 # skipping candidates that lack libvmaf. Plain PATH lookup is not enough on Windows:
 # an MSYS2 shell resolves `ffmpeg` to /mingw64/bin 8.1 (no libvmaf) while the gyan
 # full build sits one level further down the list. The library is optional on
@@ -45,7 +45,7 @@ fi
 if declare -F find_ffmpeg >/dev/null 2>&1; then
     FF="$(find_ffmpeg --need-filter libvmaf)" || {
         echo "ERROR: no ffmpeg with the libvmaf filter was found."
-        echo "       install a full build or set FFMPEG_BIN=/path/to/bin (or FFMPEG=/path/to/ffmpeg)."
+        echo "       install a full build or set FFMPEG=/path/to/ffmpeg."
         exit 2; }
     FP="$(find_ffprobe "$FF")" || { echo "ERROR: no ffprobe next to $FF and none on PATH"; exit 2; }
 else

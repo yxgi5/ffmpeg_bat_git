@@ -21,7 +21,7 @@ rem then 5 points: T/4, T/3, T/2, 3T/4, T.  Defaults: 30s segment,
 rem no height cap.
 rem
 rem Requirements: ffmpeg/ffprobe with libvmaf, found by
-rem lib\common.bat find_ffmpeg (PATH or FFMPEG_BIN; gyan full /
+rem lib\common.bat find_ffmpeg (PATH or FFMPEG file; gyan full /
 rem master builds qualify), software encoder libx264 / libx265 /
 rem libsvtav1. Work dir: %TEMP%\ffmpeg_bench_calib_<codec>
 rem Exit code: 0 = results.csv written; 2 = setup error
@@ -87,7 +87,6 @@ rem the fallback list: test/sh/bench_calib.sh uses --need-filter libvmaf.
 call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_FFMPEG
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
-set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 
 "%FFMPEG_PATH%" -hide_banner -filters 2>nul | findstr /c:"libvmaf" >nul || goto NO_VMAF
 "%FFMPEG_PATH%" -hide_banner -encoders 2>nul | findstr /c:"%ENC%" >nul || goto NO_ENC

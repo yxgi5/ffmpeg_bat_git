@@ -35,7 +35,7 @@ function check_file_suffix() {
 init_ext || exit 1
 # ---------- 前置检查 ----------
 # ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
-#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+#   FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
 # 不能只信 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个
 #   (Linux 上就是发行版那份 4.4.2), 后面那个能用的构建于是永远轮不到
 # 本脚本是 -c copy, 哪个构建都能干, 所以不传能力要求

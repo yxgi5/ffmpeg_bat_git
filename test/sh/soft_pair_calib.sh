@@ -24,7 +24,7 @@
 #                    (default: lib/common.sh find_ffmpeg picks a build that
 #                    has libvmaf + libsvtav1 + libx265; ffprobe is taken
 #                    from FFPROBE or the same directory as FFMPEG).
-#                    FFMPEG_BIN=<bin dir> works too (same name as the .bat side)
+#                    FFMPEG=<file> pins the ffmpeg to use (same name as the .bat side)
 #   SOFT_PAIR_WORK=  work dir (default: ~/ffmpeg_soft_pair_calib).
 #                    Avoid spaces: the path is embedded in a -lavfi filter
 #                    string (libvmaf log_path), which cannot quote it.
@@ -73,7 +73,7 @@ fi
 if declare -F find_ffmpeg >/dev/null 2>&1; then
     FF="$(find_ffmpeg --need-filter libvmaf --need-encoder libsvtav1 --need-encoder libx265)" || {
         echo "FATAL: no ffmpeg with libvmaf + libsvtav1 + libx265 was found"
-        echo "       set FFMPEG_BIN=/path/to/bin (or FFMPEG=/path/to/ffmpeg)"
+        echo "       set FFMPEG=/path/to/ffmpeg"
         exit 1; }
     FP="$(find_ffprobe "$FF")" || { echo "FATAL: no ffprobe next to $FF"; exit 1; }
 elif [ -n "${FFMPEG:-}" ]; then
