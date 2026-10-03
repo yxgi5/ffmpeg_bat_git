@@ -460,6 +460,21 @@ function _ff_find_core() {
         *)      _FF_UNAME=Other ;;
     esac
 
+    # ---- 阶段零: FFMPEG_BIN / FFMPEG 路径规范化(2026-10-03) ----
+    # Windows 上用户常按 bat 习惯把 FFMPEG_BIN 写成 D:\xxx\bin, 但 bash 会把反斜杠
+    # 当转义序列(\t \f \b ...), 路径被切碎。有 cygpath 时把 Windows 风格(含 \ 或盘符:)
+    # 统一转成 posix, 两种写法都能用。纯 Linux / WSL 没有 cygpath, 原样不动。
+    if command -v cygpath >/dev/null 2>&1; then
+        case "${FFMPEG_BIN:-}" in
+            *\\*|[A-Za-z]:*) FFMPEG_BIN="$(cygpath -u -- "$FFMPEG_BIN" 2>/dev/null)" || true ;;
+        esac
+        case "${FFMPEG:-}" in
+            *\\*|[A-Za-z]:*) FFMPEG="$(cygpath -u -- "$FFMPEG" 2>/dev/null)" || true ;;
+        esac
+    fi
+    FFMPEG_BIN="${FFMPEG_BIN%/}"
+    FFMPEG="${FFMPEG%/}"
+
     # ---- 阶段一: 显式指定(FFMPEG_BIN 指目录, 与 bat 侧同名同义) ----
     if [ -n "${FFMPEG_BIN:-}" ]; then
         for cand in "$FFMPEG_BIN/ffmpeg" "$FFMPEG_BIN/ffmpeg.exe"; do
