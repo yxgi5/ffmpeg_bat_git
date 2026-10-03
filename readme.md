@@ -659,12 +659,14 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 
 一句话：bat 下替换 = Windows 原生构建 + 环境变量 `FFMPEG_BIN`（Windows 路径）；sh 下随意（posix 路径也行，Cygwin / MSYS 构建正是它的主战场）。
 
+> 补充：`.sh` 下不管把 ffmpeg 换成**另一份 Windows 原生构建**（不在 `C:\Program Files\ffmpeg\bin` 的 gyan 等）还是换成 **msys2 / Cygwin 自己的 ffmpeg**，中文路径都能正确处理——bash 全程 UTF-8，参数一致以 UTF-8（Cygwin/msys 构建）或 UTF-16（原生 .exe，由 shell 规范化）传给 ffmpeg，与构建类型无关。唯一前提是 `list.txt` 含中文时要存成 **UTF-8**：脚本读清单只去 BOM/CR、不做转码，GBK 存的清单会被按 UTF-8 读乱，这一步与 ffmpeg 无关。ffprobe 默认同样取该目录那份；`.sh` 侧还可用 `FFPROBE=` 单独指定探针（`.bat` 侧固定同目录、无此覆盖变量）。
+
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
   `FFMPEG_BIN` 环境变量（指向 bin 目录）→ 仓库内 `ffmpeg\bin` → `PATH`（where）→ `C:\Program Files\ffmpeg\bin`
 - **`.sh`**：`lib/common.sh` 的 `find_ffmpeg`，与 `.bat` 同序
   `FFMPEG_BIN`（bin 目录）/ `FFMPEG`（可执行文件）→ 仓库内 `ffmpeg/bin` →
   **[仅 Linux] `/opt/ffmpeg/<构建>/bin`** → `PATH` **逐项** → 常见安装前缀；
-  `ffprobe` 由 `find_ffprobe` 取与 ffmpeg 同目录那份（也可用 `FFPROBE=` 指定）。启动时回显实际用到的路径与版本串。
+  `ffprobe` 默认取与 ffmpeg 同目录那份；`.sh` 侧还可用 `FFPROBE=` 单独指定探针（`.bat` 侧固定同目录、无此覆盖变量）。启动时回显实际用到的路径与版本串。
   **不能只信 `command -v`**：它只回第一个命中，而 MSYS2 的 `/mingw64/bin` 8.1、Cygwin 的 `/usr/bin` 7.1.1 常常正是缺能力的那个，
   `dvdvideo` 检查也用定位到的这份 ffmpeg 来做（否则会变成“检查 PATH 里那份、却跑另一份”）
   2026-09-30：13 个根入口脚本此前硬写裸 `ffmpeg`（`CMD=(ffmpeg ...)`），等于绕过这套定位——
