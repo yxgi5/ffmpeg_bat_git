@@ -564,11 +564,12 @@ rem   本函数不 setlocal —— 设出的开关必须对调用方可见(同 :
 rem   注意: 刻意用 goto 而非 if() 块, 否则块内 %PK%/%PV% 在 DisableDelayedExpansion
 rem         下不会刷新为新设的值(经典 cmd 陷阱, 会导致 -- 前缀去不掉 / 值取空)
 shift
-rem 每次调用都先清空 PARSE_POS: 本函数被 call 进来的场景下, 调用方上一次
-rem   解析设下的 PARSE_POS 会残留在同一 cmd 作用域里( call 不新建变量作用域),
+rem 每次调用都先清空 PARSE_POS / PS_CNT: 本函数被 call 进来的场景下, 调用方上一次
+rem   解析设下的位置参数会残留在同一 cmd 作用域里( call 不新建变量作用域),
 rem   导致"位置参数"被旧值顶掉 —— 清单 bat 解析清单路径后 call 入口 bat 再解析
 rem   文件名时, 文件名就错落成清单路径。这里每次进来都重置, 保证只记本次的位置参数。
 set "PARSE_POS="
+set "PS_CNT=0"
 :ps_loop
 if "%~1"=="" exit /b 0
 set "PK=%~1"
@@ -592,6 +593,8 @@ call :ps_set "%PK%" "%PV%"
 shift & shift
 goto ps_loop
 :ps_pos
+set /a PS_CNT+=1
+set "PARSE_%PS_CNT%=%~1"
 if not defined PARSE_POS set "PARSE_POS=%~1"
 shift
 goto ps_loop

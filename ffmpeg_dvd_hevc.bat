@@ -23,6 +23,14 @@ exit /b %errorlevel%
 
 :main
 
+rem ============================================================
+rem 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.bat 的 :parse_switches)
+rem   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
+rem   位置参数(源 / 输出目录 / title号)记在 PARSE_1 / PARSE_2 / PARSE_3(首参数另记 PARSE_POS)
+rem   下面取它们取代 %~1 / %~2 / %~3
+call "%SELF_DIR%lib\common.bat" parse_switches %*
+if errorlevel 2 exit /b 2
+
 rem =========================================================================
 rem  ffmpeg_dvd_hevc.bat  -  DVD-Video(ISO / VIDEO_TS 目录 / 光驱) -> HEVC
 rem
@@ -99,7 +107,7 @@ rem =========================================================================
 
 rem ============================ 配置区 ============================
 rem 源: 命令行第 1 参；没给就交互问一次
-set "SRC=%~1"
+set "SRC=%PARSE_1%"
 if not defined SRC set /p "SRC=请输入 DVD 源(ISO / VIDEO_TS 目录 / 光驱盘符): "
 if not defined SRC (
     echo [错误] 没给源
@@ -107,12 +115,12 @@ if not defined SRC (
 )
 
 rem 输出目录: 命令行第 2 参；没给就用源所在目录下的 HEVC_OUT
-set "OUTDIR=%~2"
-if not defined OUTDIR set "OUTDIR=%~dp1HEVC_OUT"
+set "OUTDIR=%PARSE_2%"
+if not defined OUTDIR for %%A in ("%PARSE_1%") do set "OUTDIR=%%~dpAHEVC_OUT"
 
 rem 输出名前缀: 默认取源文件名(去扩展名)
 rem 不覆盖调用方预设(与 .sh 侧 ${PREFIX:-...} 及 EXT/MODE/VENC 的守卫同口径)
-if not defined PREFIX set "PREFIX=%~n1"
+if not defined PREFIX for %%A in ("%PARSE_1%") do set "PREFIX=%%~nA"
 if not defined PREFIX set "PREFIX=dvd"
 
 rem EXT=mkv  推荐: 能同时装 HEVC + 多条原生 AC3 + 多条 DVD 位图字幕
@@ -164,7 +172,7 @@ rem MODE=TITLE  只处理 DVD_TITLE 指定的一条
 rem 不覆盖调用方预设的值: setlocal 挡不住继承来的环境变量, 写成 set MODE=ALL 会把
 rem "set MODE=AUTO && ffmpeg_dvd_hevc.bat ..." 里的 AUTO 悄悄冲掉
 if not defined MODE set MODE=ALL
-set "DVD_TITLE=%~3"
+set "DVD_TITLE=%PARSE_3%"
 if defined DVD_TITLE set MODE=TITLE
 
 rem SPLIT_CHAPTER=N  按第 N 章把正片切成两段(例如前編/後編)，0 = 不切

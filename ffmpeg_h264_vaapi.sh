@@ -7,6 +7,12 @@
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+
+# 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.sh)
+#   优先级 参数 > 环境变量 > defaults.cfg; 没给的参数回退 env / cfg(老 set 写法仍兼容)
+#   其余位置参数(文件名)交还给 $@, 下方 check_param_number 照常处理
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
 # VAAPI 仅存在于 Linux (Intel 核显); iHD 驱动覆盖 Gen8+ 核显
 export LIBVA_DRIVER_NAME=iHD
 

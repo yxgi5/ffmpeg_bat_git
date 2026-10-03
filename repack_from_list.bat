@@ -27,21 +27,25 @@ setlocal DisableDelayedExpansion
 rem 本脚本不需要延迟展开: 一旦开启, for 变量 %%i 里的感叹号会被成对吃掉,
 rem 片名 Tora! Tora! Tora!.mp4 这类条目会变成残缺路径
 
+rem 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.bat 的 :parse_switches)
+call "%~dp0lib\common.bat" parse_switches %*
+if errorlevel 2 exit /b 2
+
 SET "SRC_FILE="
 
 rem %~1 (not %1) strips the surrounding quotes: keeping them made the
 rem quoted expansion below turned into a doubly quoted path, and cmd then
 rem looked for a file whose name literally contains quote characters.
-if not "%~1"=="" (
-    SET "SRC_FILE=%~1"
+if not "%PARSE_POS%"=="" (
+    SET "SRC_FILE=%PARSE_POS%"
 ) else (
     SET "SRC_FILE=list.txt"
 )
 echo SRC_FILE="%SRC_FILE%"
 rem ---------- 开关透传(无人值守留痕) ----------
-rem 本脚本不解析任何开关: 它们全部以环境变量的形式原样传给下游入口 ——
-rem   EXT(输出容器) / BITRATE_NO_HALF(目标码率不除 2) / FF_HWACCEL(软硬解) /
-rem   FF_ON_EXIST(同名产物策略), 以及各入口自己的开关(见 readme.md 的开关表)。
+rem 本脚本经 parse_switches 接受标准 --key value 开关(EXT / BITRATE_NO_HALF /
+rem   FF_HWACCEL / FF_ON_EXIST 等, 见 readme.md 的开关表), 设成环境变量后原样透传给下游入口
+rem   ffmpeg_copy_to_mp4.bat; 老的环境变量写法仍兼容。
 rem 默认值统一写在 lib\defaults.cfg —— 无人值守前改那个文件即可, 命令行
 rem   set XXX=... 的临时覆盖优先。 load_defaults 把默认值装进本进程环境(子进程
 rem   继承), 再回显一行: 跑一整晚的日志里能一眼看出这份清单是按什么设置转的。

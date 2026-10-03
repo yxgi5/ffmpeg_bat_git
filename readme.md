@@ -645,8 +645,10 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 
 两者都设时 `FFMPEG`（可执行文件）优先。显式指定**无条件采用**——即使那份构建缺所需编码器，也只报错、不会悄悄退回自动查找。
 
-> **没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径。
-> 开关参数化（把 `EXT` / `FF_ON_EXIST` / `FF_HWACCEL` 等统一成 `--key value`、三环境字面一致的命令行参数）仍在评估中；这些开关目前都以**环境变量**传递，`FFMPEG_BIN` / `FFMPEG` 同理。脚本虽认 `--ext` 等参数式开关（见 `lib/common.bat` 的 `parse_switches`），但 ffmpeg 路径不在其列。
+> **ffmpeg / ffprobe 路径没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径（这是刻意的：路径注入风险 + 它是"定位器"不是"开关"）。
+> 但**其它开关早已参数化**：`lib/common.{sh,bat}` 的 `parse_switches` 已实现，且所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list` 都调用了它——`--key value` / `--key=value` 会把同名大写环境变量（如 `--ext mkv` → `EXT=mkv`；`--ff_on_exist overwrite` → `FF_ON_EXIST=overwrite`；`--venc libx265` → `VENC=libx265`）按"参数 > 环境变量 > defaults.cfg"的优先级设好。白名单（`SWITCH_KEYS`）为：
+> `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
+> **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。详见下方「开关参数化现状」。
 
 路径写法分两族：
 
@@ -839,7 +841,7 @@ vainfo                                  # VAAPI 能力 (新 libva 需 export LIB
 | `overwrite` | 把 `-n` 换成 `-y`，真覆盖重转 |
 | `fail` | 不覆盖，回退出码 6（与「文件其实没转成」区分开，见退出码契约）；适合「这批必须全新、不许混入陈货」的场景 |
 
-⚠️ **这是环境变量，不是命令行参数，三种壳写法不一样**：写错就静默按默认 `skip` 跑，看着像「没生效」。
+⚠️ **这是环境变量，也有 `--ff_on_exist` 参数式入口**：`FF_ON_EXIST` 既可以用下面三种壳的环境变量写法传，也可以在每个入口脚本的命令行用 `--ff_on_exist overwrite`（`--key value` / `--key=value` 均可）传，两者等价、都优先于配置文件。环境变量的三壳写法不一样，写错就静默按默认 `skip` 跑，看着像「没生效」：
 
 ```
 rem Windows cmd（一行用 && 串；分两行 set 也行，变量会留在会话里）
@@ -855,9 +857,22 @@ FF_ON_EXIST=overwrite ./ffmpeg_libx265.sh xxx.mp4
 为什么 `FF_ON_EXIST=overwrite .\xxx.bat` 在 cmd 下报 `is not recognized`：那是 bash 的
 「前缀赋值」语法，cmd 不认，会把整段当一条命令去执行。cmd 没有这种写法，只能先 `set`
 再运行。它也不在 `lib/defaults.cfg` 里（默认 `skip` 写死在 `lib/common.{sh,bat}` 的
-`:on_exist` / `ff_run` 中），所以「长期固定」要么写进调用方脚本，要么等本仓库正在评估的
-「开关参数化」方案（把 `EXT` / `FF_ON_EXIST` / `FF_HWACCEL` 等统一成 `--key value`，
-三环境字面一致的命令行参数）。
+`:on_exist` / `ff_run` 中），所以「长期固定」要么写进 `lib/defaults.cfg`，要么在命令行用
+`--ff_on_exist overwrite`（参数式入口见上方说明）。
+
+### 开关参数化现状（2026-10-03 调查）
+
+`parse_switches` 已在两族实现（`lib/common.sh` 的 `SWITCH_KEYS` + `lib/common.bat` 的 `:parse_switches` / `:ps_set`），把所有"开关"统一成 `--key value` / `--key=value` 的命令行参数，并转成同名大写环境变量；优先级为 **参数 > 环境变量 > defaults.cfg**（没给的回退 env / cfg，老的 `set EXT=mkv` 写法仍兼容）。位置参数（文件名 / 清单路径）会被挑出来交还给脚本。
+
+**白名单**（`SWITCH_KEYS` 与 `:ps_set` 两族逐字一致，lint 会比对）：
+`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
+
+**已接上 `parse_switches` 的入口**：所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list`（2026-10-03 补齐了此前漏接的 `ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口）。
+
+**没有 `--key` 入口、只能靠环境变量设置的**：
+- ffmpeg / ffprobe 定位：`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`（`.bat` 侧 `FFPROBE_PATH` 由入口从同目录钉死，用户无法单独指定探针）—— 这是有意不参数化（路径注入风险 + 它是"定位器"不是"开关"）。
+- 配置指针：`FB_DEFAULTS`（指向另一份 `defaults.cfg`）。
+- `tools/` 系列（`dvd_make_sample` / `dvd_restore` / `dvd_repair` / `dvd_shrink` / `dvd_to_data_iso` 等）的全部开关：这些脚本不调用 `parse_switches`，只能用环境变量传（见各脚本头注释）。
 
 ### `-init_hw_device` / `-filter_hw_device` 到底在做什么（2026-09-30）
 
