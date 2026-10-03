@@ -48,6 +48,16 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 [ -f "${REPO_ROOT}/lib/common.sh" ] && source "${REPO_ROOT}/lib/common.sh"
 
+# ---------- 开关参数化 (2026-10-04) ----------
+# --key value / --key=value -> 同名大写环境变量; 环境变量写法照旧有效(参数 > 环境变量)。
+# 键表只认本脚本这几个(PS_KEYS), 不进公共 SWITCH_KEYS(见 lib/common.sh 的 PS_KEYS 注释)。
+# -h / --help 不在键表里, parse_switches 会把它们原样交还给下面的 case(不会被吃掉)。
+# 阈值: 既能当第 2 个位置参数给, 也能 --th 0.3 / TH=0.3 给; 两个都给时位置参数优先
+# (本脚本原本就是这个顺序 —— 参数化不改 precedence, 只是多一条入口)。
+PS_KEYS=(max min_gap chaps th clip chap_first chap_prefix)
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
+
 TAG="[scene]"
 info() { printf '%s %s\n' "$TAG" "$*"; }
 die()  { printf '\033[41;36m%s 错误: %s\033[0m\n' "$TAG" "$*" >&2; exit 1; }

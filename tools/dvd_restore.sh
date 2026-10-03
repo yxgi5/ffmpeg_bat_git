@@ -47,6 +47,13 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 [ -f "${REPO_ROOT}/lib/common.sh" ] && source "${REPO_ROOT}/lib/common.sh"
 
+# ---------- 开关参数化 (2026-10-04) ----------
+# --key value / --key=value -> 同名大写环境变量; 环境变量写法照旧有效(参数 > 环境变量)。
+# 键表只认本脚本这几个(PS_KEYS), 不进公共 SWITCH_KEYS(见 lib/common.sh 的 PS_KEYS 注释)。
+PS_KEYS=(volid burn fix deep check allow_gap)
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
+
 TAG="[dvd_restore]"
 info() { printf '%s %s\n' "$TAG" "$*"; }
 warn() { printf '\033[33m%s 警告: %s\033[0m\n' "$TAG" "$*" >&2; }

@@ -36,6 +36,13 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 [ -f "${REPO_ROOT}/lib/common.sh" ] && source "${REPO_ROOT}/lib/common.sh"
 
+# ---------- 开关参数化 (2026-10-04) ----------
+# --key value / --key=value -> 同名大写环境变量; 环境变量写法照旧有效(参数 > 环境变量)。
+# 键表只认本脚本这几个(PS_KEYS), 不进公共 SWITCH_KEYS(见 lib/common.sh 的 PS_KEYS 注释)。
+PS_KEYS=(sec frame tol)
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
+
 [ $# -ge 1 ] || { awk 'NR>=3 && /^# =+$/ { exit } NR>=3 { sub(/^# ?/, ""); print }' "$0"; exit 1; }
 
 declare -F find_ffprobe >/dev/null 2>&1 || { echo "缺少 lib/common.sh" >&2; exit 1; }
