@@ -20,6 +20,8 @@ if /I "%~1"=="lookup_bitrate"        goto lookup_bitrate
 if /I "%~1"=="find_ffmpeg"           goto find_ffmpeg
 if /I "%~1"=="numOK"                 goto numOK
 if /I "%~1"=="calc_bitrate_fromsize" goto calc_bitrate_fromsize
+if /I "%~1"=="calc_duration_fromsize" goto calc_duration_fromsize
+if /I "%~1"=="is_pos_num"           goto is_pos_num
 if /I "%~1"=="extract"               goto extract
 if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
@@ -109,6 +111,37 @@ set "fpB=%numB:~0%"
 set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA/fpB
 
 set /a ret = 8*!div!
+endlocal & set /a %~4=%ret%
+exit /b 0
+
+:is_pos_num
+rem 判断值是否为正数(整数或小数均可), 结果写入输出变量(1/0)
+rem   call ... is_pos_num <值> <输出变量名>
+rem   注意: 本文件经 goto 分发, %1 为函数名, 真实参数从 %2 起
+set "IPN_OUT=%~3"
+set "IPN_STR=%~2"
+set "IPN_STR=%IPN_STR:.=%"
+set "IPN_VAL=0"
+set /a "IPN_VAL=%IPN_STR%" 2>nul
+if %IPN_VAL% gtr 0 ( set /a %IPN_OUT%=1 ) else ( set /a %IPN_OUT%=0 )
+exit /b 0
+
+:calc_duration_fromsize
+rem 由文件大小与码率反推时长(秒): call ... calc_duration_fromsize <字节数> <码率bps> <输出变量名>
+rem   与 calc_bitrate_fromsize 互逆: duration = 8*size/bitrate
+rem   注意: 本文件经 goto 分发, %1 为函数名, 真实参数从 %2 起
+setlocal EnableDelayedExpansion
+set numA=%~2
+set numB=%~3
+set "fpA=%numA:.=%"
+set "fpB=%numB:.=%"
+if !fpB! equ 0 (
+    endlocal & set /a %~4=0
+    exit /b 1
+)
+set /A q=fpA/fpB
+set /A r=fpA - q*fpB
+set /a ret = 8*q + (8*r)/fpB
 endlocal & set /a %~4=%ret%
 exit /b 0
 

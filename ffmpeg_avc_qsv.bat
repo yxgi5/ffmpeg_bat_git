@@ -152,16 +152,28 @@ echo SRC_SIZE=%SRC_SIZE%
 set "SRC_DURATION=%P_format.duration%"
 echo SRC_DURATION=%SRC_DURATION%
 
+rem 码率兜底: format.bit_rate -> stream.bit_rate -> size/duration(需有效时长)
 set "SRC_BITRATE=%P_format.bit_rate%"
-set /a SRC_BITRATE=%SRC_BITRATE%
-IF not %ERRORLEVEL% NEQ 0 (
-  if %SRC_BITRATE% == 0 (
-     call "%SELF_DIR%lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
-  )
-) else (
-    call "%SELF_DIR%lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
+rem 块内 %VAR% 为解析期展开: 变量在块内被重赋值后, 块内再引用会拿到旧值, 故拆到块外
+if %SRC_BITRATE_OK% == 0 set "SRC_BITRATE=%P_streams.stream.0.bit_rate%"
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
+call "%SELF_DIR%lib\common.bat" is_pos_num "%P_format.duration%" SRC_DUR_OK
+if %SRC_BITRATE_OK% == 0 if %SRC_DUR_OK% == 1 (
+    call "%SELF_DIR%lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %P_format.duration% SRC_BITRATE
 )
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
+if %SRC_BITRATE_OK% == 0 set "SRC_BITRATE=0"
 echo SRC_BITRATE=%SRC_BITRATE%
+
+rem 时长兜底: format.duration -> size*8/bitrate(需有效码率)
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_DURATION%" SRC_DUR_OK
+if %SRC_DUR_OK% == 0 if %SRC_BITRATE_OK% == 1 (
+    call "%SELF_DIR%lib\common.bat" calc_duration_fromsize %SRC_SIZE% %SRC_BITRATE% SRC_DURATION
+)
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_DURATION%" SRC_DUR_OK
+if %SRC_DUR_OK% == 0 set "SRC_DURATION=0"
+echo SRC_DURATION=%SRC_DURATION%
 
 rem ---------- 码率查表: lib\bitrate_table_avc.csv (替代原 190 行 if-elif) ----------
 set "BIT="
@@ -174,20 +186,22 @@ call "%SELF_DIR%lib\common.bat" bitrate_from_table BIT
 if errorlevel 1 exit /b 1
 set TARGET_BITRATE=%BIT%
 echo TARGET_BITRATE=%TARGET_BITRATE%
-set "percentage="
-
+set "percentage=0"
+if %SRC_BITRATE% gtr 0 (
     set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
     call "%SELF_DIR%lib\common.bat" numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
-
-    echo percentage=%percentage%%%
+)
+echo percentage=%percentage%%%
 
 rem 下面两个判定不限于交互模式: arg(拖放/命令行)模式同样生效, 与 .sh 保持一致
 rem (原写法多了 if "%~1"=="" 前置, 使低码率源在 arg 模式下被重编码放大)
-if %percentage% geq 100 (
-    set BIT=%SRC_BITRATE%
-    rem keep the summary honest: TARGET_BITRATE must report the bitrate
-    rem actually encoded at, not the stale table value (T17 asserts on it)
-    set TARGET_BITRATE=%SRC_BITRATE%
+if %SRC_BITRATE% gtr 0 (
+    if %percentage% geq 100 (
+        set BIT=%SRC_BITRATE%
+        rem keep the summary honest: TARGET_BITRATE must report the bitrate
+        rem actually encoded at, not the stale table value (T17 asserts on it)
+        set TARGET_BITRATE=%SRC_BITRATE%
+    )
 )
 
 if %TARGET_BITRATE% leq 0 (
