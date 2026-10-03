@@ -635,6 +635,30 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 
 ## ffmpeg 依赖怎么找
 
+### 用你自己的 ffmpeg 替换默认
+
+默认定位顺序见本节的其余部分（仓库内 `ffmpeg/bin` → 常见安装前缀 → `PATH` 逐项 → …）。
+要换成机器上别的构建（比如带 libx265 的 gyan full、或 Cygwin 那份），**只有环境变量这一种接口**：
+
+- **`FFMPEG_BIN`**：指向 ffmpeg 所在的 **bin 目录**（如 `D:\cygwin64\bin`、`/opt/ffmpeg/.../bin`）
+- **`FFMPEG`**：直接指向 **可执行文件本身**（更精确，跳过"目录里找 ffmpeg"那一步）
+
+两者都设时 `FFMPEG`（可执行文件）优先。显式指定**无条件采用**——即使那份构建缺所需编码器，也只报错、不会悄悄退回自动查找。
+
+> **没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径。
+> 开关参数化（把 `EXT` / `FF_ON_EXIST` / `FF_HWACCEL` 等统一成 `--key value`、三环境字面一致的命令行参数）仍在评估中；这些开关目前都以**环境变量**传递，`FFMPEG_BIN` / `FFMPEG` 同理。脚本虽认 `--ext` 等参数式开关（见 `lib/common.bat` 的 `parse_switches`），但 ffmpeg 路径不在其列。
+
+路径写法分两族：
+
+| 家族 | `FFMPEG_BIN` 写法 | 备注 |
+| --- | --- | --- |
+| `.bat`（cmd） | **必须 Windows 路径**：`D:\cygwin64\bin`、`C:\Program Files\ffmpeg\bin` | 不能写 `/bin/ffmpeg` 这种 posix 路径，cmd 解析不了 |
+| `.sh`（bash） | Windows 路径（`D:\cygwin64\bin`）**或** posix 路径（`/bin`、`/opt/.../bin`）均可 | sh 侧有 `cygpath` 规范化：反斜杠 / 盘符写法自动转 posix，两种等价 |
+
+⚠️ **关键限制（是构建类型，不是路径写法）**：`.bat` 跑在 Windows `cmd` 下，**替换的 ffmpeg 必须是 Windows 原生构建**（gyan 等）。若换成 Cygwin / MSYS2 构建，中文路径会因 cmd 的 GBK 命令行 ↔ Cygwin 的 UTF-8 `argv` 编码不匹配而乱码——实测 `视频`→`��Ƶ`，ffprobe 报 `No such file or directory`，进而 `check_isvideo` 误判"未检测到视频流"。**这类 Cygwin / MSYS2 构建留给 `.sh` 用**（bash 全程 UTF-8，无此问题）。
+
+一句话：bat 下替换 = Windows 原生构建 + 环境变量 `FFMPEG_BIN`（Windows 路径）；sh 下随意（posix 路径也行，Cygwin / MSYS 构建正是它的主战场）。
+
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
   `FFMPEG_BIN` 环境变量（指向 bin 目录）→ 仓库内 `ffmpeg\bin` → `PATH`（where）→ `C:\Program Files\ffmpeg\bin`
 - **`.sh`**：`lib/common.sh` 的 `find_ffmpeg`，与 `.bat` 同序
@@ -709,6 +733,7 @@ Windows 两个 shell 里同一件事更明显：Cygwin 的 `/usr/bin/ffmpeg`(7.1
 | 10bit 片源 —— **编码**侧（HEVC Main10 等） | 硬解正常，卡在编码器：h264_qsv 报 `some encoding parameters are not supported by the QSV runtime` → rc=-40 / 0 字节（同素材 `hevc_qsv` / `av1_nvenc` / 软编入口都正常，所以不是硬件不支持）；`hevc_vaapi` 则因写死 `-profile:v:0 main` 不接受 10bit 输入。2026-09-30 起在**硬件内部**降 8bit：QSV 走 `scale_qsv=format=nv12`、VAAPI 走 `scale_vaapi=format=nv12`。软滤镜 `format=nv12` **不行** —— 帧还在硬件表面，`auto_scale` 接不上；**8bit 源的命令行一字不改** |
 | `av1_qsv` 无硬件支持 | `ffmpeg -encoders` 里列着 `av1_qsv` 不等于硬件支持：UHD 770 实测一开就是 `Current codec type is unsupported` → rc=-40 / **0 字节产物**（AV1 QSV 需 Arrow Lake 或更新的核显）。2026-09-30 起入口先用 1 帧 lavfi 源试开编码器（320x240，不用 128x128 —— 尺寸过小会把好机器判成不支持），开不起来就明说**并不产生空产物**（退出码沿用既有的 1，见 `test/README.md` 退出码契约） |
 | 修改 `.bat` 时的 set 写法 | 值为「已带引号的路径 / 整条命令行」的变量，**一律用非包装写法** `set VAR=值`；包装写法 `set "VAR=值"` 会与值内引号配对闭合，使后续路径段落裸露、被 `&`/`()` 截断 |
+| 替换 ffmpeg 的构建类型 | `.bat`（cmd）下必须 **Windows 原生构建**（gyan 等）；Cygwin / MSYS2 构建的中文路径会因 cmd 的 GBK ↔ Cygwin 的 UTF-8 编码不匹配而乱码（实测 `视频`→`��Ƶ`，`check_isvideo` 误判"未检测到视频流"）。此类构建留给 `.sh` 用（bash 全程 UTF-8）。`.sh` 下两种都行，posix 与 Windows 路径写法皆可 |
 | 块内参数里的裸 `)` | 多行 `( ... )` 块中，**参数文本里未转义的 `)` 会提前关闭该块**（`^( ^)` 转义、全角 `（）`、`[1]`、双引号内、`for %%A in (...)`、`\|\| ( ... )` 均安全）。后果极隐蔽：紧跟其后的语句脱离块、变成**无条件执行**的顶层语句 —— `ffmpeg_dvd_hevc.bat` 首跑就是这样静默 `exit /b 1` 的（打印两行后直接回提示符、零报错）。静态由 **L23** 拦截，实验记录见 `environment_matrix.md` 第 49 条 |
 
 ## 验证状态
