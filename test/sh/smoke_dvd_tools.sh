@@ -66,6 +66,8 @@ if [ -z "$FF" ] || [ -z "$FP" ]; then
     echo "FATAL: ffmpeg/ffprobe not on PATH" >&2
     exit 2
 fi
+# 与另两个套件同口径: 开跑前在屏幕上报出 ffmpeg / ffprobe 路径与版本。
+ff_report "$FF" "$FP"
 [ "$WIPE" = "1" ] && rm -rf "$W"
 mkdir -p "$W" "$LOG"
 
@@ -105,7 +107,9 @@ expect_file() {
 say "============================================================"
 say " sh dvd-tools smoke v1: tools/ 五个 DVD 脚本端到端"
 say "============================================================"
-say "ffmpeg : $("$FF" -hide_banner -version 2>/dev/null | awk 'NR==1{print $3; exit}')"
+say "ffmpeg : $FF"
+say "ffprobe: $FP"
+say "版本   : $("$FF" -hide_banner -version 2>/dev/null | awk 'NR==1{print $3; exit}')"
 say "repo   : $REPO"
 say "work   : $W"
 say

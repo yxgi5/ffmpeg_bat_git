@@ -232,6 +232,7 @@ if defined TEMP if exist "%TEMP%\ffmpeg_bat_ffver.tmp" for /f "usebackq tokens=3
 if defined TEMP del "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
 echo ============================================================
 echo  使用 ffmpeg : %FF_SHOW%
+echo  使用 ffprobe: %FFPROBE_PATH%
 if defined FF_VER echo  版本       : %FF_VER%
 echo ============================================================
 exit /b 0
