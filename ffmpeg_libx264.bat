@@ -88,7 +88,6 @@ echo ============================================================
 call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
-set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 rem ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
 rem 默认值写在 lib\defaults.cfg(两族共用一份), 校验 / 去空格 / -c:s 的选法统统在
 rem lib\common.bat 的 :init_ext 里 —— 加容器、改默认都只动那一处, 入口不再各写一遍。
@@ -312,6 +311,6 @@ exit /b 0
 
 :NO_PATH_ERR
 echo 找不到 ffmpeg.exe: 请安装 ffmpeg(默认查找 C:\Program Files\ffmpeg\bin)
-echo 或设置环境变量 FFMPEG_BIN 指向其 bin 目录后重试
+echo 或设置环境变量 FFMPEG 指向 ffmpeg 可执行文件后重试
 pause
 exit /b 1

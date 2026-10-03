@@ -3,7 +3,7 @@ rem ============================================================
 rem lib\common.bat - 公共子程序库 (P1 重构)
 rem 用法: call "%~dp0lib\common.bat" <函数名> [参数...]
 rem   函数的实际参数从 %2 开始 ( %1 为函数名)
-rem   find_ffmpeg: 四级回退定位 ffmpeg/ffprobe (FFMPEG_BIN > 仓库内 > PATH > 默认目录)
+rem   find_ffmpeg: 定位 ffmpeg/ffprobe (FFMPEG 文件式 > 仓库内 > PATH > 默认目录; FFPROBE 文件式优先, 否则同目录)
 rem                 本函数**不做能力筛选**(2026-09-20 同日回退, 原因见下方 :find_ffmpeg 注释)
 rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
 rem   on_exist:      产物已存在时的策略(FF_ON_EXIST=skip 默认 / overwrite / fail),
@@ -177,13 +177,18 @@ set %~4="%~n2.%EX_SUF%"
 exit /b 0
 
 :find_ffmpeg
-rem 定位 ffmpeg/ffprobe 所在 bin 目录: call ... find_ffmpeg <输出变量名>
-rem 优先级: 环境变量 FFMPEG_BIN(指向bin目录) > 仓库内 ffmpeg\bin > gyan 默认安装目录 > PATH(where) > 其余常见目录
+rem 定位 ffmpeg/ffprobe 可执行文件: call ... find_ffmpeg <输出变量名>
+rem 优先级: 环境变量 FFMPEG(指向可执行文件本身) > 仓库内 ffmpeg\bin > gyan 默认安装目录 > PATH(where) > 其余常见目录
 rem   gyan 那一档刻意排在 PATH **之前**(2026-09-30): 只要是 Windows, 就强制用 gyan
 rem   full —— PATH 里第一个常常是别的打包版本(choco / scoop / 某软件的私有副本),
-rem   能力不全。显式 FFMPEG_BIN 仍是最高优先级, 不会被这一档顶掉; gyan 目录不存在
+rem   能力不全。显式 FFMPEG 仍是最高优先级, 不会被这一档顶掉; gyan 目录不存在
 rem   时照旧回落到 PATH 与其余兜底目录(那时行为与改动前一致)。
-rem 命中: 输出变量=bin目录(无尾部反斜杠), 返回 0; 未找到: 返回 1
+rem 命中: 输出变量=bin目录(无尾部反斜杠), 返回 0; 未找到: 返回 1。
+rem 两族统一契约(2026-10-03 决策): 只保留文件式 FFMPEG / FFPROBE, 去掉目录式 FFMPEG_BIN。
+rem   - FFMPEG 指向 ffmpeg 可执行文件本身(显式, 最高优先, 不做能力筛选)。
+rem   - FFPROBE 指向 ffprobe 可执行文件本身(显式, 最高优先); 没给则默认取与 ffmpeg 同目录那份。
+rem   本函数把 FFPROBE_PATH 作为全局变量导出(FFPROBE 优先, 否则 <ffmpeg目录>\ffprobe.exe),
+rem   调用方不要再自行 `set FFPROBE_PATH=...` 覆盖, 否则会丢失 FFPROBE 显式覆盖。
 rem 本函数刻意不做"能力筛选"(2026-09-20 回退, 曾加过第 3 参数 + :ff_satisfies):
 rem   那里的 "%1\ffmpeg.exe" 是双引号叠加 —— 调用方传进来的是**带引号**的 %FFBIN%,
 rem   展开成 ""C:\Program Files\ffmpeg\bin"\ffmpeg.exe", 程序名被解析成空串, 错误又被
@@ -193,7 +198,9 @@ rem   (lint L21 已能拦住这种写法), 且必须有真机双击验证的余�
 set "FF_OUT=%~2"
 if not defined FF_OUT exit /b 1
 set "FFBIN="
-if defined FFMPEG_BIN if exist "%FFMPEG_BIN%\ffmpeg.exe" set "FFBIN=%FFMPEG_BIN%"
+rem 阶段一: 显式文件式 FFMPEG(最高优先)。FFMPEG 指向 ffmpeg 可执行文件本身。
+if defined FFMPEG if exist "%FFMPEG%" for %%I in ("%FFMPEG%") do set "FFBIN=%%~dpI"
+rem 阶段二: 自动回退(目录式)
 if not defined FFBIN if exist "%~dp0..\ffmpeg\bin\ffmpeg.exe" for %%I in ("%~dp0..\ffmpeg\bin") do set "FFBIN=%%~fI"
 rem gyan full 的默认安装位置优先于 PATH(见上方优先级说明)
 if not defined FFBIN if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files\ffmpeg\bin"
@@ -205,11 +212,14 @@ if not defined FFBIN (
 if not defined FFBIN if exist "C:\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\ffmpeg\bin"
 if not defined FFBIN if exist "C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files (x86)\ffmpeg\bin"
 if not defined FFBIN (
-    echo [find_ffmpeg] 未找到 ffmpeg.exe: 请安装 ffmpeg 或设置环境变量 FFMPEG_BIN 指向其 bin 目录
+    echo [find_ffmpeg] 未找到 ffmpeg.exe: 请安装 ffmpeg 或设置环境变量 FFMPEG 指向 ffmpeg 可执行文件
     set "%FF_OUT%="
     exit /b 1
 )
 if "%FFBIN:~-1%"=="\" set "FFBIN=%FFBIN:~0,-1%"
+rem FFPROBE: 显式文件式 FFPROBE(最高优先), 否则取与 ffmpeg 同目录那份
+if defined FFPROBE if exist "%FFPROBE%" set "FFPROBE_PATH=%FFPROBE%"
+if not defined FFPROBE_PATH set "FFPROBE_PATH=%FFBIN%\ffprobe.exe"
 set "%FF_OUT%=%FFBIN%"
 rem 醒目回显最终选定的 ffmpeg(与 .sh 侧 ff_report 同义): 定位过程一堆诊断很容易盖过
 rem 真正被采用的那个, 用户问"到底用的哪个 ffmpeg"时看的就是这块牌子。

@@ -76,7 +76,6 @@ rem "%1\ffmpeg.exe" with an already-quoted %FFBIN% and mis-detected every build.
 call "%REPO%\lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_FFMPEG
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
-set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"
 
 echo === toolchain check ===
 "%FFMPEG_PATH%" -hide_banner -encoders 2>nul | findstr /c:"libsvtav1" >nul || goto NO_SVT

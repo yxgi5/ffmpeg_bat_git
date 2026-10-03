@@ -166,7 +166,7 @@ rem plus typing at the console. Verdict logic:
 rem   output produced              -> PASS
 rem   rc=1 (the documented no-input path) -> SKIP
 rem   anything else                -> FAIL
-rem D1 below repeats the call with FFMPEG_BIN pre-set (no child spawned
+rem D1 below repeats the call with FFMPEG pre-set (no child spawned
 rem before the prompt); Z2e / Z2f isolate chcp and the for /f lookup.
 >>"%SUM%" echo.
 >>"%SUM%" echo ---- part D: no-argument mode, path from stdin ----
@@ -183,18 +183,18 @@ if exist "%CDIR%\smoke_amp & test.mp4" set "DV=PASS"
 if "%DRC%"=="1" if not exist "%CDIR%\smoke_amp & test.mp4" set "DV=SKIP"
 >>"%SUM%" echo [%DV%] D0 no-argument rc=%DRC%  (SKIP = file-redirected stdin never reaches the no-arg branch, see Z2a/Z2d)
 
-rem D1: the same call, but FFMPEG_BIN is pre-set so find_ffmpeg takes its
+rem D1: the same call, but FFMPEG is pre-set (file) so find_ffmpeg takes its
 rem     first branch and spawns NO child before the prompt. If D1 now reads
 rem     the path while D0 does not, the stdin eater is a child process that
 rem     find_ffmpeg runs (the for /f where lookup).
-set "FFMPEG_BIN=C:\Program Files\ffmpeg\bin"
+set "FFMPEG=C:\Program Files\ffmpeg\bin\ffmpeg.exe"
 del /q "%CDIR%\smoke_amp & test.mp4" 2>nul
 call "%REPO%\ffmpeg_copy_to_mp4.bat" < "%IFILE%" > "%LDIR%\D1_noarg_ffbin.log" 2>&1
 set "D1RC=%ERRORLEVEL%"
 set "D1V=FAIL"
 if exist "%CDIR%\smoke_amp & test.mp4" set "D1V=PASS"
 if "%D1RC%"=="1" if not exist "%CDIR%\smoke_amp & test.mp4" set "D1V=noRead"
-set "FFMPEG_BIN="
+set "FFMPEG="
 >>"%SUM%" echo [%D1V%] D1 same, but no child before the prompt  (rc=%D1RC%, see D1_noarg_ffbin.log)
 
 rem ---------------- part Z: construct micro-tests ----------------

@@ -27,7 +27,7 @@
 #     WORK=<path>  output dir; default $TMPDIR/ffmpeg_bench_calib_<codec>
 #                  artifacts live in a per-parameter subdir of it, so a rerun
 #                  can never pick up files made with different settings
-#     FFMPEG_BIN=<dir> / FFMPEG=<file>   pin the ffmpeg to use (same names
+#     FFMPEG=<file>   pin the ffmpeg to use
 #                  as the .bat side); otherwise lib/common.sh find_ffmpeg
 #                  picks one that actually has libvmaf
 #
@@ -90,7 +90,7 @@ esac
 # fail here with "no libvmaf filter" on a machine that has one.
 FF="$(find_ffmpeg --need-filter libvmaf)" || {
     echo "ERROR: no ffmpeg with the libvmaf filter was found."
-    echo "       install a full build or set FFMPEG_BIN=/path/to/bin (or FFMPEG=/path/to/ffmpeg)."
+    echo "       install a full build or set FFMPEG=/path/to/ffmpeg."
     exit 2; }
 FP="$(find_ffprobe "$FF")" || {
     echo "ERROR: no ffprobe next to $FF and none on PATH"; exit 2; }

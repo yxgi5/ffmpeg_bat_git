@@ -665,7 +665,7 @@ exit /b 1
 
 :NO_FF
 echo [FATAL] ffmpeg not found by lib\common.bat find_ffmpeg rc=%FFRC% >> "%SUM%"
-echo [FATAL] ffmpeg not found. set FFMPEG_BIN to your ffmpeg bin dir, then rerun.
+echo [FATAL] ffmpeg not found. set FFMPEG to your ffmpeg executable, then rerun.
 type "%SUM%"
 pause
 exit /b 2

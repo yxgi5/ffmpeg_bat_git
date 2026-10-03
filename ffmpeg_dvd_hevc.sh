@@ -106,13 +106,13 @@ detect_kind_struct
 
 # ---------- 前置检查 ----------
 # 与 .bat 侧同一套定位顺序(见 lib/common.sh 的 find_ffmpeg):
-#   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
+#   FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
 # 不能只问 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个。
 # 选中的那份由 ff_report 在标准错误上醒目回显。
 if [ "$SRC_KIND" = "bd" ]; then
     if ! FF="$(find_ffmpeg)"; then
         echo -e "\033[41;36m找不到 ffmpeg\033[0m"
-        echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
+        echo "也可用 FFMPEG=<可执行文件> 指定"
         exit 1
     fi
 else
@@ -122,7 +122,7 @@ else
     if ! FF="$(find_ffmpeg --need-demuxer dvdvideo)"; then
         echo -e "\033[41;36m找不到带 dvdvideo 解复用器的 ffmpeg\033[0m"
         echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
-        echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
+        echo "也可用 FFMPEG=<可执行文件> 指定"
         exit 1
     fi
 fi
