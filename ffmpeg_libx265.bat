@@ -273,6 +273,9 @@ rem D3D fallback (2026-09-30): when the Windows session is disconnected/locked,
 rem D3D device creation is refused and "-hwaccel auto" crashes ffmpeg (0xC0000005).
 rem Capture stderr so the run can be retried without -hwaccel when that shows up.
 set "FF_HWERR=%TEMP%\ff_hwaccel_%RANDOM%.err"
+rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
+call "%SELF_DIR%lib\common.bat" dry_run
+if defined DRY_HIT exit /b 0
 %RUN_COM% 2>"%FF_HWERR%"
 set "FB_RC=%ERRORLEVEL%"
 type "%FF_HWERR%" 2>nul

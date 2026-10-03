@@ -361,6 +361,29 @@ else
     FAIL=$((FAIL+1)); say "[FAIL] T29 alternate config did not produce clip-compressed.mkv"
 fi
 
+# T31: --dry-run prints the ffmpeg command and runs nothing (2026-10-04, added
+# with the switch). The point of it is that "what would this entry run" is
+# answerable without touching the source: rc=0, a command line naming the clip
+# comes out, and no product appears. Same T-id as the .bat twin.
+d="$W/cases/T31_dryrun"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+rm -f "$d/clip-compressed.mp4"
+LOGF="$LOG/T31_dryrun.log"
+bash "$REPO/ffmpeg_libx264.sh" --dry-run "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+# 纯命令就是 [dry-run] 提示行的下一行(提示走 stderr, 命令走 stdout)
+DRYCMD="$(awk '/^\[dry-run\]/{getline; print; exit}' "$LOGF")"
+DRYOK=1
+[ "$RC" -eq 0 ] || DRYOK=0
+[ -n "${DRYCMD:-}" ] || DRYOK=0
+case "${DRYCMD:-}" in *"clip.mp4"*) ;; *) DRYOK=0 ;; esac
+[ -e "$d/clip-compressed.mp4" ] && DRYOK=0
+if [ "$DRYOK" = 1 ]; then
+    PASS=$((PASS+1)); say "[PASS] T31 dry-run: 打印命令且未产出文件"
+else
+    FAIL=$((FAIL+1))
+    say "[FAIL] T31 dry-run rc=$RC cmd='${DRYCMD:-none}' out=$([ -e "$d/clip-compressed.mp4" ] && echo written || echo none)"
+fi
+
 # T17: 400k source vs table(1080p AVC)/2 = 3836249 -> the documented clamp
 # ("keep the source bitrate") must fire in ARG mode, not only interactively.
 run_arg T17 ffmpeg_libx264.sh ok LT:3836249 h264 "arg: low-bitrate source keeps source bitrate" "$LOW"

@@ -48,7 +48,13 @@ FWD=()
 for k in "${SWITCH_KEYS[@]}"; do
     ek="$(_switch_env "$k")"
     if [ -n "${!ek+x}" ]; then
-        FWD+=(--"$k" "${!ek}")
+        # 布尔开关转发成裸 --key: 带值转发(--dry_run 1)时, 那个值会在入口侧漏成
+        # 第二个位置参数, 于是报 "More than one parameter"
+        if _switch_is_flag "$k"; then
+            FWD+=(--"$k")
+        else
+            FWD+=(--"$k" "${!ek}")
+        fi
     fi
 done
 echo "SWITCHES : EXT=${EXT:-} BITRATE_NO_HALF=${BITRATE_NO_HALF:-} FF_ON_EXIST=${FF_ON_EXIST:-}"

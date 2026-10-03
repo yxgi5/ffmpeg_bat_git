@@ -8,6 +8,8 @@ rem                 本函数**不做能力筛选**(2026-09-20 同日回退, 原
 rem   check_isvideo: 校验输入含视频流, 无则打印错误并返回 1
 rem   on_exist:      产物已存在时的策略(FF_ON_EXIST=skip 默认 / overwrite / fail),
 rem                  导出 FF_OUT_FLAG / FF_EXIST_SKIP / FF_EXIST_FAIL, 见 :on_exist
+rem   dry_run:       DRY_RUN 为真时打印 %RUN_COM%(本入口将要执行的 ffmpeg 命令)
+rem                  而不执行, 导出 DRY_HIT 供调用方跳过那次执行, 见 :dry_run
 rem   load_defaults: 读 lib\defaults.cfg 的 KEY=VALUE(公共开关默认值)
 rem   init_ext:      EXT 容器开关 -> EXT + SENC, 见 :init_ext
 rem   bitrate_from_table: 目标码率口径(要不要 /2), 见 :bitrate_from_table
@@ -37,6 +39,7 @@ if /I "%~1"=="load_defaults"       goto load_defaults
 if /I "%~1"=="init_ext"            goto init_ext
 if /I "%~1"=="bitrate_from_table"  goto bitrate_from_table
 if /I "%~1"=="parse_switches"      goto parse_switches
+if /I "%~1"=="dry_run"             goto dry_run
 echo 未知函数: %~1
 exit /b 1
 
@@ -625,6 +628,16 @@ for /f "tokens=1,* delims==" %%a in ("%PK%") do (
     set "PK=%%a"
     set "PV=%%b"
 )
+rem 连字符归一(只动键, 不动值): 环境变量名里不能有 -, --dry-run 与 --dry_run 都收
+set "PK=%PK:-=_%"
+rem 布尔开关 --dry-run 不取值: 它后面紧跟的通常就是文件名, 按 "--key value" 的
+rem 老规矩取下一个参数当值, 会把文件名吃掉(与 lib/common.sh 的 SWITCH_FLAGS 同义)
+if /I "%PK%"=="dry_run" (
+    set "DRY_RUN=1"
+    if not "%PV%"=="" set "DRY_RUN=%PV%"
+    shift
+    goto ps_loop
+)
 if "%PV%"=="" goto ps_val_next
 rem 含 = 形式: key 已取 = 前, value 已取 = 后, 无需再取 %2
 call :ps_set "%PK%" "%PV%"
@@ -664,4 +677,22 @@ if /I "%PK%"=="vbitrate" set "VBITRATE=%PV%" & exit /b 0
 if /I "%PK%"=="venc" set "VENC=%PV%" & exit /b 0
 echo unknown switch: --%PK%
 exit /b 2
+exit /b 0
+
+:dry_run
+rem DRY_RUN 为真(已定义且不是 0)时: 打印本入口将要执行的 ffmpeg 命令, 一个字节都不跑。
+rem   用法(放在真正执行 %RUN_COM% 的那一行之前):
+rem     call "%SELF_DIR%lib\common.bat" dry_run
+rem     if defined DRY_HIT exit /b 0
+rem   开关: --dry-run / --dry-run=1(参数式, 见 :parse_switches)或 set DRY_RUN=1。
+rem   与 .sh 侧 ff_run 里的闸门同义: 只拦 ffmpeg 本体, ffprobe 探测照跑 —— 不探测
+rem   就没有分辨率 / 码率, 命令行还没拼出来脚本先散了。
+rem   提示走 stderr、命令走 stdout: stdout 上只留那条纯命令, 方便接管道 / 复制粘贴。
+rem   DRY_HIT 每次进来先清空: call 不新建变量作用域, 上一次调用留下的值会误导调用方。
+set "DRY_HIT="
+if not defined DRY_RUN exit /b 0
+if /I "%DRY_RUN%"=="0" exit /b 0
+echo [dry-run] 未执行, 仅打印命令: 1>&2
+echo %RUN_COM%
+set "DRY_HIT=1"
 exit /b 0

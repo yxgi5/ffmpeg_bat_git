@@ -825,7 +825,46 @@ function _ff_native_exec() {
 
     "$exe" ${out[@]+"${out[@]}"}
 }
-function ff_run() { _ff_native_exec "$FF" "$@"; }
+# ================================================================
+# dry-run (2026-10-04): 只把将要执行的 ffmpeg 命令打印出来, 一个字节都不跑
+#   开关: --dry-run / --dry-run=1(参数式, 见 parse_switches) 或 DRY_RUN=1(环境变量);
+#         两族同名同义, .bat 侧见 lib/common.bat 的 :dry_run。
+#   只拦 ff_run(ffmpeg 本体): fp_run 是 ffprobe 探测, 必须照跑 —— 不探测就没有
+#         分辨率 / 码率, 命令行还没拼出来脚本先散了。
+#   多 title 的入口(dvd_hevc)每条 title 各打一条: 先看全再决定跑不跑。
+# ================================================================
+function ff_dry_run() {
+    case "${DRY_RUN:-}" in
+        1|true|yes|on|TRUE|YES|ON|True|Yes|On) return 0 ;;
+    esac
+    return 1
+}
+
+function ff_print_cmd() {
+    # 打出来的就是真会跑的那条: 与 _ff_native_exec 同一套路径改写(以 / 开头的参数
+    # 换原生写法), 参数逐个 %q 引好, 可直接复制粘贴自己跑。
+    local exe="$1"; shift
+    local a out=()
+    for a in "$@"; do
+        case "$a" in
+            /*) out+=("$(native_path "$a")") ;;
+            *)  out+=("$a") ;;
+        esac
+    done
+    printf '%q' "$exe"
+    if [ ${#out[@]} -gt 0 ]; then printf ' %q' "${out[@]}"; fi
+    printf '\n'
+}
+
+function ff_run() {
+    if ff_dry_run; then
+        # 提示走 stderr: stdout 上只留那条纯命令, 方便直接接管道 / 复制粘贴
+        printf '[dry-run] 未执行, 仅打印命令:\n' >&2
+        ff_print_cmd "$FF" "$@"
+        return 0
+    fi
+    _ff_native_exec "$FF" "$@"
+}
 function fp_run() { _ff_native_exec "$FP" "$@"; }
 
 # ================================================================
@@ -1219,11 +1258,25 @@ function bitrate_from_table() {
 # ================================================================
 SWITCH_KEYS=(ext bitrate_no_half ff_on_exist ff_hwaccel dvd_ext \
              mode dvd_title prefix filt vfilt_extra audio split_chapter \
-             extra_titles vbitrate venc)
+             extra_titles vbitrate venc dry_run)
+
+# 布尔开关(不取值): 这类开关后面紧跟的通常就是文件名, 若按 "--key value" 的老规矩
+# 取下一个参数当值, 文件名会被开关吃掉(实测 --dry-run a.mp4 之后脚本再也拿不到
+# 输入文件)。两族同名同义, 见 lib/common.bat 的 :parse_switches。
+SWITCH_FLAGS=(dry_run)
 
 function _switch_env() {
     # 小写 key -> 大写 env 名(键都是 [a-z_], tr 足够)
     printf '%s' "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+# 连字符写法(--dry-run)与下划线写法(--dry_run)都认: 环境变量名里不能有 -
+function _switch_is_flag() {
+    local k="${1//-/_}" f
+    for f in ${SWITCH_FLAGS[@]+"${SWITCH_FLAGS[@]}"}; do
+        [ "$f" = "${k,,}" ] && return 0
+    done
+    return 1
 }
 
 function parse_switches() {
@@ -1236,8 +1289,21 @@ function parse_switches() {
                     val="${raw#*=}"; key="${raw%%=*}"
                 else
                     key="$raw"
-                    val="${2:-}"; shift
+                    if _switch_is_flag "$raw"; then
+                        # 布尔开关默认不取值(后面紧跟的通常是文件名); 但透传层可能
+                        # 转发成 "--dry_run 1" 这种带值形式, 那时把那个布尔字面量
+                        # 吃掉, 免得它漏成第二个位置参数("More than one parameter")
+                        case "${2:-}" in
+                            1|0|true|false|yes|no|on|off|TRUE|FALSE|YES|NO|ON|OFF|True|False|Yes|No|On|Off)
+                                val="$2"; shift ;;
+                            *) val=1 ;;
+                        esac
+                    else
+                        val="${2:-}"; shift
+                    fi
                 fi
+                # 连字符归一: env 名里不能有 -, --dry-run 与 --dry_run 都收
+                key="${key//-/_}"
                 key="$(_switch_env "$key")"
                 local known=0 k
                 for k in "${SWITCH_KEYS[@]}"; do

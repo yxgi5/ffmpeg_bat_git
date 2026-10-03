@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg.bat (v11)  *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg.bat (v12)  *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -10,6 +10,10 @@ rem   C) fresh process     -> console already UTF-8 (opencmd.bat style)
 rem Every run captures stdout+stderr into smoke_logs\*.log, and a verdict
 rem table is written to smoke_logs\summary.txt
 rem
+rem v12 changes vs v11 (2026-10-04):
+rem   - new case T31 for the --dry-run switch: rc=0, the command line comes
+rem     out with the input named in it, and NOTHING is produced. Runs on the
+rem     libx264 entry -> no hardware, never SKIPped. Same T-id as the .sh twin.
 rem v11 changes vs v10 (2026-10-02):
 rem   - new case T30: a Notepad-style list (CRLF line ends + UTF-8 BOM) must
 rem     still produce one output per entry. The .sh side has covered this
@@ -303,6 +307,31 @@ if not exist "%T29OUT%" ( set "V29=FAIL" & set "N29=%N29% noClipCompressedMkv;" 
 if exist "%T29D%\clip-compressed.mp4" ( set "V29=FAIL" & set "N29=%N29% mp4WrittenAnyway;" )
 echo [%V29%] T29 FB_DEFAULTS alt config -^> mkv rc=%RC29% >> "%SUM%"
 if not "%N29%"=="" echo        why: %N29% >> "%SUM%"
+
+rem ============ T31: --dry-run prints the command, runs nothing ============
+rem Added 2026-10-04 together with the dry-run switch (see readme.md). The
+rem point of the switch is that "what would this entry run" is answerable
+rem without touching the source: rc=0, a command line naming the clip is on
+rem stdout, and no product appears. Same T-id as test/sh/smoke_ffmpeg.sh.
+chcp %CP0% >nul
+set "T31D=%WORK%\cases\T31_dryrun"
+if not exist "%T31D%" mkdir "%T31D%" >nul 2>&1
+copy /y "%IN%" "%T31D%\clip.mp4" >nul
+del /q "%T31D%\clip-compressed.mp4" >nul 2>&1
+set "T31LOG=%LOGDIR%\T31_dryrun.log"
+call "%REPO%\ffmpeg_libx264.bat" --dry-run "%T31D%\clip.mp4" < nul > "%T31LOG%" 2>&1
+set "RC31=%errorlevel%"
+set "V31=PASS"
+set "N31="
+if not "%RC31%"=="0" ( set "V31=FAIL" & set "N31=%N31% rc=%RC31% want0;" )
+rem 标记行说明"这一步没真跑"; 再单独确认打出来的命令带着输入文件名
+findstr /c:"[dry-run]" "%T31LOG%" >nul 2>&1
+if errorlevel 1 ( set "V31=FAIL" & set "N31=%N31% noDryRunMarker;" )
+findstr /c:"clip.mp4" "%T31LOG%" >nul 2>&1
+if errorlevel 1 ( set "V31=FAIL" & set "N31=%N31% cmdMissingInput;" )
+if exist "%T31D%\clip-compressed.mp4" ( set "V31=FAIL" & set "N31=%N31% productWritten;" )
+echo [%V31%] T31 --dry-run libx264 rc=%RC31% >> "%SUM%"
+if not "%N31%"=="" echo        why: %N31% >> "%SUM%"
 
 rem ============ T17: low-bitrate source (clamp regression) ============
 rem A 400k source must keep its own bitrate instead of being re-encoded up
