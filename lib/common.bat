@@ -552,30 +552,34 @@ rem 解析 --key value / --key=value -> 同名大写环境变量(见 lib/common.
 rem   调用: call ... parse_switches %*   ( %1 为函数名, 真实参数从 %2 起)
 rem   位置参数(文件 / 清单路径)记到 PARSE_POS(取第一个非 -- 参数)
 rem   本函数不 setlocal —— 设出的开关必须对调用方可见(同 :load_defaults 约定)
+rem   注意: 刻意用 goto 而非 if() 块, 否则块内 %PK%/%PV% 在 DisableDelayedExpansion
+rem         下不会刷新为新设的值(经典 cmd 陷阱, 会导致 -- 前缀去不掉 / 值取空)
 shift
-set "PARSE_POS="
 :ps_loop
 if "%~1"=="" exit /b 0
 set "PK=%~1"
-if "%PK:~0,2%"=="--" (
-    set "PK=%PK:~2%"
-    rem --key=value 拆分(值含 = 的极少见, 这里取第一段)
-    set "PV="
-    for /f "tokens=1,* delims==" %%a in ("%PK%") do (
-        set "PK=%%a"
-        set "PV=%%b"
-    )
-    if "%PV%"=="" (
-        set "PV=%~2"
-        shift & shift
-    ) else (
-        shift
-    )
-    call :ps_set "%PK%" "%PV%"
-) else (
-    if not defined PARSE_POS set "PARSE_POS=%~1"
-    shift
+if not "%PK:~0,2%"=="--" goto ps_pos
+rem ---- 是 -- 开头开关: 先去掉 -- 前缀 ----
+set "PK=%PK:~2%"
+set "PV="
+for /f "tokens=1,* delims==" %%a in ("%PK%") do (
+    set "PK=%%a"
+    set "PV=%%b"
 )
+if "%PV%"=="" goto ps_val_next
+rem 含 = 形式: key 已取 = 前, value 已取 = 后, 无需再取 %2
+call :ps_set "%PK%" "%PV%"
+shift
+goto ps_loop
+:ps_val_next
+rem 空格分隔形式: 值取下一个位置参数
+set "PV=%~2"
+call :ps_set "%PK%" "%PV%"
+shift & shift
+goto ps_loop
+:ps_pos
+if not defined PARSE_POS set "PARSE_POS=%~1"
+shift
 goto ps_loop
 
 :ps_set
