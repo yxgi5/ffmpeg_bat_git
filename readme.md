@@ -641,39 +641,41 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 要换成机器上别的构建（比如带 libx265 的 gyan full、或 Cygwin 那份），**只有环境变量这一种接口**：
 
 - **`FFMPEG_BIN`**：指向 ffmpeg 所在的 **bin 目录**（如 `D:\cygwin64\bin`、`/opt/ffmpeg/.../bin`）
-- **`FFMPEG`**：直接指向 **可执行文件本身**（更精确，跳过"目录里找 ffmpeg"那一步）。⚠️ **仅 `.sh` 侧认**；`.bat` 侧不认这个变量，只能走 `FFMPEG_BIN` 目录（见下方「两族契约与已知不一致」）
+- **`FFMPEG`**：直接指向 **可执行文件本身**（更精确，跳过"目录里找 ffmpeg"那一步）。⚠️ 当前**仅 `.sh` 侧认**；`.bat` 侧暂不认此变量，只能走 `FFMPEG_BIN` 目录（按 2026-10-03 决策，两族将统一为文件式，见下方「两族契约」）
 
 两者都设时（`FFMPEG` 仅在 `.sh` 侧可用，`.bat` 侧无此变量）`FFMPEG`（可执行文件）优先。显式指定**无条件采用**——即使那份构建缺所需编码器，也只报错、不会悄悄退回自动查找。
+
+> **2026-10-03 决策**：两族统一为**文件式** `FFMPEG`/`FFPROBE`、移除目录式 `FFMPEG_BIN`、`FFPROBE` 默认跟 `FFMPEG` 同目录；`.bat` 侧文件式覆盖待实现，见下方「两族契约」。
 
 > **ffmpeg / ffprobe 路径没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径（这是刻意的：路径注入风险 + 它是"定位器"不是"开关"）。
 > 但**其它开关早已参数化**：`lib/common.{sh,bat}` 的 `parse_switches` 已实现，且所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list` 都调用了它——`--key value` / `--key=value` 会把同名大写环境变量（如 `--ext mkv` → `EXT=mkv`；`--ff_on_exist overwrite` → `FF_ON_EXIST=overwrite`；`--venc libx265` → `VENC=libx265`）按"参数 > 环境变量 > defaults.cfg"的优先级设好。白名单（`SWITCH_KEYS`）为：
 > `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
-> **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。详见下方「开关参数化现状」。
+> **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（文件式 `FFMPEG`/`FFPROBE`，`FFMPEG_BIN` 将移除；详见下方「两族契约」与「开关参数化现状」）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。`ffmpeg_hevc_vaapi`/`ffmpeg_h264_vaapi`/`ffmpeg_dvd_hevc`/`repack_from_list` 这 4 个入口已于 2026-10-03 接上 `parse_switches`，不再属于此类。
 
-#### 两族契约与已知不一致（ffmpeg / ffprobe 定位）
+#### 两族契约（ffmpeg / ffprobe 定位）
 
-这组变量控制"用哪一份 ffmpeg / ffprobe"，是定位器（locator）的入口，不参与 `parse_switches` 参数化（路径注入风险 + 它是"定位器"不是"开关"）。两族当前契约如下：
+这组变量控制"用哪一份 ffmpeg / ffprobe"，是定位器（locator）的入口，不参与 `parse_switches` 参数化（路径注入风险 + 它是"定位器"不是"开关"）。
 
-| 变量 | 含义 | `.sh` 侧 | `.bat` 侧 |
+**已定统一方案（2026-10-03 决策，对齐到 `.sh` 契约）**：两族完全一致 —— **只保留文件式** `FFMPEG`（ffmpeg 可执行文件）与 `FFPROBE`（ffprobe 可执行文件），均显式指定、最高优先、不做能力筛选；**移除目录式** `FFMPEG_BIN`；`FFPROBE` 没给则默认取与 `FFMPEG` 同目录那份。
+
+| 变量 | 含义 | `.sh` 侧 | `.bat` 侧（待改） |
 | --- | --- | --- | --- |
-| `FFMPEG_BIN` | ffmpeg 的 **bin 目录**（显式指定，最高优先，不做能力筛选） | ✅ 认 | ✅ 认（必须 Windows 路径） |
-| `FFMPEG` | ffmpeg **可执行文件**本身（显式指定，最高优先） | ✅ 认 | ❌ **不认**（仅认 `FFMPEG_BIN` 目录） |
-| `FFPROBE` | ffprobe **可执行文件**本身（显式指定；不给则与 ffmpeg 同目录） | ✅ 认 | ❌ **不认**（无此变量；探针固定取 ffmpeg 同目录那份，由入口写死 `set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"`，用户无法单独指定） |
+| `FFMPEG` | ffmpeg **可执行文件**（显式指定，最高优先，不做能力筛选） | ✅ 认 | 🔜 待改（当前仅认 `FFMPEG_BIN` 目录） |
+| `FFPROBE` | ffprobe **可执行文件**（显式指定；不给则与 `FFMPEG` 同目录） | ✅ 认（默认同目录） | 🔜 待改（当前 ffprobe 固定同目录、无覆盖变量） |
+| `FFMPEG_BIN` | ffmpeg 的 **bin 目录**（旧式） | ⚠️ 兼容保留 → **将移除** | ✅ 当前唯一识别方式；**将移除** |
 
-> ⚠️ **已知不一致（当前为有意保留的缺口，非 bug；先在此记清，未改代码）**：
-> - `.bat` 侧**没有** `FFMPEG`（文件式）覆盖——只能用 `FFMPEG_BIN` 指目录。
-> - `.bat` 侧**没有** `FFPROBE` 覆盖——ffprobe 只能跟 ffmpeg 同目录；这与 `.sh` 侧 `FFPROBE=` 可单独指定探针不同。
-> - 内部命名也不统一：`.sh` 用 `FF`（ffmpeg）/ `FP`（ffprobe）作定位结果；`.bat` 多数入口用 `FFMPEG_PATH` / `FFPROBE_PATH`，而 `ffmpeg_dvd_hevc.bat` 另走一套 inline 查找、用 `FF`/`FP` 且 ffprobe 由 `set FP=%FF:ffmpeg.exe=ffprobe.exe%` 字符串替换得到。
-> - 根因：`.sh` 的 `find_ffmpeg` 返回**可执行文件**，`.bat` 的 `find_ffmpeg` 返回**目录**（早期"目录优先"设计），于是"文件式 ffmpeg 覆盖"和"独立 ffprobe 覆盖"都没机会长出。
->
-> 统一到 `.sh` 契约（让 `FFMPEG` / `FFPROBE` 两族都生效）是已知待办；本次仅文档化、未动代码。
+> ⚠️ **实施状态（2026-10-03，本轮仅文档化决策，未动代码）**：
+> - `.sh` 侧已实现 `FFMPEG`/`FFPROBE` 文件式（`FFPROBE` 默认同目录），但 `FFMPEG_BIN` 仍兼容保留、待移除。
+> - `.bat` 侧 `find_ffmpeg` 仍返回**目录**、`FFMPEG_BIN` 是唯一识别方式；`FFMPEG`/`FFPROBE` 文件式覆盖尚未实现（实现后 `.bat` 也走"返回可执行文件"）。
+> - 内部命名仍不统一（`.sh` 用 `FF`/`FP`；`.bat` 用 `FFMPEG_PATH`/`FFPROBE_PATH`，`ffmpeg_dvd_hevc.bat` 另走 inline `FF`/`FP`）——统一实现时一并收敛。
+> - 根因：`.sh` 的 `find_ffmpeg` 返回**可执行文件**，`.bat` 的返回**目录**（早期"目录优先"设计）。代码改动（含入口错误提示、测试夹具 `FFMPEG_BIN` 引用）待单独实施。
 
-路径写法分两族：
+路径写法分两族（指 `FFMPEG` 可执行文件路径；`FFMPEG_BIN` 目录式将移除，下同）：
 
-| 家族 | `FFMPEG_BIN` 写法 | 备注 |
+| 家族 | `FFMPEG` 写法 | 备注 |
 | --- | --- | --- |
-| `.bat`（cmd） | **必须 Windows 路径**：`D:\cygwin64\bin`、`C:\Program Files\ffmpeg\bin` | 不能写 `/bin/ffmpeg` 这种 posix 路径，cmd 解析不了 |
-| `.sh`（bash） | Windows 路径（`D:\cygwin64\bin`）**或** posix 路径（`/bin`、`/opt/.../bin`）均可 | sh 侧有 `cygpath` 规范化：反斜杠 / 盘符写法自动转 posix，两种等价 |
+| `.bat`（cmd） | **必须 Windows 路径**：`D:\cygwin64\bin\ffmpeg.exe`、`C:\Program Files\ffmpeg\bin\ffmpeg.exe` | 不能写 `/bin/ffmpeg` 这种 posix 路径，cmd 解析不了 |
+| `.sh`（bash） | Windows 路径（`D:\cygwin64\bin\ffmpeg.exe`）**或** posix 路径（`/bin/ffmpeg`、`/opt/.../bin/ffmpeg`）均可 | sh 侧有 `cygpath` 规范化：反斜杠 / 盘符写法自动转 posix，两种等价 |
 
 ⚠️ **关键限制（是构建类型，不是路径写法）**：`.bat` 跑在 Windows `cmd` 下，**替换的 ffmpeg 必须是 Windows 原生构建**（gyan 等）。若换成 Cygwin / MSYS2 构建，中文路径会因 cmd 的 GBK 命令行 ↔ Cygwin 的 UTF-8 `argv` 编码不匹配而乱码——实测 `视频`→`��Ƶ`，ffprobe 报 `No such file or directory`，进而 `check_isvideo` 误判"未检测到视频流"。**这类 Cygwin / MSYS2 构建留给 `.sh` 用**（bash 全程 UTF-8，无此问题）。
 
@@ -686,7 +688,7 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 - **`.sh`**：`lib/common.sh` 的 `find_ffmpeg`，与 `.bat` 同序
   `FFMPEG_BIN`（bin 目录）/ `FFMPEG`（可执行文件）→ 仓库内 `ffmpeg/bin` →
   **[仅 Linux] `/opt/ffmpeg/<构建>/bin`** → `PATH` **逐项** → 常见安装前缀；
-  `ffprobe` 默认取与 ffmpeg 同目录那份；`.sh` 侧还可用 `FFPROBE=` 单独指定探针（`.bat` 侧固定同目录、无此覆盖变量）。启动时回显实际用到的路径与版本串。
+  `ffprobe` 默认取与 ffmpeg 同目录那份；`.sh` 侧还可用 `FFPROBE=` 单独指定探针（`.bat` 侧固定同目录、无此覆盖变量）。启动时回显实际用到的路径与版本串。（按 2026-10-03 决策，`FFMPEG_BIN` 将移除、两族统一为 `FFMPEG`/`FFPROBE` 文件式，`.bat` 侧待实现；见上方「两族契约」。）
   **不能只信 `command -v`**：它只回第一个命中，而 MSYS2 的 `/mingw64/bin` 8.1、Cygwin 的 `/usr/bin` 7.1.1 常常正是缺能力的那个，
   `dvdvideo` 检查也用定位到的这份 ffmpeg 来做（否则会变成“检查 PATH 里那份、却跑另一份”）
   2026-09-30：13 个根入口脚本此前硬写裸 `ffmpeg`（`CMD=(ffmpeg ...)`），等于绕过这套定位——
@@ -887,10 +889,12 @@ FF_ON_EXIST=overwrite ./ffmpeg_libx265.sh xxx.mp4
 
 **已接上 `parse_switches` 的入口**：所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list`（2026-10-03 补齐了此前漏接的 `ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口）。
 
-**没有 `--key` 入口、只能靠环境变量设置的**：
-- ffmpeg / ffprobe 定位：`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`（`.bat` 侧 `FFPROBE_PATH` 由入口从同目录钉死，用户无法单独指定探针）—— 这是有意不参数化（路径注入风险 + 它是"定位器"不是"开关"）。
+**没有 `--key` 入口、只能靠环境变量设置的**（即本仓库目前**仍只有环境变量、无参数传递**的开关/设置）：
+- ffmpeg / ffprobe 定位（**有意不参数化**：路径注入风险 + 它是"定位器"不是"开关"）：按 2026-10-03 决策，两族统一为**文件式** `FFMPEG`（ffmpeg 可执行文件）/ `FFPROBE`（ffprobe 可执行文件），目录式 `FFMPEG_BIN` 将移除，`FFPROBE` 默认跟 `FFMPEG` 同目录。当前 `.sh` 侧已支持 `FFMPEG`/`FFPROBE`；`.bat` 侧暂仅认 `FFMPEG_BIN`、文件式覆盖待实现（见「两族契约」）。无论哪族，这几个变量**只有环境变量接口、没有 `--key` 入口**。
 - 配置指针：`FB_DEFAULTS`（指向另一份 `defaults.cfg`）。
 - `tools/` 系列（`dvd_make_sample` / `dvd_restore` / `dvd_repair` / `dvd_shrink` / `dvd_to_data_iso` 等）的全部开关：这些脚本不调用 `parse_switches`，只能用环境变量传（见各脚本头注释）。
+
+> 注：`ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口此前也未接 `parse_switches`，其开关（`EXT`/`MODE`/`VENC` 等）当时同样"只认环境变量"；已于 2026-10-03 补齐 `parse_switches`，现已有 `--key` 入口，故不再属于本表。
 
 ### `-init_hw_device` / `-filter_hw_device` 到底在做什么（2026-09-30）
 
