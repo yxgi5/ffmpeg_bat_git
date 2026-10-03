@@ -34,6 +34,7 @@ if /I "%~1"=="on_exist"               goto on_exist
 if /I "%~1"=="load_defaults"       goto load_defaults
 if /I "%~1"=="init_ext"            goto init_ext
 if /I "%~1"=="bitrate_from_table"  goto bitrate_from_table
+if /I "%~1"=="parse_switches"      goto parse_switches
 echo 未知函数: %~1
 exit /b 1
 
@@ -544,4 +545,58 @@ if "%BITRATE_NO_HALF%"=="1" (
     set /a _BT_OUT=_BT_VAL / 2
 )
 endlocal & set /a %~2=%_BT_OUT%
+exit /b 0
+
+:parse_switches
+rem 解析 --key value / --key=value -> 同名大写环境变量(见 lib/common.sh 同义)
+rem   调用: call ... parse_switches %*   ( %1 为函数名, 真实参数从 %2 起)
+rem   位置参数(文件 / 清单路径)记到 PARSE_POS(取第一个非 -- 参数)
+rem   本函数不 setlocal —— 设出的开关必须对调用方可见(同 :load_defaults 约定)
+shift
+set "PARSE_POS="
+:ps_loop
+if "%~1"=="" exit /b 0
+set "PK=%~1"
+if "%PK:~0,2%"=="--" (
+    set "PK=%PK:~2%"
+    rem --key=value 拆分(值含 = 的极少见, 这里取第一段)
+    set "PV="
+    for /f "tokens=1,* delims==" %%a in ("%PK%") do (
+        set "PK=%%a"
+        set "PV=%%b"
+    )
+    if "%PV%"=="" (
+        set "PV=%~2"
+        shift & shift
+    ) else (
+        shift
+    )
+    call :ps_set "%PK%" "%PV%"
+) else (
+    if not defined PARSE_POS set "PARSE_POS=%~1"
+    shift
+)
+goto ps_loop
+
+:ps_set
+rem 小写/任意大小写 key -> 大写 env(键表与 .sh 侧 SWITCH_KEYS 同表, lint 会比对)
+set "PK=%~1"
+set "PV=%~2"
+if /I "%PK%"=="ext" set "EXT=%PV%" & exit /b 0
+if /I "%PK%"=="bitrate_no_half" set "BITRATE_NO_HALF=%PV%" & exit /b 0
+if /I "%PK%"=="ff_on_exist" set "FF_ON_EXIST=%PV%" & exit /b 0
+if /I "%PK%"=="ff_hwaccel" set "FF_HWACCEL=%PV%" & exit /b 0
+if /I "%PK%"=="dvd_ext" set "DVD_EXT=%PV%" & exit /b 0
+if /I "%PK%"=="mode" set "MODE=%PV%" & exit /b 0
+if /I "%PK%"=="dvd_title" set "DVD_TITLE=%PV%" & exit /b 0
+if /I "%PK%"=="prefix" set "PREFIX=%PV%" & exit /b 0
+if /I "%PK%"=="filt" set "FILT=%PV%" & exit /b 0
+if /I "%PK%"=="vfilt_extra" set "VFILT_EXTRA=%PV%" & exit /b 0
+if /I "%PK%"=="audio" set "AUDIO=%PV%" & exit /b 0
+if /I "%PK%"=="split_chapter" set "SPLIT_CHAPTER=%PV%" & exit /b 0
+if /I "%PK%"=="extra_titles" set "EXTRA_TITLES=%PV%" & exit /b 0
+if /I "%PK%"=="vbitrate" set "VBITRATE=%PV%" & exit /b 0
+if /I "%PK%"=="venc" set "VENC=%PV%" & exit /b 0
+echo unknown switch: --%PK%
+exit /b 2
 exit /b 0
