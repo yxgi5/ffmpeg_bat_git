@@ -40,8 +40,8 @@ rem      不碰 -f bluray: BD 按 BDMV\STREAM\*.m2ts 逐条直读(mpegts), 一�
 rem    * .iso 先按 DVD 试, 读不到就调 PowerShell 挂载(UDF 卷)再找 BDMV, 结束时卸载;
 rem      中途 Ctrl-C 中断请手动: Dismount-DiskImage -ImagePath "<iso>"
 rem    * 章节写在 mpls 里, 直读 m2ts 拿不到 —— BD 下 SPLIT_CHAPTER 会被忽略
-rem    * BD 的 MODE 默认 AUTO(挑最长那条 = 正片): 盘里通常十几条 m2ts, 大部分是
-rem      菜单/特典碎片(实测这张 10 条里 9 条 ≤211MB), MODE=ALL 会把 1MB 菜单也编一遍
+rem    * BD 的 MODE 默认也是 ALL(与 DVD 一致: 每个 title 各出一个文件); 想只拿正片
+rem      显式 MODE=AUTO(自动挑最长那条) —— 盘里通常十几条 m2ts 多半是菜单/特典碎片
 rem    * 音频: pcm_bluray(LPCM) 装不进 Matroska(实测写头即失败 rc=-22), 与 pcm_dvd
 rem      同一口径自动转 AAC 192k
 rem    * 字幕: PGS(hdmv_pgs_subtitle) 只能进 MKV; EXT=mp4 时整条丢弃 —— 实测
@@ -158,17 +158,14 @@ rem AUDIO=aac   强制重编码成 AAC 192k(MP4 下强制用这个)
 rem AUDIO=flac  强制重编码成 FLAC，无损，体积约为 LPCM 的一半
 if not defined AUDIO set AUDIO=copy
 
-rem MODE=ALL    每个 title 各出一个文件(默认)
-rem MODE=AUTO   自动扫描所有 title，挑时长最长的那条当正片
+rem MODE=ALL    每个 title 各出一个文件(默认, DVD/BD 一致)
+rem MODE=AUTO   自动扫描所有 title，挑时长最长的那条当正片(需显式指定)
 rem MODE=TITLE  只处理 DVD_TITLE 指定的一条
 rem 不覆盖调用方预设的值: setlocal 挡不住继承来的环境变量, 写成 set MODE=ALL 会把
 rem "set MODE=AUTO && ffmpeg_dvd_hevc.bat ..." 里的 AUTO 悄悄冲掉
-rem 同上: BD 的默认 MODE 是 AUTO, 先记下 MODE 是不是显式给的
-if defined MODE (set "MODE_GIVEN=1") else (set "MODE_GIVEN=")
 if not defined MODE set MODE=ALL
 set "DVD_TITLE=%~3"
 if defined DVD_TITLE set MODE=TITLE
-if defined DVD_TITLE set "MODE_GIVEN=1"
 
 rem SPLIT_CHAPTER=N  按第 N 章把正片切成两段(例如前編/後編)，0 = 不切
 rem   第 1 段 = 第 1 章到第 N-1 章，第 2 段 = 第 N 章到结尾
@@ -223,10 +220,9 @@ rem BD 是 mpegts 直读，所以这项检查挪进 :DETECT，不再一上来就
 call :DETECT
 if not defined SRC_KIND exit /b 1
 echo 源类型  : %SRC_KIND_DESC%
-rem BD 的两个默认值与 DVD 不同(理由见文件头):
-rem   MODE=AUTO  盘里 m2ts 多是菜单/特典碎片, ALL 会把 1MB 的菜单也编一遍
+rem BD 仅 FILT 默认值与 DVD 不同(理由见文件头):
 rem   FILT=NONE  BD 的 1080i 多是真隔行, DVD 那套 NTSC29 -> IVTC 会掉帧
-if "%SRC_KIND%"=="bd" if not defined MODE_GIVEN set "MODE=AUTO"
+rem   (MODE 默认值 DVD/BD 已统一为 ALL; 想只拿正片显式 MODE=AUTO)
 if "%SRC_KIND%"=="bd" if not defined FILT_GIVEN set "FILT=NONE"
 
 if not exist "%OUTDIR%" md "%OUTDIR%"

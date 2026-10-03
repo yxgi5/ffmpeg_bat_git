@@ -17,7 +17,8 @@
 #    * .iso 挂载要 root, 脚本不擅自做: 按 DVD 读不到就提示挂载命令后退出
 #      (Windows 那一族会自动挂载并在结束时卸载)
 #    * 章节写在 mpls 里, 直读 m2ts 拿不到 —— BD 下 SPLIT_CHAPTER 会被忽略
-#    * BD 的 MODE 默认 AUTO(挑最长那条 = 正片): 盘里 m2ts 多半是菜单/特典碎片
+#    * BD 的 MODE 默认也是 ALL(与 DVD 一致: 每个 title 各出一个文件); 想只拿正片
+#      显式 MODE=AUTO(自动挑最长那条) —— 盘里 m2ts 多半是菜单/特典碎片
 #    * 音频: pcm_bluray(LPCM) 装不进 Matroska, 与 pcm_dvd 同一口径自动转 AAC
 #    * 字幕: PGS 只能进 MKV; EXT=mp4 时整条丢弃(实测 -c:s dvdsub 在 PGS 上写
 #      trailer 就失败)
@@ -179,11 +180,9 @@ VFILT_EXTRA="${VFILT_EXTRA:-}"
 # AUDIO=flac  强制重编码成 FLAC, 无损, 体积约为 LPCM 的一半
 AUDIO="${AUDIO:-copy}"
 
-# MODE=ALL    每个 title 各出一个文件(默认)
-# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片
+# MODE=ALL    每个 title 各出一个文件(默认, DVD/BD 一致)
+# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片(需显式指定)
 # MODE=TITLE  只处理 DVD_TITLE 指定的一条
-# 同上: BD 的默认 MODE 是 AUTO, 先记下 MODE 是不是显式给的
-MODE_GIVEN="${MODE:+1}"
 MODE="${MODE:-ALL}"
 # 位置参数优先; 没给位置参数、但环境里设了 DVD_TITLE 也切 TITLE(与 .bat 侧
 # `if defined DVD_TITLE set MODE=TITLE` 对齐 —— 否则这个变量会被静默忽略)
@@ -325,8 +324,6 @@ fi
 if [ "$SRC_KIND" = "bd" ]; then
     bd_list || { echo -e "\033[41;36mBDMV/STREAM 下没找到 .m2ts\033[0m"; exit 1; }
     TITLE_MAX="$BD_N"
-    # 盘里的 m2ts 多半是菜单/特典碎片, ALL 会把 1MB 的菜单也编一遍 —— 默认挑最长那条
-    [ -n "$MODE_GIVEN" ] || MODE="AUTO"
     # BD 的 1080i 多是真隔行, DVD 那套 NTSC29 -> IVTC 会掉帧 —— 默认原样编码
     [ -n "$FILT_GIVEN" ] || FILT="NONE"
     echo "源类型   : Blu-ray（BDMV, m2ts 直读, 共 $BD_N 条）"
