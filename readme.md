@@ -641,14 +641,32 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 要换成机器上别的构建（比如带 libx265 的 gyan full、或 Cygwin 那份），**只有环境变量这一种接口**：
 
 - **`FFMPEG_BIN`**：指向 ffmpeg 所在的 **bin 目录**（如 `D:\cygwin64\bin`、`/opt/ffmpeg/.../bin`）
-- **`FFMPEG`**：直接指向 **可执行文件本身**（更精确，跳过"目录里找 ffmpeg"那一步）
+- **`FFMPEG`**：直接指向 **可执行文件本身**（更精确，跳过"目录里找 ffmpeg"那一步）。⚠️ **仅 `.sh` 侧认**；`.bat` 侧不认这个变量，只能走 `FFMPEG_BIN` 目录（见下方「两族契约与已知不一致」）
 
-两者都设时 `FFMPEG`（可执行文件）优先。显式指定**无条件采用**——即使那份构建缺所需编码器，也只报错、不会悄悄退回自动查找。
+两者都设时（`FFMPEG` 仅在 `.sh` 侧可用，`.bat` 侧无此变量）`FFMPEG`（可执行文件）优先。显式指定**无条件采用**——即使那份构建缺所需编码器，也只报错、不会悄悄退回自动查找。
 
 > **ffmpeg / ffprobe 路径没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径（这是刻意的：路径注入风险 + 它是"定位器"不是"开关"）。
 > 但**其它开关早已参数化**：`lib/common.{sh,bat}` 的 `parse_switches` 已实现，且所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list` 都调用了它——`--key value` / `--key=value` 会把同名大写环境变量（如 `--ext mkv` → `EXT=mkv`；`--ff_on_exist overwrite` → `FF_ON_EXIST=overwrite`；`--venc libx265` → `VENC=libx265`）按"参数 > 环境变量 > defaults.cfg"的优先级设好。白名单（`SWITCH_KEYS`）为：
 > `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
 > **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。详见下方「开关参数化现状」。
+
+#### 两族契约与已知不一致（ffmpeg / ffprobe 定位）
+
+这组变量控制"用哪一份 ffmpeg / ffprobe"，是定位器（locator）的入口，不参与 `parse_switches` 参数化（路径注入风险 + 它是"定位器"不是"开关"）。两族当前契约如下：
+
+| 变量 | 含义 | `.sh` 侧 | `.bat` 侧 |
+| --- | --- | --- | --- |
+| `FFMPEG_BIN` | ffmpeg 的 **bin 目录**（显式指定，最高优先，不做能力筛选） | ✅ 认 | ✅ 认（必须 Windows 路径） |
+| `FFMPEG` | ffmpeg **可执行文件**本身（显式指定，最高优先） | ✅ 认 | ❌ **不认**（仅认 `FFMPEG_BIN` 目录） |
+| `FFPROBE` | ffprobe **可执行文件**本身（显式指定；不给则与 ffmpeg 同目录） | ✅ 认 | ❌ **不认**（无此变量；探针固定取 ffmpeg 同目录那份，由入口写死 `set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"`，用户无法单独指定） |
+
+> ⚠️ **已知不一致（当前为有意保留的缺口，非 bug；先在此记清，未改代码）**：
+> - `.bat` 侧**没有** `FFMPEG`（文件式）覆盖——只能用 `FFMPEG_BIN` 指目录。
+> - `.bat` 侧**没有** `FFPROBE` 覆盖——ffprobe 只能跟 ffmpeg 同目录；这与 `.sh` 侧 `FFPROBE=` 可单独指定探针不同。
+> - 内部命名也不统一：`.sh` 用 `FF`（ffmpeg）/ `FP`（ffprobe）作定位结果；`.bat` 多数入口用 `FFMPEG_PATH` / `FFPROBE_PATH`，而 `ffmpeg_dvd_hevc.bat` 另走一套 inline 查找、用 `FF`/`FP` 且 ffprobe 由 `set FP=%FF:ffmpeg.exe=ffprobe.exe%` 字符串替换得到。
+> - 根因：`.sh` 的 `find_ffmpeg` 返回**可执行文件**，`.bat` 的 `find_ffmpeg` 返回**目录**（早期"目录优先"设计），于是"文件式 ffmpeg 覆盖"和"独立 ffprobe 覆盖"都没机会长出。
+>
+> 统一到 `.sh` 契约（让 `FFMPEG` / `FFPROBE` 两族都生效）是已知待办；本次仅文档化、未动代码。
 
 路径写法分两族：
 
