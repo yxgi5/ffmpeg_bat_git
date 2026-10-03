@@ -5,9 +5,25 @@
 #
 #  用法:
 #    ./ffmpeg_dvd_hevc.sh <源> [输出目录] [title号]
-#      源       ISO 镜像、含 VIDEO_TS 的目录、或光驱设备(如 /dev/sr0)
+#      源       DVD: ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱设备(如 /dev/sr0)
+#               BD : 含 BDMV 的目录(挂载点) / 单个 .m2ts
 #      输出目录 默认 <源所在目录>/HEVC_OUT
-#      title号  给了这个就切到 MODE=TITLE 只处理这一条
+#      title号  给了这个就切到 MODE=TITLE 只处理这一条(BD 下填序号即可)
+#
+#  蓝光(BD)这一块的口径与边界(与 .bat 侧逐条对齐):
+#    * 一条 BDMV/STREAM/*.m2ts = 一个 title, 走 mpegts 直读, 不用 -f bluray ——
+#      实测过的机器上没有一份 ffmpeg 带 bluray 解复用器(MSYS2 的 8.1 配置里写着
+#      --enable-libbluray, demuxer 列表里却没有)
+#    * .iso 挂载要 root, 脚本不擅自做: 按 DVD 读不到就提示挂载命令后退出
+#      (Windows 那一族会自动挂载并在结束时卸载)
+#    * 章节写在 mpls 里, 直读 m2ts 拿不到 —— BD 下 SPLIT_CHAPTER 会被忽略
+#    * BD 的 MODE 默认也是 ALL(与 DVD 一致: 每个 title 各出一个文件); 想只拿正片
+#      显式 MODE=AUTO(自动挑最长那条) —— 盘里 m2ts 多半是菜单/特典碎片
+#    * 音频: pcm_bluray(LPCM) 装不进 Matroska, 与 pcm_dvd 同一口径自动转 AAC
+#    * 字幕: PGS 只能进 MKV; EXT=mp4 时整条丢弃(实测 -c:s dvdsub 在 PGS 上写
+#      trailer 就失败)
+#    * 隔行: BD 的 FILT 默认 NONE, 与 DVD 的默认 AUTO 不同(1080i 真隔行硬套
+#      IVTC 会掉帧), 要去交错显式 FILT=BWDIF
 #
 #  与现有 ffmpeg_hevc_nvenc.sh 的关键差异(为什么不能直接复用那个):
 #    1) 裸 -i 喂 ISO **不会报错**, ffmpeg 把 UDF 镜像当 MPEG-PS 糊乱揭开,
@@ -49,25 +65,66 @@ SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
+# 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.sh)
+#   优先级 参数 > 环境变量 > defaults.cfg; 没给的参数回退 env / cfg(老 set 写法仍兼容)
+#   其余位置参数(源 / 输出目录 / title号)交还给 $@, 下方 $1/$2/$3 照常处理
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
+
 echo ============================================================
 echo 欢迎使用ffmpeg视频压缩批处理工具
 echo
 echo 由 andreas 编写
 echo ============================================================
 
+# ---------- 输入(先取源: 判定类型要在找 ffmpeg 之前) ----------
+# 为什么挪到这里: 源是 DVD 还是 BD 决定了该不该要求 dvdvideo 解复用器 —— BD 走 mpegts
+# 直读, 拿"必须有 libdvdread"去找会在只有精简构建的机器上白失败。
+if [ "$#" -ge 1 ]; then
+    SRC="$1"
+else
+    echo "请输入 DVD / BD 源(ISO / VIDEO_TS / BDMV 目录 / 光驱设备 / .m2ts): "
+    read -r SRC
+fi
+[ -n "$SRC" ] || { echo "没给源"; exit 1; }
+
+# 只看目录结构就能定的先定: BDMV / VIDEO_TS 是硬指标。.iso 得真读才知道, 归到
+# unknown, 等拿到 ffprobe 再判(见下面"源类型"那一节)。
+detect_kind_struct() {
+    if [ -d "$SRC/BDMV" ];   then SRC_KIND="bd";  BD_ROOT="$SRC"; return 0; fi
+    if [ -d "$SRC/VIDEO_TS" ]; then SRC_KIND="dvd"; return 0; fi
+    # 直接给到 BDMV 这一层也算
+    if [ -d "$SRC/STREAM" ]; then SRC_KIND="bd"; BD_ROOT="$(cd "$SRC/.." 2>/dev/null && pwd)"; return 0; fi
+    case "${SRC,,}" in
+        *.m2ts|*.mts) SRC_KIND="bd";  BD_ONE="$SRC"; return 0 ;;
+        *.iso|*.img)  SRC_KIND="unknown"; return 0 ;;
+    esac
+    SRC_KIND="dvd"   # 其余后缀 / 光驱设备: 与加 BD 之前同口径
+}
+SRC_KIND=""; BD_ROOT=""; BD_ONE=""
+detect_kind_struct
+
 # ---------- 前置检查 ----------
 # 与 .bat 侧同一套定位顺序(见 lib/common.sh 的 find_ffmpeg):
 #   FFMPEG_BIN(目录) / FFMPEG(可执行文件) > 仓库内 ffmpeg/bin > PATH 逐项 > 常见前缀
 # 不能只问 command -v: 它只回第一个命中, 而"第一个"经常正是缺能力的那个。
-# dvdvideo 解复用器依赖 libdvdread/libdvdnav, 精简构建没有 —— 用 --need-demuxer 让
-# 定位阶段就跳过不带它的构建(本机实测: PATH 上 ubuntu 4.4.2 没有, /opt 下的 master
-# build 有, 于是自动落到 /opt 那份, 不必写死路径)。
 # 选中的那份由 ff_report 在标准错误上醒目回显。
-if ! FF="$(find_ffmpeg --need-demuxer dvdvideo)"; then
-    echo -e "\033[41;36m找不到带 dvdvideo 解复用器的 ffmpeg\033[0m"
-    echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
-    echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
-    exit 1
+if [ "$SRC_KIND" = "bd" ]; then
+    if ! FF="$(find_ffmpeg)"; then
+        echo -e "\033[41;36m找不到 ffmpeg\033[0m"
+        echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
+        exit 1
+    fi
+else
+    # dvdvideo 解复用器依赖 libdvdread/libdvdnav, 精简构建没有 —— 用 --need-demuxer 让
+    # 定位阶段就跳过不带它的构建(本机实测: PATH 上 ubuntu 4.4.2 没有, /opt 下的 master
+    # build 有, 于是自动落到 /opt 那份, 不必写死路径)
+    if ! FF="$(find_ffmpeg --need-demuxer dvdvideo)"; then
+        echo -e "\033[41;36m找不到带 dvdvideo 解复用器的 ffmpeg\033[0m"
+        echo "需要带 libdvdread + libdvdnav 的构建(gyan.dev full build 有)"
+        echo "也可用 FFMPEG_BIN=<目录> / FFMPEG=<可执行文件> 指定"
+        exit 1
+    fi
 fi
 if ! FP="$(find_ffprobe "$FF")"; then
     echo -e "\033[41;36m找不到 ffprobe\033[0m"
@@ -78,13 +135,7 @@ export FF FP
 
 # ============================ 配置区 ============================
 # ---------- 输入 ----------
-if [ "$#" -ge 1 ]; then
-    SRC="$1"
-else
-    echo "请输入 DVD 源(ISO / VIDEO_TS 目录 / 光驱设备): "
-    read -r SRC
-fi
-[ -n "$SRC" ] || { echo "没给源"; exit 1; }
+# SRC 已经在"前置检查"里取过了(判定源类型要用它), 这里不再重复问
 
 # 输出目录 / 前缀
 OUTDIR="${2:-}"
@@ -120,6 +171,9 @@ EXT="${EXT,,}"
 # BWDIF   去交错但保留原帧率(PAL 25i -> 25p)。注意 bwdif=mode=1 是 send_field,
 #         帧率直接翻倍(实测 25i -> 50p), 帧数翻倍会把码率摊薄, 故这里用 mode=0
 # NONE    原样编码, 不做去交错
+# BD 的默认滤镜与 DVD 不同(见文件头), 所以先记下 FILT 是不是调用方显式给的 ——
+# 与上面 EXT 那套 EXT_GIVEN 同口径
+FILT_GIVEN="${FILT:+1}"
 FILT="${FILT:-AUTO}"
 
 # 追加到滤镜链末尾的可选处理(默认空: 不改 SAR, 不裁边)
@@ -132,8 +186,8 @@ VFILT_EXTRA="${VFILT_EXTRA:-}"
 # AUDIO=flac  强制重编码成 FLAC, 无损, 体积约为 LPCM 的一半
 AUDIO="${AUDIO:-copy}"
 
-# MODE=ALL    每个 title 各出一个文件(默认)
-# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片
+# MODE=ALL    每个 title 各出一个文件(默认, DVD/BD 一致)
+# MODE=AUTO   自动扫描所有 title, 挑时长最长的那条当正片(需显式指定)
 # MODE=TITLE  只处理 DVD_TITLE 指定的一条
 MODE="${MODE:-ALL}"
 # 位置参数优先; 没给位置参数、但环境里设了 DVD_TITLE 也切 TITLE(与 .bat 侧
@@ -169,12 +223,47 @@ echo "SOURCE : $SRC"
 echo "OUTDIR : $OUTDIR"
 
 # =========================================================================
+#  in_args <title>  ->  IN_DEMUX(数组) / IN_FILE: 这一条 title 到底喂什么给 ffmpeg
+#    DVD: -f dvdvideo -title N + 整张镜像(解复用器自己挑 title)
+#    BD : 直接喂那条 m2ts(mpegts 自动识别, 不用 -f)
+# =========================================================================
+in_args() {
+    IN_DEMUX=()
+    IN_FILE="$SRC"
+    [ "$SRC_KIND" = "bd" ] || { IN_DEMUX=(-f dvdvideo -title "$1"); return 0; }
+    if [ -n "$BD_ONE" ]; then IN_FILE="$BD_ONE"; return 0; fi
+    local name="${BD_FILES[$(( $1 - 1 ))]:-}"
+    [ -n "$name" ] || return 1
+    IN_FILE="$BD_ROOT/BDMV/STREAM/$name"
+    return 0
+}
+
+#  BDMV 下的流清单(按文件名排序), 一条 m2ts = 一个 title
+#  为什么是 m2ts 而不是 mpls 播放列表: 播不了播放列表 —— 实测过的机器上没有一份
+#  ffmpeg 带 bluray 解复用器; 而 m2ts 是普通 MPEG-TS, 任何构建都读得动。
+bd_list() {
+    BD_FILES=()
+    if [ -n "$BD_ONE" ]; then
+        BD_FILES=( "$(basename "$BD_ONE")" )
+    else
+        local d="$BD_ROOT/BDMV/STREAM" f
+        [ -d "$d" ] || return 1
+        while IFS= read -r f; do
+            [ -n "$f" ] && BD_FILES+=("$f")
+        done < <(cd "$d" && ls -1 2>/dev/null | grep -i '\.m2ts$' | LC_ALL=C sort)
+    fi
+    BD_N=${#BD_FILES[@]}
+    [ "$BD_N" -gt 0 ]
+}
+
+# =========================================================================
 #  probe_title <title>  ->  "宽 高 时长";  读不到则非 0
 #  libdvdnav 那句 "Unable to open device file" 会打到 stderr, 是误报, 丢掉即可
 # =========================================================================
 DUR_UNKNOWN=""
 probe_title() {
     local t="$1" wh dur
+    in_args "$t" || return 1
     # 关键: libdvdread 的抱怨("CHECK_VALUE failed in src/nav_read.c" 之类)在这个
     # 构建里是打到**标准输出**的, 2>/dev/null 挡不住 —— 它比真正的数值先出现, 于是
     # 后面 awk '{print $3}' 取到的是 "failed", 时长算成 0, AUTO 模式一个 title 都选不中
@@ -183,16 +272,16 @@ probe_title() {
     # 行为对齐, 两族结果才一致。
     # 按字段取, 不用行级正则: csv=p=0 打出来是 "720,576," 这种带尾逗号的形式,
     # tr 完变成 "720 576 " 有尾空格, 行级 ^...$ 匹配不上(实测踩过)
-    wh="$(fp_run -v error -f dvdvideo -title "$t" \
+    wh="$(fp_run -v error ${IN_DEMUX[@]+"${IN_DEMUX[@]}"} \
           -select_streams v:0 -show_entries stream=width,height \
-          -of csv=p=0 "$SRC" 2>/dev/null \
+          -of csv=p=0 "$IN_FILE" 2>/dev/null \
           | tr -d '\r' | tr ',' ' ' | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1, $2}' | tail -1)"
     [ -n "$wh" ] || return 1
     # 时长同样先 tr 掉逗号: 有的构建(Windows 真机那台)对单字段也打 "3300.500000," 这种
     # 带尾逗号的形式, 行级 ^...$ 匹配不上 -> dur 恒空 -> "读不到 title N" 全盘跑不动
     # (2026-09-29 本机用带尾逗号的替身 ffprobe 复现出来)
-    dur="$(fp_run -v error -f dvdvideo -title "$t" \
-           -show_entries format=duration -of csv=p=0 "$SRC" 2>/dev/null \
+    dur="$(fp_run -v error ${IN_DEMUX[@]+"${IN_DEMUX[@]}"} \
+           -show_entries format=duration -of csv=p=0 "$IN_FILE" 2>/dev/null \
            | tr -d '\r' | tr ',' ' ' | awk '$1 ~ /^[0-9]+(\.[0-9]+)?$/ {print $1}' | tail -1)"
     # 时长读不出来记 0, 而不是判这条 title 读不到: 宽高已经探到说明 title 在, 缺时长
     # 只影响"挑最长那条"和体积估算(下面有 if 保护)。合成盘实测 format=duration 就是
@@ -204,20 +293,50 @@ probe_title() {
 #  <title> -> 该 title 视频流的帧率, 如 25/1 / 30000/1001; 读不到则空
 #  过滤理由同 probe_title: libdvdread 的抱怨是打到标准输出的, 只能按形状挑
 probe_rate() {
-    fp_run -v error -f dvdvideo -title "$1" \
+    in_args "$1" || return 1
+    fp_run -v error ${IN_DEMUX[@]+"${IN_DEMUX[@]}"} \
            -select_streams v:0 -show_entries stream=r_frame_rate \
-           -of csv=p=0 "$SRC" 2>/dev/null \
+           -of csv=p=0 "$IN_FILE" 2>/dev/null \
         | tr ',' '\n' | grep -oE '^[0-9]+/[0-9]+$' | tail -1
 }
 
 #  <title> -> 该 title 所有音轨的 codec 名(空格分隔), 如 "ac3" / "pcm_dvd"; 读不到则空
 probe_acodec() {
+    in_args "$1" || return 1
     # 同上: 带尾逗号时 "ac3," 过不了 ^...$, LPCM 例外会静默失效
-    fp_run -v error -f dvdvideo -title "$1" \
+    fp_run -v error ${IN_DEMUX[@]+"${IN_DEMUX[@]}"} \
            -select_streams a -show_entries stream=codec_name \
-           -of csv=p=0 "$SRC" 2>/dev/null \
+           -of csv=p=0 "$IN_FILE" 2>/dev/null \
         | tr -d '\r' | tr ',' '\n' | grep -oE '^[a-z0-9_]+$' | tr '\n' ' '
 }
+
+# =========================================================================
+#  源类型定案: .iso 到底是不是 DVD, 以及 BD 的两个默认值
+# =========================================================================
+if [ "$SRC_KIND" = "unknown" ]; then
+    # 按 DVD 读得到就是 DVD; 读不到就是蓝光 —— 而蓝光在 POSIX 这边要 loop 挂载
+    # (得 root), 脚本不擅自做, 把命令打给调用方
+    if [ -n "$(probe_title 1 2>/dev/null)" ]; then
+        SRC_KIND="dvd"
+    else
+        echo -e "\033[41;36m按 DVD-Video 读不到: 这是蓝光镜像, 请先挂载再把挂载点传进来\033[0m"
+        echo "  Linux: sudo mkdir -p /mnt/bd && sudo mount -o loop \"$SRC\" /mnt/bd"
+        echo "  macOS: hdiutil attach \"$SRC\""
+        echo "  Windows: 用 ffmpeg_dvd_hevc.bat, 它会自动挂载并在结束时卸载"
+        exit 1
+    fi
+fi
+
+if [ "$SRC_KIND" = "bd" ]; then
+    bd_list || { echo -e "\033[41;36mBDMV/STREAM 下没找到 .m2ts\033[0m"; exit 1; }
+    TITLE_MAX="$BD_N"
+    # BD 的 1080i 多是真隔行, DVD 那套 NTSC29 -> IVTC 会掉帧 —— 默认原样编码
+    [ -n "$FILT_GIVEN" ] || FILT="NONE"
+    echo "源类型   : Blu-ray（BDMV, m2ts 直读, 共 $BD_N 条）"
+else
+    TITLE_MAX=99
+    echo "源类型   : DVD-Video（dvdvideo）"
+fi
 
 # ---------- 选定要处理的 title ----------
 if [ "$MODE" = "ALL" ]; then
@@ -237,7 +356,7 @@ else
     # "一个 title 都没读到" 会把整盘拦下
     BEST=-1; DVD_TITLE=""; MAIN=""; miss=0
     n=1
-    while [ "$n" -le 99 ]; do
+    while [ "$n" -le "$TITLE_MAX" ]; do
         if line="$(probe_title "$n")"; then
             miss=0
             d="$(awk '{printf "%d", $3}' <<<"$line")"
@@ -258,8 +377,16 @@ else
 fi
 
 if [ "$MODE" = "ALL" ]; then
-    # 同一张 DVD 上所有 title 分辨率一致, 用 title 1 定码率档位即可
-    MAIN="$(probe_title 1)" || { echo -e "\033[41;36m读不到 title 1\033[0m"; exit 1; }
+    # 同一张盘上各 title 分辨率一致, 用"第一条读得到的"定码率档位即可。
+    # 不能死盯 title 1: BD 的 m2ts 里头几条常常没有视频流(实测 BD-M28 的 00007 /
+    # 00008 / 00009 就是 1MB 上下的碎片), 盯死会在开跑前就把整盘拦下。
+    MAIN=""; REF_TITLE=""
+    n=1
+    while [ "$n" -le "$TITLE_MAX" ]; do
+        if MAIN="$(probe_title "$n" 2>/dev/null)"; then REF_TITLE="$n"; break; fi
+        n=$(( n + 1 ))
+    done
+    [ -n "$REF_TITLE" ] || { echo -e "\033[41;36m一个 title 都没读到, 检查源路径 / 是否受保护\033[0m"; exit 1; }
 fi
 read -r SRC_W SRC_H SRC_DUR <<<"$MAIN"
 if [ "${SRC_DUR:-0}" = 0 ]; then
@@ -269,8 +396,8 @@ else
 fi
 SRC_PIX=$(( SRC_W * SRC_H ))
 
-# 制式 / 音轨探测用哪条 title: ALL 模式上面是用 title 1 定码率档位的, 其余模式是正片那条
-if [ "$MODE" = "ALL" ]; then REF_TITLE=1; else REF_TITLE="$DVD_TITLE"; fi
+# 制式 / 音轨探测用哪条 title: ALL 模式上面已经记下用来定码率档位的那条, 其余是正片那条
+if [ "$MODE" != "ALL" ]; then REF_TITLE="$DVD_TITLE"; fi
 SRC_RATE="$(probe_rate "$REF_TITLE" 2>/dev/null)"
 SRC_ACODEC="$(probe_acodec "$REF_TITLE" 2>/dev/null)"
 
@@ -409,13 +536,14 @@ case "$EXT" in
         AENC=(-c:a copy)
         [ "$AUDIO" = "aac" ]  && AENC=(-c:a aac -b:a 192k)
         [ "$AUDIO" = "flac" ] && AENC=(-c:a flac)
-        # AUDIO=copy 下唯一例外: LPCM(pcm_dvd) 装不进 Matroska(实测写头就失败:
-        # "No wav codec tag found for codec pcm_dvd"), 撞上就自动转 AAC
+        # AUDIO=copy 下唯一例外: LPCM 装不进 Matroska(DVD 的 pcm_dvd 实测写头就失败
+        # "No wav codec tag found for codec pcm_dvd"; BD 的 pcm_bluray 同样是 Invalid
+        # argument), 撞上就自动转 AAC
         if [ "$AUDIO" = "copy" ]; then
             case "$SRC_ACODEC" in
-                *pcm_dvd*)
+                *pcm_dvd*|*pcm_bluray*)
                     AENC=(-c:a aac -b:a 192k)
-                    echo "注意: 参考 title $REF_TITLE 的音轨是 LPCM(pcm_dvd), Matroska 装不下 -> 自动转 AAC 192k（要无损设 AUDIO=flac；ALL 模式下其余 title 逐条重新探测）"
+                    echo "注意: 参考 title $REF_TITLE 的音轨是 LPCM, Matroska 装不下 -> 自动转 AAC 192k（要无损设 AUDIO=flac；ALL 模式下其余 title 逐条重新探测）"
                     ;;
             esac
         fi
@@ -427,6 +555,13 @@ case "$EXT" in
         AENC=(-c:a aac -b:a 192k)
         SENC=(-c:s dvdsub)
         SMAP=(-map 0:s:0?)
+        if [ "$SRC_KIND" = "bd" ]; then
+            # BD 的字幕是 PGS, mp4 装不下: 实测 -c:s dvdsub 在 PGS 上写 trailer 就
+            # 失败(rc=-22), 所以整条丢弃而不是让它炸
+            echo "注意: BD 的 PGS 位图字幕装不进 MP4, 已丢弃全部字幕轨; 要保留请用 EXT=mkv"
+            SENC=()
+            SMAP=()
+        fi
         ;;
     *)
         echo "EXT 只能是 mkv 或 mp4"
@@ -455,15 +590,16 @@ set_aenc_for_title() {
     local tac
     tac="$(probe_acodec "$1" 2>/dev/null)"
     case "$tac" in
-        *pcm_dvd*)
+        *pcm_dvd*|*pcm_bluray*)
             AENC=(-c:a aac -b:a 192k)
-            echo "  本条音轨是 LPCM(pcm_dvd) -> 自动转 AAC 192k（要无损设 AUDIO=flac）"
+            echo "  本条音轨是 LPCM -> 自动转 AAC 192k（要无损设 AUDIO=flac）"
             ;;
     esac
 }
 
 enc() {
     local t="$1" out="$2" cs="${3:-0}" ce="${4:-0}"
+    in_args "$t" || { echo -e "\033[41;36mtitle $t 取不到输入文件\033[0m"; return 1; }
     set_aenc_for_title "$t"
     local chop=()
     [ "$cs" != "0" ] && chop+=(-chapter_start "$cs")
@@ -473,8 +609,8 @@ enc() {
     echo "> title $t -> ${out}.${EXT}  ${chop[*]:-}"
 
     local CMD=(ff_run -y -hide_banner -v error -stats
-               -f dvdvideo -title "$t" ${chop[@]+"${chop[@]}"})
-    CMD+=(-i "$SRC")
+               ${IN_DEMUX[@]+"${IN_DEMUX[@]}"} ${chop[@]+"${chop[@]}"})
+    CMD+=(-i "$IN_FILE")
     CMD+=(-map 0:V -map 0:a? ${SMAP[@]+"${SMAP[@]}"})
     [ -n "$VFILT" ] && CMD+=(-vf "$VFILT")
     CMD+=(-c:v "$VENC_NAME")
@@ -498,11 +634,12 @@ enc() {
 
 enc_extra() {
     local t="$1" out="$2"
+    in_args "$t" || { echo -e "\033[41;36mtitle $t 取不到输入文件\033[0m"; return 1; }
     set_aenc_for_title "$t"
     echo "> 附加 title $t -> ${out}.${EXT}"
     local CMD=(ff_run -y -hide_banner -v error -stats
-               -f dvdvideo -title "$t")
-    CMD+=(-i "$SRC")
+               ${IN_DEMUX[@]+"${IN_DEMUX[@]}"})
+    CMD+=(-i "$IN_FILE")
     CMD+=(-map 0:V -map 0:a?)
     [ -n "$VFILT" ] && CMD+=(-vf "$VFILT")
     CMD+=(-c:v "$VENC_NAME")
@@ -524,7 +661,7 @@ if [ "$MODE" = "ALL" ]; then
     MISS_MAX="${MISS_MAX:-5}"
     miss=0
     n=1
-    while [ "$n" -le 99 ]; do
+    while [ "$n" -le "$TITLE_MAX" ]; do
         # probe_title 顺带回了该 title 的时长, 这里攒起来而不是丢掉: 结尾的体积
         # 估算必须按"全部 title 合计"算 —— 只用 title 1 的时长会把一张 3 title
         # 的盘估成 5MB(2026-10-01 实测同一张盘实际产出 845MB)
@@ -532,7 +669,15 @@ if [ "$MODE" = "ALL" ]; then
             miss=0
             ALL_DUR=$(( ALL_DUR + $(awk '{printf "%d", $3}' <<<"$line") ))
             N_TITLE=$(( N_TITLE + 1 ))
-            enc "$n" "${PREFIX}_title${n}" || RC=1
+            # BD 用流文件名当产物名(00005.m2ts -> _00005): 比纯序号好认哪条是正片
+            if [ "$SRC_KIND" = "bd" ]; then
+                # %.* 而不是 %.m2ts: 实测真盘两种都有(BD-M28 是小写 .m2ts,
+                # 规范与 tools/bd_make_sample.sh 出的夹具是大写 .M2TS), 写死小写
+                # 时产物名会带着 .M2TS 后缀出去
+                enc "$n" "${PREFIX}_${BD_FILES[$(( n - 1 ))]%.*}" || RC=1
+            else
+                enc "$n" "${PREFIX}_title${n}" || RC=1
+            fi
         else
             miss=$(( miss + 1 ))
             [ "$miss" -ge "$MISS_MAX" ] && break
@@ -540,6 +685,12 @@ if [ "$MODE" = "ALL" ]; then
         n=$(( n + 1 ))
     done
 else
+    # BD 按 m2ts 直读, 章节写在 mpls 里拿不到; 而且 -chapter_start/-chapter_end 是
+    # dvdvideo 专用选项, 喂给 mpegts 会被当成未知参数
+    if [ "$SRC_KIND" = "bd" ] && [ "$SPLIT_CHAPTER" -gt 0 ]; then
+        echo "注意: BD 直读 m2ts 拿不到章节（章节写在 mpls 里），SPLIT_CHAPTER 已忽略"
+        SPLIT_CHAPTER=0
+    fi
     if [ "$SPLIT_CHAPTER" -gt 0 ]; then
         enc "$DVD_TITLE" "${PREFIX}_part1" 1 $(( SPLIT_CHAPTER - 1 )) || RC=1
         enc "$DVD_TITLE" "${PREFIX}_part2" "$SPLIT_CHAPTER" 0 || RC=1

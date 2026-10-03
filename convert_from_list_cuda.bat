@@ -27,13 +27,16 @@ setlocal DisableDelayedExpansion
 rem 本脚本不需要延迟展开: 一旦开启, for 变量 %%i 里的感叹号会被成对吃掉,
 rem 片名 Tora! Tora! Tora!.mp4 这类条目会变成残缺路径
 
+rem 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.bat 的 :parse_switches)
+rem   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
+rem   清单路径取第一个非 -- 参数(PARSE_POS), 否则默认 list.txt
+call "%~dp0lib\common.bat" parse_switches %*
+if errorlevel 2 exit /b 2
+
 SET "SRC_FILE="
 
-rem %~1 (not %1) strips the surrounding quotes: keeping them made the
-rem quoted expansion below turned into a doubly quoted path, and cmd then
-rem looked for a file whose name literally contains quote characters.
-if not "%~1"=="" (
-    SET "SRC_FILE=%~1"
+if defined PARSE_POS (
+    SET "SRC_FILE=%PARSE_POS%"
 ) else (
     SET "SRC_FILE=list.txt"
 )
@@ -46,6 +49,9 @@ rem 默认值统一写在 lib\defaults.cfg —— 无人值守前改那个文件
 rem   set XXX=... 的临时覆盖优先。 load_defaults 把默认值装进本进程环境(子进程
 rem   继承), 再回显一行: 跑一整晚的日志里能一眼看出这份清单是按什么设置转的。
 call "%~dp0lib\common.bat" load_defaults
+rem 转发参数: 把生效开关收集成 --key value, 显式传给每个入口(透传层去 env)
+set "FWD="
+for %%K in (ext bitrate_no_half ff_on_exist ff_hwaccel dvd_ext) do call :fwd_one %%K
 echo SWITCHES: EXT=%EXT% BITRATE_NO_HALF=%BITRATE_NO_HALF% FF_ON_EXIST=%FF_ON_EXIST%
 
 rem NOTE: usebackq + quotes makes the list path a FILE, not a literal
@@ -81,7 +87,7 @@ set "LINE=%~1"
 rem 第一个字符是 UTF-8 BOM(U+FEFF, 下面那个引号里就是它, 不可见)时才剁;
 rem   for /f 在 cp65001 下会把 EF BB BF 解成这一个字符。
 if "%LINE:~0,1%"=="﻿" set "LINE=%LINE:~1%"
-call "%~dp0ffmpeg_hevc_nvenc.bat" "%LINE%"
+call "%~dp0ffmpeg_hevc_nvenc.bat" %FWD% "%LINE%"
 set "RC=%errorlevel%"
 exit /b %RC%
 
@@ -92,3 +98,15 @@ exit /b 4
 :LIST_FAIL
 echo Convert failed! rc=%ERRORLEVEL%
 exit /b 1
+
+:fwd_one
+rem 把已知开关(已定义时)收集成 --key=value 追加到 FWD(见 :main 的 for 循环)
+rem   用 = 形式(而非空格分隔)是关键: 在 for 块内 call 时, 含空格的 %FWD% 展开会把
+rem   空格分隔的值 token 吞掉; = 形式把 key=value 绑成单一 token, 规避该 cmd 陷阱
+set "FK=%~1"
+if /I "%FK%"=="ext" if defined EXT set "FWD=%FWD% --ext=%EXT%" & exit /b 0
+if /I "%FK%"=="bitrate_no_half" if defined BITRATE_NO_HALF set "FWD=%FWD% --bitrate_no_half=%BITRATE_NO_HALF%" & exit /b 0
+if /I "%FK%"=="ff_on_exist" if defined FF_ON_EXIST set "FWD=%FWD% --ff_on_exist=%FF_ON_EXIST%" & exit /b 0
+if /I "%FK%"=="ff_hwaccel" if defined FF_HWACCEL set "FWD=%FWD% --ff_hwaccel=%FF_HWACCEL%" & exit /b 0
+if /I "%FK%"=="dvd_ext" if defined DVD_EXT set "FWD=%FWD% --dvd_ext=%DVD_EXT%" & exit /b 0
+exit /b 0

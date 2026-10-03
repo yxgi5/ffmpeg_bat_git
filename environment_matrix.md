@@ -1792,3 +1792,34 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       **没在 MINGW64 上复测**；本轮另修了冒烟套件自己的 6 处直调（素材生成 + 结果校验走 `ff_run`
       / `fp_run`，`041f01a`）—— 套件在 Linux 上一直是对的，可 Cygwin / MINGW64 一旦选中原生构建，
       它会**先挂在造夹具上**，根本测不到脚本。下次上 Windows 请一并复测 ①②两段。
+
+62. **`ffmpeg_dvd_hevc` 接蓝光(BD)：没有 bluray 解复用器，只能按 m2ts 直读（2026-10-03 实测 `BD-M28.iso`）**：
+
+    起因：拿 `BD-M28.iso` 跑 `ffmpeg_dvd_hevc.bat`，报「读不到 title 1，检查源路径 / 是否受
+    CSS 保护」—— 其实源没问题，是**它根本不是 DVD**：UDF 镜像里是 `BDMV` / `ANY!`，不是
+    `VIDEO_TS`，而 `-f dvdvideo` 打不开 BDMV。
+
+    | 实测项 | 结果 |
+    |--------|------|
+    | gyon full build（2025-05-01） | `-demuxers` 只有 `dvdvideo`，**没有 `bluray`** |
+    | MSYS2 `mingw64/bin/ffmpeg`（8.1） | 配置里写着 `--enable-libbluray`，`ffmpeg -demuxers` 里**没有**；`-f bluray` → `Unknown input format` |
+    | WSL Ubuntu-22.04 的 ffmpeg | `bluray` / `dvdvideo` **两者都没有** |
+    | 正片 | `BDMV/STREAM/00005.m2ts` 19.27 GB / 5400.5s，mpeg2video 1920x1080 **TFF** 30000/1001（29.97i）30 Mbps，音轨 `pcm_bluray` 2ch，3 条 `hdmv_pgs_subtitle` |
+    | 其余 9 条 m2ts | 全部 ≤211 MB（菜单 / 特典）；`00007` 只有 unknown 流（**无视频**）、`00008` 只有 mp3、`00004` 只有音轨 |
+    | `idet` 20s（10 分钟处） | TFF 600 帧、Repeated Fields 全 `Neither` → **真隔行**，不是 3:2 pulldown |
+
+    * **所以不碰 `-f bluray`**：改按 `BDMV/STREAM/*.m2ts` 逐条直读（一条 m2ts = 一个 title，
+      mpegts 自动识别）。代价是**章节拿不到**（写在 `mpls` 里）→ `SPLIT_CHAPTER` 在 BD 下忽略。
+    * **`pcm_bluray` 与 `pcm_dvd` 同源**：`-c:a copy` 进 MKV 写头即失败（这次是
+      `Invalid argument`，`pcm_dvd` 那边是 `No wav codec tag`）；`-c:a flac` / `aac` 正常。
+    * **PGS 只能进 MKV**：`-c:s copy` 进 mkv 三条字幕全保留；进 mp4 时 `-c:s dvdsub` 在
+      **写 trailer** 阶段失败（rc=-22），所以 `EXT=mp4` 下整条丢弃而不是留半个坏文件。
+    * **`.bat` 自动挂载的两个坑**：① `Mount-DiskImage` 出来的常常是 `\\?\Volume{GUID}\`
+      **没有盘符**，cmd 的 `dir` / `if exist` 认不了 → 列目录与存在性判断都改走 PowerShell；
+      ② 源路径要**走环境变量**传给 PowerShell（路径里有日文，命令行在 cmd 与 PS 之间过一道会被
+      编码拆坏；环境变量是原样传的）。
+    * **cmd 两个老坑复核**：① `::LABEL` 用 `goto` / `call :LABEL` **都找不到**（实测 4 组对照），
+      本仓库标签一律单冒号；② 多行 `( ... )` 块里 echo 文本中的 **ASCII 右括号会提前关块**
+      （与第 49 条同源，这次是提示语里的 `mpls 里)`），改用 goto 结构。
+    * **默认值按源类型分叉**：BD 的 `MODE` 默认 `AUTO`（挑最长那条 = 正片，`ALL` 会把 1 MB 的
+      菜单也编一遍）、`FILT` 默认 `NONE`（1080i 真隔行套 IVTC 会掉帧）。DVD 保持 `ALL` / `AUTO`。

@@ -21,6 +21,7 @@ tools/dvd_restore.sh      解压出来的 VIDEO_TS 反向还原成可刻录的 D
 tools/dvd_repair.sh       补齐解压盘里缺失的 IFO / BUP(缺哪个都行, 整组丢了就用 dvdauthor 重建)
 tools/dvd_make_sample.sh  用本机 ffmpeg 合成 DVD 合规的 MPEG-2 PS, 做成一张已知参数的测试盘
 tools/dvd_shrink.sh       重编码成低码率 MPEG-2, 压进 DVD-5 / DVD-9 目标容量(仍是家用机可播的 DVD-Video)
+tools/bd_make_sample.sh   合成一张"迷你 BD"(BDMV 骨架 + 几条真 m2ts)并打成 ISO, 给蓝光链路当回归夹具
 tools/dvd_to_data_iso.sh  DVD 先压成 HEVC(复用 ffmpeg_dvd_hevc)再打成 UDF 数据盘(不在乎 DVD 机, 只在乎体积)
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
 archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
@@ -89,7 +90,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
-| `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video** 专用：ISO / `VIDEO_TS` 目录 / 光驱 → HEVC MKV。需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
+| `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video / 蓝光** 专用：ISO / `VIDEO_TS` 目录 / `BDMV` 目录 / 光驱 / 单个 `.m2ts` → HEVC MKV。DVD 那一路需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出；蓝光那一路走 `m2ts` 直读，不需要它。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
 
@@ -220,7 +221,7 @@ BITRATE_NO_HALF=1 ./ffmpeg_libx265.sh xxx.mp4
 - 只对自动推算的码率生效 —— 交互模式手输的码率（`900k` 那种）是显式指定，不参与换算；
 - 想让它成为默认（整批都按不除 2 跑）就把 `lib/defaults.cfg` 里那行设成 `1`。
 
-## DVD-Video 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
+## DVD-Video / 蓝光 转 HEVC（`ffmpeg_dvd_hevc.bat` / `.sh`）
 
 普通视频脚本**不能**直接拿来压 DVD，四个坑（均为实测）：
 
@@ -232,20 +233,47 @@ BITRATE_NO_HALF=1 ./ffmpeg_libx265.sh xxx.mp4
 ```
 ffmpeg_dvd_hevc.bat <源> [输出目录] [title号]
 
-  源        ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱(如 E:；.sh 侧为 /dev/sr0)
+  源        DVD: ISO 镜像 / 含 VIDEO_TS 的目录 / 光驱(如 E:；.sh 侧为 /dev/sr0)
+            BD : .iso 镜像(.bat 自动挂载/结束卸载) / 含 BDMV 的目录 / 单个 .m2ts
   输出目录  省略 = <源所在目录>\HEVC_OUT
   title号   给了这个就等价于 MODE=TITLE，只处理这一条
 ```
 
 ```
-ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 每个 title 各出一个文件(默认 MODE=ALL)
+ffmpeg_dvd_hevc.bat "D:\xxx.ISO"                  :: 每个 title 各出一个文件(DVD 默认 MODE=ALL)
 ffmpeg_dvd_hevc.bat "D:\xxx.ISO" D:\out 5         :: 指定输出目录 + 只压 title 5
 set MODE=AUTO && ffmpeg_dvd_hevc.bat "D:\xxx.ISO" :: 只挑时长最长的那条当正片
 set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两段(前編/後編)
+ffmpeg_dvd_hevc.bat "D:\BD.iso"                   :: 蓝光: 自动挂载、挑最长的 m2ts 当正片
+ffmpeg_dvd_hevc.bat "E:\"                         :: 已挂载的蓝光盘(BDMV 目录)
 ```
 
 `.sh` 侧开关是同名环境变量（`MODE=AUTO ./ffmpeg_dvd_hevc.sh ...`），`VENC=libx265` 走软编、
 `VENC=h264_qsv` 走 QSV，与 `.bat` 侧一致。
+
+### 蓝光(BD)这一路（2026-10-03 实测 `BD-M28.iso`，19.25 GB / 90 分钟）
+
+同一套脚本认蓝光，但口径与 DVD 不同，**先知道边界再用**：
+
+- **按 `BDMV\STREAM\*.m2ts` 逐条直读**（一条 m2ts = 一个 title），不走 `-f bluray`：
+  实测三份 ffmpeg 都没有 `bluray` 解复用器——gyan full build 只有 `dvdvideo`；MSYS2 的
+  8.1 配置里写着 `--enable-libbluray`，`ffmpeg -demuxers` 里却没有；WSL 那份两者都没有。
+- **`.iso` 自动挂载**（仅 `.bat`）：先按 DVD 试，读不到就 `Mount-DiskImage` 挂成 UDF 卷再找
+  `BDMV`，结束时自动卸载；中途 Ctrl-C 漏掉的手动补 `Dismount-DiskImage -ImagePath "<iso>"`。
+  `.sh` 侧挂载要 root，不擅自做，直接打印 `mount -o loop` / `hdiutil attach` 命令退出。
+- **`MODE` 默认 `AUTO`**（DVD 是 `ALL`）：盘里 m2ts 多半是菜单/特典碎片——实测这张 10 条里
+  9 条 ≤211 MB，`ALL` 会把 1 MB 的菜单也编一遍。
+- **`FILT` 默认 `NONE`**（DVD 是 `AUTO`）：BD 的 1080i 多是**真隔行**，DVD 那套
+  NTSC29→IVTC 会掉帧。要去交错显式 `FILT=BWDIF`（`mode=0`，29.97p）/ `yadif=1`（59.94p）。
+- **音频**：`pcm_bluray`(LPCM) 与 `pcm_dvd` 一样装不进 Matroska（写头即失败），自动转 AAC 192k。
+- **字幕**：PGS 位图字幕只能进 MKV；`EXT=mp4` 时**整条丢弃**（实测 `-c:s dvdsub` 在 PGS 上
+  写 trailer 就失败），不会留半个坏文件。
+- **`SPLIT_CHAPTER` 无效**：章节写在 `mpls` 里，直读 m2ts 拿不到，会被忽略并打印一行说明。
+- **产物命名**：`MODE=ALL` 时用流文件名（`<PREFIX>_00005.mkv`），比纯序号好认哪条是正片。
+
+回归不用每次都挂那张 19 GB 的真盘：`./tools/bd_make_sample.sh` 会合成一张"迷你 BD"
+（3 条带视频的 m2ts + 1 条只有音轨的碎片，第 1 条最长当正片，音轨默认 LPCM），
+目录或 ISO 都行 —— 上面每条口径它都替你造好了对应素材。
 
 ### 参数说明
 
@@ -253,14 +281,14 @@ set SPLIT_CHAPTER=7 && ffmpeg_dvd_hevc.bat "D:\x.ISO" :: 按第 7 章切成两�
 
 | 开关 | 取值 | 默认 | 作用 |
 | --- | --- | --- | --- |
-| `MODE` | `ALL` / `AUTO` / `TITLE` | `ALL` | `ALL` 每个 title 各出一个文件（**默认**）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片；`TITLE` 只处理 `DVD_TITLE` |
+| `MODE` | `ALL` / `AUTO` / `TITLE` | DVD `ALL` / BD `AUTO` | `ALL` 每个 title 各出一个文件（DVD 默认）；`AUTO` 扫描全部 title、取**时长最长**的那条当正片（BD 默认，见上一节）；`TITLE` 只处理 `DVD_TITLE` |
 | `DVD_TITLE` | title 号 | 命令行第 3 参 | 要处理的 title；一给就自动切到 `MODE=TITLE`（命令行第 3 参优先） |
 | `PREFIX` | 名字 | 源文件名（去扩展名） | 输出文件名前缀：`<PREFIX>_title<N>.<EXT>`（`MODE=ALL`）/ `<PREFIX>.<EXT>`（单条） |
 | `EXT` | `mkv` / `mp4` | `mkv` | 大小写都认（`EXT=MP4` 与 `mp4` 等价）。**建议保持 `mkv`**：mp4 装不下第 2 条 DVD 位图字幕（实测只剩 1 条），且 AC3 必须重编码。默认值取自 `lib/defaults.cfg` 的 `DVD_EXT`（不设时即 `mkv`；显式给 `EXT` 以 `EXT` 为准） |
-| `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | `AUTO` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
+| `FILT` | `AUTO` / `IVTC` / `BWDIF` / `NONE` | DVD `AUTO` / BD `NONE` | `AUTO`＝**按源制式选**（见下）：NTSC 29.97i→`IVTC`，PAL 25i→`BWDIF`，源已 23.976p→不加滤镜；`IVTC`＝3:2 pulldown 还原 23.976p；`BWDIF`＝只去交错、**保留原帧率**；`NONE`＝原样编码 |
 | `VFILT_EXTRA` | 滤镜串 | 空 | 追加到滤镜链末尾。**默认不改 SAR、不裁边**；确要修填 `setsar=32:27` / `crop=704:480:8:0,setsar=40:33` |
 | `AUDIO` | `copy` / `aac` / `flac` | `copy` | `copy`＝原样保留 AC3 / DTS / MP2（零损失、最快），**唯一例外**：源音轨是 LPCM 时自动转 AAC（见下）；`aac`＝强制重编码 192k；`flac`＝强制重编码，无损，体积约为 LPCM 的一半；mp4 下强制 `aac` |
-| `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切 |
+| `SPLIT_CHAPTER` | 章号 / `0` | `0` | 按第 N 章切成两段：第 1 段＝第 1…N−1 章，第 2 段＝第 N 章…结尾。`0`＝不切。**BD 下无效**（章节在 mpls 里），会给一行提示后忽略 |
 | `EXTRA_TITLES` | 空格分隔的 title 号 | 空 | 正片之外额外再导出的 title，例 `1 4 5` |
 | `VBITRATE` | 裸数字（bit/s） | 空 | 空＝查表再把结果 `/2`（推荐，用哪张表由 `VENC` 定，见下）；填了就覆盖。**单位是 bit/s，别写 `636k`**——会被当成 636 Mbps 把编码器顶回去 |
 | `VENC` | 见下 | `auto` | 编码器。空 / `auto`＝依次探测 `hevc_nvenc`→`hevc_qsv`→`libx265` 取第一个能编的；显式填名字就用那个 |
@@ -607,12 +635,58 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 
 ## ffmpeg 依赖怎么找
 
+### 用你自己的 ffmpeg 替换默认
+
+默认定位顺序见本节的其余部分（仓库内 `ffmpeg/bin` → 常见安装前缀 → `PATH` 逐项 → …）。
+要换成机器上别的构建（比如带 libx265 的 gyan full、或 Cygwin 那份），**只有环境变量这一种接口**：
+
+- **`FFMPEG_BIN`**：指向 ffmpeg 所在的 **bin 目录**（如 `D:\cygwin64\bin`、`/opt/ffmpeg/.../bin`）
+- **`FFMPEG`**：直接指向 **可执行文件本身**（更精确，跳过"目录里找 ffmpeg"那一步）。⚠️ **仅 `.sh` 侧认**；`.bat` 侧不认这个变量，只能走 `FFMPEG_BIN` 目录（见下方「两族契约与已知不一致」）
+
+两者都设时（`FFMPEG` 仅在 `.sh` 侧可用，`.bat` 侧无此变量）`FFMPEG`（可执行文件）优先。显式指定**无条件采用**——即使那份构建缺所需编码器，也只报错、不会悄悄退回自动查找。
+
+> **ffmpeg / ffprobe 路径没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径（这是刻意的：路径注入风险 + 它是"定位器"不是"开关"）。
+> 但**其它开关早已参数化**：`lib/common.{sh,bat}` 的 `parse_switches` 已实现，且所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list` 都调用了它——`--key value` / `--key=value` 会把同名大写环境变量（如 `--ext mkv` → `EXT=mkv`；`--ff_on_exist overwrite` → `FF_ON_EXIST=overwrite`；`--venc libx265` → `VENC=libx265`）按"参数 > 环境变量 > defaults.cfg"的优先级设好。白名单（`SWITCH_KEYS`）为：
+> `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
+> **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。详见下方「开关参数化现状」。
+
+#### 两族契约与已知不一致（ffmpeg / ffprobe 定位）
+
+这组变量控制"用哪一份 ffmpeg / ffprobe"，是定位器（locator）的入口，不参与 `parse_switches` 参数化（路径注入风险 + 它是"定位器"不是"开关"）。两族当前契约如下：
+
+| 变量 | 含义 | `.sh` 侧 | `.bat` 侧 |
+| --- | --- | --- | --- |
+| `FFMPEG_BIN` | ffmpeg 的 **bin 目录**（显式指定，最高优先，不做能力筛选） | ✅ 认 | ✅ 认（必须 Windows 路径） |
+| `FFMPEG` | ffmpeg **可执行文件**本身（显式指定，最高优先） | ✅ 认 | ❌ **不认**（仅认 `FFMPEG_BIN` 目录） |
+| `FFPROBE` | ffprobe **可执行文件**本身（显式指定；不给则与 ffmpeg 同目录） | ✅ 认 | ❌ **不认**（无此变量；探针固定取 ffmpeg 同目录那份，由入口写死 `set "FFPROBE_PATH=%FF_BIN%\ffprobe.exe"`，用户无法单独指定） |
+
+> ⚠️ **已知不一致（当前为有意保留的缺口，非 bug；先在此记清，未改代码）**：
+> - `.bat` 侧**没有** `FFMPEG`（文件式）覆盖——只能用 `FFMPEG_BIN` 指目录。
+> - `.bat` 侧**没有** `FFPROBE` 覆盖——ffprobe 只能跟 ffmpeg 同目录；这与 `.sh` 侧 `FFPROBE=` 可单独指定探针不同。
+> - 内部命名也不统一：`.sh` 用 `FF`（ffmpeg）/ `FP`（ffprobe）作定位结果；`.bat` 多数入口用 `FFMPEG_PATH` / `FFPROBE_PATH`，而 `ffmpeg_dvd_hevc.bat` 另走一套 inline 查找、用 `FF`/`FP` 且 ffprobe 由 `set FP=%FF:ffmpeg.exe=ffprobe.exe%` 字符串替换得到。
+> - 根因：`.sh` 的 `find_ffmpeg` 返回**可执行文件**，`.bat` 的 `find_ffmpeg` 返回**目录**（早期"目录优先"设计），于是"文件式 ffmpeg 覆盖"和"独立 ffprobe 覆盖"都没机会长出。
+>
+> 统一到 `.sh` 契约（让 `FFMPEG` / `FFPROBE` 两族都生效）是已知待办；本次仅文档化、未动代码。
+
+路径写法分两族：
+
+| 家族 | `FFMPEG_BIN` 写法 | 备注 |
+| --- | --- | --- |
+| `.bat`（cmd） | **必须 Windows 路径**：`D:\cygwin64\bin`、`C:\Program Files\ffmpeg\bin` | 不能写 `/bin/ffmpeg` 这种 posix 路径，cmd 解析不了 |
+| `.sh`（bash） | Windows 路径（`D:\cygwin64\bin`）**或** posix 路径（`/bin`、`/opt/.../bin`）均可 | sh 侧有 `cygpath` 规范化：反斜杠 / 盘符写法自动转 posix，两种等价 |
+
+⚠️ **关键限制（是构建类型，不是路径写法）**：`.bat` 跑在 Windows `cmd` 下，**替换的 ffmpeg 必须是 Windows 原生构建**（gyan 等）。若换成 Cygwin / MSYS2 构建，中文路径会因 cmd 的 GBK 命令行 ↔ Cygwin 的 UTF-8 `argv` 编码不匹配而乱码——实测 `视频`→`��Ƶ`，ffprobe 报 `No such file or directory`，进而 `check_isvideo` 误判"未检测到视频流"。**这类 Cygwin / MSYS2 构建留给 `.sh` 用**（bash 全程 UTF-8，无此问题）。
+
+一句话：bat 下替换 = Windows 原生构建 + 环境变量 `FFMPEG_BIN`（Windows 路径）；sh 下随意（posix 路径也行，Cygwin / MSYS 构建正是它的主战场）。
+
+> 补充：`.sh` 下不管把 ffmpeg 换成**另一份 Windows 原生构建**（不在 `C:\Program Files\ffmpeg\bin` 的 gyan 等）还是换成 **msys2 / Cygwin 自己的 ffmpeg**，中文路径都能正确处理——bash 全程 UTF-8，参数一致以 UTF-8（Cygwin/msys 构建）或 UTF-16（原生 .exe，由 shell 规范化）传给 ffmpeg，与构建类型无关。唯一前提是 `list.txt` 含中文时要存成 **UTF-8**：脚本读清单只去 BOM/CR、不做转码，GBK 存的清单会被按 UTF-8 读乱，这一步与 ffmpeg 无关。ffprobe 默认同样取该目录那份；`.sh` 侧还可用 `FFPROBE=` 单独指定探针（`.bat` 侧固定同目录、无此覆盖变量）。
+
 - **`.bat`**：`lib/common.bat` 的 `find_ffmpeg` 四级回退
   `FFMPEG_BIN` 环境变量（指向 bin 目录）→ 仓库内 `ffmpeg\bin` → `PATH`（where）→ `C:\Program Files\ffmpeg\bin`
 - **`.sh`**：`lib/common.sh` 的 `find_ffmpeg`，与 `.bat` 同序
   `FFMPEG_BIN`（bin 目录）/ `FFMPEG`（可执行文件）→ 仓库内 `ffmpeg/bin` →
   **[仅 Linux] `/opt/ffmpeg/<构建>/bin`** → `PATH` **逐项** → 常见安装前缀；
-  `ffprobe` 由 `find_ffprobe` 取与 ffmpeg 同目录那份（也可用 `FFPROBE=` 指定）。启动时回显实际用到的路径与版本串。
+  `ffprobe` 默认取与 ffmpeg 同目录那份；`.sh` 侧还可用 `FFPROBE=` 单独指定探针（`.bat` 侧固定同目录、无此覆盖变量）。启动时回显实际用到的路径与版本串。
   **不能只信 `command -v`**：它只回第一个命中，而 MSYS2 的 `/mingw64/bin` 8.1、Cygwin 的 `/usr/bin` 7.1.1 常常正是缺能力的那个，
   `dvdvideo` 检查也用定位到的这份 ffmpeg 来做（否则会变成“检查 PATH 里那份、却跑另一份”）
   2026-09-30：13 个根入口脚本此前硬写裸 `ffmpeg`（`CMD=(ffmpeg ...)`），等于绕过这套定位——
@@ -681,6 +755,7 @@ Windows 两个 shell 里同一件事更明显：Cygwin 的 `/usr/bin/ffmpeg`(7.1
 | 10bit 片源 —— **编码**侧（HEVC Main10 等） | 硬解正常，卡在编码器：h264_qsv 报 `some encoding parameters are not supported by the QSV runtime` → rc=-40 / 0 字节（同素材 `hevc_qsv` / `av1_nvenc` / 软编入口都正常，所以不是硬件不支持）；`hevc_vaapi` 则因写死 `-profile:v:0 main` 不接受 10bit 输入。2026-09-30 起在**硬件内部**降 8bit：QSV 走 `scale_qsv=format=nv12`、VAAPI 走 `scale_vaapi=format=nv12`。软滤镜 `format=nv12` **不行** —— 帧还在硬件表面，`auto_scale` 接不上；**8bit 源的命令行一字不改** |
 | `av1_qsv` 无硬件支持 | `ffmpeg -encoders` 里列着 `av1_qsv` 不等于硬件支持：UHD 770 实测一开就是 `Current codec type is unsupported` → rc=-40 / **0 字节产物**（AV1 QSV 需 Arrow Lake 或更新的核显）。2026-09-30 起入口先用 1 帧 lavfi 源试开编码器（320x240，不用 128x128 —— 尺寸过小会把好机器判成不支持），开不起来就明说**并不产生空产物**（退出码沿用既有的 1，见 `test/README.md` 退出码契约） |
 | 修改 `.bat` 时的 set 写法 | 值为「已带引号的路径 / 整条命令行」的变量，**一律用非包装写法** `set VAR=值`；包装写法 `set "VAR=值"` 会与值内引号配对闭合，使后续路径段落裸露、被 `&`/`()` 截断 |
+| 替换 ffmpeg 的构建类型 | `.bat`（cmd）下必须 **Windows 原生构建**（gyan 等）；Cygwin / MSYS2 构建的中文路径会因 cmd 的 GBK ↔ Cygwin 的 UTF-8 编码不匹配而乱码（实测 `视频`→`��Ƶ`，`check_isvideo` 误判"未检测到视频流"）。此类构建留给 `.sh` 用（bash 全程 UTF-8）。`.sh` 下两种都行，posix 与 Windows 路径写法皆可 |
 | 块内参数里的裸 `)` | 多行 `( ... )` 块中，**参数文本里未转义的 `)` 会提前关闭该块**（`^( ^)` 转义、全角 `（）`、`[1]`、双引号内、`for %%A in (...)`、`\|\| ( ... )` 均安全）。后果极隐蔽：紧跟其后的语句脱离块、变成**无条件执行**的顶层语句 —— `ffmpeg_dvd_hevc.bat` 首跑就是这样静默 `exit /b 1` 的（打印两行后直接回提示符、零报错）。静态由 **L23** 拦截，实验记录见 `environment_matrix.md` 第 49 条 |
 
 ## 验证状态
@@ -784,7 +859,7 @@ vainfo                                  # VAAPI 能力 (新 libva 需 export LIB
 | `overwrite` | 把 `-n` 换成 `-y`，真覆盖重转 |
 | `fail` | 不覆盖，回退出码 6（与「文件其实没转成」区分开，见退出码契约）；适合「这批必须全新、不许混入陈货」的场景 |
 
-⚠️ **这是环境变量，不是命令行参数，三种壳写法不一样**：写错就静默按默认 `skip` 跑，看着像「没生效」。
+⚠️ **这是环境变量，也有 `--ff_on_exist` 参数式入口**：`FF_ON_EXIST` 既可以用下面三种壳的环境变量写法传，也可以在每个入口脚本的命令行用 `--ff_on_exist overwrite`（`--key value` / `--key=value` 均可）传，两者等价、都优先于配置文件。环境变量的三壳写法不一样，写错就静默按默认 `skip` 跑，看着像「没生效」：
 
 ```
 rem Windows cmd（一行用 && 串；分两行 set 也行，变量会留在会话里）
@@ -800,9 +875,22 @@ FF_ON_EXIST=overwrite ./ffmpeg_libx265.sh xxx.mp4
 为什么 `FF_ON_EXIST=overwrite .\xxx.bat` 在 cmd 下报 `is not recognized`：那是 bash 的
 「前缀赋值」语法，cmd 不认，会把整段当一条命令去执行。cmd 没有这种写法，只能先 `set`
 再运行。它也不在 `lib/defaults.cfg` 里（默认 `skip` 写死在 `lib/common.{sh,bat}` 的
-`:on_exist` / `ff_run` 中），所以「长期固定」要么写进调用方脚本，要么等本仓库正在评估的
-「开关参数化」方案（把 `EXT` / `FF_ON_EXIST` / `FF_HWACCEL` 等统一成 `--key value`，
-三环境字面一致的命令行参数）。
+`:on_exist` / `ff_run` 中），所以「长期固定」要么写进 `lib/defaults.cfg`，要么在命令行用
+`--ff_on_exist overwrite`（参数式入口见上方说明）。
+
+### 开关参数化现状（2026-10-03 调查）
+
+`parse_switches` 已在两族实现（`lib/common.sh` 的 `SWITCH_KEYS` + `lib/common.bat` 的 `:parse_switches` / `:ps_set`），把所有"开关"统一成 `--key value` / `--key=value` 的命令行参数，并转成同名大写环境变量；优先级为 **参数 > 环境变量 > defaults.cfg**（没给的回退 env / cfg，老的 `set EXT=mkv` 写法仍兼容）。位置参数（文件名 / 清单路径）会被挑出来交还给脚本。
+
+**白名单**（`SWITCH_KEYS` 与 `:ps_set` 两族逐字一致，lint 会比对）：
+`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
+
+**已接上 `parse_switches` 的入口**：所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list`（2026-10-03 补齐了此前漏接的 `ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口）。
+
+**没有 `--key` 入口、只能靠环境变量设置的**：
+- ffmpeg / ffprobe 定位：`FFMPEG_BIN` / `FFMPEG` / `.sh` 侧 `FFPROBE`（`.bat` 侧 `FFPROBE_PATH` 由入口从同目录钉死，用户无法单独指定探针）—— 这是有意不参数化（路径注入风险 + 它是"定位器"不是"开关"）。
+- 配置指针：`FB_DEFAULTS`（指向另一份 `defaults.cfg`）。
+- `tools/` 系列（`dvd_make_sample` / `dvd_restore` / `dvd_repair` / `dvd_shrink` / `dvd_to_data_iso` 等）的全部开关：这些脚本不调用 `parse_switches`，只能用环境变量传（见各脚本头注释）。
 
 ### `-init_hw_device` / `-filter_hw_device` 到底在做什么（2026-09-30）
 

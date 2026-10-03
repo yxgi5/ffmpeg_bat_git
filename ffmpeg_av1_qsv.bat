@@ -27,6 +27,12 @@ exit /b %errorlevel%
 :main
 
 rem ============================================================
+rem 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.bat 的 :parse_switches)
+rem   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
+rem   位置参数(文件名)记在 PARSE_POS, 下面取它取代 %~1
+call "%SELF_DIR%lib\common.bat" parse_switches %*
+if errorlevel 2 exit /b 2
+
 rem ffmpeg_av1_qsv.bat - AV1 QSV 硬件加速压缩 (P1 重构版)
 rem AV1 QSV 硬编只有 Arrow Lake 及更新的 Intel 核显才支持(Meteor/Arrow/Lunar Lake),
 rem 且要求较新的 ffmpeg 构建; find_ffmpeg 找到的 ffmpeg 若未编入 av1_qsv,
@@ -78,8 +84,8 @@ set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filt
 
 SET "SRC_FILE="
 
-if not "%~1"=="" (
-    set "SRC_FILE=%~1"
+if defined PARSE_POS (
+    set "SRC_FILE=%PARSE_POS%"
 )
 
 if not defined SRC_FILE (
@@ -167,16 +173,28 @@ echo SRC_SIZE=%SRC_SIZE%
 set "SRC_DURATION=%P_format.duration%"
 echo SRC_DURATION=%SRC_DURATION%
 
+rem 码率兜底: format.bit_rate -> stream.bit_rate -> size/duration(需有效时长)
 set "SRC_BITRATE=%P_format.bit_rate%"
-set /a SRC_BITRATE=%SRC_BITRATE%
-IF not %ERRORLEVEL% NEQ 0 (
-  if %SRC_BITRATE% == 0 (
-     call "%SELF_DIR%lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
-  )
-) else (
-    call "%SELF_DIR%lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %SRC_DURATION% SRC_BITRATE
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
+rem 块内 %VAR% 为解析期展开: 变量在块内被重赋值后, 块内再引用会拿到旧值, 故拆到块外
+if %SRC_BITRATE_OK% == 0 set "SRC_BITRATE=%P_streams.stream.0.bit_rate%"
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
+call "%SELF_DIR%lib\common.bat" is_pos_num "%P_format.duration%" SRC_DUR_OK
+if %SRC_BITRATE_OK% == 0 if %SRC_DUR_OK% == 1 (
+    call "%SELF_DIR%lib\common.bat" calc_bitrate_fromsize %SRC_SIZE% %P_format.duration% SRC_BITRATE
 )
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
+if %SRC_BITRATE_OK% == 0 set "SRC_BITRATE=0"
 echo SRC_BITRATE=%SRC_BITRATE%
+
+rem 时长兜底: format.duration -> size*8/bitrate(需有效码率)
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_DURATION%" SRC_DUR_OK
+if %SRC_DUR_OK% == 0 if %SRC_BITRATE_OK% == 1 (
+    call "%SELF_DIR%lib\common.bat" calc_duration_fromsize %SRC_SIZE% %SRC_BITRATE% SRC_DURATION
+)
+call "%SELF_DIR%lib\common.bat" is_pos_num "%SRC_DURATION%" SRC_DUR_OK
+if %SRC_DUR_OK% == 0 set "SRC_DURATION=0"
+echo SRC_DURATION=%SRC_DURATION%
 
 rem ---------- 码率查表: lib\bitrate_table_av1.csv (替代原 190 行 if-elif) ----------
 set "BIT="
@@ -189,28 +207,30 @@ call "%SELF_DIR%lib\common.bat" bitrate_from_table BIT
 if errorlevel 1 exit /b 1
 set TARGET_BITRATE=%BIT%
 echo TARGET_BITRATE=%TARGET_BITRATE%
-set "percentage="
-
+set "percentage=0"
+if %SRC_BITRATE% gtr 0 (
     set /a percentage=(%TARGET_BITRATE%*100^)/%SRC_BITRATE%
     call "%SELF_DIR%lib\common.bat" numOK "%TARGET_BITRATE%" %SRC_BITRATE% percentage
-
-    echo percentage=%percentage%%%
+)
+echo percentage=%percentage%%%
 
 rem 下面两个判定不限于交互模式: arg(拖放/命令行)模式同样生效, 与 .sh 保持一致
 rem (原写法多了 if "%~1"=="" 前置, 使低码率源在 arg 模式下被重编码放大)
-if %percentage% geq 100 (
-    set BIT=%SRC_BITRATE%
-    rem keep the summary honest: TARGET_BITRATE must report the bitrate
-    rem actually encoded at, not the stale table value (T17 asserts on it)
-    set TARGET_BITRATE=%SRC_BITRATE%
+if %SRC_BITRATE% gtr 0 (
+    if %percentage% geq 100 (
+        set BIT=%SRC_BITRATE%
+        rem keep the summary honest: TARGET_BITRATE must report the bitrate
+        rem actually encoded at, not the stale table value (T17 asserts on it)
+        set TARGET_BITRATE=%SRC_BITRATE%
+    )
 )
 
-if %percentage% leq 0 (
+if %TARGET_BITRATE% leq 0 (
    echo bitrate abnormal, please check
    exit /b 5
 )
 
-IF "%~1"=="" SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
+IF not defined PARSE_POS SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%SELF_DIR%lib\common.bat" cover_map
@@ -228,7 +248,7 @@ if defined SRC_FILE call "%SELF_DIR%lib\common.bat" extract %SRC_FILE% TARGET_PA
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
-IF "%~1"=="" SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
+IF not defined PARSE_POS SET /P TARGET_FILE=请输入输出文件(如output.mp4,不输入则输出到相同文件夹并加后缀):
 if not defined TARGET_FILE set "TARGET_FILE=output.mp4"
 rem 统一给输出路径补引号: 用户手输的可能不带引号, 而不带引号的路径
 rem 一旦含 空格/&/( ) 就会被 RUN_COM 的展开拆开
@@ -239,10 +259,10 @@ echo TARGET_FILE=%TARGET_FILE%
 echo RUN_COM3:%RUN_COM%
 rem handler name with ) (   call set
 rem ---- 产物已存在时的策略: 见 lib\common.bat 的 :on_exist ----
-if not "%~1"=="" call "%SELF_DIR%lib\common.bat" on_exist %TARGET_FILE%
+if defined PARSE_POS call "%SELF_DIR%lib\common.bat" on_exist %TARGET_FILE%
 if defined FF_EXIST_FAIL exit /b 6
 if defined FF_EXIST_SKIP exit /b 0
-IF "%~1"=="" (
+IF not defined PARSE_POS (
     echo executing 1
     set RUN_COM=%RUN_COM% %TARGET_FILE%
 ) else (

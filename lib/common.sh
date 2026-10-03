@@ -291,7 +291,9 @@ function run_list() {
         fi
         [ -z "$line" ] && continue
         echo "$line"
-        bash "$script" "$line" < /dev/null
+        # FWD: 调用方(清单驱动)把生效开关收集成的 --key value 数组, 显式转发给每个入口。
+        #   为空时(清单驱动没设)按 ${FWD[@]+...} 退化成只传文件名 —— 行为不变。
+        bash "$script" "${FWD[@]+"${FWD[@]}"}" "$line" < /dev/null
         rc=$?
         # 退出码 4 = 硬件缺失(契约见 test/README 5.2): 它不是"这个文件转坏了",
         #   而是"这台机器跑不了这个入口"。清单里剩下的条目会一条接一条撞同一堵
@@ -457,6 +459,21 @@ function _ff_find_core() {
         Linux*) _FF_UNAME=Linux ;;
         *)      _FF_UNAME=Other ;;
     esac
+
+    # ---- 阶段零: FFMPEG_BIN / FFMPEG 路径规范化(2026-10-03) ----
+    # Windows 上用户常按 bat 习惯把 FFMPEG_BIN 写成 D:\xxx\bin, 但 bash 会把反斜杠
+    # 当转义序列(\t \f \b ...), 路径被切碎。有 cygpath 时把 Windows 风格(含 \ 或盘符:)
+    # 统一转成 posix, 两种写法都能用。纯 Linux / WSL 没有 cygpath, 原样不动。
+    if command -v cygpath >/dev/null 2>&1; then
+        case "${FFMPEG_BIN:-}" in
+            *\\*|[A-Za-z]:*) FFMPEG_BIN="$(cygpath -u -- "$FFMPEG_BIN" 2>/dev/null)" || true ;;
+        esac
+        case "${FFMPEG:-}" in
+            *\\*|[A-Za-z]:*) FFMPEG="$(cygpath -u -- "$FFMPEG" 2>/dev/null)" || true ;;
+        esac
+    fi
+    FFMPEG_BIN="${FFMPEG_BIN%/}"
+    FFMPEG="${FFMPEG%/}"
 
     # ---- 阶段一: 显式指定(FFMPEG_BIN 指目录, 与 bat 侧同名同义) ----
     if [ -n "${FFMPEG_BIN:-}" ]; then
@@ -1189,4 +1206,55 @@ function bitrate_from_table() {
         1) printf '%s\n' "$raw" ;;
         *) printf '%s\n' "$(( raw / 2 ))" ;;
     esac
+}
+
+# ================================================================
+# 命令行开关解析 (2026-10-03) —— 把 `--key value` / `--key=value` 转成同名大写
+# 环境变量。目的: 让 bat / sh / PowerShell 用逐字相同的参数调用, 不再依赖
+# 「环境变量前缀赋值」那种只有 bash 认的语法(见 readme 的 FF_ON_EXIST 小节)。
+#   优先级: 参数 > 环境变量 > lib/defaults.cfg
+#     本函数无条件 export 解析到的值(覆盖已存在的同名 env); 之后调用的
+#     load_defaults 只补「没设过」的键 —— 于是参数稳赢 env, env 稳赢 cfg。
+#   兼容性: 老的 `set EXT=mkv` / `EXT=mkv ./x.sh` 仍有效(没给参数时 env 自然兜底)。
+#   已知开关列在 SWITCH_KEYS; 不在表里的一律当「位置参数」(文件名 / 清单路径)退回,
+#   存入 PS_REST, 供调用方 `set -- ${PS_REST[@]+"${PS_REST[@]}"}` 还原。
+# ================================================================
+SWITCH_KEYS=(ext bitrate_no_half ff_on_exist ff_hwaccel dvd_ext \
+             mode dvd_title prefix filt vfilt_extra audio split_chapter \
+             extra_titles vbitrate venc)
+
+function _switch_env() {
+    # 小写 key -> 大写 env 名(键都是 [a-z_], tr 足够)
+    printf '%s' "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+function parse_switches() {
+    PS_REST=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --?*)
+                local raw="${1#--}" key val
+                if [[ "$raw" == *=* ]]; then
+                    val="${raw#*=}"; key="${raw%%=*}"
+                else
+                    key="$raw"
+                    val="${2:-}"; shift
+                fi
+                key="$(_switch_env "$key")"
+                local known=0 k
+                for k in "${SWITCH_KEYS[@]}"; do
+                    if [ "$k" = "${key,,}" ]; then known=1; break; fi
+                done
+                if [ "$known" = 1 ]; then
+                    export -- "$key=$val"
+                else
+                    PS_REST+=("$1")
+                fi
+                ;;
+            *)
+                PS_REST+=("$1")
+                ;;
+        esac
+        shift
+    done
 }

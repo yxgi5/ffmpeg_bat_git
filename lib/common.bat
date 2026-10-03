@@ -20,6 +20,8 @@ if /I "%~1"=="lookup_bitrate"        goto lookup_bitrate
 if /I "%~1"=="find_ffmpeg"           goto find_ffmpeg
 if /I "%~1"=="numOK"                 goto numOK
 if /I "%~1"=="calc_bitrate_fromsize" goto calc_bitrate_fromsize
+if /I "%~1"=="calc_duration_fromsize" goto calc_duration_fromsize
+if /I "%~1"=="is_pos_num"           goto is_pos_num
 if /I "%~1"=="extract"               goto extract
 if /I "%~1"=="extract_mp4"           goto extract_mp4
 if /I "%~1"=="get_suffix"            goto get_suffix
@@ -34,6 +36,7 @@ if /I "%~1"=="on_exist"               goto on_exist
 if /I "%~1"=="load_defaults"       goto load_defaults
 if /I "%~1"=="init_ext"            goto init_ext
 if /I "%~1"=="bitrate_from_table"  goto bitrate_from_table
+if /I "%~1"=="parse_switches"      goto parse_switches
 echo 未知函数: %~1
 exit /b 1
 
@@ -108,6 +111,37 @@ set "fpB=%numB:~0%"
 set /A add=fpA+fpB, sub=fpA-fpB, mul=fpA*fpB/one, div=fpA/fpB
 
 set /a ret = 8*!div!
+endlocal & set /a %~4=%ret%
+exit /b 0
+
+:is_pos_num
+rem 判断值是否为正数(整数或小数均可), 结果写入输出变量(1/0)
+rem   call ... is_pos_num <值> <输出变量名>
+rem   注意: 本文件经 goto 分发, %1 为函数名, 真实参数从 %2 起
+set "IPN_OUT=%~3"
+set "IPN_STR=%~2"
+set "IPN_STR=%IPN_STR:.=%"
+set "IPN_VAL=0"
+set /a "IPN_VAL=%IPN_STR%" 2>nul
+if %IPN_VAL% gtr 0 ( set /a %IPN_OUT%=1 ) else ( set /a %IPN_OUT%=0 )
+exit /b 0
+
+:calc_duration_fromsize
+rem 由文件大小与码率反推时长(秒): call ... calc_duration_fromsize <字节数> <码率bps> <输出变量名>
+rem   与 calc_bitrate_fromsize 互逆: duration = 8*size/bitrate
+rem   注意: 本文件经 goto 分发, %1 为函数名, 真实参数从 %2 起
+setlocal EnableDelayedExpansion
+set numA=%~2
+set numB=%~3
+set "fpA=%numA:.=%"
+set "fpB=%numB:.=%"
+if !fpB! equ 0 (
+    endlocal & set /a %~4=0
+    exit /b 1
+)
+set /A q=fpA/fpB
+set /A r=fpA - q*fpB
+set /a ret = 8*q + (8*r)/fpB
 endlocal & set /a %~4=%ret%
 exit /b 0
 
@@ -208,7 +242,10 @@ if not defined FFPROBE_PATH (
 )
 rem 2026-09-17: 探测统一走 probe_source(一次 ffprobe); 入口随后用同文件再调
 rem probe_source 时命中缓存, 不再起第二个 ffprobe 进程。
-call "%~f0" probe_source "%CV_FILE%"
+rem 2026-10-03: 路径含 &/空格时, 把值经环境变量传给 probe_source, 避免
+rem   call 把引号内的 & 当命令分隔符拆坏(CV_FILE 已完整, 但二次 call 传参会坏)。
+set "FF_SRC_FILE=%CV_FILE%"
+call "%~f0" probe_source
 rem 注意: 下面这行刻意不进括号块、且给路径加引号 —— 路径含 ) 或 & 时才不会被解析坏
 if defined P_streams.stream.0.codec_type exit /b 0
 echo [check_isvideo] "%CV_FILE%" 不是视频文件, 未检测到视频流
@@ -227,6 +264,7 @@ rem   check_isvideo 先探一次, 入口紧接的 probe_source 调用是零进�
 rem   P_* 不清理: 每个入口进程只探一个源文件, 重复调用按同键覆盖。
 rem   注意: 本函数不 setlocal -- P_*/PS_* 必须对调用方可见(本文件函数约定)。
 set "PS_FILE=%~2"
+if not defined PS_FILE set "PS_FILE=%FF_SRC_FILE%"
 if not defined PS_FILE (
     echo [probe_source] missing file argument
     exit /b 1
@@ -478,19 +516,24 @@ set "FF_EXIST_SKIP="
 set "FF_EXIST_FAIL="
 if "%~2"=="" exit /b 0
 if not exist %2 exit /b 0
-if /i "%FF_ON_EXIST%"=="overwrite" (
-    set "FF_OUT_FLAG=-y"
-    echo [on_exist] output exists, FF_ON_EXIST=overwrite -^> re-encode: %~2
-    exit /b 0
-)
-if /i "%FF_ON_EXIST%"=="fail" (
-    echo [on_exist] output exists, FF_ON_EXIST=fail -^> not overwritten, exit 6: %~2
-    set "FF_EXIST_FAIL=1"
-    exit /b 0
-)
+rem 2026-10-03 修括号 bug: 文件名含半角 ) (如 "...(獸皇)28...") 时, %%2 这个参数
+rem   是在解析期被替换进命令的, 若落在 if(...)(...) 块里, cmd 会把值里的 )
+rem   当成块结束符, 后面的文字被当成命令执行, 报 "28 was unexpected at this time"。
+rem   改用 goto 分支, 让所有带 %%2 的 echo 都放在顶层(无括号块) —— 顶层命令里
+rem   的 ) 在引号/普通文本中是安全的(与 :cover_map 那套括号纪律同源)。
+if /i "%FF_ON_EXIST%"=="overwrite" goto oe_overwrite
+if /i "%FF_ON_EXIST%"=="fail" goto oe_fail
 echo [on_exist] output exists -^> SKIPPED, nothing was encoded: %~2
 echo [on_exist]   FF_ON_EXIST=overwrite to re-encode, =fail to treat it as an error
 set "FF_EXIST_SKIP=1"
+exit /b 0
+:oe_overwrite
+set "FF_OUT_FLAG=-y"
+echo [on_exist] output exists, FF_ON_EXIST=overwrite -^> re-encode: %~2
+exit /b 0
+:oe_fail
+echo [on_exist] output exists, FF_ON_EXIST=fail -^> not overwritten, exit 6: %~2
+set "FF_EXIST_FAIL=1"
 exit /b 0
 :load_defaults
 rem 读 lib\defaults.cfg 的 KEY=VALUE 默认值: call ... load_defaults
@@ -544,4 +587,70 @@ if "%BITRATE_NO_HALF%"=="1" (
     set /a _BT_OUT=_BT_VAL / 2
 )
 endlocal & set /a %~2=%_BT_OUT%
+exit /b 0
+
+:parse_switches
+rem 解析 --key value / --key=value -> 同名大写环境变量(见 lib/common.sh 同义)
+rem   调用: call ... parse_switches %*   ( %1 为函数名, 真实参数从 %2 起)
+rem   位置参数(文件 / 清单路径)记到 PARSE_POS(取第一个非 -- 参数)
+rem   本函数不 setlocal —— 设出的开关必须对调用方可见(同 :load_defaults 约定)
+rem   注意: 刻意用 goto 而非 if() 块, 否则块内 %PK%/%PV% 在 DisableDelayedExpansion
+rem         下不会刷新为新设的值(经典 cmd 陷阱, 会导致 -- 前缀去不掉 / 值取空)
+shift
+rem 每次调用都先清空 PARSE_POS / PS_CNT: 本函数被 call 进来的场景下, 调用方上一次
+rem   解析设下的位置参数会残留在同一 cmd 作用域里( call 不新建变量作用域),
+rem   导致"位置参数"被旧值顶掉 —— 清单 bat 解析清单路径后 call 入口 bat 再解析
+rem   文件名时, 文件名就错落成清单路径。这里每次进来都重置, 保证只记本次的位置参数。
+set "PARSE_POS="
+set "PS_CNT=0"
+:ps_loop
+if "%~1"=="" exit /b 0
+set "PK=%~1"
+if not "%PK:~0,2%"=="--" goto ps_pos
+rem ---- 是 -- 开头开关: 先去掉 -- 前缀 ----
+set "PK=%PK:~2%"
+set "PV="
+for /f "tokens=1,* delims==" %%a in ("%PK%") do (
+    set "PK=%%a"
+    set "PV=%%b"
+)
+if "%PV%"=="" goto ps_val_next
+rem 含 = 形式: key 已取 = 前, value 已取 = 后, 无需再取 %2
+call :ps_set "%PK%" "%PV%"
+shift
+goto ps_loop
+:ps_val_next
+rem 空格分隔形式: 值取下一个位置参数
+set "PV=%~2"
+call :ps_set "%PK%" "%PV%"
+shift & shift
+goto ps_loop
+:ps_pos
+set /a PS_CNT+=1
+set "PARSE_%PS_CNT%=%~1"
+if not defined PARSE_POS set "PARSE_POS=%~1"
+shift
+goto ps_loop
+
+:ps_set
+rem 小写/任意大小写 key -> 大写 env(键表与 .sh 侧 SWITCH_KEYS 同表, lint 会比对)
+set "PK=%~1"
+set "PV=%~2"
+if /I "%PK%"=="ext" set "EXT=%PV%" & exit /b 0
+if /I "%PK%"=="bitrate_no_half" set "BITRATE_NO_HALF=%PV%" & exit /b 0
+if /I "%PK%"=="ff_on_exist" set "FF_ON_EXIST=%PV%" & exit /b 0
+if /I "%PK%"=="ff_hwaccel" set "FF_HWACCEL=%PV%" & exit /b 0
+if /I "%PK%"=="dvd_ext" set "DVD_EXT=%PV%" & exit /b 0
+if /I "%PK%"=="mode" set "MODE=%PV%" & exit /b 0
+if /I "%PK%"=="dvd_title" set "DVD_TITLE=%PV%" & exit /b 0
+if /I "%PK%"=="prefix" set "PREFIX=%PV%" & exit /b 0
+if /I "%PK%"=="filt" set "FILT=%PV%" & exit /b 0
+if /I "%PK%"=="vfilt_extra" set "VFILT_EXTRA=%PV%" & exit /b 0
+if /I "%PK%"=="audio" set "AUDIO=%PV%" & exit /b 0
+if /I "%PK%"=="split_chapter" set "SPLIT_CHAPTER=%PV%" & exit /b 0
+if /I "%PK%"=="extra_titles" set "EXTRA_TITLES=%PV%" & exit /b 0
+if /I "%PK%"=="vbitrate" set "VBITRATE=%PV%" & exit /b 0
+if /I "%PK%"=="venc" set "VENC=%PV%" & exit /b 0
+echo unknown switch: --%PK%
+exit /b 2
 exit /b 0
