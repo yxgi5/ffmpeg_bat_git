@@ -469,7 +469,12 @@ function _ff_find_core() {
             *\\*|[A-Za-z]:*) FFMPEG="$(cygpath -u -- "$FFMPEG" 2>/dev/null)" || true ;;
         esac
     fi
-    FFMPEG="${FFMPEG%/}"
+    # 去尾部斜杠前必须先判空: 调用方(各冒烟脚本)开了 set -u, 裸写 ${FFMPEG%/} 在
+    # 用户没设 FFMPEG 时会以"未绑定的变量"当场中止 —— find_ffmpeg 于是静默返回 1,
+    # 调用方的 `find_ffmpeg || command -v ffmpeg` 兜底就把 PATH 上那份能力最少的构
+    # 建选中了(Cygwin 的 7.1.1 无 libx264、Ubuntu 的 4.4.2), 而 gyan 与 /opt 下的
+    # 新构建一次都轮不到。2026-10-03 实测两端同症状, 故改为判空后再处理。
+    if [ -n "${FFMPEG:-}" ]; then FFMPEG="${FFMPEG%/}"; fi
 
     # ---- 阶段一: 显式指定(FFMPEG 指向可执行文件, 最高优先, 不做能力筛选) ----
     if [ -n "${FFMPEG:-}" ]; then
