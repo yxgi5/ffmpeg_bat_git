@@ -36,7 +36,7 @@ python3 test/lint/lint.py --parity-only# 只做对等检查
 python3 test/lint/selftest.py          # 检查检查器自己（38 个用例）
 
 # ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
-bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T29）
+bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T31）
 bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
 bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
 bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
@@ -322,6 +322,7 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T28 | `BITRATE_NO_HALF=1` 跳过「查表值 /2」 | 同一片源的两次 `ffmpeg_libx265` arg 运行 | 第二次 `TARGET_BITRATE` **正好是第一次的 2 倍**（1080p60 夹具：2548951 → 5097902） | ✅ | ✅ |
 | T29 | 配置文件是唯一真源 | `FB_DEFAULTS` 指向一份写着 `EXT=mkv` 的临时配置，命令行**不给**任何覆盖 | 出 `clip-compressed.mkv`、不出 `.mp4`（测试不碰仓库里那份 `lib/defaults.cfg`） | ✅ | ✅ |
 | T30 | 清单 CRLF + UTF-8 BOM（sh 侧 T21 的 bat 孪生） | 3 条目清单，BOM 用 `certutil -decodehex` **现场生成**（`ef bb bf` 拼到清单头） | 3/3 产物 + `rc=0`。修之前 cmd 的 `for /f` 把 BOM 吃进第一条路径，`check_isvideo` 判「不是视频」，整份清单 `rc=3` | ✅ | — |
+| T31 | 干跑 `--dry-run` / `DRY_RUN` | `ffmpeg_libx264` 带 `--dry-run` 跑一次 | `rc=0`，日志里有 `[dry-run]` 提示且打出的命令带输入文件名，**并且不出产物** | ✅ | ✅ |
 
 补充断言（两族都有）：`banner check` —— 任何日志里都不得出现
 `is not recognized`（守卫标记泄漏回归）。

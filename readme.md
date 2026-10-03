@@ -649,7 +649,7 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 
 > **ffmpeg / ffprobe 路径没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径（这是刻意的：路径注入风险 + 它是"定位器"不是"开关"）。
 > 但**其它开关早已参数化**：`lib/common.{sh,bat}` 的 `parse_switches` 已实现，且所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list` 都调用了它——`--key value` / `--key=value` 会把同名大写环境变量（如 `--ext mkv` → `EXT=mkv`；`--ff_on_exist overwrite` → `FF_ON_EXIST=overwrite`；`--venc libx265` → `VENC=libx265`）按"参数 > 环境变量 > defaults.cfg"的优先级设好。白名单（`SWITCH_KEYS`）为：
-> `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
+> `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dry_run` —— 其中 `dry_run` 是**布尔开关、不取值**（写了就是开），见下方「干跑 `--dry-run` / `DRY_RUN`」一节。
 > **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（文件式 `FFMPEG`/`FFPROBE`，`FFMPEG_BIN` 将移除；详见下方「两族契约」与「开关参数化现状」）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。`ffmpeg_hevc_vaapi`/`ffmpeg_h264_vaapi`/`ffmpeg_dvd_hevc`/`repack_from_list` 这 4 个入口已于 2026-10-03 接上 `parse_switches`，不再属于此类。
 
 #### 两族契约（ffmpeg / ffprobe 定位）
@@ -880,12 +880,42 @@ FF_ON_EXIST=overwrite ./ffmpeg_libx265.sh xxx.mp4
 `:on_exist` / `ff_run` 中），所以「长期固定」要么写进 `lib/defaults.cfg`，要么在命令行用
 `--ff_on_exist overwrite`（参数式入口见上方说明）。
 
+### 干跑 `--dry-run` / `DRY_RUN`（只看命令，一个字节都不转，2026-10-04）
+
+想知道「这条入口到底会跑出一条什么样的 ffmpeg 命令」而不真转：所有 `ffmpeg_*` 入口（两族同名同义）都认这个布尔开关。它**不取值**，`--dry-run` 后面可以直接跟文件名（`--dry-run=1` / `--dry_run` 同样认，`--dry-run=0` 是关）：
+
+```
+rem Windows cmd
+ffmpeg_libx264.bat --dry-run "D:\video\xxx.mp4"
+set "DRY_RUN=1" && ffmpeg_libx264.bat "D:\video\xxx.mp4"
+
+# Linux / Cygwin / MSYS2
+./ffmpeg_libx264.sh --dry-run xxx.mp4
+DRY_RUN=1 ./ffmpeg_libx264.sh xxx.mp4
+```
+
+提示走 stderr，stdout 上只有那条纯命令，可以直接复制粘贴或接管道：
+
+```
+[dry-run] 未执行, 仅打印命令:
+/opt/ffmpeg/.../bin/ffmpeg -hide_banner -threads 0 -v verbose -hwaccel auto -i xxx.mp4 -r 30 -c:v:0 libx264 ... -n xxx-compressed.mp4
+```
+
+几点：
+
+- **只拦 ffmpeg 本体**：`ffprobe` 探测照跑 —— 不探测就没有分辨率 / 码率，命令行还没拼出来脚本先散了。所以干跑仍会读源文件（只读，不写产物）。
+- 多 title 的入口（`ffmpeg_dvd_hevc`）每条 title 各打一条，先看全再决定跑不跑。
+- 清单驱动（`convert_from_list_*` / `repack_from_list`）同样认：开关在它自己的 `parse_switches` 里设好后由环境变量透传给每条被调起的入口，只看命令不动手。
+- 实现落在 `lib/common.sh` 的 `ff_run`（所有入口共用同一个出口）与 `lib/common.bat` 的 `:dry_run`，入口脚本本身只是调用一下，不各写一遍。
+
 ### 开关参数化现状（2026-10-03 调查）
 
 `parse_switches` 已在两族实现（`lib/common.sh` 的 `SWITCH_KEYS` + `lib/common.bat` 的 `:parse_switches` / `:ps_set`），把所有"开关"统一成 `--key value` / `--key=value` 的命令行参数，并转成同名大写环境变量；优先级为 **参数 > 环境变量 > defaults.cfg**（没给的回退 env / cfg，老的 `set EXT=mkv` 写法仍兼容）。位置参数（文件名 / 清单路径）会被挑出来交还给脚本。
 
 **白名单**（`SWITCH_KEYS` 与 `:ps_set` 两族逐字一致，lint 会比对）：
-`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc`。
+`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dry_run`。
+
+**布尔开关（不取值，写了就是开）**：`dry_run`（在 `SWITCH_FLAGS` / `:parse_switches` 里单独处理 —— 其余开关按 `--key value` 取下一个参数当值，会把紧跟其后的文件名吃掉）。
 
 **已接上 `parse_switches` 的入口**：所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list`（2026-10-03 补齐了此前漏接的 `ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口）。
 

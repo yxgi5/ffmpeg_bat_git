@@ -271,6 +271,9 @@ IF not defined PARSE_POS (
 
 echo RUN_COM4:%RUN_COM%
 echo.
+rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
+call "%SELF_DIR%lib\common.bat" dry_run
+if defined DRY_HIT exit /b 0
 %RUN_COM%
 rem 负退出码陷阱 (2026-09-17 实测根因): Windows 版 ffmpeg 失败时常常
 rem 返回「负」的 AVERROR 值 —— 本机 av1_qsv 拿不到编码器时 ffmpeg.exe

@@ -568,6 +568,9 @@ echo ------------------------------------------------------------
 echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
 set RUN_COM="%FF%" -y -hide_banner -v error -stats %IN_DEMUX% %CHOP% -i "%IN_FILE%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
+rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
+call "%SELF_DIR%lib\common.bat" dry_run
+if defined DRY_HIT exit /b 0
 %RUN_COM%
 rem 负退出码陷阱: Windows ffmpeg 失败时返回负的 AVERROR 值, 而 cmd 的
 rem `if errorlevel N` 是带符号比较, 负值 >= 1 不成立 -> 守卫不触发,
@@ -594,6 +597,9 @@ rem 同上: 附加 title 的音轨同样可能与正片不同
 call :ENC_AENC %T%
 echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
 set RUN_COM="%FF%" -y -hide_banner -v error -stats %IN_DEMUX% -i "%IN_FILE%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
+rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
+call "%SELF_DIR%lib\common.bat" dry_run
+if defined DRY_HIT exit /b 0
 %RUN_COM%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
