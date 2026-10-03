@@ -21,6 +21,7 @@ tools/dvd_restore.sh      解压出来的 VIDEO_TS 反向还原成可刻录的 D
 tools/dvd_repair.sh       补齐解压盘里缺失的 IFO / BUP(缺哪个都行, 整组丢了就用 dvdauthor 重建)
 tools/dvd_make_sample.sh  用本机 ffmpeg 合成 DVD 合规的 MPEG-2 PS, 做成一张已知参数的测试盘
 tools/dvd_shrink.sh       重编码成低码率 MPEG-2, 压进 DVD-5 / DVD-9 目标容量(仍是家用机可播的 DVD-Video)
+tools/bd_make_sample.sh   合成一张"迷你 BD"(BDMV 骨架 + 几条真 m2ts)并打成 ISO, 给蓝光链路当回归夹具
 tools/dvd_to_data_iso.sh  DVD 先压成 HEVC(复用 ffmpeg_dvd_hevc)再打成 UDF 数据盘(不在乎 DVD 机, 只在乎体积)
 opencmd.bat                打开一个 UTF-8(cp65001) 的新 cmd 窗口 (Windows 辅助)
 archive/bitrate_calc.xlsx 码率曲线拟合原始表 (早期存档, 历史溯源用)
@@ -269,6 +270,10 @@ ffmpeg_dvd_hevc.bat "E:\"                         :: 已挂载的蓝光盘(BDMV 
   写 trailer 就失败），不会留半个坏文件。
 - **`SPLIT_CHAPTER` 无效**：章节写在 `mpls` 里，直读 m2ts 拿不到，会被忽略并打印一行说明。
 - **产物命名**：`MODE=ALL` 时用流文件名（`<PREFIX>_00005.mkv`），比纯序号好认哪条是正片。
+
+回归不用每次都挂那张 19 GB 的真盘：`./tools/bd_make_sample.sh` 会合成一张"迷你 BD"
+（3 条带视频的 m2ts + 1 条只有音轨的碎片，第 1 条最长当正片，音轨默认 LPCM），
+目录或 ISO 都行 —— 上面每条口径它都替你造好了对应素材。
 
 ### 参数说明
 

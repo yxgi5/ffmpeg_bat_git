@@ -668,7 +668,10 @@ if [ "$MODE" = "ALL" ]; then
             N_TITLE=$(( N_TITLE + 1 ))
             # BD 用流文件名当产物名(00005.m2ts -> _00005): 比纯序号好认哪条是正片
             if [ "$SRC_KIND" = "bd" ]; then
-                enc "$n" "${PREFIX}_${BD_FILES[$(( n - 1 ))]%.m2ts}" || RC=1
+                # %.* 而不是 %.m2ts: 实测真盘两种都有(BD-M28 是小写 .m2ts,
+                # 规范与 tools/bd_make_sample.sh 出的夹具是大写 .M2TS), 写死小写
+                # 时产物名会带着 .M2TS 后缀出去
+                enc "$n" "${PREFIX}_${BD_FILES[$(( n - 1 ))]%.*}" || RC=1
             else
                 enc "$n" "${PREFIX}_title${n}" || RC=1
             fi
