@@ -41,6 +41,12 @@ exit /b %errorlevel%
 
 :main
 setlocal EnableExtensions
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+rem 本脚本不设 REPO(它按 PATH 上的 ffmpeg 工作), 直接按自身位置推仓库根。
+rem 位置必须在把 %1 当输入文件之前, 否则 -h 会被当成视频路径。
+call "%~dp0..\..\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%~dp0..\..\lib\common.bat" usage "nvenc_pair_calib.bat  -  NVENC 等质量配对标定（AV1 对 HEVC）" "用法: test\bat\nvenc_pair_calib.bat 源文件    也可直接把文件拖到本 bat 上" "同一素材在几档码率上比 VMAF, 输出该机 NVENC 的推荐码率比; 需要带 libvmaf 的 ffmpeg 与 Ada 及更新的 NVIDIA 显卡"
+if defined FB_WANT_HELP exit /b 0
 set "SRC=%~1"
 if not defined SRC (
     echo Drag a video file onto this bat, or enter its full path:

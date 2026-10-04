@@ -25,6 +25,12 @@ rem ============================================================
 setlocal EnableExtensions
 set "SELF=%~dp0"
 
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+rem 本脚本没有 REPO 变量, 直接按自身位置推仓库根(%~dp0..\..)。
+call "%~dp0..\..\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%~dp0..\..\lib\common.bat" usage "smoke_all.bat  -  一条命令跑完 bat 族各层冒烟" "用法: test\bat\smoke_all.bat" "依次跑: 回归套件 → 元字符矩阵 → DVD 工具链; 任一层失败整体返回 1"
+if defined FB_WANT_HELP exit /b 0
+
 echo ============================================================
 echo  combined smoke: regression suite + special character matrix
 echo ============================================================

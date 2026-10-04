@@ -52,6 +52,11 @@ set "REPO=%~dp0..\.."
 for %%I in ("%REPO%") do set "REPO=%%~fI"
 if not exist "%REPO%\lib\common.bat" goto NO_REPO
 
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+call "%REPO%\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "soft_pair_calib.bat  -  软编等质量配对标定（SVT-AV1 p8 对 libx265 fast）" "用法: test\bat\soft_pair_calib.bat [full 或 1080 或 probe]" "full（默认，720p + 1080p + 2160p 一起标）/ 1080（只跑 1080p）/ probe（只查工具链）；也可直接把文件拖到本 bat 上"
+if defined FB_WANT_HELP exit /b 0
+
 rem ---- mode: full (default) | 1080 | probe (also /probe, --probe) ----
 set "MODE=%~1"
 if not defined MODE set "MODE=full"

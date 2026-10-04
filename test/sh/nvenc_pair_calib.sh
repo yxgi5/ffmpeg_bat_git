@@ -42,6 +42,12 @@ if [ -r "$SELF_DIR/../../lib/common.sh" ]; then
     # shellcheck source=../../lib/common.sh
     . "$SELF_DIR/../../lib/common.sh"
 fi
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+# 放在这段 if 之后: common.sh 是条件加载的, 守卫必须排在它后面(没加载时静默跳过)。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "nvenc_pair_calib.sh  -  NVENC 等质量配对标定" \
+    "用法: bash test/sh/nvenc_pair_calib.sh 源文件" \
+    "同一素材在几档码率上比 VMAF, 输出该机 NVENC 的推荐档位" || :
 if declare -F find_ffmpeg >/dev/null 2>&1; then
     FF="$(find_ffmpeg --need-filter libvmaf)" || {
         echo "ERROR: no ffmpeg with the libvmaf filter was found."

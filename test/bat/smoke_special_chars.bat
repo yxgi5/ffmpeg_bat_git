@@ -39,6 +39,10 @@ set "SELF=%~dp0"
 rem repo root = two levels up from this file (<repo>\test\bat\); %1 may override
 set "REPO=%~1"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+call "%REPO%\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_special_chars.bat  -  特殊字符 / 元字符路径冒烟" "用法: test\bat\smoke_special_chars.bat [仓库路径]" "覆盖: 文件名带元字符（and / 圆括号 / 感叹号 / 百分号 等）、清单驱动、无参 stdin 模式与构造微测（part Z）"
+if defined FB_WANT_HELP exit /b 0
 set "WORK=%TEMP%\ffmpeg_bat_chars"
 set "CDIR=%WORK%\chars"
 set "LDIR=%SELF%chars_logs"

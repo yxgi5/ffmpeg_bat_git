@@ -70,6 +70,12 @@ if [ -r "$SELF_DIR/../../lib/common.sh" ]; then
     # shellcheck source=../../lib/common.sh
     . "$SELF_DIR/../../lib/common.sh"
 fi
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+# 放在这段 if 之后: common.sh 是条件加载的, 守卫必须排在它后面(没加载时静默跳过)。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "soft_pair_calib.sh  -  软编等质量配对标定（SVT-AV1 p8 对 libx265 fast）" \
+    "用法: bash test/sh/soft_pair_calib.sh [full 或 1080 或 probe]" \
+    "full（默认，720p + 1080p + 2160p 一起标）/ 1080（只跑 1080p，轻量交叉核对）/ probe（只查工具链）" || :
 if declare -F find_ffmpeg >/dev/null 2>&1; then
     FF="$(find_ffmpeg --need-filter libvmaf --need-encoder libsvtav1 --need-encoder libx265)" || {
         echo "FATAL: no ffmpeg with libvmaf + libsvtav1 + libx265 was found"

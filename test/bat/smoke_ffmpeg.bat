@@ -92,6 +92,10 @@ rem ============================================================
 setlocal EnableExtensions
 set "REPO=%~1"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+call "%REPO%\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat 族回归冒烟（T1-T31）" "用法: test\bat\smoke_ffmpeg.bat [仓库路径] [LIST]" "第二个参数写 LIST 时只跑清单段（T9 / T11 / T12 / T23 / T30）"
+if defined FB_WANT_HELP exit /b 0
 set "ONLY=%~2"
 if /I not "%ONLY%"=="LIST" set "ONLY="
 if not exist "%REPO%\ffmpeg_avc_qsv.bat" goto NO_REPO

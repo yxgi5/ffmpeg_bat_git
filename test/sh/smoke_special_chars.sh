@@ -67,6 +67,11 @@ fi
 # 与被测脚本同口径定位(2026-09-30): 套件造素材/报版本用的那份, 必须和脚本真跑
 # 编码的那份一致 —— 否则日志会出现"套件报 4.4.2、脚本其实在跑 /opt 下新构建"
 . "$REPO/lib/common.sh" >/dev/null 2>&1
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "smoke_special_chars.sh  -  特殊字符 / 元字符路径冒烟" \
+    "用法: bash test/sh/smoke_special_chars.sh" \
+    "覆盖: 文件名带 & ( ) ! % ^ 等元字符、清单驱动、无参 stdin 模式与构造微测（part Z）" || :
 FF="$(find_ffmpeg 2>/dev/null || command -v ffmpeg || true)"
 FP="$(find_ffprobe "$FF" 2>/dev/null || command -v ffprobe || true)"
 if [ -z "$FF" ] || [ -z "$FP" ]; then

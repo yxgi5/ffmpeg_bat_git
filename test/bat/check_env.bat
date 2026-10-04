@@ -67,6 +67,10 @@ set "REPO="
 set "DOPROBE="
 for %%a in (%*) do call :onearg "%%~a"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+call "%REPO%\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "check_env.bat  -  环境与工具链体检" "用法: test\bat\check_env.bat [仓库路径]" "不带参数体检当前机器; 给了仓库路径则按该仓库的入口逐项检查"
+if defined FB_WANT_HELP exit /b 0
 if not exist "%REPO%\ffmpeg_avc_qsv.bat" goto NO_REPO
 
 set "WORK=%TEMP%\ffmpeg_bat_check_env"

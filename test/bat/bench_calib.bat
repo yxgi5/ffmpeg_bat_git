@@ -47,6 +47,11 @@ set "REPO=%~dp0..\.."
 for %%I in ("%REPO%") do set "REPO=%%~fI"
 if not exist "%REPO%\lib\common.bat" goto NO_REPO
 
+rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
+call "%REPO%\lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "bench_calib.bat  -  硬件编码等质量档位标定" "用法: test\bat\bench_calib.bat 源文件1 源文件2" "与 sh 孪生同口径: 同一素材在若干码率档上比 VMAF，输出该机该入口的推荐档位"
+if defined FB_WANT_HELP exit /b 0
+
 set "CODEC=hevc"
 set "A1=%~1"
 set "A2=%~2"

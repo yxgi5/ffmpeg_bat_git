@@ -57,6 +57,13 @@ if [ -f "$REPO/lib/common.sh" ]; then
     _fp="$(find_ffprobe "$FF" 2>/dev/null)"; [ -n "${_fp:-}" ] && FP="$_fp"
 fi
 
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+# 放在这段 if 之后: common.sh 只在 if 里被 source, 守卫必须排在它后面。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "smoke_dvd_tools.sh  -  tools/ 那几个 DVD 脚本的端到端冒烟" \
+    "用法: bash test/sh/smoke_dvd_tools.sh [仓库路径]" \
+    "造一张已知规格的样例盘, 走体检门 -> 修复 -> restore / shrink / data_iso 出盘, 并断言断号盘一定被体检门拦下; 需要 dvdauthor + genisoimage, 缺工具链时整段 SKIP" || :
+
 # ---------- setup guards ----------
 if [ ! -f "$REPO/lib/common.sh" ]; then
     echo "FATAL: repo not found at $REPO (expected $REPO/lib/common.sh)" >&2

@@ -40,6 +40,11 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${REPO:-$(cd "$SELF_DIR/../.." && pwd)}"
 # shellcheck source=../../lib/common.sh
 . "$REPO/lib/common.sh"
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "bench_calib.sh  -  硬件编码等质量档位标定" \
+    "用法: bash test/sh/bench_calib.sh 源文件1 源文件2" \
+    "与 .bat 孪生同口径: 同一素材在若干码率档上比 VMAF，输出该机该入口的推荐档位" || :
 
 # --- 参数 ---------------------------------------------------------------
 # 反引号或 $( ) 形式的命令替换写在引号外面时, shell 会把它打印的整条路径按空格切开,

@@ -60,6 +60,11 @@ fi
 # 套件自己造素材、报版本用的这份 ffmpeg, 必须和脚本真跑编码的那份是同一份 ——
 # 否则会出现"套件报 4.4.2、脚本其实在跑 /opt 下的新构建"这种自相矛盾的日志
 . "$REPO/lib/common.sh" >/dev/null 2>&1
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "smoke_ffmpeg.sh  -  sh 族回归冒烟（T1-T31）" \
+    "用法: bash test/sh/smoke_ffmpeg.sh [part]" \
+    "part: all（默认，整套）/ parity（只跑与 bat 同编号的那批）/ list（只跑清单段）/ guard（只跑参数与退出码段）" || :
 FF="$(find_ffmpeg 2>/dev/null || command -v ffmpeg || true)"
 FP="$(find_ffprobe "$FF" 2>/dev/null || command -v ffprobe || true)"
 if [ -z "$FF" ] || [ -z "$FP" ]; then

@@ -42,6 +42,17 @@ set -u
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式。common.sh 是条件加载的
+# (这套脚本本来可以脱离仓库单跑), 所以加载失败时守卫静默跳过, 下面的兄弟文件
+# 检查照旧报错。
+if [ -r "$SELF_DIR/../../lib/common.sh" ]; then
+    . "$SELF_DIR/../../lib/common.sh"
+fi
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "smoke_all.sh  -  一条命令跑完 sh 族各层冒烟" \
+    "用法: bash test/sh/smoke_all.sh" \
+    "依次跑: 回归套件 → 元字符矩阵 → DVD 工具链; 任一层失败整体返回 1, 启动不了返回 2" || :
+
 R1=""; R2=""; R3=""
 if [ ! -f "$SELF_DIR/smoke_ffmpeg.sh" ]; then
     echo "[FATAL] smoke_ffmpeg.sh not found next to this file" >&2

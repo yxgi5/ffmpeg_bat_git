@@ -79,6 +79,11 @@ if [ ! -f "$REPO/lib/common.sh" ]; then
     exit 2
 fi
 . "$REPO/lib/common.sh"
+# 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "check_env.sh  -  环境与工具链体检" \
+    "用法: bash test/sh/check_env.sh [仓库路径]" \
+    "不带参数体检当前机器；给了仓库路径则按该仓库的入口逐项检查" || :
 
 # 定位过程里的 "跳过谁/为什么" 走 stderr, 这里丢掉: 下面 report header 自己会
 # 打出最终选定的那个, 混在一起反而盖过报告。

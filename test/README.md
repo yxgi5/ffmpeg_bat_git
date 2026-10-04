@@ -40,6 +40,8 @@ bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T31）
 bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
 bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
 bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
+# 上面每个套件、以及 test/ 下所有脚本都认 --help / -help / -h：打印用法后退出 0，不跑任何用例。
+# 两族（.sh / .bat）打印同一套版式，差别只有脚本名与各自确实不同的用法（比如 bat 能拖文件）。
 bash test/sh/smoke_dvd_tools.sh        # tools/ 五个 DVD 脚本端到端（需 dvdauthor + genisoimage）
 
 # ③ 环境能力报告

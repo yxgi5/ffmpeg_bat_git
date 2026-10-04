@@ -24,6 +24,11 @@ OUTDIR=${OUTDIR:-.}
 #   按"必须带 libx264 与 libx265"筛, 才会落到机器上那份完整构建上。
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/../lib/common.sh"
+# 统一 --help / -help / -h: 打印用法后退出(见 lib/common.sh 的 ff_help_guard)
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "make_fixtures.sh  -  生成冒烟夹具（1080p / mov / 静音 / 低码率 / 纯音频）" \
+    "用法: bash test/make_fixtures.sh [输出目录]" \
+    "不带参数时写到默认临时目录；夹具供 test/sh 与 test/bat 两套冒烟共用" || :
 
 if [ -n "${FFMPEG:-}" ]; then
     :
