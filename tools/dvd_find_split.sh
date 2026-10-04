@@ -37,6 +37,11 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 [ -f "${REPO_ROOT}/lib/common.sh" ] && source "${REPO_ROOT}/lib/common.sh"
 
+# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard), 位置在下面的参数个数
+# 检查之前 —— 否则 -h 会被当成"目标秒", 报出一个和帮助无关的错。
+# 本脚本一个开关都没有, 所以不接 parse_switches: 那会顺带认到公共 SWITCH_KEYS。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+
 [ $# -ge 2 ] || { awk 'NR>=3 && /^# =+$/ { exit } NR>=3 { sub(/^# ?/, ""); print }' "$0"; exit 1; }
 
 TARGET="$1"; shift

@@ -31,6 +31,12 @@ rem   下面取它们取代 %~1 / %~2 / %~3
 call "%SELF_DIR%lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
+rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
+rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
+call "%SELF_DIR%lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_dvd_hevc.bat  -  DVD/BD 转 HEVC（多 title，独立流程）" "用法: ffmpeg_dvd_hevc.bat DVD源 输出目录 title号    输出目录与 title 号都可省" "专属开关:" "  --mode ALL,AUTO,TITLE        处理哪些 title（DVD 源默认 ALL，BD 源默认 AUTO）" "  --dvd_title N               只处理第 N 条 title" "  --venc libx265,hevc_nvenc,hevc_qsv,libsvtav1    HEVC 编码器（默认 auto 依次探测）"
+if defined FB_WANT_HELP exit /b 0
+
 rem =========================================================================
 rem  ffmpeg_dvd_hevc.bat  -  DVD-Video(ISO / VIDEO_TS 目录 / 光驱) -> HEVC
 rem

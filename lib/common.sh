@@ -1265,6 +1265,12 @@ SWITCH_KEYS=(ext bitrate_no_half ff_on_exist ff_hwaccel dvd_ext \
 # 输入文件)。两族同名同义, 见 lib/common.bat 的 :parse_switches。
 SWITCH_FLAGS=(dry_run)
 
+# 脚本自带的开关键表(默认空 = 用上面的公共 SWITCH_KEYS)。
+#   tools/* 用它声明"本脚本自己的开关": 那批键有近百个, 且与入口同名不同义
+#   (VENC / MODE / AUDIO / FORMAT ...), 一旦混进公共表就会被 convert_from_list_*
+#   的 FWD 转发塞给编码入口。见 TODO.md 阶段 2 的风险 5。
+PS_KEYS=()
+
 function _switch_env() {
     # 小写 key -> 大写 env 名(键都是 [a-z_], tr 足够)
     printf '%s' "$1" | tr '[:lower:]' '[:upper:]'
@@ -1281,15 +1287,40 @@ function _switch_is_flag() {
 
 function parse_switches() {
     PS_REST=()
+    # 键表: 调用方用 PS_KEYS 声明过就用它的(tools/*), 否则用公共 SWITCH_KEYS。
+    # PS_KEYS 在本文件里已初始化为空数组, 这里可以放心取 ${#PS_KEYS[@]}(set -u 下
+    # 也不会因未绑定而中止 —— 那正是 find_ffmpeg 曾经踩过的坑)。
+    local -a KEYS=()
+    if [ ${#PS_KEYS[@]} -gt 0 ]; then
+        KEYS=("${PS_KEYS[@]}")
+    else
+        KEYS=("${SWITCH_KEYS[@]}")
+    fi
     while [ $# -gt 0 ]; do
         case "$1" in
             --?*)
-                local raw="${1#--}" key val
+                local raw="${1#--}" key val=""
                 if [[ "$raw" == *=* ]]; then
                     val="${raw#*=}"; key="${raw%%=*}"
                 else
                     key="$raw"
-                    if _switch_is_flag "$raw"; then
+                fi
+                # 连字符归一: env 名里不能有 -, --dry-run 与 --dry_run 都收
+                key="${key//-/_}"
+                local lkey="${key,,}" known=0 k
+                for k in "${KEYS[@]}"; do
+                    if [ "$k" = "$lkey" ]; then known=1; break; fi
+                done
+                # 先判"是不是已知开关", 再决定要不要吃掉下一个参数: 未知的(--help
+                # 之类)整条原样交还脚本, 否则它后面的文件名会被当成开关的值吞掉
+                # (老实现就吞 —— tools/scene_detect.sh 的 --help 会因此失效)
+                if [ "$known" = 0 ]; then
+                    PS_REST+=("$1")
+                    shift
+                    continue
+                fi
+                if [ -z "$val" ]; then
+                    if _switch_is_flag "$key"; then
                         # 布尔开关默认不取值(后面紧跟的通常是文件名); 但透传层可能
                         # 转发成 "--dry_run 1" 这种带值形式, 那时把那个布尔字面量
                         # 吃掉, 免得它漏成第二个位置参数("More than one parameter")
@@ -1302,18 +1333,8 @@ function parse_switches() {
                         val="${2:-}"; shift
                     fi
                 fi
-                # 连字符归一: env 名里不能有 -, --dry-run 与 --dry_run 都收
-                key="${key//-/_}"
                 key="$(_switch_env "$key")"
-                local known=0 k
-                for k in "${SWITCH_KEYS[@]}"; do
-                    if [ "$k" = "${key,,}" ]; then known=1; break; fi
-                done
-                if [ "$known" = 1 ]; then
-                    export -- "$key=$val"
-                else
-                    PS_REST+=("$1")
-                fi
+                export -- "$key=$val"
                 ;;
             *)
                 PS_REST+=("$1")
@@ -1321,4 +1342,37 @@ function parse_switches() {
         esac
         shift
     done
+}
+
+# ================================================================
+# 统一的 --help / -help / -h
+#   用法: ff_help_guard "$0" "$@"  —— 放在脚本刚 parse_switches 完的位置, 必须早于
+#         任何"把 $1 当文件用"的代码。命中就打印本脚本头部那段用法注释, 退出 0。
+#   为什么统一: 这些脚本的用法都写在文件头注释里(各自的 usage() 就是用 awk 把它
+#         打出来), 参数式开关接上之后, "帮助长什么样、认哪几个写法" 不该每个脚本
+#         各猜一次; 另外 -h 若被当成文件名去开, 会报"文件不存在", 看着像工具坏了。
+#   只认精确相等的三个 token(不做前缀匹配): 免得把 --filt -h 这类**值**误判成求助。
+#   脚本自己的 usage() 全部保留(内部 die / 参数缺失时还在用), 这里只是入口。
+# ================================================================
+function ff_print_usage() {
+    # 从第 2 行(标题行)开始, 打到哪儿为止:
+    #   - `# ===` 包裹标记: 跳过(tools/* 的头部第一行就是它, 打印出来只是噪声)
+    #   - 第一个非注释行(含空行): 停 —— 入口脚本的头部没有包裹标记, 只靠这条收尾
+    # 从第 3 行起会丢掉入口脚本的标题行(它们的标题在第 2 行, tools 的在第 3 行)。
+    awk 'NR>=2 && !/^#/ { exit } NR>=2 && /^# =+$/ { next } NR>=2 { sub(/^# ?/, ""); print }' "$1"
+}
+
+function ff_help_guard() {
+    local script="$1"; shift
+    local a
+    for a in "$@"; do
+        case "$a" in
+            --help|-help|-h) ff_print_usage "$script"; exit 0 ;;
+        esac
+    done
+    # 没命中也返回 0, 且调用点写成 `declare -F ff_help_guard ... && ff_help_guard ... || :`:
+    # tools 里不少脚本开了 set -e, 守卫若以非 0 结束(无论是"没命中"还是"common.sh
+    # 缺失、函数不存在"), 整条 && 链都会是非 0, 脚本当场被当成失败静默退掉
+    # (实测: 加了守卫之后 dvd_aud_gap.sh 连用法都不打就退出)。调用方不需要用返回值。
+    return 0
 }

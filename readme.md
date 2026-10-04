@@ -650,7 +650,7 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 > **ffmpeg / ffprobe 路径没有"参数式"接口**：脚本不支持 `--ffmpeg=PATH` 这种命令行参数来指定 ffmpeg 路径（这是刻意的：路径注入风险 + 它是"定位器"不是"开关"）。
 > 但**其它开关早已参数化**：`lib/common.{sh,bat}` 的 `parse_switches` 已实现，且所有编码入口、`convert_from_list_*`、`ffmpeg_dvd_hevc`、`repack_from_list` 都调用了它——`--key value` / `--key=value` 会把同名大写环境变量（如 `--ext mkv` → `EXT=mkv`；`--ff_on_exist overwrite` → `FF_ON_EXIST=overwrite`；`--venc libx265` → `VENC=libx265`）按"参数 > 环境变量 > defaults.cfg"的优先级设好。白名单（`SWITCH_KEYS`）为：
 > `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dry_run` —— 其中 `dry_run` 是**布尔开关、不取值**（写了就是开），见下方「干跑 `--dry-run` / `DRY_RUN`」一节。
-> **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（文件式 `FFMPEG`/`FFPROBE`，`FFMPEG_BIN` 将移除；详见下方「两族契约」与「开关参数化现状」）；② 配置指针 `FB_DEFAULTS`；③ `tools/` 下 dvd_* 系列脚本的全部开关（它们不调用 `parse_switches`）。`ffmpeg_hevc_vaapi`/`ffmpeg_h264_vaapi`/`ffmpeg_dvd_hevc`/`repack_from_list` 这 4 个入口已于 2026-10-03 接上 `parse_switches`，不再属于此类。
+> **仍只有环境变量、没有 `--key` 入口**的：① ffmpeg / ffprobe 定位（文件式 `FFMPEG`/`FFPROBE`，`FFMPEG_BIN` 将移除；详见下方「两族契约」与「开关参数化现状」）；② 配置指针 `FB_DEFAULTS`。（③ `tools/` 系列已于 2026-10-04 接上 `parse_switches`，见下方「开关参数化现状」。）`ffmpeg_hevc_vaapi`/`ffmpeg_h264_vaapi`/`ffmpeg_dvd_hevc`/`repack_from_list` 这 4 个入口已于 2026-10-03 接上 `parse_switches`，不再属于此类。
 
 #### 两族契约（ffmpeg / ffprobe 定位）
 
@@ -922,7 +922,10 @@ DRY_RUN=1 ./ffmpeg_libx264.sh xxx.mp4
 **没有 `--key` 入口、只能靠环境变量设置的**（即本仓库目前**仍只有环境变量、无参数传递**的开关/设置）：
 - ffmpeg / ffprobe 定位（**有意不参数化**：路径注入风险 + 它是"定位器"不是"开关"）：按 2026-10-03 决策，两族统一为**文件式** `FFMPEG`（ffmpeg 可执行文件）/ `FFPROBE`（ffprobe 可执行文件），目录式 `FFMPEG_BIN` 将移除，`FFPROBE` 默认跟 `FFMPEG` 同目录。当前 `.sh` 侧已支持 `FFMPEG`/`FFPROBE`；`.bat` 侧暂仅认 `FFMPEG_BIN`、文件式覆盖待实现（见「两族契约」）。无论哪族，这几个变量**只有环境变量接口、没有 `--key` 入口**。
 - 配置指针：`FB_DEFAULTS`（指向另一份 `defaults.cfg`）。
-- `tools/` 系列（`dvd_make_sample` / `dvd_restore` / `dvd_repair` / `dvd_shrink` / `dvd_to_data_iso` 等）的全部开关：这些脚本不调用 `parse_switches`，只能用环境变量传（见各脚本头注释）。
+- ~~`tools/` 系列的全部开关~~ —— **已于 2026-10-04 接上参数式**：`tools/` 下 9 个脚本（`bd_make_sample` / `dvd_aud_gap` / `dvd_make_sample` / `dvd_menu_build` / `dvd_repair` / `dvd_restore` / `dvd_shrink` / `dvd_to_data_iso` / `scene_detect`）都调用了 `parse_switches`，`--key value` / `--key=value` 与环境变量等价（后者照旧有效）。**键表是各脚本自己的 `PS_KEYS`**，不进公共 `SWITCH_KEYS`：那批键近百个，且与入口同名不同义（`VENC` / `MODE` / `AUDIO` / `FORMAT` …），混进公共表会被 `convert_from_list_*` 的转发塞给编码入口。每个脚本认哪些键，见它自己的 `PS_KEYS=(...)` 一行。`dvd_find_split.sh` 没有任何开关，未接入。
+- 注：不在键表里的 `--xxx` 一律**原样交还**给脚本当位置参数（`--help` 因此不会被吃掉）。
+- **统一帮助**：`tools/` 全部 10 个脚本都认 `--help` / `-help` / `-h`，打印文件头那段用法后退出 0（`lib/common.sh` 的 `ff_help_guard`，各脚本在参数解析后调用一次）。`-h` 不再被当成文件名去开 —— 那会报「文件不存在」，看着像工具坏了。
+- **入口脚本同样统一**：根目录 28 个入口（`ffmpeg_*` 两族 + `convert_from_list_*` + `repack_from_list`）也都认这三个写法。sh 侧打印各脚本文件头那段用法注释（`ff_print_usage`）；bat 侧走 `lib\common.bat` 的 `:want_help` + `:usage` —— 各入口只传自己的标题 / 用法 / 专属开关（`dvd_hevc` 的 `--mode` / `--dvd_title` / `--venc` 那一组），**通用开关表只在 `:usage` 里维护一处**。用 `-h` 看用法不再需要先读源码。
 
 > 注：`ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口此前也未接 `parse_switches`，其开关（`EXT`/`MODE`/`VENC` 等）当时同样"只认环境变量"；已于 2026-10-03 补齐 `parse_switches`，现已有 `--key` 入口，故不再属于本表。
 

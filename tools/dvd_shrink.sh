@@ -58,6 +58,18 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 [ -f "${REPO_ROOT}/lib/common.sh" ] && source "${REPO_ROOT}/lib/common.sh"
 
+# ---------- 开关参数化 (2026-10-04) ----------
+# --key value / --key=value -> 同名大写环境变量; 环境变量写法照旧有效(参数 > 环境变量)。
+# 键表只认本脚本这几个(PS_KEYS), 不进公共 SWITCH_KEYS(见 lib/common.sh 的 PS_KEYS 注释)。
+# 注意: 第 3 个位置参数仍然等价于 --dvd_title 并顺带切到 MODE=TITLE(老行为不变)。
+PS_KEYS=(mode target_mb vbitrate abitrate audio subs vfilt_extra keep_work \
+         check allow_gap dvd_title)
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
+# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 命中就打印本脚本头部
+# 那段用法并退 0。common.sh 缺失时安静跳过, 由下面的 declare -F 守卫报真正的问题。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+
 TAG="[dvd_shrink]"
 info()  { printf '%s %s\n' "$TAG" "$*"; }
 warn()  { printf '\033[33m%s 警告: %s\033[0m\n' "$TAG" "$*" >&2; }

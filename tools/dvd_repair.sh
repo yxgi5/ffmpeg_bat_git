@@ -114,6 +114,18 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 [ -f "${REPO_ROOT}/lib/common.sh" ] && source "${REPO_ROOT}/lib/common.sh"
 
+# ---------- 开关参数化 (2026-10-04) ----------
+# --key value / --key=value -> 同名大写环境变量; 环境变量写法照旧有效(参数 > 环境变量)。
+# 键表只认本脚本这几个(PS_KEYS), 不进公共 SWITCH_KEYS(见 lib/common.sh 的 PS_KEYS 注释)。
+# APPLY / CHECK_ONLY 这类"要不要动手"的开关: 参数形式写成 --apply 1。
+PS_KEYS=(check_only apply keepmenu chapters scene_th min_gap max_ch format force \
+         keepvmg regenvmg move_orphan_vmg keep_work)
+parse_switches "$@"
+set -- ${PS_REST[@]+"${PS_REST[@]}"}
+# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 命中就打印本脚本头部
+# 那段用法并退 0。common.sh 缺失时安静跳过, 由下面的 declare -F 守卫报真正的问题。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+
 TAG="[dvd_repair]"
 info()  { printf '%s %s\n' "$TAG" "$*"; }
 warn()  { printf '\033[33m%s 警告: %s\033[0m\n' "$TAG" "$*" >&2; }

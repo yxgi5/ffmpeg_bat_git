@@ -33,6 +33,12 @@ rem   清单路径取第一个非 -- 参数(PARSE_POS), 否则默认 list.txt
 call "%~dp0lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
+rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
+rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
+call "%~dp0lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%~dp0lib\common.bat" usage "convert_from_list_qsv.bat  -  按清单逐条调用 hevc_qsv 入口" "用法: convert_from_list_qsv.bat 清单文件    不带参数默认 list.txt" "清单每行一个视频路径；开关以环境变量或参数原样透传给下游入口"
+if defined FB_WANT_HELP exit /b 0
+
 SET "SRC_FILE="
 
 if defined PARSE_POS (
