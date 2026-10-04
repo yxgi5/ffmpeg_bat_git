@@ -13,9 +13,13 @@ source "${SCRIPT_DIR}/lib/common.sh"
 #   其余位置参数(文件名)交还给 $@, 下方 check_param_number 照常处理
 parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
-# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 打印本脚本头部那段用法
-# 后退出 0, 不干活。位置必须早于任何"把 $1 当文件用"的代码。
-declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+# 统一 --help / -help / -h: 与 .bat 孪生打印**同一套版式**(见 lib/common.sh 的
+# ff_usage_block / ff/common.bat 的 :usage)。本入口**没有 bat 孪生**(VAAPI 是 Linux
+# 内核 API), 但版式仍与全族一致, 便于对照。位置必须早于任何"把 $1 当文件用"的代码。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "ffmpeg_hevc_vaapi.sh  -  HEVC VAAPI 硬编压缩（仅 Linux）" \
+    "用法: ./ffmpeg_hevc_vaapi.sh 视频文件" \
+    "本入口固定走 VAAPI 硬解硬编，--ff_hwaccel 对它无效；VAAPI 是 Linux 内核 API，Windows 侧无对应入口" || :
 # 发行版 ffmpeg(4.4.2) 的 hevc_vaapi 与新版 iHD 驱动不兼容, Linux 下优先使用新版 ffmpeg
 OS=$(uname -s)
 

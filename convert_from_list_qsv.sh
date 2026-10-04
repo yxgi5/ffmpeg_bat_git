@@ -21,7 +21,10 @@ parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
 # 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 打印本脚本头部那段用法
 # 后退出 0, 不干活。位置必须早于任何"把 $1 当文件用"的代码。
-declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "convert_from_list_qsv.sh  -  按清单逐条调用 hevc_qsv 入口" \
+    "用法: ./convert_from_list_qsv.sh 清单文件    不带参数默认 list.txt" \
+    "清单每行一个视频路径；开关以环境变量或参数原样透传给下游入口" || :
 
 LIST_FILE=""
 check_param_number "$#"

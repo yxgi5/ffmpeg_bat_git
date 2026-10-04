@@ -70,9 +70,16 @@ source "${SCRIPT_DIR}/lib/common.sh"
 #   其余位置参数(源 / 输出目录 / title号)交还给 $@, 下方 $1/$2/$3 照常处理
 parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
-# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 打印本脚本头部那段用法
-# 后退出 0, 不干活。位置必须早于任何"把 $1 当文件用"的代码。
-declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+# 统一 --help / -help / -h: 与 .bat 孪生打印**同一套版式**(见 lib/common.sh 的
+# ff_usage_block / ff/common.bat 的 :usage), 只有确实有差异的地方才不同(脚本名、
+# 以及"拖到 bat 上"这种 bat 独有的用法)。位置必须早于任何"把 $1 当文件用"的代码。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "ffmpeg_dvd_hevc.sh  -  DVD/BD 转 HEVC（多 title，独立流程）" \
+    "用法: ./ffmpeg_dvd_hevc.sh DVD源 输出目录 title号    输出目录与 title 号都可省" \
+    "专属开关:" \
+    "  --mode ALL,AUTO,TITLE        处理哪些 title（DVD 源默认 ALL，BD 源默认 AUTO）" \
+    "  --dvd_title N               只处理第 N 条 title" \
+    "  --venc libx265,hevc_nvenc,hevc_qsv,libsvtav1    HEVC 编码器（默认 auto 依次探测）" || :
 
 echo ============================================================
 echo 欢迎使用ffmpeg视频压缩批处理工具

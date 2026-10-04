@@ -13,9 +13,13 @@ source "${SCRIPT_DIR}/lib/common.sh"
 #   其余位置参数(文件名)交还给 $@, 下方 check_param_number 照常处理
 parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
-# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 打印本脚本头部那段用法
-# 后退出 0, 不干活。位置必须早于任何"把 $1 当文件用"的代码。
-declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
+# 统一 --help / -help / -h: 与 .bat 孪生打印**同一套版式**(见 lib/common.sh 的
+# ff_usage_block / ff/common.bat 的 :usage), 只有确实有差异的地方才不同(脚本名、
+# 以及"拖到 bat 上"这种 bat 独有的用法)。位置必须早于任何"把 $1 当文件用"的代码。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
+    "ffmpeg_hevc_qsv.sh  -  HEVC QSV 硬编压缩（需要 QSV 硬件）" \
+    "用法: ./ffmpeg_hevc_qsv.sh 视频文件" \
+    "本入口固定走 QSV 硬解硬编，--ff_hwaccel 对它无效；硬件不可用时返回 4" || :
 
 echo ============================================================
 echo 欢迎使用ffmpeg视频压缩批处理工具

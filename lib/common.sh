@@ -1346,11 +1346,13 @@ function parse_switches() {
 
 # ================================================================
 # 统一的 --help / -help / -h
-#   用法: ff_help_guard "$0" "$@"  —— 放在脚本刚 parse_switches 完的位置, 必须早于
-#         任何"把 $1 当文件用"的代码。命中就打印本脚本头部那段用法注释, 退出 0。
-#   为什么统一: 这些脚本的用法都写在文件头注释里(各自的 usage() 就是用 awk 把它
-#         打出来), 参数式开关接上之后, "帮助长什么样、认哪几个写法" 不该每个脚本
-#         各猜一次; 另外 -h 若被当成文件名去开, 会报"文件不存在", 看着像工具坏了。
+#   用法: ff_help_guard "$0" "$@" [ -- <标题> <用法行> [专属开关行...] ]
+#         必须放在脚本刚 parse_switches 完的位置 —— 要早于任何"把 $1 当文件用"的代码,
+#         否则 -h 会被当成路径去开, 报一句"文件不存在", 看着像工具坏了。
+#   命中后的输出有两种形态:
+#     - 给了 `--` 之后的文本: 按 ff_usage_block 的**统一版式**打印(两族同款);
+#     - 没给: 打印本脚本文件头那段注释(tools/* 走这条: 它们没有 bat 孪生, 头部
+#       注释本身比固定开关表更全, 例如 OS 分发说明)。
 #   只认精确相等的三个 token(不做前缀匹配): 免得把 --filt -h 这类**值**误判成求助。
 #   脚本自己的 usage() 全部保留(内部 die / 参数缺失时还在用), 这里只是入口。
 # ================================================================
@@ -1362,17 +1364,55 @@ function ff_print_usage() {
     awk 'NR>=2 && !/^#/ { exit } NR>=2 && /^# =+$/ { next } NR>=2 { sub(/^# ?/, ""); print }' "$1"
 }
 
+# 用法版式: 与 lib/common.bat 的 :usage **逐字同款**(标题 / 用法行 / 通用开关表 /
+# 专属开关行 / 指向 readme)。两族必须打印基本一样的信息, 只有确实有差异的地方才不同
+# (脚本名 .sh vs .bat、"拖到 bat 上"这种 bat 独有的用法), 所以文案与版式各只维护一份:
+# 改这里要记得同步改 :usage, 反之亦然(lint 不管这个, 靠人守)。
+function ff_usage_block() {
+    printf '%s\n' '============================================================'
+    printf ' %s\n' "$1"; shift
+    printf '\n'
+    printf ' %s\n' "$1"; shift
+    printf '\n'
+    printf ' 通用开关（两族同名；也可写成环境变量，参数优先）:\n'
+    printf '   --ext mp4,mkv            输出容器（编码类默认 mp4，DVD 类默认 mkv）\n'
+    printf '   --dry-run                只打印将要执行的 ffmpeg 命令，不转码\n'
+    printf '   --bitrate_no_half 1      目标码率不除以 2\n'
+    printf '   --ff_hwaccel auto,none,cuda,qsv,vaapi,d3d11va,dxva2\n'
+    printf '                           解码加速器（默认 auto；none = 一次 -hwaccel 都不加）\n'
+    printf '   --ff_on_exist skip,overwrite,fail\n'
+    printf '                           产物已存在时的策略（默认 skip：打印已跳过，rc=0）\n'
+    local a
+    for a in "$@"; do printf '   %s\n' "$a"; done
+    printf '\n'
+    printf ' 完整开关表 / 平台差异 / 退出码契约见 readme.md\n'
+    printf '%s\n' '============================================================'
+}
+
 function ff_help_guard() {
     local script="$1"; shift
-    local a
+    local a want=0
     for a in "$@"; do
         case "$a" in
-            --help|-help|-h) ff_print_usage "$script"; exit 0 ;;
+            --) break ;;
+            --help|-help|-h) want=1; break ;;
         esac
     done
+    if [ "$want" != 1 ]; then return 0; fi
+    local -a text=()
+    local seen=0
+    for a in "$@"; do
+        if [ "$a" = "--" ]; then seen=1; continue; fi
+        [ "$seen" = 1 ] && text+=("$a")
+    done
+    if [ ${#text[@]} -gt 0 ]; then
+        ff_usage_block ${text[@]+"${text[@]}"}
+    else
+        ff_print_usage "$script"
+    fi
+    exit 0
     # 没命中也返回 0, 且调用点写成 `declare -F ff_help_guard ... && ff_help_guard ... || :`:
     # tools 里不少脚本开了 set -e, 守卫若以非 0 结束(无论是"没命中"还是"common.sh
     # 缺失、函数不存在"), 整条 && 链都会是非 0, 脚本当场被当成失败静默退掉
     # (实测: 加了守卫之后 dvd_aud_gap.sh 连用法都不打就退出)。调用方不需要用返回值。
-    return 0
 }
