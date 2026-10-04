@@ -10,6 +10,8 @@ rem   on_exist:      产物已存在时的策略(FF_ON_EXIST=skip 默认 / overw
 rem                  导出 FF_OUT_FLAG / FF_EXIST_SKIP / FF_EXIST_FAIL, 见 :on_exist
 rem   dry_run:       DRY_RUN 为真时打印 %RUN_COM%(本入口将要执行的 ffmpeg 命令)
 rem                  而不执行, 导出 DRY_HIT 供调用方跳过那次执行, 见 :dry_run
+rem   want_help:     扫 --help / -help / -h, 命中置 FB_WANT_HELP=1, 见 :want_help
+rem   usage:         打印用法(标题 / 用法行 / 通用开关表 / 入口专属开关), 见 :usage
 rem   load_defaults: 读 lib\defaults.cfg 的 KEY=VALUE(公共开关默认值)
 rem   init_ext:      EXT 容器开关 -> EXT + SENC, 见 :init_ext
 rem   bitrate_from_table: 目标码率口径(要不要 /2), 见 :bitrate_from_table
@@ -39,6 +41,8 @@ if /I "%~1"=="load_defaults"       goto load_defaults
 if /I "%~1"=="init_ext"            goto init_ext
 if /I "%~1"=="bitrate_from_table"  goto bitrate_from_table
 if /I "%~1"=="parse_switches"      goto parse_switches
+if /I "%~1"=="want_help"           goto want_help
+if /I "%~1"=="usage"              goto usage
 if /I "%~1"=="dry_run"             goto dry_run
 echo 未知函数: %~1
 exit /b 1
@@ -675,6 +679,11 @@ if /I "%PK%"=="split_chapter" set "SPLIT_CHAPTER=%PV%" & exit /b 0
 if /I "%PK%"=="extra_titles" set "EXTRA_TITLES=%PV%" & exit /b 0
 if /I "%PK%"=="vbitrate" set "VBITRATE=%PV%" & exit /b 0
 if /I "%PK%"=="venc" set "VENC=%PV%" & exit /b 0
+rem --help 不是开关, 是"要看用法": 放行, 由 :want_help 扫原始参数去命中。放行之前
+rem 会先打一句 unknown switch --help —— 用户只是想瞄一眼用法, 却先看到一句报错。
+rem (单横线的 -h / -help 走不到这里: ps_loop 只把 -- 开头的当开关, 它们会进 PARSE_POS,
+rem  但 :want_help 在入口取 PARSE_POS 之前就退出了, 不会被误当文件名。)
+if /I "%PK%"=="help" exit /b 0
 echo unknown switch: --%PK%
 exit /b 2
 exit /b 0
@@ -695,4 +704,53 @@ if /I "%DRY_RUN%"=="0" exit /b 0
 echo [dry-run] 未执行, 仅打印命令: 1>&2
 echo %RUN_COM%
 set "DRY_HIT=1"
+exit /b 0
+
+:want_help
+rem 统一 --help / -help / -h: 调用方在 parse_switches 之后问一次, 命中则 FB_WANT_HELP=1
+rem   用法: call "%SELF_DIR%lib\common.bat" want_help %*
+rem            if defined FB_WANT_HELP call ... usage ...
+rem            if defined FB_WANT_HELP exit /b 0
+rem   扫的是原始 %*(与解析结果无关)。大小写不敏感。
+rem   只认精确相等的三个 token, 不做前缀匹配 —— 免得把 --filt -h 这类**值**误判成求助
+rem   (cmd 没有"跳过前一个 token"的概念, 只能这么收着)。
+set "FB_WANT_HELP="
+shift
+:wh_loop
+if "%~1"=="" exit /b 0
+if /I "%~1"=="--help" set "FB_WANT_HELP=1" & exit /b 0
+if /I "%~1"=="-help"  set "FB_WANT_HELP=1" & exit /b 0
+if /I "%~1"=="-h"     set "FB_WANT_HELP=1" & exit /b 0
+shift
+goto wh_loop
+
+:usage
+rem 打印用法: call 公共库 usage 标题 用法行 [专属开关行...]
+rem   通用开关表只在这里维护一处, 各入口只传自己的标题 / 用法 / 专属开关(第 4 个参数起
+rem   每个各占一行)。
+rem   参数里只能用全角标点: 半角的引号 / & / | / < / > / ^ / % / 右括号都不行 ——
+rem     引号会把整行的配对拆坏(见各入口顶部那段"勿改回 set 包装写法"), 其余是 cmd 的
+rem     命令语法符(管道 / 连接 / 重定向), 半角右括号还会提前闭合调用方的括号块。
+echo ============================================================
+echo  %~2
+echo.
+echo  %~3
+echo.
+echo  通用开关（两族同名；也可写成环境变量，参数优先）:
+echo    --ext mp4,mkv            输出容器（编码类默认 mp4，DVD 类默认 mkv）
+echo    --dry-run                只打印将要执行的 ffmpeg 命令，不转码
+echo    --bitrate_no_half 1      目标码率不除以 2
+echo    --ff_hwaccel auto,none,cuda,qsv,vaapi,d3d11va,dxva2
+echo                            解码加速器（默认 auto；none = 一次 -hwaccel 都不加）
+echo    --ff_on_exist skip,overwrite,fail
+echo                            产物已存在时的策略（默认 skip：打印已跳过，rc=0）
+:usage_more
+if "%~4"=="" goto usage_end
+echo    %~4
+shift
+goto usage_more
+:usage_end
+echo.
+echo  完整开关表 / 平台差异 / 退出码契约见 readme.md
+echo ============================================================
 exit /b 0

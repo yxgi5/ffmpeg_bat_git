@@ -925,6 +925,7 @@ DRY_RUN=1 ./ffmpeg_libx264.sh xxx.mp4
 - ~~`tools/` 系列的全部开关~~ —— **已于 2026-10-04 接上参数式**：`tools/` 下 9 个脚本（`bd_make_sample` / `dvd_aud_gap` / `dvd_make_sample` / `dvd_menu_build` / `dvd_repair` / `dvd_restore` / `dvd_shrink` / `dvd_to_data_iso` / `scene_detect`）都调用了 `parse_switches`，`--key value` / `--key=value` 与环境变量等价（后者照旧有效）。**键表是各脚本自己的 `PS_KEYS`**，不进公共 `SWITCH_KEYS`：那批键近百个，且与入口同名不同义（`VENC` / `MODE` / `AUDIO` / `FORMAT` …），混进公共表会被 `convert_from_list_*` 的转发塞给编码入口。每个脚本认哪些键，见它自己的 `PS_KEYS=(...)` 一行。`dvd_find_split.sh` 没有任何开关，未接入。
 - 注：不在键表里的 `--xxx` 一律**原样交还**给脚本当位置参数（`--help` 因此不会被吃掉）。
 - **统一帮助**：`tools/` 全部 10 个脚本都认 `--help` / `-help` / `-h`，打印文件头那段用法后退出 0（`lib/common.sh` 的 `ff_help_guard`，各脚本在参数解析后调用一次）。`-h` 不再被当成文件名去开 —— 那会报「文件不存在」，看着像工具坏了。
+- **入口脚本同样统一**：根目录 28 个入口（`ffmpeg_*` 两族 + `convert_from_list_*` + `repack_from_list`）也都认这三个写法。sh 侧打印各脚本文件头那段用法注释（`ff_print_usage`）；bat 侧走 `lib\common.bat` 的 `:want_help` + `:usage` —— 各入口只传自己的标题 / 用法 / 专属开关（`dvd_hevc` 的 `--mode` / `--dvd_title` / `--venc` 那一组），**通用开关表只在 `:usage` 里维护一处**。用 `-h` 看用法不再需要先读源码。
 
 > 注：`ffmpeg_hevc_vaapi` / `ffmpeg_h264_vaapi` / `ffmpeg_dvd_hevc` / `repack_from_list` 这 4 个入口此前也未接 `parse_switches`，其开关（`EXT`/`MODE`/`VENC` 等）当时同样"只认环境变量"；已于 2026-10-03 补齐 `parse_switches`，现已有 `--key` 入口，故不再属于本表。
 

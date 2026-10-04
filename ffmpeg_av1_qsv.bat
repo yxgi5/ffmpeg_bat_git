@@ -33,6 +33,12 @@ rem   位置参数(文件名)记在 PARSE_POS, 下面取它取代 %~1
 call "%SELF_DIR%lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
+rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
+rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
+call "%SELF_DIR%lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_av1_qsv.bat  -  AV1 QSV 硬编压缩（需要 Arrow Lake 或更新的核显）" "用法: ffmpeg_av1_qsv.bat 视频文件    也可直接把文件拖到本 bat 上" "本入口固定走 QSV 硬解硬编，--ff_hwaccel 对它无效；硬件不可用时返回 4"
+if defined FB_WANT_HELP exit /b 0
+
 rem ffmpeg_av1_qsv.bat - AV1 QSV 硬件加速压缩 (P1 重构版)
 rem AV1 QSV 硬编只有 Arrow Lake 及更新的 Intel 核显才支持(Meteor/Arrow/Lunar Lake),
 rem 且要求较新的 ffmpeg 构建; find_ffmpeg 找到的 ffmpeg 若未编入 av1_qsv,

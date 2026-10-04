@@ -19,6 +19,9 @@ source "${SCRIPT_DIR}/lib/common.sh"
 #   会被下游 ffmpeg_copy_to_mp4.sh 继承(与原来"环境变量透传"的语义一致)
 parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
+# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 打印本脚本头部那段用法
+# 后退出 0, 不干活。位置必须早于任何"把 $1 当文件用"的代码。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
 
 LIST_FILE=""
 check_param_number "$#"

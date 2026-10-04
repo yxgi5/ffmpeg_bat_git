@@ -31,6 +31,12 @@ rem 命令行开关解析: --key value -> 同名大写环境变量(见 lib/commo
 call "%~dp0lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
+rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
+rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
+call "%~dp0lib\common.bat" want_help %*
+if defined FB_WANT_HELP call "%~dp0lib\common.bat" usage "repack_from_list.bat  -  按清单逐条无损转封装为 mp4" "用法: repack_from_list.bat 清单文件    不带参数默认 list.txt" "清单每行一个视频路径；逐条调用 ffmpeg_copy_to_mp4.bat"
+if defined FB_WANT_HELP exit /b 0
+
 SET "SRC_FILE="
 
 rem %~1 (not %1) strips the surrounding quotes: keeping them made the
