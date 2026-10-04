@@ -1343,3 +1343,32 @@ function parse_switches() {
         shift
     done
 }
+
+# ================================================================
+# 统一的 --help / -help / -h
+#   用法: ff_help_guard "$0" "$@"  —— 放在脚本刚 parse_switches 完的位置, 必须早于
+#         任何"把 $1 当文件用"的代码。命中就打印本脚本头部那段用法注释, 退出 0。
+#   为什么统一: 这些脚本的用法都写在文件头注释里(各自的 usage() 就是用 awk 把它
+#         打出来), 参数式开关接上之后, "帮助长什么样、认哪几个写法" 不该每个脚本
+#         各猜一次; 另外 -h 若被当成文件名去开, 会报"文件不存在", 看着像工具坏了。
+#   只认精确相等的三个 token(不做前缀匹配): 免得把 --filt -h 这类**值**误判成求助。
+#   脚本自己的 usage() 全部保留(内部 die / 参数缺失时还在用), 这里只是入口。
+# ================================================================
+function ff_print_usage() {
+    awk 'NR>=3 && /^# =+$/ { exit } NR>=3 { sub(/^# ?/, ""); print }' "$1"
+}
+
+function ff_help_guard() {
+    local script="$1"; shift
+    local a
+    for a in "$@"; do
+        case "$a" in
+            --help|-help|-h) ff_print_usage "$script"; exit 0 ;;
+        esac
+    done
+    # 没命中也返回 0, 且调用点写成 `declare -F ff_help_guard ... && ff_help_guard ... || :`:
+    # tools 里不少脚本开了 set -e, 守卫若以非 0 结束(无论是"没命中"还是"common.sh
+    # 缺失、函数不存在"), 整条 && 链都会是非 0, 脚本当场被当成失败静默退掉
+    # (实测: 加了守卫之后 dvd_aud_gap.sh 连用法都不打就退出)。调用方不需要用返回值。
+    return 0
+}

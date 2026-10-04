@@ -51,19 +51,21 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # ---------- 开关参数化 (2026-10-04) ----------
 # --key value / --key=value -> 同名大写环境变量; 环境变量写法照旧有效(参数 > 环境变量)。
 # 键表只认本脚本这几个(PS_KEYS), 不进公共 SWITCH_KEYS(见 lib/common.sh 的 PS_KEYS 注释)。
-# -h / --help 不在键表里, parse_switches 会把它们原样交还给下面的 case(不会被吃掉)。
 # 阈值: 既能当第 2 个位置参数给, 也能 --th 0.3 / TH=0.3 给; 两个都给时位置参数优先
 # (本脚本原本就是这个顺序 —— 参数化不改 precedence, 只是多一条入口)。
 PS_KEYS=(max min_gap chaps th clip chap_first chap_prefix)
 parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
+# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 命中就打印本脚本头部
+# 那段用法并退 0, 位置在下面 [ $# -ge 1 ] 之前 —— 否则 -h 会被当成文件名去开。
+# 本脚本原先自己有一个 -h|--help 的 case, 现已由这个共用守卫统一, 行为不变。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
 
 TAG="[scene]"
 info() { printf '%s %s\n' "$TAG" "$*"; }
 die()  { printf '\033[41;36m%s 错误: %s\033[0m\n' "$TAG" "$*" >&2; exit 1; }
 
 [ $# -ge 1 ] || { awk 'NR>=3 && /^# =+$/ { exit } NR>=3 { sub(/^# ?/, ""); print }' "$0"; exit 1; }
-case "${1:-}" in -h|--help) awk 'NR>=3 && /^# =+$/ { exit } NR>=3 { sub(/^# ?/, ""); print }' "$0"; exit 0 ;; esac
 
 declare -F find_ffmpeg >/dev/null 2>&1 || die "lib/common.sh 未加载 —— 请在完整仓库里运行本脚本"
 FF="$(find_ffmpeg)" || die "找不到 ffmpeg"

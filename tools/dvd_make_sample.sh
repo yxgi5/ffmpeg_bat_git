@@ -75,6 +75,9 @@ PS_KEYS=(duration titles scene_len format aspect vbitrate abitrate label \
          no_videots no_iso keep_work)
 parse_switches "$@"
 set -- ${PS_REST[@]+"${PS_REST[@]}"}
+# 统一 --help / -help / -h(见 lib/common.sh 的 ff_help_guard): 命中就打印本脚本头部
+# 那段用法并退 0。common.sh 缺失时安静跳过, 由下面的 declare -F 守卫报真正的问题。
+declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" || :
 
 TAG="[dvd_make_sample]"
 info()  { printf '%s %s\n' "$TAG" "$*"; }
