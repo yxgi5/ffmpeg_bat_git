@@ -160,11 +160,14 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
 CMD+=(-init_hw_device qsv=hw -filter_hw_device hw)
 
-# H.264 High 10 源: QSV 的 H.264 解码器不吃 profile 110(实测 "Codec h264 profile
-# 110 not supported for hardware decode"), 硬解一挂帧就退回系统内存, 编码器要硬件
-# 表面 -> auto_scale 接不上 -> rc=1 / 0 字节。这种源改走软解 + hwupload。
-# (HEVC Main10 不在此列: QSV 硬解支持, hevc_qsv 也能吃, 命令行保持原样。)
-# 判据与另一种 10bit 情形的区别见 lib/common.sh 的同名注释。
+# 10bit 源: 两种症状, 两种修法(与 avc_qsv 对齐, 2026-09-30 实测):
+# ① H.264 High 10(profile 110): 卡在**解码**侧 —— QSV 的 H.264 解码器不吃 High 10,
+#    硬解一挂帧退回系统内存, 编码器要硬件表面 -> auto_scale 接不上 -> rc=1 / 0 字节。
+#    修法: 这种源**不用硬解**, 软解后 hwupload 送上去。
+# ② HEVC Main10 等: 硬解正常(帧已在 QSV 表面), 但 hevc_qsv -profile main(8bit) 吃不
+#    下 10bit 输入 -> 编码器报错 / 产物异常。修法: 在 QSV 硬件内部 scale_qsv=format=nv12
+#    降到 8bit。不能用软滤镜 format=nv12(帧在硬件表面, auto_scale 照样接不上)。
+#    判据与另一情形的区别见 lib/common.sh 的 src_is_10bit / src_hw_decode_hostile。
 # -hwaccel 是**输入选项**, 必须排在 -i 之前; -vf 是输出滤镜, 排在 -i 之后。
 HW_DEC=1
 if src_hw_decode_hostile "$ABS_NAME"; then
@@ -176,6 +179,9 @@ fi
 CMD+=(-i "$ABS_NAME")
 if [ "$HW_DEC" = 0 ]; then
     CMD+=(-vf "format=nv12,hwupload=extra_hw_frames=64")
+elif src_is_10bit "$ABS_NAME"; then
+    echo "10bit 源 -> scale_qsv=format=nv12 (QSV 硬件内降 8bit)"
+    CMD+=(-vf "scale_qsv=format=nv12")
 fi
 
 if [ "$SRC_FRAMERATE" -gt 31 ]; then

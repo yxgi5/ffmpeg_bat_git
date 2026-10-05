@@ -115,13 +115,21 @@ rem ---------- H.264 High 10 源: QSV 硬解不吃 profile 110 ----------
 rem 实测: 硬解挂掉后 10bit 帧退回系统内存, 编码器要硬件表面 -> auto_scale 接不上
 rem -> rc=1 / 产物 0 字节。-hwaccel 是输入选项(必须排在 -i 之前), 这里按源决定
 rem 要不要它; -vf 是输出滤镜, 排在命令末尾的编码器段里(见 QSV_VF)。
-rem HEVC Main10 不在此列: QSV 硬解支持, hevc_qsv 也吃得下, 命令行保持原样。
+rem HEVC Main10 等: 硬解正常, 但 hevc_qsv -profile main(8bit) 吃不下 10bit 输入 ->
+rem 编码器报错 / 产物异常。修法: 下方 scale_qsv=format=nv12 在 QSV 硬件内降到 8bit
+rem (与 avc_qsv 对齐, 2026-09-30 实测)。不能用软滤镜 format=nv12(帧在硬件表面)。
 call "%SELF_DIR%lib\common.bat" src_hw_decode_hostile
 set "QSV_HWDEC=1"
 set "QSV_VF="
 if "%HW_HOSTILE%"=="1" set "QSV_HWDEC=0"
 if "%HW_HOSTILE%"=="1" echo H.264 High 10 source: QSV hwdec unsupported, use soft-dec + hwupload
 if "%HW_HOSTILE%"=="1" set "QSV_VF= -vf format=nv12,hwupload=extra_hw_frames=64"
+rem ---------- HEVC Main10 等 10bit 源: QSV 硬件内降 8bit ----------
+set "SRC_PIXFMT=%P_streams.stream.0.pix_fmt%"
+if defined SRC_PIXFMT echo SRC_PIXFMT=%SRC_PIXFMT%
+call "%SELF_DIR%lib\common.bat" src_is_10bit
+if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" set "QSV_VF= -vf scale_qsv=format=nv12"
+if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" echo 10bit source: scale_qsv=format=nv12 (QSV hw 内降 8bit)
 if "%QSV_HWDEC%"=="1" set RUN_COM=%RUN_COM% -hwaccel qsv -hwaccel_output_format qsv
 set RUN_COM=%RUN_COM% -i %SRC_FILE%
 echo RUN_COM0=%RUN_COM%
