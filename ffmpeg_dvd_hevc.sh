@@ -618,11 +618,25 @@ enc() {
     echo "------------------------------------------------------------"
     echo "> title $t -> ${out}.${EXT}  ${chop[*]:-}"
 
+    # QSV 编码器 + 10bit 源(BD 的 HEVC Main10 / AVC High10): 软件解出 10bit 帧后,
+    # 先 format=nv12 降到 8bit 再 hwupload 给 QSV 编码器(hevc_qsv -profile main 吃不下
+    # 10bit, 与 ffmpeg_hevc_qsv.bat 同源; 本脚本不走 -hwaccel qsv, 帧在系统内存,
+    # 故不能用 scale_qsv, 用与 avc_qsv 的 High10 路径一致的
+    # format=nv12,hwupload=extra_hw_frames=64; 该 hwupload 需要 -init_hw_device qsv=hw
+    # 提供上传目标设备)。仅 BD(10bit 只可能来自 BD) + QSV 编码器时生效, 8bit 路径不变。
+    local VFILT_LOCAL="$VFILT" QSV_INIT=""
+    if [[ "$VENC_NAME" == *_qsv ]] && [ "$SRC_KIND" = "bd" ] && src_is_10bit "$IN_FILE"; then
+        if [ -n "$VFILT_LOCAL" ]; then VFILT_LOCAL="${VFILT_LOCAL},format=nv12,hwupload=extra_hw_frames=64"
+        else VFILT_LOCAL="format=nv12,hwupload=extra_hw_frames=64"; fi
+        QSV_INIT="-init_hw_device qsv=hw -filter_hw_device hw"
+    fi
+
     local CMD=(ff_run -y -hide_banner -v error -stats
+               ${QSV_INIT}
                ${IN_DEMUX[@]+"${IN_DEMUX[@]}"} ${chop[@]+"${chop[@]}"})
     CMD+=(-i "$IN_FILE")
     CMD+=(-map 0:V -map 0:a? ${SMAP[@]+"${SMAP[@]}"})
-    [ -n "$VFILT" ] && CMD+=(-vf "$VFILT")
+    [ -n "$VFILT_LOCAL" ] && CMD+=(-vf "$VFILT_LOCAL")
     CMD+=(-c:v "$VENC_NAME")
     CMD+=(${VENC_ARGS[@]+"${VENC_ARGS[@]}"}
           ${AENC[@]+"${AENC[@]}"}
@@ -647,11 +661,18 @@ enc_extra() {
     in_args "$t" || { echo -e "\033[41;36mtitle $t 取不到输入文件\033[0m"; return 1; }
     set_aenc_for_title "$t"
     echo "> 附加 title $t -> ${out}.${EXT}"
+    local VFILT_LOCAL="$VFILT" QSV_INIT=""
+    if [[ "$VENC_NAME" == *_qsv ]] && [ "$SRC_KIND" = "bd" ] && src_is_10bit "$IN_FILE"; then
+        if [ -n "$VFILT_LOCAL" ]; then VFILT_LOCAL="${VFILT_LOCAL},format=nv12,hwupload=extra_hw_frames=64"
+        else VFILT_LOCAL="format=nv12,hwupload=extra_hw_frames=64"; fi
+        QSV_INIT="-init_hw_device qsv=hw -filter_hw_device hw"
+    fi
     local CMD=(ff_run -y -hide_banner -v error -stats
+               ${QSV_INIT}
                ${IN_DEMUX[@]+"${IN_DEMUX[@]}"})
     CMD+=(-i "$IN_FILE")
     CMD+=(-map 0:V -map 0:a?)
-    [ -n "$VFILT" ] && CMD+=(-vf "$VFILT")
+    [ -n "$VFILT_LOCAL" ] && CMD+=(-vf "$VFILT_LOCAL")
     CMD+=(-c:v "$VENC_NAME")
     CMD+=(${VENC_ARGS[@]+"${VENC_ARGS[@]}"} ${AENC[@]+"${AENC[@]}"}
           "${OUTDIR}/${out}.${EXT}")

@@ -567,12 +567,13 @@ if not defined IN_FILE (
 )
 rem 逐 title 重算 -c:a: 拿 title 1 的音轨套所有 title 会漏掉 LPCM(见 :ENC_AENC)
 call :ENC_AENC %T%
+call :QSV10 %T%
 set "CHOP="
 if not "%CS%"=="0" set CHOP=-chapter_start %CS%
 if not "%CE%"=="0" set CHOP=%CHOP% -chapter_end %CE%
 echo ------------------------------------------------------------
 echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
-set RUN_COM="%FF%" -y -hide_banner -v error -stats %IN_DEMUX% %CHOP% -i "%IN_FILE%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats %QSV_INIT% %IN_DEMUX% %CHOP% -i "%IN_FILE%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
 rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
@@ -601,8 +602,9 @@ if not defined IN_FILE (
 )
 rem 同上: 附加 title 的音轨同样可能与正片不同
 call :ENC_AENC %T%
+call :QSV10 %T%
 echo ^> 附加 title %T% ^-^> "%OUTN%.%EXT%"
-set RUN_COM="%FF%" -y -hide_banner -v error -stats %IN_DEMUX% -i "%IN_FILE%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
+set RUN_COM="%FF%" -y -hide_banner -v error -stats %QSV_INIT% %IN_DEMUX% -i "%IN_FILE%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
 rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
@@ -979,6 +981,44 @@ rem 实际 cmd 的脱字符只是把小于号转成字面量参数，于是 set 
 rem "从键盘读一行"，脚本在第一次探针处就静默卡死(2026-09-22 用户报障)。
 if exist "%WORK%\_p2.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p2.txt") do set "%~4=%%A"
 del "%WORK%\_p1.txt" "%WORK%\_p2.txt" 2>nul
+exit /b 0
+
+rem =========================================================================
+rem  子过程 QSV10  <title>  ->  10bit BD 源 + QSV 编码器时设好 VFOPT / QSV_INIT
+rem  BD 的 HEVC Main10 / AVC High10 走 QSV 编码器时(hevc_qsv -profile main 吃不下
+rem  10bit), 软件解出 10bit 帧后先 format=nv12 降到 8bit 再 hwupload 给编码器;
+rem  不用 scale_qsv(本脚本不走 -hwaccel qsv, 帧在系统内存, scale_qsv 接不上),
+rem  用与 avc_qsv 的 High10 路径一致的 format=nv12,hwupload=extra_hw_frames=64;
+rem  hwupload 需要 -init_hw_device qsv=hw 提供上传目标设备(与专用 hevc_qsv 对齐)。
+rem  仅对 QSV 编码器且源是 BD 的 10bit 生效; 其余情况 VFOPT 沿用全局 VFILT。
+rem =========================================================================
+:QSV10
+set "QSV_INIT="
+set "VFOPT="
+set "LOCALFILT=%VFILT%"
+rem 去空格后取末 3 字符判 QSV: 用户手敲 set VENC=hevc_qsv (尾随空格) 也稳健
+set "VC=%VCODEC: =%"
+if /i not "%VC:~-3%"=="qsv" goto QSV10_DONE
+call :IS_10BIT %1
+if not defined IS10 goto QSV10_DONE
+if not "%LOCALFILT%"=="" (set "LOCALFILT=%LOCALFILT%,format=nv12,hwupload=extra_hw_frames=64") else (set "LOCALFILT=format=nv12,hwupload=extra_hw_frames=64")
+set "QSV_INIT=-init_hw_device qsv=hw -filter_hw_device hw"
+:QSV10_DONE
+if defined LOCALFILT set "VFOPT=-vf "%LOCALFILT%""
+exit /b 0
+
+rem =========================================================================
+rem  子过程 IS_10BIT  <title>  ->  IS10=1 当该 title 视频流是 10bit, 否则空
+rem  只查 BD(SRC_KIND=bd): DVD 的 MPEG-2 永远是 8bit 不必探; BD 的 IN_FILE 是那条
+rem  m2ts, 直接 ffprobe 即可(DVD 的 ISO 不带 -f dvdvideo 反而探不准)。
+rem =========================================================================
+:IS_10BIT
+set "IS10="
+call :INARGS %1
+if not defined IN_FILE exit /b 0
+if not "%SRC_KIND%"=="bd" exit /b 0
+"%FP%" -v error %IN_DEMUX% -select_streams v:0 -show_entries stream=pix_fmt -of csv=p=0 "%IN_FILE%" 2>nul | findstr /i "10" >nul
+if not errorlevel 1 set "IS10=1"
 exit /b 0
 
 :DONE
