@@ -99,13 +99,13 @@ rem 命令行 set EXT=mkv 优先于配置文件(:load_defaults 只补没设过�
 call "%SELF_DIR%lib\common.bat" init_ext
 if errorlevel 1 exit /b 1
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-rem 解码加速器可配置 (2026-09-30): FF_HWACCEL=auto(默认, 与改动前逐字相同) / cuda /
+rem 解码加速器可配置: FF_HWACCEL=none(默认, 2026-10-05 改: 软编实时显示进度, 不再吞 stderr) / cuda /
 rem qsv / vaapi / d3d11va / dxva2 / none。原先写死 -hwaccel auto —— 由 ffmpeg 挑第一个
 rem 能初始化的(核显与 N 卡并存时选谁不可控), 且锁屏/断开会话下 D3D 会直接崩; 上面
 rem :HWACCEL_FALLBACK 的回退按 FF_HWACCEL 的实际值删参数, 显式指定时同样会回退一次。
 rem 纯 N 卡机器可钉成 cuda; 想彻底不碰硬件设 none(一次 -hwaccel 都不加)。只影响解码,
 rem 编码器仍是本入口的 libx264/libx265。
-if not defined FF_HWACCEL set "FF_HWACCEL=auto"
+if not defined FF_HWACCEL set "FF_HWACCEL=none"
 set "FF_HW_ARG= -hwaccel %FF_HWACCEL%"
 if /i "%FF_HWACCEL%"=="none" set "FF_HW_ARG="
 set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -v verbose%FF_HW_ARG%
@@ -282,10 +282,17 @@ set "FF_HWERR=%TEMP%\ff_hwaccel_%RANDOM%.err"
 rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
-%RUN_COM% 2>"%FF_HWERR%"
-set "FB_RC=%ERRORLEVEL%"
-type "%FF_HWERR%" 2>nul
-if not "%FB_RC%"=="0" call :HWACCEL_FALLBACK
+rem 仅 -hwaccel auto 时需要捕获 stderr 做 D3D 回退(锁屏/断会话下 auto 会崩);
+rem 其余情况(含默认 none / 显式 cuda 等)直接把 stderr 打到控制台 -> 进度实时可见。
+if /i "%FF_HWACCEL%"=="auto" (
+    %RUN_COM% 2>"%FF_HWERR%"
+    set "FB_RC=%ERRORLEVEL%"
+    type "%FF_HWERR%" 2>nul
+    if not "%FB_RC%"=="0" call :HWACCEL_FALLBACK
+) else (
+    %RUN_COM%
+    set "FB_RC=%ERRORLEVEL%"
+)
 rem 负退出码陷阱 (2026-09-17 实测根因): Windows 版 ffmpeg 失败时常常
 rem 返回「负」的 AVERROR 值 —— 本机 av1_qsv 拿不到编码器时 ffmpeg.exe
 rem 退出码是 -40 (Function not implemented), 而 cmd 的 `if errorlevel N`

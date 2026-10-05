@@ -158,13 +158,13 @@ echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 # CPU 软编码, 不依赖任何硬件加速器; -hwaccel auto 仅用于解码加速, 失败自动回退软解
 CMD=("$FF" -hide_banner -threads 0 -v verbose)
-# 解码加速器可配置 (2026-09-30): FF_HWACCEL=auto(默认, 与改动前逐字相同) / cuda /
+# 解码加速器可配置: FF_HWACCEL=none(默认, 2026-10-05 改: 软编实时显示进度, 不再吞 stderr) / cuda /
 #   qsv / vaapi / d3d11va / dxva2 / none。原先写死 auto —— 由 ffmpeg 挑第一个能初始化
 #   的(核显与 N 卡并存时选谁不可控), 且锁屏/断开会话下 D3D 会直接崩; ff_run 里那条
 #   回退只认字面量 auto(见 lib/common.sh), 显式指定时不再回退。纯 N 卡机器可钉成
 #   cuda; 想彻底不碰硬件设 none(一次 -hwaccel 都不加)。只影响解码, 编码器仍是本入口
 #   的 libx264/libx265。
-if [ "${FF_HWACCEL:-auto}" != none ]; then
+if [ "${FF_HWACCEL:-none}" != none ]; then
     CMD+=(-hwaccel "${FF_HWACCEL:-auto}")
 fi
 CMD+=(-i "$ABS_NAME")
