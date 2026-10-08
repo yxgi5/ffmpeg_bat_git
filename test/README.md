@@ -195,6 +195,28 @@ test/
 | L21 | **引号里不得再嵌参数展开**：`.bat` 里不得把「**已经带引号**传进来的参数」再套一层引号（`"%1\ffmpeg.exe"` 这种）。合法形态只有两种：`"%~1\path"`（剥引号修饰符）与 `"%1"`（右引号**紧跟在** `%1` 之后，表示原样照传） | **2026-09-20 实际缺口（与 L20 的 bat 半边回退同源）**：`lib/common.bat` 新加的 `:ff_satisfies` 写成 `"%1\ffmpeg.exe" -hide_banner -filters 2>nul`，而调用方传进来的是**带引号**的 `%FFBIN%`（`C:\Program Files\ffmpeg\bin` 含空格，不加引号传不过去）→ 展开成 `""C:\Program Files\ffmpeg\bin"\ffmpeg.exe"`，cmd 取首 token 得到**空程序名**，报 `'' is not recognized as an internal or external command`，而该行尾部挂着 `2>nul` → 错误被彻底吞掉 → **任何**候选都被判成「缺少能力」。这个坑极隐蔽（表面看是「加引号更安全」），故固化成规则 |
 | L22 | **`call` 的参数里不得出现裸等号**：给批处理传参时，`=` 与空格/逗号/分号一样是**分隔符**，所以 `call ... probe_field "%OUT%" stream=bit_rate DEL` 会被切成 `%2=<文件> %3=stream %4=bit_rate %5=DEL` —— 被调用方从 `%4` 取"输出变量名"，于是它写进一个叫 `bit_rate` 的变量，而调用方读的 `DEL` **从未被赋值**。要传"带等号的值"就**加引号**（`call :x "opt=1"`，引号内不切），更好的是改成**关键词**、由被调用方内部展开（`vbr` / `fbr`） | **2026-09-20 实际缺口（用户真机报障，与 L19/L20/L21 同一现场）**：`lib/common.bat` 的 `:probe_field` 是 `e34a21c` 当天新增、**从未在真机跑过**的子过程（沙箱无 `cmd.exe`），两个调用方都写成了 `probe_field "%OUT%" stream=bit_rate DEL` → 五个梯点全跑完、`vmaf` 完全健康（87.04→96.38），**`delivered` 一列恒为 0**。静态审查查不出来，只有真机能暴露。修法：show_entries 串收到 `:probe_field` 内部按关键词展开（`vbr`=视频流码率 / `fbr`=容器平均码率，后者兼作回退，因为容器无 per-stream 码率时 ffprobe 返回字面量 `N/A`），并让 lint 拦住老写法。**召回已用真文件验证**：把 `HEAD` 版 `bench_calib.bat` 临时落到 `test/bat/`，L22 精确报出 `:188` |
 
+### 阶段 0 抽内核后 lint 的两处适配（2026-10-08）
+
+9 个 sh 编码入口 + 7 个 bat 编码入口已改成薄壳，命令拼装搬进
+`lib/encode_core.sh` / `lib/encode_core.bat`。这让两条按「`RUN_COM` 拼装在入口
+文件里」定位的规则失去了对象，处理方式如下——**断言对象与抽内核前完全一致，
+且逐入口断言仍只看该入口选中的那一支**：
+
+| 规则 | 适配 |
+| --- | --- |
+| **L11**（`-i` 必须排在 `-c:v` 之前） | 新增 `entry_body_sh()`：body = 薄壳入口 + 核心里 `enc_run` 公共段 + 该入口在 `enc_dec_args` / `enc_vargs` 里选中的分支。拼接顺序即执行顺序，顺序断言因此照样成立 |
+| **L16**（流映射 / 封面 / 字幕出口 / `-c:v:0`） | 新增 `entry_body_bat()`：body = 薄壳 + 核心里该入口的 `ENC_ARGS` 那一支。共享的流选择段（`-map 0:V` / `%COVERMAP%` / `%SENC%` / `-map_metadata`）单独摘出，编码器段只取本入口那一支 |
+
+两个文件也纳入 lint 覆盖范围：`lib/encode_core.sh` 进 `all_sh`、`lib/encode_core.bat`
+进 `all_bat` —— 于是 CRLF（BOM/EOL）、`bash -n`、括号/引号配平、cp65001 守卫区
+ASCII-only 等规则自动覆盖新文件。`encode_core.bat` 里没有 `:main` 标签，所以 L04
+按设计跳过它（与 `lib/common.bat` 同待遇——被 `call` 的库不需要 cp65001 守卫）。
+
+**为什么不能简单地把 body 换成整份内核**：那会把逐入口断言放宽成"整份内核满足即
+算过"。例如把 `av1_nvenc` 的 `-c:v:0` 去掉流号，9 个入口的 body 里都还有
+`libx264` 那条正确的默认分支，L16 就永远不会报。变异测试（改一个分支只期望报对应
+入口）就是为守住这一点而存在的。
+
 **L09 的做法值得单独说明**：它把「脚本语法」和「数据逃逸」区分开，而不是见 `&` 就报。
 
 1. 只检查**确实替换了带引号变量**的行；

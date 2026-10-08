@@ -11,6 +11,8 @@
 ```
 lib/common.bat             .bat 侧公共函数: 查表 / 路径提取 / ffmpeg 定位 / 视频流校验
 lib/common.sh              .sh  侧公共函数: 查表 / 参数检查 / 清单遍历 / 文件校验
+lib/encode_core.bat         .bat 侧编码入口公共内核(见 TODO.md 阶段 0)
+lib/encode_core.sh          .sh  侧编码入口公共内核: 表 + 钩子 + enc_run 公共流程
 lib/bitrate_table_hevc.csv 码率表 (默认)
 lib/bitrate_table_avc.csv  AVC 专用表
 lib/bitrate_table_av1.csv  AV1 专用表
@@ -716,6 +718,12 @@ ALLOW_GAP=1 ./tools/dvd_to_data_iso.sh ...                     # 断号也照样
 `export PATH=/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin:$PATH` 才能拿到 av1_nvenc，
 现在能力筛选自己就能命中 `/opt` 那份（N-117740），硬编码目录名反而会把 `/opt` 下更旧、
 能力更少的构建（如 7.0.2 static，连 nvenc/vaapi 都没有）顶到 PATH 最前面——那段补丁已删。
+
+> **2026-10-08（阶段 0）**：`<编码器名>` 现在由 `lib/encode_core.sh` 的 `enc_ffenc <enc>`
+> 提供，编码器名不再是各入口里写死的字面量——入口名按格式命名（`avc_qsv`），ffmpeg 里的编码器
+> 叫 `h264_qsv`，这层翻译集中在 `enc_ffenc` 一处。`.bat` 侧仍是裸 `find_ffmpeg`
+> （`lib/common.bat` 明确不做能力筛选，见下段）：Windows 上 PATH 首个命中通常就是 gyan full build，
+> 用不着按能力跳；Linux 的发行版构建才是那个“缺能力的第一个”。
 `.bat` 侧仍是裸 `find_ffmpeg`（`lib/common.bat` 明确不做能力筛选）：Windows 上 PATH 首个命中
 通常就是 gyan full build，用不着按能力跳；Linux 的发行版构建才是那个“缺能力的第一个”。
 这是两族一处**有意**的分歧。
