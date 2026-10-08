@@ -24,6 +24,25 @@ chcp 65001 >nul
 cmd /c call "%~f0" %*
 exit /b %errorlevel%
 
+rem ---- HWACCEL_FALLBACK: D3D fallback for -hwaccel auto (measured 2026-09-30) ----
+rem When the Windows session is disconnected or locked, D3D device creation is
+rem refused and ffmpeg does NOT degrade gracefully - it crashes (0xC0000005).
+rem On failure with a D3D signature in stderr, rerun once without -hwaccel auto.
+rem Kept between "exit /b" and ":main" so it is never reached by fallthrough, and
+rem ASCII-only on purpose: everything above :main is the cp65001 guard region and
+rem is read under an unknown codepage (lint L04 rejects non-ASCII bytes there).
+rem Present in every encoder entry for uniformity; on HW entries it is unreachable
+rem because they pin FF_HWACCEL=none below (their -hwaccel is fixed by the family).
+:HWACCEL_FALLBACK
+findstr /c:"Failed to create Direct3D device" /c:"Device creation failed" "%FF_HWERR%" >nul 2>&1
+if errorlevel 1 exit /b 0
+echo.
+echo [fallback] -hwaccel auto init failed (D3D unavailable), retry without hwaccel
+set RUN_COM=%RUN_COM: -hwaccel %FF_HWACCEL%=%
+%RUN_COM%
+set "FB_RC=%ERRORLEVEL%"
+exit /b 0
+
 :main
 
 rem ============================================================
@@ -85,7 +104,17 @@ rem 命令行 set EXT=mkv 优先于配置文件(:load_defaults 只补没设过�
 call "%SELF_DIR%lib\common.bat" init_ext
 if errorlevel 1 exit /b 1
 echo 已找到ffmpeg于:%FFMPEG_PATH%
-set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0 -init_hw_device qsv=hw -filter_hw_device hw
+rem 解码加速器开关: FF_HWACCEL=none(默认) / auto / cuda / qsv / d3d11va / dxva2。
+rem 全族统一保留这两个变量(软编入口真的消费它); 但本入口固定 QSV 硬解硬编,
+rem -hwaccel 由编码器族写死, 用户设的值一律归一为空 —— 与 ffmpeg_libx264.sh 的
+rem enc_dec_args 同口径(--ff_hwaccel 对硬件入口无效, --help 里也这么写)。
+rem 归一之后下面执行段的 auto 分支永不命中, RUN_COM 一个字符都不变。
+if not defined FF_HWACCEL set "FF_HWACCEL=none"
+set "FF_HW_ARG= -hwaccel %FF_HWACCEL%"
+if /i "%FF_HWACCEL%"=="none" set "FF_HW_ARG="
+set "FF_HWACCEL=none"
+set "FF_HW_ARG="
+set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
 
 SET "SRC_FILE="
 
@@ -277,10 +306,22 @@ IF not defined PARSE_POS (
 
 echo RUN_COM4:%RUN_COM%
 echo.
+set "FF_HWERR=%TEMP%\ff_hwaccel_%RANDOM%.err"
 rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
-%RUN_COM%
+rem 仅 -hwaccel auto 时需要捕获 stderr 做 D3D 回退(锁屏/断会话下 auto 会崩);
+rem 其余情况(含硬件入口归一后的 none / 显式 cuda 等)直接把 stderr 打到控制台
+rem -> 进度实时可见。硬件入口的 FF_HWACCEL 已归一为 none, 恒走 else 支。
+if /i "%FF_HWACCEL%"=="auto" (
+    %RUN_COM% 2>"%FF_HWERR%"
+    set "FB_RC=%ERRORLEVEL%"
+    type "%FF_HWERR%" 2>nul
+    if not "%FB_RC%"=="0" call :HWACCEL_FALLBACK
+) else (
+    %RUN_COM%
+    set "FB_RC=%ERRORLEVEL%"
+)
 rem 负退出码陷阱 (2026-09-17 实测根因): Windows 版 ffmpeg 失败时常常
 rem 返回「负」的 AVERROR 值 —— 本机 av1_qsv 拿不到编码器时 ffmpeg.exe
 rem 退出码是 -40 (Function not implemented), 而 cmd 的 `if errorlevel N`
