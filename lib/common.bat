@@ -679,6 +679,7 @@ if /I "%PK%"=="split_chapter" set "SPLIT_CHAPTER=%PV%" & exit /b 0
 if /I "%PK%"=="extra_titles" set "EXTRA_TITLES=%PV%" & exit /b 0
 if /I "%PK%"=="vbitrate" set "VBITRATE=%PV%" & exit /b 0
 if /I "%PK%"=="venc" set "VENC=%PV%" & exit /b 0
+if /I "%PK%"=="dec" set "DEC=%PV%" & exit /b 0
 rem --help 不是开关, 是"要看用法": 放行, 由 :want_help 扫原始参数去命中。放行之前
 rem 会先打一句 unknown switch --help —— 用户只是想瞄一眼用法, 却先看到一句报错。
 rem (单横线的 -h / -help 走不到这里: ps_loop 只把 -- 开头的当开关, 它们会进 PARSE_POS,

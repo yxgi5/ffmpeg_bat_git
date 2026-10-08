@@ -2008,11 +2008,6 @@ ENTRY_WHITELIST = {
     "sh_only": {
         "ffmpeg_h264_vaapi.sh": "VAAPI is a Linux kernel API - no Windows twin",
         "ffmpeg_hevc_vaapi.sh": "VAAPI is a Linux kernel API - no Windows twin",
-        # TODO.md 阶段 1 分两步走: 本分支先落 sh 侧, .bat 孪生紧接着做。
-        # 这条豁免是**临时的**, 做 .bat 时删掉 —— 别让它长期留在表里, 否则
-        # "统一入口没有 Windows 版" 这个缺口会被白名单永久掩盖。
-        "ffmpeg_encode.sh": "TODO.md stage 1: sh side landed first, .bat twin follows "
-                            "in the same stage - remove this exemption then",
     },
     "bat_only": {
         "opencmd.bat": "Windows helper: open a cmd already switched to UTF-8",
