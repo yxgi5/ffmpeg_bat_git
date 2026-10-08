@@ -64,6 +64,10 @@
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# enc_ffenc 住在 encode_core.sh 里(阶段 0 抽内核时从本文件挪过去的):
+# --venc 的 "avc_* -> h264_*" 别名翻译只有那一份, 本文件的 --venc 也走它。
+# shellcheck source=lib/encode_core.sh
+source "${SCRIPT_DIR}/lib/encode_core.sh"
 
 # 命令行开关解析: --key value -> 同名大写环境变量(见 lib/common.sh)
 #   优先级 参数 > 环境变量 > defaults.cfg; 没给的参数回退 env / cfg(老 set 写法仍兼容)
@@ -442,12 +446,12 @@ venc_avail_list() {
 }
 
 # 名字归一: 连字符写法(hevc-nvenc)统一成下划线; avc_* 翻成 ffmpeg 真名 h264_*
+# (2026-10-08: 这句翻译原先在本文件与 lib/encode_core.sh 各写一份, 现在统一调
+#  enc_ffenc —— 阶段 1 的 ffmpeg_encode.sh 与 tools 的 PS_KEYS 也用同一份,
+#  以后加别名只改一处。本文件是唯一还需要 h264_* 规范名的调用方。)
 VENC_NAME="${VENC:-auto}"
 VENC_NAME="${VENC_NAME//-/_}"
-case "$VENC_NAME" in
-    avc_nvenc) VENC_NAME="h264_nvenc" ;;
-    avc_qsv)   VENC_NAME="h264_qsv"   ;;
-esac
+VENC_NAME="$(enc_ffenc "$VENC_NAME")"
 
 if [ "$VENC_NAME" = "auto" ]; then
     VENC_NAME=""

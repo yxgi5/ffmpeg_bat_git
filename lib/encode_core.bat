@@ -33,6 +33,7 @@ if "%~1"=="" exit /b 1
 if /I "%~1"=="enc_build" goto enc_build
 if /I "%~1"=="copy_run" goto copy_run
 if /I "%~1"=="enc_known" goto enc_known
+if /I "%~1"=="enc_ffenc" goto enc_ffenc
 echo 未知函数: %~1
 exit /b 1
 
@@ -465,5 +466,22 @@ exit /b 0
 rem ---------- 统一入口认识的编码器键(供 ffmpeg_encode.bat 打错字时提示) ----------
 :enc_known
 echo libx264 libx265 libsvtav1 avc_qsv hevc_qsv av1_qsv avc_nvenc hevc_nvenc av1_nvenc copy
+exit /b 0
+
+rem ---------- --venc 的别名翻译: avc_* -> h264_* ----------
+rem 只有这一份。ffmpeg_dvd_hevc.bat 的 --venc 与 ffmpeg_encode.bat 的 --venc 都调它,
+rem 以前是两边各写一份 if(2026-10-08 收敛)。enc_ffenc <名字> 把结果 echo 出来,
+rem 认不出来的原样返回 —— 调用方只在该名字自己的取值表里校验。
+:enc_ffenc
+set "FF_IN=%~1"
+if /i "%FF_IN%"=="avc_nvenc" (
+    echo h264_nvenc
+    exit /b 0
+)
+if /i "%FF_IN%"=="avc_qsv" (
+    echo h264_qsv
+    exit /b 0
+)
+echo %FF_IN%
 exit /b 0
 

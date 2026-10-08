@@ -334,8 +334,9 @@ rem 不可用(仓库 test/README.md 记过这个假 SKIP)。
 set "VENC_NAME=%VENC%"
 if not defined VENC_NAME set VENC_NAME=auto
 set "VENC_NAME=%VENC_NAME:-=_%"
-if /i "%VENC_NAME%"=="avc_nvenc" set VENC_NAME=h264_nvenc
-if /i "%VENC_NAME%"=="avc_qsv" set VENC_NAME=h264_qsv
+rem avc_* -> h264_* 统一调 lib\encode_core.bat 的 :enc_ffenc(2026-10-08 收敛,
+rem 以前是本文件与 encode_core.bat 各写一份 if)。
+for /f "delims=" %%V in ('call "%SELF_DIR%lib\encode_core.bat" enc_ffenc %VENC_NAME%') do set "VENC_NAME=%%V"
 set "VCODEC="
 if /i not "%VENC_NAME%"=="auto" goto VENC_FIXED
 call :VENC_OK hevc_nvenc
