@@ -26,8 +26,7 @@
 ## 2. 目标形态（已同意）
 
 ```
-ffmpeg_encode.sh / .bat   --venc <编码器>  --dec <解码器>  [既有开关...]
-ffmpeg_copy_to_mp4        remux，结构不同，保留
+ffmpeg_encode.sh / .bat   --venc <编码器|copy>  --dec <解码器>  [既有开关...]
 ffmpeg_dvd_hevc           DVD/BD 多 title，独立世界，不动
 convert_from_list         3 份 → 1 份，参数化"对每行调哪个入口"
 repack_from_list
@@ -38,6 +37,8 @@ tools/*                   不动结构，只做开关参数化（环境变量照
 （`hevc_qsv`→hevc 表、`h264_qsv`/`avc_qsv`→avc 表、`av1_qsv`→av1 表）。
 这张映射 lint 里已经有了（`P02` 的 `family_table(codec)`），运行时照抄一份即可。
 所以真正新增的参数只有两个：**`--venc`（编码器）** 与 **`--dec`（解码器）**。
+
+`copy_to_mp4` 按 2026-10-08 拍板**并入**为 `--venc copy`（见 §6 第 4 项：moov 前置一起带过来）。
 
 ## 3. 淘汰清单（2026-10-04 调整版）
 
@@ -56,8 +57,8 @@ tools/*                   不动结构，只做开关参数化（环境变量照
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| **0** | 抽公共内核 `lib/encode_core.{sh,bat}`：9 个编码入口各剩"编码器 / 码率表 / 解码初始化 / 能力门" | 待做 |
-| **1** | 落地 `ffmpeg_encode`（`--venc` / `--dec`）；9 个老名字变薄壳（3 行），CLI 完全兼容 | 待做 |
+| **0** | 抽公共内核 `lib/encode_core.{sh,bat}`：9 个编码入口各剩"编码器 / 码率表 / 解码初始化 / 能力门" | 🔨 进行中（分支 `feature/encode-core`，2026-10-08 起） |
+| **1** | 落地 `ffmpeg_encode`（`--venc` / `--dec`）；9 个老名字变薄壳（3 行），CLI 完全兼容 | 待做（6 项决策已拍板，见 §6） |
 | **2** | `tools/` 开关参数化（**保留环境变量**），`parse_switches` 支持"按脚本声明键表" | ✅ 已落地（2026-10-04） |
 | **3** | 宣布 VAAPI 入口 deprecated → 下个版本删文件 + 改 lint 白名单 + 改文档 / 冒烟 | 待做 |
 
@@ -99,16 +100,20 @@ tools/*                   不动结构，只做开关参数化（环境变量照
    → 阶段 2 必须走"按脚本声明键表"（`PS_KEYS`），不进公共表。
 6. **两族必须同步抽**，否则会制造新的结构漂移。
 
-## 6. 待定（需要拍板）
+## 6. 拍板结果（2026-10-08）
 
-| # | 问题 | 当前倾向 |
+| # | 问题 | 结论 |
 |---|---|---|
-| 1 | 统一入口**叫什么**：`ffmpeg_encode`？`ffmpeg_conv`？ | `ffmpeg_encode` |
-| 2 | 老名字薄壳**保留多久** | 保留到下次改硬件支持时再删；VAAPI 两个可在阶段 1 就删 |
-| 3 | `--dec` 的取值集合是否含 `cpu` 语义 | 用 `none`（= `--dec none`，一次 `-hwaccel` 都不加），与现有 `FF_HWACCEL=none` 对齐；摘要里的 `cpu` 归到 `none` |
-| 4 | `copy_to_mp4` 是否也并入统一入口（`--venc copy`） | 暂保留独立入口：它的"后缀已是 mp4 就跳过"和输出命名都不同 |
-| 5 | 阶段 1 后冒烟 T1–T31 怎么改 | 按新入口名重写断言，老 T-id 保留含义 |
-| 6 | VAAPI 淘汰后，Linux 上 VAAPI 用户怎么走 | `--venc <名> --dec vaapi` 仍留 `--dec` 取值，只是不再有独立入口文件；若驱动只能用 VAAPI，用 `--venc hevc_vaapi --dec vaapi` |
+| 1 | 统一入口**叫什么** | **`ffmpeg_encode`**（`ffmpeg_encode.sh` / `.bat`） |
+| 2 | 老名字薄壳**保留多久** | **待定** —— 阶段 1 落地时再定；本次只保证老名字 CLI 完全兼容 |
+| 3 | `--dec` 的取值集合 | **含 `cpu` 语义，语义就是 `none`**（一次 `-hwaccel` 都不加），与现有 `FF_HWACCEL=none` 对齐 |
+| 4 | `copy_to_mp4` 是否并入 | **并入**（`--venc copy`）。⚠️ **`-movflags +faststart`（moov 前置）必须一起带过来** —— 它是转封装能"拷走/边下边播"的关键，且 9 个编码入口目前都**没有**它，合并时别漏 |
+| 5 | 阶段 1 后冒烟 T1–T31 怎么改 | **按新入口名重写断言**，老 T-id 保留含义 |
+| 6 | VAAPI 淘汰后，Linux 上的 VAAPI 用户怎么走 | **用 QSV 等替代**（`--venc <hevc_qsv/avc_qsv> --dec qsv`）；不保留 `--dec vaapi` 取值 |
+
+> 第 4 项对阶段 0 的约束：`copy_to_mp4` 与 9 个编码入口有**四处**结构差异 ——
+> 无码率表、输出名不带 `-compressed`、源已是目标容器即跳过、`-c copy` + faststart。
+> 抽内核时要把这些留成钩子位，不能让公共流程假设"一定有码率表"。
 
 ## 7. 已落地的同类改动（可当样板）
 

@@ -11,6 +11,8 @@
 ```
 lib/common.bat             .bat 侧公共函数: 查表 / 路径提取 / ffmpeg 定位 / 视频流校验
 lib/common.sh              .sh  侧公共函数: 查表 / 参数检查 / 清单遍历 / 文件校验
+lib/encode_core.bat         .bat 侧编码入口公共内核(见 TODO.md 阶段 0)
+lib/encode_core.sh          .sh  侧编码入口公共内核: 表 + 钩子 + enc_run 公共流程
 lib/bitrate_table_hevc.csv 码率表 (默认)
 lib/bitrate_table_avc.csv  AVC 专用表
 lib/bitrate_table_av1.csv  AV1 专用表

@@ -83,7 +83,7 @@ def inventory():
         "test_sh": test_sh,
         "md": md,
         "all_bat": root_bat + ["lib/common.bat"] + test_bat,
-        "all_sh": root_sh + ["lib/common.sh"] + test_sh,
+        "all_sh": root_sh + ["lib/common.sh", "lib/encode_core.sh"] + test_sh,
     }
 
 
@@ -636,6 +636,64 @@ def calibrate_scanner():
             and not scan_metachars(literal_amp, probe))
 
 
+# ---------------------------------------------------------------- 阶段0: 薄壳入口的命令体
+# TODO.md 阶段0 把 9 个编码入口改成了薄壳, 命令拼装搬进了 lib/encode_core.sh。
+# 下面两个 helper 把"薄壳入口 + 它在核心里选中的那一个 case 分支"拼回一个可静态
+# 检查的命令体, 于是 L11 / L16 的断言对象和抽内核之前**完全一致**:
+#   * 共享不变量(-map 0:V / SENC / COVER_MAP / -map_metadata)取 enc_run 的公共段;
+#   * 逐入口不变量(-c:v:0 <编码器> / -profile:v:0 / 没有裸 -c:v copy)只取该入口
+#     选中的那支, 不会因为"9 个入口共用一份内核"而把逐入口断言放宽成整份内核的断言。
+# 不是薄壳的入口(ffmpeg_dvd_hevc)拿不到 enc_run, 返回 None, 调用方回退到"只看自己"。
+ENC_CORE_SH = "lib/encode_core.sh"
+
+
+def core_fn_text(core, fname):
+    """取出 lib/encode_core.sh 里 `function <fname>() { ... }` 的整段文本。"""
+    m = re.search(r"^function %s\(\) \{" % re.escape(fname), core, re.M)
+    if not m:
+        return ""
+    end = re.search(r"^\}\s*$", core[m.end():], re.M)
+    return core[m.start(): m.end() + (end.end() if end else 0)]
+
+
+def core_branch(core, fname, key):
+    """取出 <fname>() 里 key 命中的那个 case 分支的分支体(不含标签行与结尾 ;;)。
+
+    case 标签可能写成 `libx264|libx265)` 这种合并形式, 所以按 `|` 拆开比对。
+    """
+    out, inside = [], False
+    for ln in lf_lines(core_fn_text(core, fname)):
+        if inside:
+            if re.match(r"^\s*;;\s*$", ln):
+                break
+            out.append(ln)
+            continue
+        lab = re.match(r"^\s+([\w|]+)\)\s*$", ln)
+        if lab and key in lab.group(1).split("|"):
+            inside = True
+    return "\n".join(out)
+
+
+def entry_body_sh(text, core):
+    """薄壳入口的有效命令体, 非薄壳返回 None。"""
+    m = re.search(r"^enc_run\s+(\S+)\s", text, re.M)
+    if not m:
+        return None
+    key = m.group(1)
+    return "\n".join([text,
+                      core_fn_text(core, "enc_run"),
+                      core_branch(core, "enc_dec_args", key),
+                      core_branch(core, "enc_vargs", key)])
+
+
+def core_text():
+    p = os.path.join(ROOT, ENC_CORE_SH)
+    if not os.path.isfile(p):
+        return ""
+    _, t = read_text(p)
+    return t
+
+
 # ---------------------------------------------------------------- L10 / L11
 def check_sh_invariants(inv):
     bads = []
@@ -659,6 +717,7 @@ def check_sh_invariants(inv):
                   "(the 5-entry list regression)")
 
     bads = []
+    core = core_text()
     for f in inv["all_sh"]:
         if not f.startswith("ffmpeg_") or f == "ffmpeg_copy_to_mp4.sh":
             continue
@@ -666,7 +725,8 @@ def check_sh_invariants(inv):
         if not os.path.isfile(p):
             continue
         _, t = read_text(p)
-        lines = lf_lines(t)
+        body = entry_body_sh(t, core) or t
+        lines = lf_lines(body)
         idx_in = [i for i, ln in enumerate(lines) if re.search(r"CMD\+=\(-i\b", ln)]
         idx_enc = [i for i, ln in enumerate(lines) if re.search(r"CMD\+=\(-c:v\b", ln)]
         if not idx_in or not idx_enc:
@@ -1099,6 +1159,7 @@ COVER_MAP_SKIP = {
 def check_stream_map(inv):
     bads = []
     checked = 0
+    core = core_text()
     for fam, key in (("bat", "root_bat"), ("sh", "root_sh")):
         for f in inv[key]:
             if not re.match(r"^ffmpeg_.*\.%s$" % fam, f, re.IGNORECASE):
@@ -1107,6 +1168,10 @@ def check_stream_map(inv):
             if not os.path.isfile(p):
                 continue
             _, t = read_text(p)
+            # 薄壳入口(阶段0): 命令体要看 lib/encode_core.sh 里它选中的那一支,
+            # 见 entry_body_sh 的说明; 非薄壳(ffmpeg_dvd_hevc)仍只看自己。
+            if fam == "sh":
+                t = entry_body_sh(t, core) or t
             body = "\n".join(ln for ln in lf_lines(t)
                              if not ln.strip().lower().startswith(("rem", "#")))
             checked += 1
