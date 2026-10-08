@@ -113,12 +113,25 @@ if /i not "%DEC_ARG%"=="%DEC_FAMILY%" (
     if /i "%DEC_ARG%"=="qsv" echo        10bit 降位滤镜属于 QSV 解码路径, 现在解码器不是 qsv, 该滤镜不会加。
 )
 
+rem 刻意用 ( ) 块 + 块内 goto, **不用** `set X=Y & goto Z` 那写法: & 前的空格会被
+rem 算进变量值, 命令行里就多出一个空格(实测 avc_qsv/hevc_nvenc 的 RUN_COM0 变成
+rem "... -filter_hw_device hw  -hwaccel qsv", 与老入口不再逐字一致)。括号里 set 语句
+rem 以换行结束, 值不带尾随空格。
 set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0
 if /i "%DEC_ARG%"=="soft" set RUN_COM=%RUN_COM% -v verbose%FF_HW_ARG%
 if /i "%DEC_ARG%"=="none" goto DEC_DONE
-if /i "%DEC_ARG%"=="auto" set RUN_COM=%RUN_COM% -hwaccel auto & goto DEC_DONE
-if /i "%DEC_ARG%"=="cuda" set RUN_COM=%RUN_COM% -hwaccel cuda -hwaccel_output_format cuda & goto DEC_DONE
-if /i "%DEC_ARG%"=="qsv" set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw & goto DEC_DONE
+if /i "%DEC_ARG%"=="auto" (
+    set RUN_COM=%RUN_COM% -hwaccel auto
+    goto DEC_DONE
+)
+if /i "%DEC_ARG%"=="cuda" (
+    set RUN_COM=%RUN_COM% -hwaccel cuda -hwaccel_output_format cuda
+    goto DEC_DONE
+)
+if /i "%DEC_ARG%"=="qsv" (
+    set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
+    goto DEC_DONE
+)
 rem soft 的 -v verbose 已经加过了; 走到这里说明 DEC_ARG 非法(上面已拦住), 兜个底
 set RUN_COM=%RUN_COM%%FF_HW_ARG%
 :DEC_DONE
