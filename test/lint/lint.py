@@ -82,7 +82,7 @@ def inventory():
         "test_bat": test_bat,
         "test_sh": test_sh,
         "md": md,
-        "all_bat": root_bat + ["lib/common.bat"] + test_bat,
+        "all_bat": root_bat + ["lib/common.bat", "lib/encode_core.bat"] + test_bat,
         "all_sh": root_sh + ["lib/common.sh", "lib/encode_core.sh"] + test_sh,
     }
 
@@ -694,6 +694,54 @@ def core_text():
     return t
 
 
+ENC_CORE_BAT = "lib/encode_core.bat"
+
+
+def core_text_bat():
+    p = os.path.join(ROOT, ENC_CORE_BAT)
+    if not os.path.isfile(p):
+        return ""
+    _, t = read_text(p)
+    return t
+
+
+def entry_body_bat(text, core):
+    """薄壳 bat 入口(阶段0)的有效命令体, 非薄壳返回 None。
+
+    取核心里三样与该入口相关的东西:
+      * `if /I "%ENC%"=="<enc>"` 的分派行(三种解码头 / 码率表 / 编码参数);
+      * 默认那行 `set "ENC_ARGS=` —— 流选择(-map 0:V / -map_metadata / 封面 / 字幕
+        出口)全在它身上, 7 个入口共用;
+      * 三种解码拓扑头。
+    逐入口断言因此仍只看该入口选中的那一支, 不会因为共用一份内核而放宽。
+    """
+    m = re.search(r'encode_core\.bat"\s+enc_build\s+(\S+)', text)
+    if not m:
+        return None
+    tag = '"%%ENC%%"=="%s"' % m.group(1)
+    default = sel = None
+    for ln in lf_lines(core):
+        # 只在 ENC_ARGS 行里选: 同一个 tag 在解码头 / 码率表的分派行上也出现,
+        # 那些是别的断言的对象, 混进来会让"逐入口"失去意义。
+        if 'set "ENC_ARGS=' not in ln:
+            continue
+        # 没有 if 前缀的那行是 libx264 的默认值(libx264 自己不分派)
+        if default is None and not ln.lstrip().startswith("if "):
+            default = ln
+        if tag in ln and sel is None:
+            sel = ln
+    sel = sel or default
+    if sel is None:
+        return None
+    # 拆成两段: 编码器段(逐入口, 只取该入口选中的那一支) + 流选择段(7 个入口共用)。
+    # 这样 `-c:v:0` 之类断言只看到本入口的编码器参数, 不会被默认那行"借"到;
+    # 而 -map 0:V / 封面 / 字幕出口 / 元数据这些**本来就该是共享的**断言仍能生效。
+    i = sel.find("-map 0:V")
+    if i < 0:
+        return "\n".join([text, sel])
+    return "\n".join([text, sel[:i], sel[i:]])
+
+
 # ---------------------------------------------------------------- L10 / L11
 def check_sh_invariants(inv):
     bads = []
@@ -1160,6 +1208,7 @@ def check_stream_map(inv):
     bads = []
     checked = 0
     core = core_text()
+    core_b = core_text_bat()
     for fam, key in (("bat", "root_bat"), ("sh", "root_sh")):
         for f in inv[key]:
             if not re.match(r"^ffmpeg_.*\.%s$" % fam, f, re.IGNORECASE):
@@ -1168,10 +1217,12 @@ def check_stream_map(inv):
             if not os.path.isfile(p):
                 continue
             _, t = read_text(p)
-            # 薄壳入口(阶段0): 命令体要看 lib/encode_core.sh 里它选中的那一支,
-            # 见 entry_body_sh 的说明; 非薄壳(ffmpeg_dvd_hevc)仍只看自己。
+            # 薄壳入口(阶段0): 命令体要看内核里它选中的那一支, 见 entry_body_sh /
+            # entry_body_bat 的说明; 非薄壳(dvd_hevc / copy_to_mp4)仍只看自己。
             if fam == "sh":
                 t = entry_body_sh(t, core) or t
+            else:
+                t = entry_body_bat(t, core_b) or t
             body = "\n".join(ln for ln in lf_lines(t)
                              if not ln.strip().lower().startswith(("rem", "#")))
             checked += 1
