@@ -645,7 +645,11 @@ def check_sh_invariants(inv):
             continue
         _, t = read_text(p)
         if "run_list" in t and "lib/common.sh" in f:
-            if "bash \"$script\" \"$line\" < /dev/null" not in t:
+            # run_list 现在会把 FWD 开关透传给每个入口, 行形如
+            #   bash "$script" "${FWD[@]+"${FWD[@]}"}" "$line" < /dev/null
+            # 只要保留 "bash $script" ... "< /dev/null" 的 stdin 隔离即算通过,
+            # 不要写死中间那段.
+            if not re.search(r'bash "\$script".*"\$line" < /dev/null', t, re.S):
                 bads.append("%s: run_list lost its `< /dev/null` stdin isolation" % f)
     if bads:
         for m in bads:
