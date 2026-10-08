@@ -472,8 +472,11 @@ rem ---------- --venc 的别名翻译: avc_* -> h264_* ----------
 rem 只有这一份。ffmpeg_dvd_hevc.bat 的 --venc 与 ffmpeg_encode.bat 的 --venc 都调它,
 rem 以前是两边各写一份 if(2026-10-08 收敛)。enc_ffenc <名字> 把结果 echo 出来,
 rem 认不出来的原样返回 —— 调用方只在该名字自己的取值表里校验。
+rem **参数是 %~2 不是 %~1**: 本文件的 dispatcher 约定与 lib\common.bat 一样,
+rem %~1 是函数名(enc_ffenc), %~2 才是它要翻译的名字 —— 写成 %~1 会把函数名
+rem 本身当输入原样 echo 回去(实测输出 "enc_ffenc")。
 :enc_ffenc
-set "FF_IN=%~1"
+set "FF_IN=%~2"
 if /i "%FF_IN%"=="avc_nvenc" (
     echo h264_nvenc
     exit /b 0
