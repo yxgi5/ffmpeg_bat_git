@@ -48,16 +48,6 @@ set -u
 # 上一条 "the source path looks split on spaces" 守卫是从 bench_calib.sh 抄过来的, 放在这里
 # 是错的: 它会把一个拼错的 mode 说成"路径被空格切开", 把排查方向带偏。已删除, 改为真正
 # 校验 MODE, 多余的参数也要报出来。
-MODE="${1:-full}"
-case "$MODE" in
-    full|1080|probe) ;;
-    *) echo "ERROR: unknown mode [$MODE] - expected full | 1080 | probe"; exit 1 ;;
-esac
-if [ "$#" -gt 1 ]; then
-    echo "ERROR: too many arguments ($#) - this script takes one mode only."
-    echo "       usage: test/sh/soft_pair_calib.sh [full|1080|probe]"
-    exit 1
-fi
 # Resolve ffmpeg through lib/common.sh's find_ffmpeg (same four-level fallback as
 # lib/common.bat: FFMPEG_BIN/FFMPEG > repo ffmpeg/bin > PATH > well-known prefixes),
 # skipping candidates that lack libvmaf. Plain PATH lookup is not enough on Windows:
@@ -71,11 +61,22 @@ if [ -r "$SELF_DIR/../../lib/common.sh" ]; then
     . "$SELF_DIR/../../lib/common.sh"
 fi
 # 统一 --help / -help / -h: 与 .bat 孪生同一套版式(见 lib/common.sh 的 ff_usage_block)
-# 放在这段 if 之后: common.sh 是条件加载的, 守卫必须排在它后面(没加载时静默跳过)。
+# 必须在 MODE 解析之前(2026-10-08 修): 否则 --help 会被下面的 case 当成 unknown mode
+# 拦掉, 与其它 37 个脚本的 --help 行为不一致。common.sh 条件加载, 守卫排在其后。
 declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
     "soft_pair_calib.sh  -  软编等质量配对标定（SVT-AV1 p8 对 libx265 fast）" \
     "用法: bash test/sh/soft_pair_calib.sh [full 或 1080 或 probe]" \
     "full（默认，720p + 1080p + 2160p 一起标）/ 1080（只跑 1080p，轻量交叉核对）/ probe（只查工具链）" || :
+MODE="${1:-full}"
+case "$MODE" in
+    full|1080|probe) ;;
+    *) echo "ERROR: unknown mode [$MODE] - expected full | 1080 | probe"; exit 1 ;;
+esac
+if [ "$#" -gt 1 ]; then
+    echo "ERROR: too many arguments ($#) - this script takes one mode only."
+    echo "       usage: test/sh/soft_pair_calib.sh [full|1080|probe]"
+    exit 1
+fi
 if declare -F find_ffmpeg >/dev/null 2>&1; then
     FF="$(find_ffmpeg --need-filter libvmaf --need-encoder libsvtav1 --need-encoder libx265)" || {
         echo "FATAL: no ffmpeg with libvmaf + libsvtav1 + libx265 was found"
