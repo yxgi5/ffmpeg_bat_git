@@ -514,6 +514,131 @@ for %%f in ("%LOGDIR%\*.log") do (
         set "BAD=1"
     )
 )
+rem ============================================================================================
+rem 统一入口 ffmpeg_encode.bat (TODO.md 阶段 1)。老入口 T1-T15 一条没动; 这里断言的是
+rem "新入口与老入口等价 + 新能力 --venc / --dec / copy 可用"。硬件组合用 --dry-run 静态
+rem 断言命令行, 所以本机有没有硬编都能跑。
+rem ============================================================================================
+
+rem ============ T32: 统一入口软编实跑 --venc libx265 ============
+chcp %CP0% >nul
+set "T32LOG=%LOGDIR%\T32_encode_libx265.log"
+set "T32OUT=%WORK%\unified clip-compressed.mp4"
+del /q "%T32OUT%" >nul 2>&1
+copy /y "%IN%" "%WORK%\unified clip.mp4" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 "%WORK%\unified clip.mp4" < nul > "%T32LOG%" 2>&1
+set "RC32=%errorlevel%"
+set "V32=PASS"
+set "N32="
+if not "%RC32%"=="0" set "V32=FAIL" & set "N32=rc=%RC32% want0"
+if not exist "%T32OUT%" set "V32=FAIL" & set "N32=%N32% noOutput"
+findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
+if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
+echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
+if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
+
+rem ============ T33: 新旧入口同参 -> RUN_COM 逐字一致 ============
+chcp %CP0% >nul
+set "T33LNEW=%LOGDIR%\T33_equiv_new.log"
+set "T33LOLD=%LOGDIR%\T33_equiv_old.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T33LNEW%" 2>&1
+call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T33LOLD%" 2>&1
+set "A33="
+set "B33="
+for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%T33LNEW%"') do if not defined A33 set "A33=%%L"
+for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%T33LOLD%"') do if not defined B33 set "B33=%%L"
+set "V33=PASS"
+set "N33="
+if not defined A33 set "V33=FAIL" & set "N33=newNoRUN_COM"
+if not defined B33 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
+if defined A33 if defined B33 if not "%A33%"=="%B33%" set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
+echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
+if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
+
+rem ============ T34: --dec 五个取值的命令行形态 ============
+rem 逐个走子程序而不是 for 循环: 循环里要读上一轮的中间结果就得开延迟展开
+rem setlocal enabledelayedExpansion, 而本文件主作用域没开 —— 那样写会在读到字面量
+rem !VAR! 时静默当成空, 断言会变成永远真。
+set "D34=0"
+set "D34=0"
+call :t34dec auto    "-hwaccel auto"
+call :t34dec cpu     ""
+call :t34dec none    ""
+call :t34dec qsv     "-init_hw_device qsv=hw"
+call :t34dec cuda    "-hwaccel cuda"
+if "%D34%"=="0" echo [PASS] T34 --dec auto/cpu/none/qsv/cuda map to the right hwaccel form >> "%SUM%"
+if not "%D34%"=="0" echo [FAIL] T34 --dec 5 values -- at least one wrong form >> "%SUM%"
+
+rem ============ T35: --dec 与族不一致 -> 警告但不拦 ============
+chcp %CP0% >nul
+set "T35LOG=%LOGDIR%\T35_dec_mismatch.log"
+call "%REPO%\ffmpeg_encode.bat" --venc hevc_qsv --dec cuda --dry-run "%IN%" < nul > "%T35LOG%" 2>&1
+set "RC35=%errorlevel%"
+set "V35=PASS"
+set "N35="
+if not "%RC35%"=="0" set "V35=FAIL" & set "N35=rc=%RC35% want0"
+findstr /c:"警告" "%T35LOG%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL" & set "N35=%N35% noWarn"
+findstr /c:"10bit" "%T35LOG%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL" & set "N35=%N35% no10bitHint"
+echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
+if not "%N35%"=="" echo        why: %N35% >> "%SUM%"
+
+rem ============ T36: 打错字 / 不给 --venc 都得报错 ============
+chcp %CP0% >nul
+set "T36LOG=%LOGDIR%\T36_badvenc.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx266 --dry-run "%IN%" < nul > "%T36LOG%" 2>&1
+set "RC36=%errorlevel%"
+if not "%RC36%"=="0" echo [PASS] T36 unknown --venc rejected rc=%RC36% >> "%SUM%"
+if "%RC36%"=="0" echo [FAIL] T36 unknown --venc accepted rc=0 >> "%SUM%"
+set "T36BLOG=%LOGDIR%\T36_novenc.log"
+call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%T36BLOG%" 2>&1
+set "RC36B=%errorlevel%"
+if not "%RC36B%"=="0" echo [PASS] T36 missing --venc rejected rc=%RC36B% >> "%SUM%"
+if "%RC36B%"=="0" echo [FAIL] T36 missing --venc accepted rc=0 >> "%SUM%"
+
+rem ============ T37: --venc copy 并入转封装: 产物名 + moov 前置 ============
+chcp %CP0% >nul
+set "T37LOG=%LOGDIR%\T37_copy.log"
+set "T37OUT=%WORK%\unified remux.mp4"
+del /q "%T37OUT%" >nul 2>&1
+del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
+copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\unified remux.mov" < nul > "%T37LOG%" 2>&1
+set "RC37=%errorlevel%"
+set "V37=PASS"
+set "N37="
+if not "%RC37%"=="0" set "V37=FAIL" & set "N37=rc=%RC37% want0"
+if not exist "%T37OUT%" set "V37=FAIL" & set "N37=%N37% noOutput"
+if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL" & set "N37=%N37% wrote-compressed"
+findstr /c:"-movflags +faststart" "%T37LOG%" >nul 2>&1
+if errorlevel 1 set "V37=FAIL" & set "N37=%N37% noFaststart"
+echo [%V37%] T37 --venc copy -- remux with faststart and plain output name >> "%SUM%"
+if not "%N37%"=="" echo        why: %N37% >> "%SUM%"
+
+rem ============ T38: 软件 AV1 libsvtav1; 构建没有该编码器就 SKIP ============
+chcp %CP0% >nul
+"%FFMPEG%" -hide_banner -encoders 2>nul | findstr /i /c:"libsvtav1" >nul 2>&1
+if errorlevel 1 goto T38_SKIP
+set "T38LOG=%LOGDIR%\T38_svtav1.log"
+set "T38OUT=%WORK%\unified clip-compressed.mp4"
+del /q "%T38OUT%" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc libsvtav1 "%WORK%\unified clip.mp4" < nul > "%T38LOG%" 2>&1
+set "RC38=%errorlevel%"
+set "V38=PASS"
+set "N38="
+if not "%RC38%"=="0" set "V38=FAIL" & set "N38=rc=%RC38% want0"
+if not exist "%T38OUT%" set "V38=FAIL" & set "N38=%N38% noOutput"
+findstr /i /c:"-c:v:0 libsvtav1" "%T38LOG%" >nul 2>&1
+if errorlevel 1 set "V38=FAIL" & set "N38=%N38% noSvtav1Args"
+echo [%V38%] T38 encode_libsvtav1 rc=%RC38% -- unified entry arg mode >> "%SUM%"
+if not "%N38%"=="" echo        why: %N38% >> "%SUM%"
+goto T38_DONE
+:T38_SKIP
+echo [SKIP] T38 svtav1 -- this ffmpeg build has no libsvtav1 encoder >> "%SUM%"
+:T38_DONE
+
+set "D34=0"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
@@ -603,6 +728,29 @@ set "RC=%errorlevel%"
 call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" %EXPCODEC%
 exit /b 0
 
+rem ============================================================
+rem :t34dec <decvalue> <want-fragment | empty>
+rem   跑一次统一入口的 --dry-run, 断言 RUN_COM0 里含(或不含)指定片段。
+rem   want 为空时断言**不含** -hwaccel —— cpu/none 的语义就是一次 -hwaccel 都不加。
+rem   D34 由调用方初始化, 任何一条不符就置 1(所以必须 endlocal 后再置)。
+rem ============================================================
+:t34dec
+setlocal
+set "L=%LOGDIR%\T34_dec_%~1.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec %~1 --dry-run "%IN%" < nul > "%L%" 2>&1
+set "RC=%errorlevel%"
+set "LINE="
+for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%L%"') do if not defined LINE set "LINE=%%L"
+if not "%RC%"=="0" endlocal & set "D34=1" & goto :eof
+if not defined LINE endlocal & set "D34=1" & goto :eof
+if "%~2"=="" goto T34_NONE
+echo %LINE% | findstr /c:"%~2" >nul 2>&1
+if errorlevel 1 endlocal & set "D34=1" & goto :eof
+endlocal & goto :eof
+:T34_NONE
+echo %LINE% | findstr /c:"-hwaccel" >nul 2>&1
+if not errorlevel 1 endlocal & set "D34=1" & goto :eof
+endlocal & goto :eof
 rem ============================================================
 rem :runB <batname> <input> <logname> <expected TARGET_BITRATE> <modelabel>
 rem   no file argument -> interactive prompts, stdin fed with:
