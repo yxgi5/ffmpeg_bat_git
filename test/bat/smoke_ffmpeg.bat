@@ -576,6 +576,21 @@ if not "%RC34%"=="0" set "V34=FAIL"
 findstr /c:"-hwaccel" "%L34%" >nul 2>&1
 if not errorlevel 1 set "V34=FAIL"
 echo [%V34%] T34 dec=cpu -> no hwaccel at all >> "%SUM%"
+rem ============ T35: --dec 与族不一致 -> 警告但不拦 ============
+rem 断言抓 [warn] 这个 ASCII 标签: 冒烟一律抓 ASCII 标记(同 :check_isvideo 的做法),
+rem findstr /c:"警告" 在 bat 的编码下匹配不上。
+rem 顺带断言警告里说了 10bit 降位滤镜不跟过来 —— 那是实测最容易静默丢东西的地方。
+chcp %CP0% >nul
+set "L35=%LOGDIR%\T35_dec_mismatch.log"
+call "%REPO%\ffmpeg_encode.bat" --venc hevc_qsv --dec cuda --dry-run "%IN%" < nul > "%L35%" 2>&1
+set "RC35=%errorlevel%"
+set "V35=PASS"
+if not "%RC35%"=="0" set "V35=FAIL"
+findstr /c:"[warn]" "%L35%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL"
+findstr /c:"10bit" "%L35%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL"
+echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
