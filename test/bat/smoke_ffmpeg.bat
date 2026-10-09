@@ -607,6 +607,24 @@ call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%L36%" 2>&1
 set "RC36=%errorlevel%"
 if "%RC36%"=="0" set "V36=FAIL"
 echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
+rem ============ T37: --venc copy 并入转封装 ============
+rem 三个要点: 产物与源同名(不带 -compressed)、带 moov 前置、源已是目标容器能早退。
+rem ⚠️ 别在 %WORK% 里留多余文件: 元字符矩阵会数这个目录的文件, 之前 A19 就是这么挂的。
+chcp %CP0% >nul
+set "L37=%LOGDIR%\T37_copy.log"
+set "O37=%WORK%\unified remux.mp4"
+del /q "%O37%" >nul 2>&1
+del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
+copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\unified remux.mov" < nul > "%L37%" 2>&1
+set "RC37=%errorlevel%"
+set "V37=PASS"
+if not "%RC37%"=="0" set "V37=FAIL"
+if not exist "%O37%" set "V37=FAIL"
+if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL"
+findstr /c:"-movflags +faststart" "%L37%" >nul 2>&1
+if errorlevel 1 set "V37=FAIL"
+echo [%V37%] T37 copy -- remux with faststart and plain output name >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
