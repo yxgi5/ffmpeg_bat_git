@@ -219,16 +219,12 @@ set "RC26=%errorlevel%"
 set "EXT="
 set "V26=PASS"
 set "N26="
-if not "%RC26%"=="0" ( set "V26=FAIL"
-set "N26=%N26% rc=%RC26% want0;" )
-if not exist "%T26OUT%" ( set "V26=FAIL"
-set "N26=%N26% noClipCompressedMkv;" )
-if exist "%T26D%\clip-compressed.mp4" ( set "V26=FAIL"
-set "N26=%N26% mp4WrittenAnyway;" )
+if not "%RC26%"=="0" ( set "V26=FAIL" & set "N26=%N26% rc=%RC26% want0;" )
+if not exist "%T26OUT%" ( set "V26=FAIL" & set "N26=%N26% noClipCompressedMkv;" )
+if exist "%T26D%\clip-compressed.mp4" ( set "V26=FAIL" & set "N26=%N26% mp4WrittenAnyway;" )
 if exist "%T26OUT%" "%FP%" -v error -show_entries format=format_name -of csv=p=0 "%T26OUT%" > "%LOGDIR%\T26_container.txt" 2>&1
 findstr /i /c:"matroska" "%LOGDIR%\T26_container.txt" >nul 2>&1
-if errorlevel 1 ( set "V26=FAIL"
-set "N26=%N26% notMatroska;" )
+if errorlevel 1 ( set "V26=FAIL" & set "N26=%N26% notMatroska;" )
 echo [%V26%] T26 EXT=mkv libx265 rc=%RC26% >> "%SUM%"
 if not "%N26%"=="" echo        why: %N26% >> "%SUM%"
 
@@ -253,16 +249,12 @@ set "RC27=%errorlevel%"
 set "EXT="
 set "V27=PASS"
 set "N27="
-if not "%RC27%"=="0" ( set "V27=FAIL"
-set "N27=%N27% rc=%RC27% want0;" )
-if not exist "%T27OUT%" ( set "V27=FAIL"
-set "N27=%N27% noOutput;" )
+if not "%RC27%"=="0" ( set "V27=FAIL" & set "N27=%N27% rc=%RC27% want0;" )
+if not exist "%T27OUT%" ( set "V27=FAIL" & set "N27=%N27% noOutput;" )
 if exist "%T27OUT%" "%FP%" -v error -select_streams s:0 -show_entries stream=codec_name -of csv=p=0 "%T27OUT%" > "%LOGDIR%\T27_sub.txt" 2>&1
 findstr /i /c:"ass" "%LOGDIR%\T27_sub.txt" >nul 2>&1
-if errorlevel 1 ( set "V27=FAIL"
-set "N27=%N27% subNotAss;" )
-if exist "%T27OUT%" for %%A in ("%T27OUT%") do if %%~zA LEQ 0 ( set "V27=FAIL"
-set "N27=%N27% zeroByte;" )
+if errorlevel 1 ( set "V27=FAIL" & set "N27=%N27% subNotAss;" )
+if exist "%T27OUT%" for %%A in ("%T27OUT%") do if %%~zA LEQ 0 ( set "V27=FAIL" & set "N27=%N27% zeroByte;" )
 echo [%V27%] T27 EXT=mkv mov_text source rc=%RC27% >> "%SUM%"
 if not "%N27%"=="" echo        why: %N27% >> "%SUM%"
 
@@ -289,12 +281,9 @@ set "V28=PASS"
 set "N28="
 set "EXP28=0"
 if not "%TB28A%"=="none" set /a EXP28=%TB28A% * 2
-if not "%RC28%"=="0" ( set "V28=FAIL"
-set "N28=%N28% rc=%RC28% want0;" )
-if "%TB28A%"=="none" ( set "V28=FAIL"
-set "N28=%N28% noBaseline;" )
-if not "%TB28B%"=="%EXP28%" ( set "V28=FAIL"
-set "N28=%N28% target=%TB28B% want%EXP28%;" )
+if not "%RC28%"=="0" ( set "V28=FAIL" & set "N28=%N28% rc=%RC28% want0;" )
+if "%TB28A%"=="none" ( set "V28=FAIL" & set "N28=%N28% noBaseline;" )
+if not "%TB28B%"=="%EXP28%" ( set "V28=FAIL" & set "N28=%N28% target=%TB28B% want%EXP28%;" )
 echo [%V28%] T28 BITRATE_NO_HALF=1 target %TB28A% -^> %TB28B% >> "%SUM%"
 if not "%N28%"=="" echo        why: %N28% >> "%SUM%"
 
@@ -317,12 +306,9 @@ set "FB_DEFAULTS="
 set "T29OUT=%T29D%\clip-compressed.mkv"
 set "V29=PASS"
 set "N29="
-if not "%RC29%"=="0" ( set "V29=FAIL"
-set "N29=%N29% rc=%RC29% want0;" )
-if not exist "%T29OUT%" ( set "V29=FAIL"
-set "N29=%N29% noClipCompressedMkv;" )
-if exist "%T29D%\clip-compressed.mp4" ( set "V29=FAIL"
-set "N29=%N29% mp4WrittenAnyway;" )
+if not "%RC29%"=="0" ( set "V29=FAIL" & set "N29=%N29% rc=%RC29% want0;" )
+if not exist "%T29OUT%" ( set "V29=FAIL" & set "N29=%N29% noClipCompressedMkv;" )
+if exist "%T29D%\clip-compressed.mp4" ( set "V29=FAIL" & set "N29=%N29% mp4WrittenAnyway;" )
 echo [%V29%] T29 FB_DEFAULTS alt config -^> mkv rc=%RC29% >> "%SUM%"
 if not "%N29%"=="" echo        why: %N29% >> "%SUM%"
 
@@ -341,17 +327,13 @@ call "%REPO%\ffmpeg_libx264.bat" --dry-run "%T31D%\clip.mp4" < nul > "%T31LOG%" 
 set "RC31=%errorlevel%"
 set "V31=PASS"
 set "N31="
-if not "%RC31%"=="0" ( set "V31=FAIL"
-set "N31=%N31% rc=%RC31% want0;" )
+if not "%RC31%"=="0" ( set "V31=FAIL" & set "N31=%N31% rc=%RC31% want0;" )
 rem 标记行说明"这一步没真跑"; 再单独确认打出来的命令带着输入文件名
 findstr /c:"[dry-run]" "%T31LOG%" >nul 2>&1
-if errorlevel 1 ( set "V31=FAIL"
-set "N31=%N31% noDryRunMarker;" )
+if errorlevel 1 ( set "V31=FAIL" & set "N31=%N31% noDryRunMarker;" )
 findstr /c:"clip.mp4" "%T31LOG%" >nul 2>&1
-if errorlevel 1 ( set "V31=FAIL"
-set "N31=%N31% cmdMissingInput;" )
-if exist "%T31D%\clip-compressed.mp4" ( set "V31=FAIL"
-set "N31=%N31% productWritten;" )
+if errorlevel 1 ( set "V31=FAIL" & set "N31=%N31% cmdMissingInput;" )
+if exist "%T31D%\clip-compressed.mp4" ( set "V31=FAIL" & set "N31=%N31% productWritten;" )
 echo [%V31%] T31 --dry-run libx264 rc=%RC31% >> "%SUM%"
 if not "%N31%"=="" echo        why: %N31% >> "%SUM%"
 
@@ -392,15 +374,11 @@ set "RC13=%errorlevel%"
 set "V13=PASS"
 set "N13="
 findstr /i /c:"check_isvideo" "%T13LOG%" >nul 2>&1
-if errorlevel 1 ( set "V13=FAIL"
-set "N13=%N13% noCheckMsg;" )
+if errorlevel 1 ( set "V13=FAIL" & set "N13=%N13% noCheckMsg;" )
 findstr /i /c:"matches no streams" "%T13LOG%" >nul 2>&1
-if not errorlevel 1 ( set "V13=FAIL"
-set "N13=%N13% reachedFfmpeg;" )
-if exist "%T13OUT%" ( set "V13=FAIL"
-set "N13=%N13% outputProduced;" )
-if not "%RC13%"=="3" ( set "V13=FAIL"
-set "N13=%N13% exitCode=%RC13% want3;" )
+if not errorlevel 1 ( set "V13=FAIL" & set "N13=%N13% reachedFfmpeg;" )
+if exist "%T13OUT%" ( set "V13=FAIL" & set "N13=%N13% outputProduced;" )
+if not "%RC13%"=="3" ( set "V13=FAIL" & set "N13=%N13% exitCode=%RC13% want3;" )
 echo [%V13%] T13 non-video input rejected before ffmpeg rc=%RC13% >> "%SUM%"
 if not "%N13%"=="" echo        why: %N13% >> "%SUM%"
 
@@ -440,11 +418,9 @@ call "%REPO%\convert_from_list_libx265.bat" "%WORK%\T23_abort\badlist.txt" < nul
 set "RC23=%errorlevel%"
 set "V23=PASS"
 set "N23="
-if "%RC23%"=="0" ( set "V23=FAIL"
-set "N23=%N23% exitCode=0 wantNonZero;" )
+if "%RC23%"=="0" ( set "V23=FAIL" & set "N23=%N23% exitCode=0 wantNonZero;" )
 findstr /i /c:"is not recognized" "%LOGDIR%\T23_list_abort.log" >nul 2>&1
-if not errorlevel 1 ( set "V23=FAIL"
-set "N23=%N23% bannerParseErr;" )
+if not errorlevel 1 ( set "V23=FAIL" & set "N23=%N23% bannerParseErr;" )
 echo [%V23%] T23 missing list entry aborts the wrapper rc=%RC23% >> "%SUM%"
 if not "%N23%"=="" echo        why: %N23% >> "%SUM%"
 
@@ -475,13 +451,10 @@ set "CNT30=0"
 for %%c in ("%T30D%\*-compressed.mp4") do set /a CNT30+=1
 set "V30=PASS"
 set "N30="
-if not "%RC30%"=="0" ( set "V30=FAIL"
-set "N30=%N30% rc=%RC30% want0;" )
-if not "%CNT30%"=="3" ( set "V30=FAIL"
-set "N30=%N30% outputs=%CNT30% want3;" )
+if not "%RC30%"=="0" ( set "V30=FAIL" & set "N30=%N30% rc=%RC30% want0;" )
+if not "%CNT30%"=="3" ( set "V30=FAIL" & set "N30=%N30% outputs=%CNT30% want3;" )
 findstr /i /c:"is not recognized" "%LOGDIR%\T30_list_crlf_bom.log" >nul 2>&1
-if not errorlevel 1 ( set "V30=FAIL"
-set "N30=%N30% bannerParseErr;" )
+if not errorlevel 1 ( set "V30=FAIL" & set "N30=%N30% bannerParseErr;" )
 echo [%V30%] T30 CRLF + UTF-8 BOM list : %CNT30% of 3 outputs, rc=%RC30% >> "%SUM%"
 if not "%N30%"=="" echo        why: %N30% >> "%SUM%"
 
@@ -553,13 +526,10 @@ call "%REPO%\ffmpeg_encode.bat" --venc libx265 "%WORK%\unified clip.mp4" < nul >
 set "RC32=%errorlevel%"
 set "V32=PASS"
 set "N32="
-if not "%RC32%"=="0" set "V32=FAIL"
-set "N32=rc=%RC32% want0"
-if not exist "%T32OUT%" set "V32=FAIL"
-set "N32=%N32% noOutput"
+if not "%RC32%"=="0" set "V32=FAIL" & set "N32=rc=%RC32% want0"
+if not exist "%T32OUT%" set "V32=FAIL" & set "N32=%N32% noOutput"
 findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
-if errorlevel 1 set "V32=FAIL"
-set "N32=%N32% noLibx265Args"
+if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
 echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
 if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
 rem ============ T33: 新旧入口同参 -> RUN_COM 逐字一致 ============
@@ -579,121 +549,12 @@ findstr /b /c:"RUN_COM0=" "%T33LNEW%" > "%T33FNEW%"
 findstr /b /c:"RUN_COM0=" "%T33LOLD%" > "%T33FOLD%"
 set "V33=PASS"
 set "N33="
-rem 文件大小先取到变量再单独判, 不要写成 `for %%A in (...) do if ... & set ...`:
-rem 那个 & 之后的 set 与 if 无关, 会无条件执行(2026-10-08 踩过两次)。
-set "ZN33=0"
-set "ZO33=0"
-for %%A in ("%T33FNEW%") do set "ZN33=%%~zA"
-for %%A in ("%T33FOLD%") do set "ZO33=%%~zA"
-if %ZN33% LEQ 1 set "V33=FAIL"
-if %ZN33% LEQ 1 set "N33=newNoRUN_COM"
-if %ZO33% LEQ 1 set "V33=FAIL"
-if %ZO33% LEQ 1 set "N33=%N33% oldNoRUN_COM"
+for %%A in ("%T33FNEW%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=newNoRUN_COM"
+for %%A in ("%T33FOLD%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
 fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
-if errorlevel 1 set "V33=FAIL"
-set "N33=%N33% RUN_COM differs"
+if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
 echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
 if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
-rem ============ T34dec_auto "-hwaccel auto" ============
-rem --dec auto 的命令行形态。硬件组合用 dry-run 断言, 本机有无硬编都能跑。
-chcp %CP0% >nul
-set "L34=%LOGDIR%\T34_dec_auto.log"
-call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec auto --dry-run "%IN%" < nul > "%L34%" 2>&1
-set "RC34=%errorlevel%"
-set "V34=PASS"
-set "N34="
-if not "%RC34%"=="0" set "V34=FAIL"
-set "N34=rc=%RC34% want0"
-findstr /c:"-hwaccel auto" "%L34%" >nul 2>&1
-if errorlevel 1 set "V34=FAIL"
-set "N34=%N34% noHwaccelAuto"
-echo [%V34%] T34 dec=auto -> -hwaccel auto >> "%SUM%"
-if not "%N34%"=="" echo        why: %N34% >> "%SUM%"
-echo [T34dec_auto%] "-hwaccel auto" >> "%SUM%"
-
-rem ============ T34dec_cpu 无 hwaccel ============
-rem cpu 的语义就是 none(2026-10-08 拍板): 一次 -hwaccel 都不加。
-chcp %CP0% >nul
-set "L34=%LOGDIR%\T34_dec_cpu.log"
-call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec cpu --dry-run "%IN%" < nul > "%L34%" 2>&1
-set "RC34=%errorlevel%"
-set "V34=PASS"
-set "N34="
-if not "%RC34%"=="0" set "V34=FAIL"
-set "N34=rc=%RC34% want0"
-findstr /c:"-hwaccel" "%L34%" >nul 2>&1
-if not errorlevel 1 set "V34=FAIL"
-set "N34=%N34% mustNotAddHwaccel"
-echo [%V34%] T34 dec=cpu -> no hwaccel at all >> "%SUM%"
-if not "%N34%"=="" echo        why: %N34% >> "%SUM%"
-echo [T34dec_cpu%] 无 hwaccel >> "%SUM%"
-
-rem ============ T35 不一致只警告 ============
-rem --dec 与族不一致 -> 警告但不拦(混合硬解有人用), 且如实说明 10bit 降位滤镜不跟过来。
-chcp %CP0% >nul
-set "L35=%LOGDIR%\T35_dec_mismatch.log"
-call "%REPO%\ffmpeg_encode.bat" --venc hevc_qsv --dec cuda --dry-run "%IN%" < nul > "%L35%" 2>&1
-set "RC35=%errorlevel%"
-set "V35=PASS"
-set "N35="
-if not "%RC35%"=="0" set "V35=FAIL"
-set "N35=rc=%RC35% want0"
-findstr /c:"[warn]" "%L35%" >nul 2>&1
-if errorlevel 1 set "V35=FAIL"
-set "N35=%N35% noWarn"
-findstr /c:"10bit" "%L35%" >nul 2>&1
-if errorlevel 1 set "V35=FAIL"
-set "N35=%N35% no10bitHint"
-echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
-if not "%N35%"=="" echo        why: %N35% >> "%SUM%"
-echo [T35%] 不一致只警告 >> "%SUM%"
-
-rem ============ T36 错编码器与缺参数 ============
-rem 打错字 / 不给 --venc 都得非零退出, 打错字时还要列出可选值(不许静默走默认编码器)。
-chcp %CP0% >nul
-set "L36=%LOGDIR%\T36_badvenc.log"
-call "%REPO%\ffmpeg_encode.bat" --venc libx266 --dry-run "%IN%" < nul > "%L36%" 2>&1
-set "RC36=%errorlevel%"
-set "V36=PASS"
-set "N36="
-if not "%RC36%"=="0" set "V36=FAIL"
-set "N36=badVenc rc=%RC36% wantNonZero"
-findstr /c:"libx264" "%L36%" >nul 2>&1
-if errorlevel 1 set "V36=FAIL"
-set "N36=%N36% noValidKeyList"
-set "L36B=%LOGDIR%\T36_novenc.log"
-call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%L36B%" 2>&1
-set "RC36B=%errorlevel%"
-if "%RC36B%"=="0" set "V36=FAIL"
-set "N36=%N36% missingVenc accepted"
-echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
-if not "%N36%"=="" echo        why: %N36% >> "%SUM%"
-echo [T36%] 错编码器与缺参数 >> "%SUM%"
-
-rem ============ T37 copy 转封装 ============
-rem copy 并入统一入口: 产物与源同名(不带 -compressed)且带 moov 前置。
-chcp %CP0% >nul
-set "L37=%LOGDIR%\T37_copy.log"
-set "O37=%WORK%\unified remux.mp4"
-del /q "%O37%" >nul 2>&1
-del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
-copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
-call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\unified remux.mov" < nul > "%L37%" 2>&1
-set "RC37=%errorlevel%"
-set "V37=PASS"
-set "N37="
-if not "%RC37%"=="0" set "V37=FAIL"
-set "N37=rc=%RC37% want0"
-if not exist "%O37%" set "V37=FAIL"
-set "N37=%N37% noOutput"
-if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL"
-set "N37=%N37% wroteCompressedName"
-findstr /c:"-movflags +faststart" "%L37%" >nul 2>&1
-if errorlevel 1 set "V37=FAIL"
-set "N37=%N37% noFaststart"
-echo [%V37%] T37 copy -- remux with faststart and plain output name >> "%SUM%"
-if not "%N37%"=="" echo        why: %N37% >> "%SUM%"
-echo [T37%] copy 转封装 >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
@@ -834,17 +695,13 @@ set "INF=0"
 if /I "%EXP%"=="INFO" set "INF=1"
 if "%INF%"=="1" set "V=INFO"
 findstr /i /c:"is not recognized" "%LOG%" >nul 2>&1
-if not errorlevel 1 ( set "V=FAIL"
-set "NT=%NT% bannerParseErr;" )
+if not errorlevel 1 ( set "V=FAIL" & set "NT=%NT% bannerParseErr;" )
 findstr /i /c:"bitrate abnormal" "%LOG%" >nul 2>&1
-if not errorlevel 1 ( set "V=FAIL"
-set "NT=%NT% bitrateAbnormal;" )
+if not errorlevel 1 ( set "V=FAIL" & set "NT=%NT% bitrateAbnormal;" )
 findstr /i /c:"not found" "%LOG%" >nul 2>&1
-if not errorlevel 1 ( set "V=FAIL"
-set "NT=%NT% notFoundMsg;" )
+if not errorlevel 1 ( set "V=FAIL" & set "NT=%NT% notFoundMsg;" )
 findstr /i /c:"ERRORLEVEL:-" "%LOG%" >nul 2>&1
-if not errorlevel 1 ( set "V=FAIL"
-set "NT=%NT% ffmpegError;" )
+if not errorlevel 1 ( set "V=FAIL" & set "NT=%NT% ffmpegError;" )
 set "TB="
 for /f "tokens=1,2 delims==" %%a in ('findstr /b /c:"TARGET_BITRATE=" "%LOG%"') do set "TB=%%b"
 rem ---- ffprobe sidecar FIRST: the codec assertion below needs it ----
@@ -857,24 +714,19 @@ if "%INF%"=="1" goto JG_CODEC
 if "%EXP%"=="" goto JG_CODEC
 if "%EXP%"=="0" goto JG_CODEC
 if /I "%EXP:~0,3%"=="LT:" goto JG_LT
-if not "%TB%"=="%EXP%" ( set "V=FAIL"
-set "NT=%NT% targetBitrate=%TB% expected=%EXP%;" )
+if not "%TB%"=="%EXP%" ( set "V=FAIL" & set "NT=%NT% targetBitrate=%TB% expected=%EXP%;" )
 goto JG_CODEC
 :JG_LT
-if not defined TB ( set "V=FAIL"
-set "NT=%NT% targetBitrateMissing;" & goto JG_CODEC )
+if not defined TB ( set "V=FAIL" & set "NT=%NT% targetBitrateMissing;" & goto JG_CODEC )
 if %TB% lss %EXP:~3% goto JG_CODEC
 set "V=FAIL" & set "NT=%NT% targetNotLt=%EXP:~3%(got=%TB%);"
 :JG_CODEC
 if "%EXPCODEC%"=="" goto JG_NOASSERT
 if /I "%EXPCODEC%"=="INFO" goto JG_NOASSERT
-if not "%GOTC%"=="%EXPCODEC%" ( set "V=FAIL"
-set "NT=%NT% codec=%GOTC% expected=%EXPCODEC%;" )
+if not "%GOTC%"=="%EXPCODEC%" ( set "V=FAIL" & set "NT=%NT% codec=%GOTC% expected=%EXPCODEC%;" )
 :JG_NOASSERT
-if not exist "%OUT%" ( set "V=FAIL"
-set "NT=%NT% noOutputFile;" )
-if not "%RC%"=="0" ( set "V=FAIL"
-set "NT=%NT% exitCode=%RC%;" )
+if not exist "%OUT%" ( set "V=FAIL" & set "NT=%NT% noOutputFile;" )
+if not "%RC%"=="0" ( set "V=FAIL" & set "NT=%NT% exitCode=%RC%;" )
 echo [%V%] %NAM% %MDL% rc=%RC% target=%TB% codec=%GOTC% >> "%SUM%"
 echo        out exists: %OUT% >> "%SUM%"
 if not "%NT%"=="" echo        why: %NT% >> "%SUM%"
