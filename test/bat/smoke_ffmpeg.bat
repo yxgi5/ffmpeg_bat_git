@@ -591,6 +591,22 @@ if errorlevel 1 set "V35=FAIL"
 findstr /c:"10bit" "%L35%" >nul 2>&1
 if errorlevel 1 set "V35=FAIL"
 echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
+rem ============ T36: 打错字 / 不给 --venc 都得报错 ============
+rem 不许静默走进某个默认编码器 —— 那就是"打错字也能跑, 只是跑错编码器"。
+rem 打错字时还要列出可选值, 否则用户不知道该填什么。
+chcp %CP0% >nul
+set "L36=%LOGDIR%\T36_badvenc.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx266 --dry-run "%IN%" < nul > "%L36%" 2>&1
+set "RC36=%errorlevel%"
+set "V36=PASS"
+if "%RC36%"=="0" set "V36=FAIL"
+findstr /c:"libx264" "%L36%" >nul 2>&1
+if errorlevel 1 set "V36=FAIL"
+set "L36=%LOGDIR%\T36_novenc.log"
+call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%L36%" 2>&1
+set "RC36=%errorlevel%"
+if "%RC36%"=="0" set "V36=FAIL"
+echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
