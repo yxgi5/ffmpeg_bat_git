@@ -67,9 +67,9 @@ set "REPO="
 set "DOPROBE="
 for %%a in (%*) do call :onearg "%%~a"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
-rem ç»Ÿä¸€ --help / -help / -h: ä¸ sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "check_env.bat  -  ç¯å¢ƒä¸å·¥å…·é“¾ä½“æ£€" "ç”¨æ³•: test\bat\check_env.bat [ä»“åº“è·¯å¾„]" "ä¸å¸¦å‚æ•°ä½“æ£€å½“å‰æœºå™¨; ç»™äº†ä»“åº“è·¯å¾„åˆ™æŒ‰è¯¥ä»“åº“çš„å…¥å£é€é¡¹æ£€æŸ¥"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "check_env.bat  -  »·¾³Óë¹¤¾ßÁ´Ìå¼ì" "ÓÃ·¨: test\bat\check_env.bat [²Ö¿âÂ·¾¶]" "²»´ø²ÎÊıÌå¼ìµ±Ç°»úÆ÷; ¸øÁË²Ö¿âÂ·¾¶Ôò°´¸Ã²Ö¿âµÄÈë¿ÚÖğÏî¼ì²é"
 if defined FB_WANT_HELP exit /b 0
 if not exist "%REPO%\ffmpeg_avc_qsv.bat" goto NO_REPO
 
@@ -504,7 +504,7 @@ rem :judge_art <entry> <rc> <artifact> <run.log> - PROBE-OK needs THREE signals 
 rem agree: rc==0 taken seriously, no "Conversion failed" in the log, and a real
 rem output artifact (>4096 bytes). The entry .bat wrappers USED to exit 0
 rem unconditionally, so rc alone could not separate "encoded" from "ffmpeg died,
-rem the window said è½¬æ¢å·²å‡ºé”™æˆ–å®Œæˆ anyway"; the artifact size and the log
+rem the window said ×ª»»ÒÑ³ö´í»òÍê³É anyway"; the artifact size and the log
 rem marker can. Since 2026-09-17 the entries propagate rc=1 as well (lint L15),
 rem through a `%ERRORLEVEL%` NEQ 0 test rather than `if errorlevel 1` -- the latter
 rem compares SIGNED, so the NEGATIVE code Windows ffmpeg returns (av1_qsv here

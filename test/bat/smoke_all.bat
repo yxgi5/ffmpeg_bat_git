@@ -25,10 +25,10 @@ rem ============================================================
 setlocal EnableExtensions
 set "SELF=%~dp0"
 
-rem ç»Ÿä¸€ --help / -help / -h: ä¸ sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
-rem æœ¬è„šæœ¬æ²¡æœ‰ REPO å˜é‡, ç›´æ¥æŒ‰è‡ªèº«ä½ç½®æ¨ä»“åº“æ ¹(%~dp0..\..)ã€‚
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
+rem ±¾½Å±¾Ã»ÓĞ REPO ±äÁ¿, Ö±½Ó°´×ÔÉíÎ»ÖÃÍÆ²Ö¿â¸ù(%~dp0..\..)¡£
 call "%~dp0..\..\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%~dp0..\..\lib\common.bat" usage "smoke_all.bat  -  ä¸€æ¡å‘½ä»¤è·‘å®Œ bat æ—å„å±‚å†’çƒŸ" "ç”¨æ³•: test\bat\smoke_all.bat" "ä¾æ¬¡è·‘: å›å½’å¥—ä»¶ â†’ å…ƒå­—ç¬¦çŸ©é˜µ â†’ DVD å·¥å…·é“¾; ä»»ä¸€å±‚å¤±è´¥æ•´ä½“è¿”å› 1"
+if defined FB_WANT_HELP call "%~dp0..\..\lib\common.bat" usage "smoke_all.bat  -  Ò»ÌõÃüÁîÅÜÍê bat ×å¸÷²ãÃ°ÑÌ" "ÓÃ·¨: test\bat\smoke_all.bat" "ÒÀ´ÎÅÜ: »Ø¹éÌ×¼ş ¡ú Ôª×Ö·û¾ØÕó ¡ú DVD ¹¤¾ßÁ´; ÈÎÒ»²ãÊ§°ÜÕûÌå·µ»Ø 1"
 if defined FB_WANT_HELP exit /b 0
 
 echo ============================================================

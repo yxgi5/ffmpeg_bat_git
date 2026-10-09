@@ -44,36 +44,36 @@ exit /b 0
 :main
 
 rem ============================================================
-rem å‘½ä»¤è¡Œå¼€å…³è§£æ: --key value -> åŒåå¤§å†™ç¯å¢ƒå˜é‡(è§ lib/common.bat çš„ :parse_switches)
-rem   ä¼˜å…ˆçº§ å‚æ•° > ç¯å¢ƒå˜é‡ > defaults.cfg; æ²¡ç»™çš„å›é€€ env / cfg(è€ set å†™æ³•ä»å…¼å®¹)
-rem   ä½ç½®å‚æ•°(æ–‡ä»¶å)è®°åœ¨ PARSE_POS, ä¸‹é¢å–å®ƒå–ä»£ %~1
+rem ÃüÁîĞĞ¿ª¹Ø½âÎö: --key value -> Í¬Ãû´óĞ´»·¾³±äÁ¿(¼û lib/common.bat µÄ :parse_switches)
+rem   ÓÅÏÈ¼¶ ²ÎÊı > »·¾³±äÁ¿ > defaults.cfg; Ã»¸øµÄ»ØÍË env / cfg(ÀÏ set Ğ´·¨ÈÔ¼æÈİ)
+rem   Î»ÖÃ²ÎÊı(ÎÄ¼şÃû)¼ÇÔÚ PARSE_POS, ÏÂÃæÈ¡ËüÈ¡´ú %~1
 call "%SELF_DIR%lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
-rem ç»Ÿä¸€ --help / -help / -h: æ‰“å°ç”¨æ³•åé€€å‡º, ä¸å¹²æ´»(è§ lib\common.bat çš„ :want_help / :usage)
-rem åˆ»æ„ç”¨ä¸¤æ¡ç‹¬ç«‹çš„ if è€Œä¸æ˜¯ ( ) å—: usage çš„å‚æ•°é‡Œä¸è®¸å‡ºç°åŠè§’å³æ‹¬å·(ä¼šæå‰é—­å—)ã€‚
+rem Í³Ò» --help / -help / -h: ´òÓ¡ÓÃ·¨ºóÍË³ö, ²»¸É»î(¼û lib\common.bat µÄ :want_help / :usage)
+rem ¿ÌÒâÓÃÁ½Ìõ¶ÀÁ¢µÄ if ¶ø²»ÊÇ ( ) ¿é: usage µÄ²ÎÊıÀï²»Ğí³öÏÖ°ë½ÇÓÒÀ¨ºÅ(»áÌáÇ°±Õ¿é)¡£
 call "%SELF_DIR%lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_encode.bat  -  ç»Ÿä¸€å‹ç¼©å…¥å£ï¼ˆè½¯ä»¶ / QSV / NVENC + è½¬å°è£…ï¼‰" "ç”¨æ³•: ffmpeg_encode.bat --venc <ç¼–ç å™¨> [--dec <è§£ç å™¨>] è§†é¢‘æ–‡ä»¶    ä¹Ÿå¯ç›´æ¥æŠŠæ–‡ä»¶æ‹–åˆ°æœ¬ bat ä¸Š" "  --venc libx264 libx265 libsvtav1" "        avc_qsv hevc_qsv av1_qsv" "        avc_nvenc hevc_nvenc av1_nvenc" "        copy                  (æ— æŸè½¬å°è£…, ä¸é‡ç¼–ç )" "  --dec  auto | cpu | none | qsv | cuda   å¯çœ, é»˜è®¤ç”¨ç¼–ç å™¨æ—çš„å›ºå®šè§£ç " "è€å…¥å£ä»ç„¶å¯ç”¨: ffmpeg_libx264.bat / ffmpeg_hevc_qsv.bat / ffmpeg_copy_to_mp4.bat â€¦"
-rem ffmpeg_encode.bat - ç»Ÿä¸€å‹ç¼©å…¥å£ (.bat ä¾§, TODO.md é˜¶æ®µ 1)
-rem   ç”¨æ³•: ffmpeg_encode.bat --venc <ç¼–ç å™¨> [--dec <è§£ç å™¨>] è§†é¢‘æ–‡ä»¶
-rem   ä¹Ÿå¯ä»¥æŠŠè§†é¢‘æ–‡ä»¶ç›´æ¥æ‹–åˆ°æœ¬ bat ä¸Š(ä½ç½®å‚æ•°èµ° PARSE_POS)
+if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_encode.bat  -  Í³Ò»Ñ¹ËõÈë¿Ú£¨Èí¼ş / QSV / NVENC + ×ª·â×°£©" "ÓÃ·¨: ffmpeg_encode.bat --venc ¡´±àÂëÆ÷¡µ [--dec ¡´½âÂëÆ÷¡µ] ÊÓÆµÎÄ¼ş    Ò²¿ÉÖ±½Ó°ÑÎÄ¼şÍÏµ½±¾ bat ÉÏ" "  --venc libx264 libx265 libsvtav1" "        avc_qsv hevc_qsv av1_qsv" "        avc_nvenc hevc_nvenc av1_nvenc" "        copy                  £¨ÎŞËğ×ª·â×°, ²»ÖØ±àÂë£©" "  --dec  auto £ü cpu £ü none £ü qsv £ü cuda   ¿ÉÊ¡, Ä¬ÈÏÓÃ±àÂëÆ÷×åµÄ¹Ì¶¨½âÂë" "ÀÏÈë¿ÚÈÔÈ»¿ÉÓÃ: ffmpeg_libx264.bat / ffmpeg_hevc_qsv.bat / ffmpeg_copy_to_mp4.bat ¡­"
+rem ffmpeg_encode.bat - Í³Ò»Ñ¹ËõÈë¿Ú (.bat ²à, TODO.md ½×¶Î 1)
+rem   ÓÃ·¨: ffmpeg_encode.bat --venc <±àÂëÆ÷> [--dec <½âÂëÆ÷>] ÊÓÆµÎÄ¼ş
+rem   Ò²¿ÉÒÔ°ÑÊÓÆµÎÄ¼şÖ±½ÓÍÏµ½±¾ bat ÉÏ(Î»ÖÃ²ÎÊı×ß PARSE_POS)
 rem
-rem --venc å–å€¼ä¸ ffmpeg_dvd_hevc.bat çš„ VENC åŒä¹‰(avc_* æ˜¯ h264_* çš„åˆ«å), ä½†**ä¸å«
-rem   VAAPI** â€”â€” é‚£æ˜¯ Linux å†…æ ¸ API, Windows ä¾§æ²¡æœ‰å¯¹åº”å…¥å£ã€‚
-rem --dec  å–å€¼ auto | cpu(=none) | none | qsv | cuda, å¯çœ â€”â€” çœäº†ç”¨ç¼–ç å™¨æ—çš„å›ºå®šè§£ç ;
-rem   ä¸æ—ä¸ä¸€è‡´æ—¶åªè­¦å‘Šä¸æ‹¦(æ··åˆç¡¬è§£æœ‰äººç”¨), ä½†ä¼šè¯´æ˜ 10bit é™ä½æ»¤é•œä¸è·Ÿè¿‡æ¥ã€‚
+rem --venc È¡ÖµÓë ffmpeg_dvd_hevc.bat µÄ VENC Í¬Òå(avc_* ÊÇ h264_* µÄ±ğÃû), µ«**²»º¬
+rem   VAAPI** ¡ª¡ª ÄÇÊÇ Linux ÄÚºË API, Windows ²àÃ»ÓĞ¶ÔÓ¦Èë¿Ú¡£
+rem --dec  È¡Öµ auto | cpu(=none) | none | qsv | cuda, ¿ÉÊ¡ ¡ª¡ª Ê¡ÁËÓÃ±àÂëÆ÷×åµÄ¹Ì¶¨½âÂë;
+rem   Óë×å²»Ò»ÖÂÊ±Ö»¾¯¸æ²»À¹(»ìºÏÓ²½âÓĞÈËÓÃ), µ«»áËµÃ÷ 10bit ½µÎ»ÂË¾µ²»¸ú¹ıÀ´¡£
 rem
-rem å…¬å…±æµç¨‹(banner / ffmpeg å®šä½ / æºæ¢æµ‹ / ç ç‡æŸ¥è¡¨ / å‘½ä»¤æ‹¼è£… / è¾“å‡ºè·¯å¾„)å…¨åœ¨
-rem lib\encode_core.bat é‡Œ; ç¼–ç å™¨ä¹‹é—´çš„å·®å¼‚å‹æˆ ENC_TABLE / ENC_ARGS ä¸¤å¼ è¡¨ä¸
-rem DEC / GATE ä¸¤ä¸ªé’©å­ã€‚æœ¬æ–‡ä»¶åªç•™ä¸‰æ ·æ¬ä¸èµ°çš„ä¸œè¥¿: cp65001 å®ˆå« +
-rem :HWACCEL_FALLBACK(ä¸Šé¢)ã€æ‰§è¡Œæ®µä¸å¤±è´¥å®ˆå«(ä¸‹é¢)ã€ä»¥åŠè‡ªå·±çš„ usage æ–‡æ¡ˆã€‚
+rem ¹«¹²Á÷³Ì(banner / ffmpeg ¶¨Î» / Ô´Ì½²â / ÂëÂÊ²é±í / ÃüÁîÆ´×° / Êä³öÂ·¾¶)È«ÔÚ
+rem lib\encode_core.bat Àï; ±àÂëÆ÷Ö®¼äµÄ²îÒìÑ¹³É ENC_TABLE / ENC_ARGS Á½ÕÅ±íÓë
+rem DEC / GATE Á½¸ö¹³×Ó¡£±¾ÎÄ¼şÖ»ÁôÈıÑù°á²»×ßµÄ¶«Î÷: cp65001 ÊØÎÀ +
+rem :HWACCEL_FALLBACK(ÉÏÃæ)¡¢Ö´ĞĞ¶ÎÓëÊ§°ÜÊØÎÀ(ÏÂÃæ)¡¢ÒÔ¼°×Ô¼ºµÄ usage ÎÄ°¸¡£
 rem ------------------------------------------------------------
-rem ---------- æ ¡éªŒ --venc ----------
-rem parse_switches åªè®¤é”®åä¸è®¤è¯­ä¹‰, å–å€¼æ˜¯å¦åˆæ³•ç”±æœ¬è„šæœ¬è‡ªå·±åˆ¤ã€‚
-rem è¿™é‡Œ**ä¸åš**åˆ«åå½’ä¸€: å†…æ ¸çš„è¡¨(ENC_TABLE / ENC_ARGS)ä»¥ avc_* ä¸ºä¸»é”®,
-rem enc_ffenc é‚£ä¸€å±‚"é”® -> ffmpeg ç¼–ç å™¨å"çš„ç¿»è¯‘åªåœ¨æ ¸å¿ƒé‡Œåšã€‚
+rem ---------- Ğ£Ñé --venc ----------
+rem parse_switches Ö»ÈÏ¼üÃû²»ÈÏÓïÒå, È¡ÖµÊÇ·ñºÏ·¨ÓÉ±¾½Å±¾×Ô¼ºÅĞ¡£
+rem ÕâÀï**²»×ö**±ğÃû¹éÒ»: ÄÚºËµÄ±í(ENC_TABLE / ENC_ARGS)ÒÔ avc_* ÎªÖ÷¼ü,
+rem enc_ffenc ÄÇÒ»²ã"¼ü -> ffmpeg ±àÂëÆ÷Ãû"µÄ·­ÒëÖ»ÔÚºËĞÄÀï×ö¡£
 if not defined VENC (
-    echo [é”™è¯¯] è¦æŒ‡å®šç¼–ç å™¨: --venc ç¼–ç å™¨
+    echo [´íÎó] ÒªÖ¸¶¨±àÂëÆ÷: --venc ±àÂëÆ÷
     call "%SELF_DIR%lib\encode_core.bat" enc_known
     exit /b 1
 )
@@ -90,36 +90,36 @@ if /I "%ENC%"=="hevc_nvenc" set "ENC_OK=1"
 if /I "%ENC%"=="av1_nvenc" set "ENC_OK=1"
 if /I "%ENC%"=="copy" set "ENC_OK=1"
 if not defined ENC_OK (
-    echo [é”™è¯¯] ä¸è®¤è¯†çš„ç¼–ç å™¨: %ENC%
+    echo [´íÎó] ²»ÈÏÊ¶µÄ±àÂëÆ÷: %ENC%
     call "%SELF_DIR%lib\encode_core.bat" enc_known
     exit /b 1
 )
-rem copy ä¸è§£ç ä¹Ÿä¸é‡ç¼–ç , ç»™äº† --dec å°±è¯´æ¸…æ¥š, è€Œä¸æ˜¯é»˜é»˜å¿½ç•¥
-if /I "%ENC%"=="copy" if defined DEC echo æ³¨æ„: --venc copy æ˜¯è½¬å°è£…, ä¸è§£ç ä¹Ÿä¸é‡ç¼–ç , --dec å¯¹å®ƒæ— æ•ˆ(å·²å¿½ç•¥)ã€‚
+rem copy ²»½âÂëÒ²²»ÖØ±àÂë, ¸øÁË --dec ¾ÍËµÇå³ş, ¶ø²»ÊÇÄ¬Ä¬ºöÂÔ
+if /I "%ENC%"=="copy" if defined DEC echo ×¢Òâ: --venc copy ÊÇ×ª·â×°, ²»½âÂëÒ²²»ÖØ±àÂë, --dec ¶ÔËüÎŞĞ§(ÒÑºöÂÔ)¡£
 
-rem ---------- å…¬å…±æµç¨‹ ----------
+rem ---------- ¹«¹²Á÷³Ì ----------
 if /I "%ENC%"=="copy" call "%SELF_DIR%lib\encode_core.bat" copy_run
 if /I not "%ENC%"=="copy" call "%SELF_DIR%lib\encode_core.bat" enc_build %ENC%
 set "FB_RC=%ERRORLEVEL%"
-rem æ‰¾ä¸åˆ° ffmpeg æ—¶å†…æ ¸åªç½® FB_NO_PATH(goto ä¸èƒ½è·¨æ–‡ä»¶), ç”±è¿™é‡Œè·³è¿‡å» â€”â€” é‚£è¾¹çš„
-rem æç¤ºä¸ pause æ˜¯å…¥å£çš„äº¤äº’, ä¸è¯¥æ¬è¿›å†…æ ¸ã€‚
+rem ÕÒ²»µ½ ffmpeg Ê±ÄÚºËÖ»ÖÃ FB_NO_PATH(goto ²»ÄÜ¿çÎÄ¼ş), ÓÉÕâÀïÌø¹ıÈ¥ ¡ª¡ª ÄÇ±ßµÄ
+rem ÌáÊ¾Óë pause ÊÇÈë¿ÚµÄ½»»¥, ²»¸Ã°á½øÄÚºË¡£
 if defined FB_NO_PATH goto NO_PATH_ERR
-rem å…¶ä½™é€€å‡ºç (2 ç ç‡è¡¨æœªå‘½ä¸­ / 3 è¾“å…¥æ— è§†é¢‘æµ / 4 ç¡¬ä»¶ç¼ºå¤± / 5 ç ç‡å¼‚å¸¸ / 6 äº§ç‰©å·²å­˜åœ¨
-rem å¤±è´¥ / 1 è½¬ç å¤±è´¥)åŸæ ·ä¼ å›, å¥‘çº¦è§ test\README.md 5.2ã€‚
+rem ÆäÓàÍË³öÂë(2 ÂëÂÊ±íÎ´ÃüÖĞ / 3 ÊäÈëÎŞÊÓÆµÁ÷ / 4 Ó²¼şÈ±Ê§ / 5 ÂëÂÊÒì³£ / 6 ²úÎïÒÑ´æÔÚ
+rem Ê§°Ü / 1 ×ªÂëÊ§°Ü)Ô­Ñù´«»Ø, ÆõÔ¼¼û test\README.md 5.2¡£
 if not "%FB_RC%"=="0" exit /b %FB_RC%
 set "FB_RC=%ERRORLEVEL%"
-rem æ‰¾ä¸åˆ° ffmpeg æ—¶å†…æ ¸åªç½® FB_NO_PATH(goto ä¸èƒ½è·¨æ–‡ä»¶), ç”±è¿™é‡Œè·³è¿‡å» â€”â€” é‚£è¾¹çš„
-rem æç¤ºä¸ pause æ˜¯å…¥å£çš„äº¤äº’, ä¸è¯¥æ¬è¿›å†…æ ¸ã€‚
+rem ÕÒ²»µ½ ffmpeg Ê±ÄÚºËÖ»ÖÃ FB_NO_PATH(goto ²»ÄÜ¿çÎÄ¼ş), ÓÉÕâÀïÌø¹ıÈ¥ ¡ª¡ª ÄÇ±ßµÄ
+rem ÌáÊ¾Óë pause ÊÇÈë¿ÚµÄ½»»¥, ²»¸Ã°á½øÄÚºË¡£
 if defined FB_NO_PATH goto NO_PATH_ERR
-rem å…¶ä½™é€€å‡ºç (2 ç ç‡è¡¨æœªå‘½ä¸­ / 3 è¾“å…¥æ— è§†é¢‘æµ / 4 ç¡¬ä»¶ç¼ºå¤± / 5 ç ç‡å¼‚å¸¸ / 1 è½¬ç å¤±è´¥)
-rem åŸæ ·ä¼ å›, å¥‘çº¦è§ test\README.md 5.2ã€‚
+rem ÆäÓàÍË³öÂë(2 ÂëÂÊ±íÎ´ÃüÖĞ / 3 ÊäÈëÎŞÊÓÆµÁ÷ / 4 Ó²¼şÈ±Ê§ / 5 ÂëÂÊÒì³£ / 1 ×ªÂëÊ§°Ü)
+rem Ô­Ñù´«»Ø, ÆõÔ¼¼û test\README.md 5.2¡£
 if not "%FB_RC%"=="0" exit /b %FB_RC%
 set "FF_HWERR=%TEMP%\ff_hwaccel_%RANDOM%.err"
-rem dry-run: DRY_RUN ä¸ºçœŸæ—¶åªæ‰“å°è¿™æ¡å‘½ä»¤, ä¸æ‰§è¡Œ(è§ lib\common.bat çš„ :dry_run)
+rem dry-run: DRY_RUN ÎªÕæÊ±Ö»´òÓ¡ÕâÌõÃüÁî, ²»Ö´ĞĞ(¼û lib\common.bat µÄ :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
-rem ä»… -hwaccel auto æ—¶éœ€è¦æ•è· stderr åš D3D å›é€€(é”å±/æ–­ä¼šè¯ä¸‹ auto ä¼šå´©);
-rem å…¶ä½™æƒ…å†µ(å«é»˜è®¤ none / æ˜¾å¼ cuda ç­‰)ç›´æ¥æŠŠ stderr æ‰“åˆ°æ§åˆ¶å° -> è¿›åº¦å®æ—¶å¯è§ã€‚
+rem ½ö -hwaccel auto Ê±ĞèÒª²¶»ñ stderr ×ö D3D »ØÍË(ËøÆÁ/¶Ï»á»°ÏÂ auto »á±À);
+rem ÆäÓàÇé¿ö(º¬Ä¬ÈÏ none / ÏÔÊ½ cuda µÈ)Ö±½Ó°Ñ stderr ´òµ½¿ØÖÆÌ¨ -> ½ø¶ÈÊµÊ±¿É¼û¡£
 if /i "%FF_HWACCEL%"=="auto" (
     %RUN_COM% 2>"%FF_HWERR%"
     set "FB_RC=%ERRORLEVEL%"
@@ -129,26 +129,26 @@ if /i "%FF_HWACCEL%"=="auto" (
     %RUN_COM%
     set "FB_RC=%ERRORLEVEL%"
 )
-rem è´Ÿé€€å‡ºç é™·é˜± (2026-09-17 å®æµ‹æ ¹å› ): Windows ç‰ˆ ffmpeg å¤±è´¥æ—¶å¸¸å¸¸
-rem è¿”å›ã€Œè´Ÿã€çš„ AVERROR å€¼ â€”â€” æœ¬æœº av1_qsv æ‹¿ä¸åˆ°ç¼–ç å™¨æ—¶ ffmpeg.exe
-rem é€€å‡ºç æ˜¯ -40 (Function not implemented), è€Œ cmd çš„ `if errorlevel N`
-rem æ˜¯ã€Œå¸¦ç¬¦å·ã€æ¯”è¾ƒ, -40 >= 1 ä¸æˆç«‹ â†’ å®ˆå«ä¸ä¼šè§¦å‘,
-rem çœŸå¤±è´¥ä¸€è·¯è½åˆ°æ–‡ä»¶æœ«å°¾çš„ exit /b 0 (æ¢é’ˆå› æ­¤æŠ¥ rc=0 å‡ OK).
-rem æ”¹æˆã€Œä¸ç­‰äº 0ã€åˆ¤å®š: å®ƒåŒæ—¶å…œä½è´Ÿæ•°ä¸æ­£æ•°, ä¸”èµ‹å€¼åˆ°å˜é‡å
-rem èµ°å­—ç¬¦ä¸²ç›¸ç­‰æ¯”è¾ƒ, ä¸ä¾èµ– cmd å¯¹è´Ÿæ•°çš„æ•°å€¼è§£æ;
-rem å€¼ç©ºæ—¶ä¹Ÿä¼šåˆ¤æˆå¤±è´¥(å®‰å…¨ä¾§), è€Œ if errorlevel å†™æ³•åœ¨å€¼ä¸ºç©ºæ—¶
-rem åªä¼šæŠ¥è¯­æ³•é”™è¯¯å¹¶ç»§ç»­å¾€ä¸‹è·‘.
+rem ¸ºÍË³öÂëÏİÚå (2026-09-17 Êµ²â¸ùÒò): Windows °æ ffmpeg Ê§°ÜÊ±³£³£
+rem ·µ»Ø¡¸¸º¡¹µÄ AVERROR Öµ ¡ª¡ª ±¾»ú av1_qsv ÄÃ²»µ½±àÂëÆ÷Ê± ffmpeg.exe
+rem ÍË³öÂëÊÇ -40 (Function not implemented), ¶ø cmd µÄ `if errorlevel N`
+rem ÊÇ¡¸´ø·ûºÅ¡¹±È½Ï, -40 >= 1 ²»³ÉÁ¢ ¡ú ÊØÎÀ²»»á´¥·¢,
+rem ÕæÊ§°ÜÒ»Â·Âäµ½ÎÄ¼şÄ©Î²µÄ exit /b 0 (Ì½ÕëÒò´Ë±¨ rc=0 ¼Ù OK).
+rem ¸Ä³É¡¸²»µÈÓÚ 0¡¹ÅĞ¶¨: ËüÍ¬Ê±¶µ×¡¸ºÊıÓëÕıÊı, ÇÒ¸³Öµµ½±äÁ¿ºó
+rem ×ß×Ö·û´®ÏàµÈ±È½Ï, ²»ÒÀÀµ cmd ¶Ô¸ºÊıµÄÊıÖµ½âÎö;
+rem Öµ¿ÕÊ±Ò²»áÅĞ³ÉÊ§°Ü(°²È«²à), ¶ø if errorlevel Ğ´·¨ÔÚÖµÎª¿ÕÊ±
+rem Ö»»á±¨Óï·¨´íÎó²¢¼ÌĞøÍùÏÂÅÜ.
 if not "%FB_RC%"=="0" (
     echo.
     echo Convert failed! rc=%FB_RC%
-    rem ä¸ .sh å­ªç”Ÿå¯¹é½: ffmpeg å¤±è´¥å¿…é¡»ä¼ å› 1, ä¸èƒ½åæˆ 0.
-    rem æ¢é’ˆ/å†’çƒŸ/convert_from_list éƒ½ä¾èµ–è¿™ä¸ªéé›¶é€€å‡ºç (è§ test/README é€€å‡ºç å¥‘çº¦).
+    rem Óë .sh ÂÏÉú¶ÔÆë: ffmpeg Ê§°Ü±ØĞë´«»Ø 1, ²»ÄÜÍÌ³É 0.
+    rem Ì½Õë/Ã°ÑÌ/convert_from_list ¶¼ÒÀÀµÕâ¸ö·ÇÁãÍË³öÂë(¼û test/README ÍË³öÂëÆõÔ¼).
     exit /b 1
 )
 
 
 echo ERRORLEVEL:%ERRORLEVEL%
-echo è½¬æ¢å·²å‡ºé”™æˆ–å®Œæˆ, é»˜è®¤ä¸æ›¿æ¢, è¯·æ‰‹åŠ¨ç¡®è®¤è¾“å‡ºæ–‡ä»¶å®Œæ•´æ€§
+echo ×ª»»ÒÑ³ö´í»òÍê³É, Ä¬ÈÏ²»Ìæ»», ÇëÊÖ¶¯È·ÈÏÊä³öÎÄ¼şÍêÕûĞÔ
 
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
@@ -161,7 +161,7 @@ echo TARGET_FILE:%TARGET_FILE%
 exit /b 0
 
 :NO_PATH_ERR
-echo æ‰¾ä¸åˆ° ffmpeg.exe: è¯·å®‰è£… ffmpeg(é»˜è®¤æŸ¥æ‰¾ C:\Program Files\ffmpeg\bin)
-echo æˆ–è®¾ç½®ç¯å¢ƒå˜é‡ FFMPEG æŒ‡å‘ ffmpeg å¯æ‰§è¡Œæ–‡ä»¶åé‡è¯•
+echo ÕÒ²»µ½ ffmpeg.exe: Çë°²×° ffmpeg(Ä¬ÈÏ²éÕÒ C:\Program Files\ffmpeg\bin)
+echo »òÉèÖÃ»·¾³±äÁ¿ FFMPEG Ö¸Ïò ffmpeg ¿ÉÖ´ĞĞÎÄ¼şºóÖØÊÔ
 pause
 exit /b 1

@@ -1,32 +1,32 @@
 @echo off
 rem ============================================================
-rem lib/encode_core.bat - ç¼–ç å…¥å£çš„å…¬å…±å†…æ ¸ (TODO.md é˜¶æ®µ 0)
+rem lib/encode_core.bat - ±àÂëÈë¿ÚµÄ¹«¹²ÄÚºË (TODO.md ½×¶Î 0)
 rem
-rem ç”± 7 ä¸ªç¼–ç å…¥å£å…±ç”¨: libx264 / libx265ã€avc_qsv / hevc_qsv / av1_qsvã€
-rem hevc_nvenc / av1_nvencã€‚æŠ½è¿™å—ä¹‹å‰å®ƒä»¬æ˜¯ 7 ä»½ ~300 è¡Œå‰¯æœ¬(å½¼æ­¤åªå·® 65~85 è¡Œ)ã€‚
+rem ÓÉ 7 ¸ö±àÂëÈë¿Ú¹²ÓÃ: libx264 / libx265¡¢avc_qsv / hevc_qsv / av1_qsv¡¢
+rem hevc_nvenc / av1_nvenc¡£³éÕâ¿éÖ®Ç°ËüÃÇÊÇ 7 ·İ ~300 ĞĞ¸±±¾(±Ë´ËÖ»²î 65~85 ĞĞ)¡£
 rem
-rem æœ¬æ–‡ä»¶åªåš "RUN_COM æ‹¼è£…å™¨", ç»“æœç•™åœ¨å…±äº«ç¯å¢ƒé‡Œäº¤å›å…¥å£:
+rem ±¾ÎÄ¼şÖ»×ö "RUN_COM Æ´×°Æ÷", ½á¹ûÁôÔÚ¹²Ïí»·¾³Àï½»»ØÈë¿Ú:
 rem   call "%SELF_DIR%lib\encode_core.bat" enc_build <enc>
-rem å…¥å£è‡ªå·±ç•™ç€ä¸‰æ ·æ¬ä¸èµ°çš„ä¸œè¥¿:
-rem   1) cp65001 é‡å…¥å®ˆå« + :HWACCEL_FALLBACK â€”â€” å®ˆå«åŒºå¿…é¡»çº¯ ASCII(L04), é‚£ä¸ªæ ‡ç­¾
-rem      è¦è¢«å…¥å£çš„æ‰§è¡Œæ®µ call, è€Œ goto ä¸èƒ½è·¨æ–‡ä»¶;
-rem   2) æ‰§è¡Œæ®µ(auto æ‰æ‹¦ stderr åš D3D å›é€€)ä¸å¤±è´¥å®ˆå« â€”â€” ä¸è¿è¡ŒæœŸè¯­ä¹‰ç»‘åœ¨ä¸€èµ·;
-rem   3) è‡ªå·±çš„ usage æ–‡æ¡ˆä¸å¤´éƒ¨è¯´æ˜ã€‚
+rem Èë¿Ú×Ô¼ºÁô×ÅÈıÑù°á²»×ßµÄ¶«Î÷:
+rem   1) cp65001 ÖØÈëÊØÎÀ + :HWACCEL_FALLBACK ¡ª¡ª ÊØÎÀÇø±ØĞë´¿ ASCII(L04), ÄÇ¸ö±êÇ©
+rem      Òª±»Èë¿ÚµÄÖ´ĞĞ¶Î call, ¶ø goto ²»ÄÜ¿çÎÄ¼ş;
+rem   2) Ö´ĞĞ¶Î(auto ²ÅÀ¹ stderr ×ö D3D »ØÍË)ÓëÊ§°ÜÊØÎÀ ¡ª¡ª ÓëÔËĞĞÆÚÓïÒå°óÔÚÒ»Æğ;
+rem   3) ×Ô¼ºµÄ usage ÎÄ°¸ÓëÍ·²¿ËµÃ÷¡£
 rem
-rem ç¼–ç å™¨ä¹‹é—´çš„å·®å¼‚å‹æˆä¸¤ï¿½ï¿½è¡¨ + ä¸¤ä¸ªé’©å­:
-rem   è¡¨  ENC_TABLE   ç¼–ç å™¨ -> ç ç‡è¡¨ csv
-rem   è¡¨  ENC_ARGS    ç¼–ç å™¨ -> -c:v:0 ç³»åˆ— + éŸ³è§†é¢‘/å­—å¹•/å°é¢/å…ƒæ•°æ®æ®µ
-rem   é’©å­ DEC_ARGS    è§£ç /è®¾å¤‡åˆå§‹åŒ–(è½¯ç¼– / QSV / NVENC ä¸‰ç§æ‹“æ‰‘)
-rem   é’©å­ ENC_GATE   ç¡¬ä»¶èƒ½åŠ›é—¨(ç›®å‰åªæœ‰ av1_qsv, exit 4)
-rem å¦æœ‰ FF_HWACCEL å½’ä¸€: ç¡¬ä»¶å…¥å£çš„ -hwaccel ç”±ç¼–ç å™¨æ—å†™æ­», ç”¨æˆ·è®¾çš„å€¼ä¸€å¾‹å½’ç©º
-rem (ä¸ ffmpeg_libx264.sh çš„ enc_dec_args åŒå£å¾„)ã€‚
+rem ±àÂëÆ÷Ö®¼äµÄ²îÒìÑ¹³ÉÁ½ÕÅ±í + Á½¸ö¹³×Ó:
+rem   ±í  ENC_TABLE   ±àÂëÆ÷ -> ÂëÂÊ±í csv
+rem   ±í  ENC_ARGS    ±àÂëÆ÷ -> -c:v:0 ÏµÁĞ + ÒôÊÓÆµ/×ÖÄ»/·âÃæ/ÔªÊı¾İ¶Î
+rem   ¹³×Ó DEC_ARGS    ½âÂë/Éè±¸³õÊ¼»¯(Èí±à / QSV / NVENC ÈıÖÖÍØÆË)
+rem   ¹³×Ó ENC_GATE   Ó²¼şÄÜÁ¦ÃÅ(Ä¿Ç°Ö»ÓĞ av1_qsv, exit 4)
+rem ÁíÓĞ FF_HWACCEL ¹éÒ»: Ó²¼şÈë¿ÚµÄ -hwaccel ÓÉ±àÂëÆ÷×åĞ´ËÀ, ÓÃ»§ÉèµÄÖµÒ»ÂÉ¹é¿Õ
+rem (Óë ffmpeg_libx264.sh µÄ enc_dec_args Í¬¿Ú¾¶)¡£
 rem
-rem ä¾èµ– lib\common.bat æä¾›çš„: parse_switches çš„äº§ç‰© PARSE_POS / init_ext /
+rem ÒÀÀµ lib\common.bat Ìá¹©µÄ: parse_switches µÄ²úÎï PARSE_POS / init_ext /
 rem EXT / SENC / find_ffmpeg / probe_source / lookup_bitrate / bitrate_from_table /
 rem extract / on_exist / cover_map / src_hw_decode_hostile / src_is_10bit /
-rem qsv_encoder_ready / dry_runã€‚
-rem æœ¬æ–‡ä»¶ä¸ setlocal â€”â€” call è·¨æ–‡ä»¶å…±äº«ç¯å¢ƒ, å†…æ ¸ set çš„å˜é‡è¦å¯¹è°ƒç”¨æ–¹å¯è§
-rem (ä¸ lib\common.bat åŒä¸€çº¦å®š)ã€‚æ³¨æ„: æœ¬æ–‡ä»¶å¿…é¡»ä¿æŒ CRLF è¡Œå°¾ã€‚
+rem qsv_encoder_ready / dry_run¡£
+rem ±¾ÎÄ¼ş²» setlocal ¡ª¡ª call ¿çÎÄ¼ş¹²Ïí»·¾³, ÄÚºË set µÄ±äÁ¿Òª¶Ôµ÷ÓÃ·½¿É¼û
+rem (Óë lib\common.bat Í¬Ò»Ô¼¶¨)¡£×¢Òâ: ±¾ÎÄ¼ş±ØĞë±£³Ö CRLF ĞĞÎ²¡£
 rem ============================================================
 
 if "%~1"=="" exit /b 1
@@ -34,56 +34,56 @@ if /I "%~1"=="enc_build" goto enc_build
 if /I "%~1"=="copy_run" goto copy_run
 if /I "%~1"=="enc_known" goto enc_known
 if /I "%~1"=="enc_ffenc" goto enc_ffenc
-echo æœªçŸ¥å‡½æ•°: %~1
+echo Î´Öªº¯Êı: %~1
 exit /b 1
 
 :enc_build
 set "ENC=%~2"
 set "FB_NO_PATH="
 if "%ENC%"=="" (
-    echo enc_build: ç¼ºç¼–ç å™¨å‚æ•°
+    echo enc_build: È±±àÂëÆ÷²ÎÊı
     exit /b 1
 )
 echo ============================================================
-echo æ¬¢è¿ä½¿ç”¨ffmpegè§†é¢‘å‹ç¼©æ‰¹å¤„ç†å·¥å…·
-echo æ‚¨æœ‰ä¸¤ç§ä½¿ç”¨æ–¹å¼:
-echo 1) ç›´æ¥å°†å¾…å‹ç¼©çš„è§†é¢‘æ‹–æ”¾åˆ°æ‰¹å¤„ç†ä¸Š
-echo 2) åœ¨ä¸‹é¢è¾“å…¥å¾…å‹ç¼©è§†é¢‘åœ°å€
+echo »¶Ó­Ê¹ÓÃffmpegÊÓÆµÑ¹ËõÅú´¦Àí¹¤¾ß
+echo ÄúÓĞÁ½ÖÖÊ¹ÓÃ·½Ê½:
+echo 1) Ö±½Ó½«´ıÑ¹ËõµÄÊÓÆµÍÏ·Åµ½Åú´¦ÀíÉÏ
+echo 2) ÔÚÏÂÃæÊäÈë´ıÑ¹ËõÊÓÆµµØÖ·
 echo.
-echo ç”± andreas ç¼–å†™
+echo ÓÉ andreas ±àĞ´
 echo ============================================================
 
 call "%~dp0common.bat" find_ffmpeg FF_BIN
-rem goto ä¸èƒ½è·¨æ–‡ä»¶, æ‰€ä»¥è¿™é‡Œåªç½®æ ‡å¿—, ç”±å…¥å£è·³ NO_PATH_ERR(æç¤ºä¸ pause åœ¨é‚£è¾¹)
+rem goto ²»ÄÜ¿çÎÄ¼ş, ËùÒÔÕâÀïÖ»ÖÃ±êÖ¾, ÓÉÈë¿ÚÌø NO_PATH_ERR(ÌáÊ¾Óë pause ÔÚÄÇ±ß)
 if errorlevel 1 set "FB_NO_PATH=1"
 if defined FB_NO_PATH exit /b 1
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
-rem ---------- è¾“å‡ºå®¹å™¨å¼€å…³ EXT: mp4(é»˜è®¤) / mkv ----------
-rem é»˜è®¤å€¼å†™åœ¨ lib\defaults.cfg(ä¸¤æ—å…±ç”¨ä¸€ä»½), æ ¡éªŒ / å»ç©ºæ ¼ / -c:s çš„é€‰æ³•ç»Ÿç»Ÿåœ¨
-rem lib\common.bat çš„ :init_ext é‡Œ â€”â€” åŠ å®¹å™¨ã€æ”¹é»˜è®¤éƒ½åªåŠ¨é‚£ä¸€å¤„, å…¥å£ä¸å†å„å†™ä¸€éã€‚
-rem å‘½ä»¤è¡Œ set EXT=mkv ä¼˜å…ˆäºé…ç½®æ–‡ä»¶(:load_defaults åªè¡¥æ²¡è®¾è¿‡çš„é”®)ã€‚
+rem ---------- Êä³öÈİÆ÷¿ª¹Ø EXT: mp4(Ä¬ÈÏ) / mkv ----------
+rem Ä¬ÈÏÖµĞ´ÔÚ lib\defaults.cfg(Á½×å¹²ÓÃÒ»·İ), Ğ£Ñé / È¥¿Õ¸ñ / -c:s µÄÑ¡·¨Í³Í³ÔÚ
+rem lib\common.bat µÄ :init_ext Àï ¡ª¡ª ¼ÓÈİÆ÷¡¢¸ÄÄ¬ÈÏ¶¼Ö»¶¯ÄÇÒ»´¦, Èë¿Ú²»ÔÙ¸÷Ğ´Ò»±é¡£
+rem ÃüÁîĞĞ set EXT=mkv ÓÅÏÈÓÚÅäÖÃÎÄ¼ş(:load_defaults Ö»²¹Ã»Éè¹ıµÄ¼ü)¡£
 call "%~dp0common.bat" init_ext
 if errorlevel 1 exit /b 1
-echo å·²æ‰¾åˆ°ffmpegäº:%FFMPEG_PATH%
-rem è§£ç åŠ é€Ÿå™¨å¯é…ç½®: FF_HWACCEL=none(é»˜è®¤, 2026-10-05 æ”¹: è½¯ç¼–å®æ—¶æ˜¾ç¤ºè¿›åº¦, ä¸å†å stderr) / cuda /
-rem qsv / vaapi / d3d11va / dxva2 / noneã€‚åŸå…ˆå†™æ­» -hwaccel auto â€”â€” ç”± ffmpeg æŒ‘ç¬¬ä¸€ä¸ª
-rem èƒ½åˆå§‹åŒ–çš„(æ ¸æ˜¾ä¸ N å¡å¹¶å­˜æ—¶é€‰è°ä¸å¯æ§), ä¸”é”å±/æ–­å¼€ä¼šè¯ä¸‹ D3D ä¼šç›´æ¥å´©; ä¸Šé¢
-rem :HWACCEL_FALLBACK çš„å›é€€æŒ‰ FF_HWACCEL çš„å®é™…å€¼åˆ å‚æ•°, æ˜¾å¼æŒ‡å®šæ—¶åŒæ ·ä¼šå›é€€ä¸€æ¬¡ã€‚
-rem çº¯ N å¡æœºå™¨å¯é’‰æˆ cuda; æƒ³å½»åº•ä¸ç¢°ç¡¬ä»¶è®¾ none(ä¸€æ¬¡ -hwaccel éƒ½ä¸åŠ )ã€‚åªå½±å“è§£ç ,
-rem ç¼–ç å™¨ä»æ˜¯æœ¬å…¥å£çš„ libx264/libx265ã€‚
+echo ÒÑÕÒµ½ffmpegÓÚ:%FFMPEG_PATH%
+rem ½âÂë¼ÓËÙÆ÷¿ÉÅäÖÃ: FF_HWACCEL=none(Ä¬ÈÏ, 2026-10-05 ¸Ä: Èí±àÊµÊ±ÏÔÊ¾½ø¶È, ²»ÔÙÍÌ stderr) / cuda /
+rem qsv / vaapi / d3d11va / dxva2 / none¡£Ô­ÏÈĞ´ËÀ -hwaccel auto ¡ª¡ª ÓÉ ffmpeg ÌôµÚÒ»¸ö
+rem ÄÜ³õÊ¼»¯µÄ(ºËÏÔÓë N ¿¨²¢´æÊ±Ñ¡Ë­²»¿É¿Ø), ÇÒËøÆÁ/¶Ï¿ª»á»°ÏÂ D3D »áÖ±½Ó±À; ÉÏÃæ
+rem :HWACCEL_FALLBACK µÄ»ØÍË°´ FF_HWACCEL µÄÊµ¼ÊÖµÉ¾²ÎÊı, ÏÔÊ½Ö¸¶¨Ê±Í¬Ñù»á»ØÍËÒ»´Î¡£
+rem ´¿ N ¿¨»úÆ÷¿É¶¤³É cuda; Ïë³¹µ×²»ÅöÓ²¼şÉè none(Ò»´Î -hwaccel ¶¼²»¼Ó)¡£Ö»Ó°Ïì½âÂë,
+rem ±àÂëÆ÷ÈÔÊÇ±¾Èë¿ÚµÄ libx264/libx265¡£
 if not defined FF_HWACCEL set "FF_HWACCEL=none"
 set "FF_HW_ARG= -hwaccel %FF_HWACCEL%"
 if /i "%FF_HWACCEL%"=="none" set "FF_HW_ARG="
-rem FF_HWACCEL å½’ä¸€: ç¡¬ä»¶å…¥å£(QSV/NVENC)çš„ -hwaccel ç”±ç¼–ç å™¨æ—å†™æ­»,
-rem ç”¨æˆ·è®¾çš„å€¼ä¸€å¾‹æ¸…ç©º â€”â€” ä¸ ffmpeg_libx264.sh çš„ enc_dec_args åŒå£å¾„
-rem (--ff_hwaccel å¯¹ç¡¬ä»¶å…¥å£æ— æ•ˆ, å…¥å£ --help é‡Œä¹Ÿè¿™ä¹ˆå†™)ã€‚å½’ä¸€åæ‰§è¡Œæ®µçš„
-rem auto åˆ†æ”¯æ°¸ä¸å‘½ä¸­, RUN_COM é‡Œä¸€ä¸ª hwaccel å‚æ•°éƒ½ä¸å¤šã€‚
+rem FF_HWACCEL ¹éÒ»: Ó²¼şÈë¿Ú(QSV/NVENC)µÄ -hwaccel ÓÉ±àÂëÆ÷×åĞ´ËÀ,
+rem ÓÃ»§ÉèµÄÖµÒ»ÂÉÇå¿Õ ¡ª¡ª Óë ffmpeg_libx264.sh µÄ enc_dec_args Í¬¿Ú¾¶
+rem (--ff_hwaccel ¶ÔÓ²¼şÈë¿ÚÎŞĞ§, Èë¿Ú --help ÀïÒ²ÕâÃ´Ğ´)¡£¹éÒ»ºóÖ´ĞĞ¶ÎµÄ
+rem auto ·ÖÖ§ÓÀ²»ÃüÖĞ, RUN_COM ÀïÒ»¸ö hwaccel ²ÎÊı¶¼²»¶à¡£
 if not "%ENC%"=="libx264" if not "%ENC%"=="libx265" (
     set "FF_HWACCEL=none"
     set "FF_HW_ARG="
 )
-rem ---------- è§£ç æ‹“æ‰‘: ç”± --dec å†³å®š, ä¸ç»™å°±ç”¨ç¼–ç å™¨æ—çš„å›ºå®šå€¼ ----------
-rem cpu æ˜¯ none çš„åˆ«å(2026-10-08 æ‹æ¿); ä¸ç»™ --dec æ—¶ DEC_ARG å–æ—é»˜è®¤ã€‚
+rem ---------- ½âÂëÍØÆË: ÓÉ --dec ¾ö¶¨, ²»¸ø¾ÍÓÃ±àÂëÆ÷×åµÄ¹Ì¶¨Öµ ----------
+rem cpu ÊÇ none µÄ±ğÃû(2026-10-08 ÅÄ°å); ²»¸ø --dec Ê± DEC_ARG È¡×åÄ¬ÈÏ¡£
 set "DEC_ARG=soft"
 if /I "%ENC%"=="avc_qsv" set "DEC_ARG=qsv"
 if /I "%ENC%"=="hevc_qsv" set "DEC_ARG=qsv"
@@ -94,12 +94,12 @@ if /I "%ENC%"=="av1_nvenc" set "DEC_ARG=cuda"
 if defined DEC if not "%DEC%"=="" set "DEC_ARG=%DEC%"
 if /i "%DEC_ARG%"=="cpu" set "DEC_ARG=none"
 if /i "%DEC_ARG%"=="vaapi" (
-    echo [é”™è¯¯] Windows ä¾§æ²¡æœ‰ VAAPI -- é‚£æ˜¯ Linux å†…æ ¸ API
-    echo[ å¯é€‰ --dec auto / cpu / none / qsv / cuda
+    echo [´íÎó] Windows ²àÃ»ÓĞ VAAPI -- ÄÇÊÇ Linux ÄÚºË API
+    echo[ ¿ÉÑ¡ --dec auto / cpu / none / qsv / cuda
     exit /b 1
 )
-rem --dec ä¸æ—ä¸ä¸€è‡´æ—¶**åªè­¦å‘Šä¸æ‹¦**(2026-10-08 æ‹æ¿): æ··åˆç¡¬è§£ç¡®å®æœ‰äººç”¨ã€‚ä»£ä»·æ˜¯
-rem 10bit é‚£å¥—åˆ¤æ®ä¸ scale_qsv é™ä½æ»¤é•œå±äº QSV è§£ç è·¯å¾„, è§£ç å™¨ä¸æ˜¯ qsv å°±ä¸è·Ÿã€‚
+rem --dec Óë×å²»Ò»ÖÂÊ±**Ö»¾¯¸æ²»À¹**(2026-10-08 ÅÄ°å): »ìºÏÓ²½âÈ·ÊµÓĞÈËÓÃ¡£´ú¼ÛÊÇ
+rem 10bit ÄÇÌ×ÅĞ¾İÓë scale_qsv ½µÎ»ÂË¾µÊôÓÚ QSV ½âÂëÂ·¾¶, ½âÂëÆ÷²»ÊÇ qsv ¾Í²»¸ú¡£
 set "DEC_FAMILY=soft"
 if /I "%ENC%"=="avc_qsv" set "DEC_FAMILY=qsv"
 if /I "%ENC%"=="hevc_qsv" set "DEC_FAMILY=qsv"
@@ -107,23 +107,23 @@ if /I "%ENC%"=="av1_qsv" set "DEC_FAMILY=qsv"
 if /I "%ENC%"=="avc_nvenc" set "DEC_FAMILY=cuda"
 if /I "%ENC%"=="hevc_nvenc" set "DEC_FAMILY=cuda"
 if /I "%ENC%"=="av1_nvenc" set "DEC_FAMILY=cuda"
-rem åˆ»æ„ç”¨æ–¹æ‹¬å·è€Œä¸æ˜¯å°æ‹¬å·: è¿™ä¸€æ®µæ•´ä½“åœ¨ ( ) å—é‡Œ, echo å‚æ•°é‡Œçš„åŠè§’å³æ‹¬å·ä¼š
-rem æå‰é—­å—(ä¸ :usage / èƒ½åŠ›é—¨åŒä¸€ä¸ªå‘, lint L23 æ‹¦è¿™ä¸ª)ã€‚
+rem ¿ÌÒâÓÃ·½À¨ºÅ¶ø²»ÊÇĞ¡À¨ºÅ: ÕâÒ»¶ÎÕûÌåÔÚ ( ) ¿éÀï, echo ²ÎÊıÀïµÄ°ë½ÇÓÒÀ¨ºÅ»á
+rem ÌáÇ°±Õ¿é(Óë :usage / ÄÜÁ¦ÃÅÍ¬Ò»¸ö¿Ó, lint L23 À¹Õâ¸ö)¡£
 if /i not "%DEC_ARG%"=="%DEC_FAMILY%" (
-    rem å‰é¢çš„ [warn] æ˜¯ ASCII æ ‡ç­¾: å†’çƒŸå¥—ä»¶æ–­è¨€çš„æ˜¯ ASCII æ ‡è®°(è§ :check_isvideo çš„ç”¨æ³•),
-rem ä¸­æ–‡åœ¨ bat çš„ç¼–ç ä¸‹ findstr å¯¹ä¸ä¸Šã€‚
-    echo [warn] --dec %DEC_ARG% ä¸ç¼–ç å™¨ %ENC% çš„å›ºå®šè§£ç  %DEC_FAMILY% ä¸ä¸€è‡´, æŒ‰ä½ ç»™çš„èµ°ã€‚
-    rem åˆ¤æ®æ˜¯**æ—**è€Œä¸æ˜¯è¯·æ±‚çš„è§£ç å™¨: ä¸¢æ‰çš„æ˜¯è¯¥æ—è§£ç è·¯å¾„ä¸Šçš„ 10bit åˆ¤æ®ä¸é™ä½æ»¤é•œ,
-rem æ‰€ä»¥è¦çœ‹ç¼–ç å™¨å±äºå“ªä¸€æ—ã€‚å†™æˆ %DEC_ARG% å°±åªæœ‰åœ¨"è¯·æ±‚ qsv è§£ç "æ—¶æ‰æç¤º, è€ŒçœŸæ­£
-rem éœ€è¦æç¤ºçš„æ°æ°æ˜¯"ç¼–ç å™¨æ˜¯ qsv æ—ã€ä½†è§£ç å™¨ä¸æ˜¯ qsv"è¿™ç§æƒ…å†µ(T35 æŠ“å‡ºæ¥çš„)ã€‚
-rem sh ä¾§ encode_core.sh çš„ enc_dec_warn ç”¨çš„æ˜¯ $fam_d(æ—), ä¸¤æ—ä¸€è‡´ã€‚
-    if /i "%DEC_FAMILY%"=="qsv" echo [warn] 10bit æºçš„åˆ¤æ®ä¸é™ä½æ»¤é•œå±äº qsv è§£ç è·¯å¾„, åªæœ‰è§£ç å™¨æ˜¯ qsv æ—¶æ‰åŠ , ç°åœ¨è§£ç å™¨æ˜¯ %DEC_ARG%, ä¸åŠ ã€‚
+    rem Ç°ÃæµÄ [warn] ÊÇ ASCII ±êÇ©: Ã°ÑÌÌ×¼ş¶ÏÑÔµÄÊÇ ASCII ±ê¼Ç(¼û :check_isvideo µÄÓÃ·¨),
+rem ÖĞÎÄÔÚ bat µÄ±àÂëÏÂ findstr ¶Ô²»ÉÏ¡£
+    echo [warn] --dec %DEC_ARG% Óë±àÂëÆ÷ %ENC% µÄ¹Ì¶¨½âÂë %DEC_FAMILY% ²»Ò»ÖÂ, °´Äã¸øµÄ×ß¡£
+    rem ÅĞ¾İÊÇ**×å**¶ø²»ÊÇÇëÇóµÄ½âÂëÆ÷: ¶ªµôµÄÊÇ¸Ã×å½âÂëÂ·¾¶ÉÏµÄ 10bit ÅĞ¾İÓë½µÎ»ÂË¾µ,
+rem ËùÒÔÒª¿´±àÂëÆ÷ÊôÓÚÄÄÒ»×å¡£Ğ´³É %DEC_ARG% ¾ÍÖ»ÓĞÔÚ"ÇëÇó qsv ½âÂë"Ê±²ÅÌáÊ¾, ¶øÕæÕı
+rem ĞèÒªÌáÊ¾µÄÇ¡Ç¡ÊÇ"±àÂëÆ÷ÊÇ qsv ×å¡¢µ«½âÂëÆ÷²»ÊÇ qsv"ÕâÖÖÇé¿ö(T35 ×¥³öÀ´µÄ)¡£
+rem sh ²à encode_core.sh µÄ enc_dec_warn ÓÃµÄÊÇ $fam_d(×å), Á½×åÒ»ÖÂ¡£
+    if /i "%DEC_FAMILY%"=="qsv" echo [warn] 10bit Ô´µÄÅĞ¾İÓë½µÎ»ÂË¾µÊôÓÚ qsv ½âÂëÂ·¾¶, Ö»ÓĞ½âÂëÆ÷ÊÇ qsv Ê±²Å¼Ó, ÏÖÔÚ½âÂëÆ÷ÊÇ %DEC_ARG%, ²»¼Ó¡£
 )
 
-rem åˆ»æ„ç”¨ ( ) å— + å—å†… goto, **ä¸ç”¨** `set X=Y & goto Z` é‚£å†™æ³•: & å‰çš„ç©ºæ ¼ä¼šè¢«
-rem ç®—è¿›å˜é‡å€¼, å‘½ä»¤è¡Œé‡Œå°±å¤šå‡ºä¸€ä¸ªç©ºæ ¼(å®æµ‹ avc_qsv/hevc_nvenc çš„ RUN_COM0 å˜æˆ
-rem "... -filter_hw_device hw  -hwaccel qsv", ä¸è€å…¥å£ä¸å†é€å­—ä¸€è‡´)ã€‚æ‹¬å·é‡Œ set è¯­å¥
-rem ä»¥æ¢è¡Œç»“æŸ, å€¼ä¸å¸¦å°¾éšç©ºæ ¼ã€‚
+rem ¿ÌÒâÓÃ ( ) ¿é + ¿éÄÚ goto, **²»ÓÃ** `set X=Y & goto Z` ÄÇĞ´·¨: & Ç°µÄ¿Õ¸ñ»á±»
+rem Ëã½ø±äÁ¿Öµ, ÃüÁîĞĞÀï¾Í¶à³öÒ»¸ö¿Õ¸ñ(Êµ²â avc_qsv/hevc_nvenc µÄ RUN_COM0 ±ä³É
+rem "... -filter_hw_device hw  -hwaccel qsv", ÓëÀÏÈë¿Ú²»ÔÙÖğ×ÖÒ»ÖÂ)¡£À¨ºÅÀï set Óï¾ä
+rem ÒÔ»»ĞĞ½áÊø, Öµ²»´øÎ²Ëæ¿Õ¸ñ¡£
 set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0
 if /i "%DEC_ARG%"=="soft" set RUN_COM=%RUN_COM% -v verbose%FF_HW_ARG%
 if /i "%DEC_ARG%"=="none" goto DEC_DONE
@@ -139,7 +139,7 @@ if /i "%DEC_ARG%"=="qsv" (
     set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
     goto DEC_DONE
 )
-rem soft çš„ -v verbose å·²ç»åŠ è¿‡äº†; èµ°åˆ°è¿™é‡Œè¯´æ˜ DEC_ARG éæ³•(ä¸Šé¢å·²æ‹¦ä½), å…œä¸ªåº•
+rem soft µÄ -v verbose ÒÑ¾­¼Ó¹ıÁË; ×ßµ½ÕâÀïËµÃ÷ DEC_ARG ·Ç·¨(ÉÏÃæÒÑÀ¹×¡), ¶µ¸öµ×
 set RUN_COM=%RUN_COM%%FF_HW_ARG%
 :DEC_DONE
 
@@ -150,11 +150,11 @@ if defined PARSE_POS (
 )
 
 if not defined SRC_FILE (
-    SET /P SRC_FILE=è¯·è¾“å…¥å¾…å‹ç¼©è§†é¢‘åœ°å€:
+    SET /P SRC_FILE=ÇëÊäÈë´ıÑ¹ËõÊÓÆµµØÖ·:
 )
 
 IF not defined SRC_FILE (
-    echo æ²¡æœ‰è¾“å…¥æ–‡ä»¶
+    echo Ã»ÓĞÊäÈëÎÄ¼ş
     exit /b 1
 )
 
@@ -162,42 +162,42 @@ set SRC_FILE="%SRC_FILE:"=%"
 
 echo SRC_FILE:%SRC_FILE%
 
-rem è¾“å…¥å¿…é¡»å«è§†é¢‘æµ: æ— è§†é¢‘æµçš„è¾“å…¥äº§ä¸å‡ºæœ‰æ„ä¹‰çš„æˆå“, æå‰æ‹’ç»(ä¸ .sh çš„ check_file_isvideo å¯¹é½)
+rem ÊäÈë±ØĞëº¬ÊÓÆµÁ÷: ÎŞÊÓÆµÁ÷µÄÊäÈë²ú²»³öÓĞÒâÒåµÄ³ÉÆ·, ÌáÇ°¾Ü¾ø(Óë .sh µÄ check_file_isvideo ¶ÔÆë)
 call "%~dp0common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
-rem ç»Ÿä¸€æºæ¢æµ‹: ä¸€æ¬¡ ffprobe å–å›å…¨éƒ¨å­—æ®µ(åŒæ–‡ä»¶å¯¹ check_isvideo çš„æ¢æµ‹å‘½ä¸­ç¼“å­˜);
-rem å¤±è´¥æ—¶ä¼ å› 1, ä¸ .sh ä¾§æ¢æµ‹å¤±è´¥æŠ¥é”™å¯¹é½(2026-09-17 ç”¨æˆ·è£å®šä¿®"å‡åˆ¤æ®")ã€‚
+rem Í³Ò»Ô´Ì½²â: Ò»´Î ffprobe È¡»ØÈ«²¿×Ö¶Î(Í¬ÎÄ¼ş¶Ô check_isvideo µÄÌ½²âÃüÖĞ»º´æ);
+rem Ê§°ÜÊ±´«»Ø 1, Óë .sh ²àÌ½²âÊ§°Ü±¨´í¶ÔÆë(2026-09-17 ÓÃ»§²Ã¶¨ĞŞ"¼ÙÅĞ¾İ")¡£
 call "%~dp0common.bat" probe_source %SRC_FILE%
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" exit /b 1
-rem ---------- ç¡¬ä»¶èƒ½åŠ›é—¨(ä»… av1_qsv): "ç¼–ç å™¨åœ¨ ffmpeg é‡Œ" != "ç¡¬ä»¶æ”¯æŒ" ----------
-rem UHD 770 å®æµ‹: ffmpeg -encoders é‡Œå°±æœ‰ av1_qsv, ä¸€å¼€å´æ˜¯
+rem ---------- Ó²¼şÄÜÁ¦ÃÅ(½ö av1_qsv): "±àÂëÆ÷ÔÚ ffmpeg Àï" != "Ó²¼şÖ§³Ö" ----------
+rem UHD 770 Êµ²â: ffmpeg -encoders Àï¾ÍÓĞ av1_qsv, Ò»¿ªÈ´ÊÇ
 rem   [av1_qsv @ ...] Current codec type is unsupported
 rem   some encoding parameters are not supported by the QSV runtime. rc=-40
-rem è·‘åˆ°åº•åªèƒ½ç•™ä¸‹ 0 å­—èŠ‚äº§ç‰©, æ¯”"æ˜ç¡®è¯´ä¸æ”¯æŒ"æ›´ç³Ÿã€‚æ‰€ä»¥åœ¨åŠ¨æºæ–‡ä»¶ä¹‹å‰æ‹¿ 1 å¸§
-rem lavfi æºå…ˆè¯•ä¸€æ¬¡; AV1 QSV éœ€è¦ Arrow Lake æˆ–æ›´æ–°çš„æ ¸æ˜¾ã€‚
+rem ÅÜµ½µ×Ö»ÄÜÁôÏÂ 0 ×Ö½Ú²úÎï, ±È"Ã÷È·Ëµ²»Ö§³Ö"¸üÔã¡£ËùÒÔÔÚ¶¯Ô´ÎÄ¼şÖ®Ç°ÄÃ 1 Ö¡
+rem lavfi Ô´ÏÈÊÔÒ»´Î; AV1 QSV ĞèÒª Arrow Lake »ò¸üĞÂµÄºËÏÔ¡£
 if /I "%ENC%"=="av1_qsv" call "%~dp0common.bat" qsv_encoder_ready av1_qsv
 if /I "%ENC%"=="av1_qsv" if "%QSV_ENC_OK%"=="1" goto AV1_ENC_READY
-rem åˆ»æ„ç”¨ä¸¤æ¡ç‹¬ç«‹ if è€Œä¸æ˜¯ ( ) å—: ä¸Šé¢é‚£å¥ echo çš„å‚æ•°é‡Œæœ‰åŠè§’å°æ‹¬å·
-rem (éœ€ Arrow Lake æˆ–æ›´æ–°çš„æ ¸æ˜¾), æ”¾è¿›å—é‡Œä¼šæå‰é—­å—(ä¸å…¥å£ usage åŒä¸€ä¸ªå‘)ã€‚
-if /I "%ENC%"=="av1_qsv" echo æœ¬æœºæ²¡æœ‰å¯ç”¨çš„ AV1 QSV ç¼–ç å™¨(éœ€ Arrow Lake æˆ–æ›´æ–°çš„æ ¸æ˜¾) â€”â€” æœªç”Ÿæˆäº§ç‰©
-rem é€€å‡ºç  4 = ç¡¬ä»¶ç¼ºå¤±(å¥‘çº¦è§ test\README.md 5.2), ä¸"è¿™ä¸€ä¸ªæ–‡ä»¶è½¬å¤±è´¥"(1)åˆ†å¼€:
-rem   4 å¯¹æ¸…å•é‡Œæ¯ä¸€ä¸ªæ–‡ä»¶éƒ½æˆç«‹, convert_from_list_* å› æ­¤ç›´æ¥ä¸­æ­¢æ•´ä»½æ¸…å•,
-rem   è€Œä¸æ˜¯æŠŠåŒä¸€å µå¢™å†æ’ä¸€é; 1 åªæ˜¯å½“å‰æ–‡ä»¶çš„é—®é¢˜ã€‚
+rem ¿ÌÒâÓÃÁ½Ìõ¶ÀÁ¢ if ¶ø²»ÊÇ ( ) ¿é: ÉÏÃæÄÇ¾ä echo µÄ²ÎÊıÀïÓĞ°ë½ÇĞ¡À¨ºÅ
+rem (Ğè Arrow Lake »ò¸üĞÂµÄºËÏÔ), ·Å½ø¿éÀï»áÌáÇ°±Õ¿é(ÓëÈë¿Ú usage Í¬Ò»¸ö¿Ó)¡£
+if /I "%ENC%"=="av1_qsv" echo ±¾»úÃ»ÓĞ¿ÉÓÃµÄ AV1 QSV ±àÂëÆ÷(Ğè Arrow Lake »ò¸üĞÂµÄºËÏÔ) ¡ª¡ª Î´Éú³É²úÎï
+rem ÍË³öÂë 4 = Ó²¼şÈ±Ê§(ÆõÔ¼¼û test\README.md 5.2), Óë"ÕâÒ»¸öÎÄ¼ş×ªÊ§°Ü"(1)·Ö¿ª:
+rem   4 ¶ÔÇåµ¥ÀïÃ¿Ò»¸öÎÄ¼ş¶¼³ÉÁ¢, convert_from_list_* Òò´ËÖ±½ÓÖĞÖ¹Õû·İÇåµ¥,
+rem   ¶ø²»ÊÇ°ÑÍ¬Ò»¶ÂÇ½ÔÙ×²Ò»±é; 1 Ö»ÊÇµ±Ç°ÎÄ¼şµÄÎÊÌâ¡£
 if /I "%ENC%"=="av1_qsv" exit /b 4
 :AV1_ENC_READY
-rem ---------- è§£ç æ‹“æ‰‘: è½¯ç¼–å¯é€‰ -hwaccel; QSV è¦ -init_hw_device; NVENC åªç”¨ cuda ----------
-rem ---------- QSV ä¸‰å…¥å£: 10bit æºçš„ä¸¤ç§ç—‡çŠ¶, ä¸¤ç§ä¿®æ³• (2026-09-30 å®æµ‹) ----------
-rem â‘  H.264 High 10(profile 110): å¡åœ¨**è§£ç **ä¾§ â€”â€” QSV çš„ H.264 è§£ç å™¨ä¸åƒ High 10,
-rem    ç¡¬è§£ä¸€æŒ‚å¸§é€€å›ç³»ç»Ÿå†…å­˜, ç¼–ç å™¨è¦ç¡¬ä»¶è¡¨é¢ -> auto_scale æ¥ä¸ä¸Š -> rc=1 / 0 å­—èŠ‚ã€‚
-rem    ä¿®æ³•: è¿™ç§æºä¸è¦ -hwaccel(å®ƒæ˜¯è¾“å…¥é€‰é¡¹, å¿…é¡»æ’åœ¨ -i ä¹‹å‰), æ”¹è½¯è§£å hwuploadã€‚
-rem â‘¡ HEVC Main10 ç­‰: ç¡¬è§£æ­£å¸¸(å¸§å·²åœ¨ QSV è¡¨é¢), ä½† -profile main(8bit) åƒä¸ä¸‹ 10bit
-rem    è¾“å…¥ -> ç¼–ç å™¨æŠ¥é”™ / äº§ç‰©å¼‚å¸¸ã€‚ä¿®æ³•: scale_qsv=format=nv12 åœ¨ QSV ç¡¬ä»¶å†…é™åˆ°
-rem    8bitã€‚ä¸èƒ½ç”¨è½¯æ»¤é•œ format=nv12(å¸§åœ¨ç¡¬ä»¶è¡¨é¢, auto_scale ç…§æ ·æ¥ä¸ä¸Š)ã€‚
-rem åˆ¤æ®è§ lib\common.bat çš„ src_hw_decode_hostile / src_is_10bitã€‚
-rem -vf æ˜¯è¾“å‡ºæ»¤é•œ, ä¸èƒ½æ’åœ¨ -i ä¹‹å‰ â€”â€” å®ƒçš„ä½ç½®åœ¨ä¸‹æ–¹ç¼–ç å™¨æ®µçš„ %QSV_VF% ä¸Šã€‚
-rem 10bit åˆ¤æ®ä¸ scale_qsv é™ä½æ»¤é•œå±äº **QSV è§£ç è·¯å¾„**, æ‰€ä»¥æŒ‰ %DEC_ARG% è€Œä¸æ˜¯
-rem %ENC% è§¦å‘: --dec qsv æ—¶è½¯ç¼–ä¹Ÿèƒ½ç”¨ä¸Šè¿™å¥—åˆ¤æ®; --dec ä¸æ˜¯ qsv æ—¶å®ƒä¸é€‚ç”¨ã€‚
+rem ---------- ½âÂëÍØÆË: Èí±à¿ÉÑ¡ -hwaccel; QSV Òª -init_hw_device; NVENC Ö»ÓÃ cuda ----------
+rem ---------- QSV ÈıÈë¿Ú: 10bit Ô´µÄÁ½ÖÖÖ¢×´, Á½ÖÖĞŞ·¨ (2026-09-30 Êµ²â) ----------
+rem ¢Ù H.264 High 10(profile 110): ¿¨ÔÚ**½âÂë**²à ¡ª¡ª QSV µÄ H.264 ½âÂëÆ÷²»³Ô High 10,
+rem    Ó²½âÒ»¹ÒÖ¡ÍË»ØÏµÍ³ÄÚ´æ, ±àÂëÆ÷ÒªÓ²¼ş±íÃæ -> auto_scale ½Ó²»ÉÏ -> rc=1 / 0 ×Ö½Ú¡£
+rem    ĞŞ·¨: ÕâÖÖÔ´²»Òª -hwaccel(ËüÊÇÊäÈëÑ¡Ïî, ±ØĞëÅÅÔÚ -i Ö®Ç°), ¸ÄÈí½âºó hwupload¡£
+rem ¢Ú HEVC Main10 µÈ: Ó²½âÕı³£(Ö¡ÒÑÔÚ QSV ±íÃæ), µ« -profile main(8bit) ³Ô²»ÏÂ 10bit
+rem    ÊäÈë -> ±àÂëÆ÷±¨´í / ²úÎïÒì³£¡£ĞŞ·¨: scale_qsv=format=nv12 ÔÚ QSV Ó²¼şÄÚ½µµ½
+rem    8bit¡£²»ÄÜÓÃÈíÂË¾µ format=nv12(Ö¡ÔÚÓ²¼ş±íÃæ, auto_scale ÕÕÑù½Ó²»ÉÏ)¡£
+rem ÅĞ¾İ¼û lib\common.bat µÄ src_hw_decode_hostile / src_is_10bit¡£
+rem -vf ÊÇÊä³öÂË¾µ, ²»ÄÜÅÅÔÚ -i Ö®Ç° ¡ª¡ª ËüµÄÎ»ÖÃÔÚÏÂ·½±àÂëÆ÷¶ÎµÄ %QSV_VF% ÉÏ¡£
+rem 10bit ÅĞ¾İÓë scale_qsv ½µÎ»ÂË¾µÊôÓÚ **QSV ½âÂëÂ·¾¶**, ËùÒÔ°´ %DEC_ARG% ¶ø²»ÊÇ
+rem %ENC% ´¥·¢: --dec qsv Ê±Èí±àÒ²ÄÜÓÃÉÏÕâÌ×ÅĞ¾İ; --dec ²»ÊÇ qsv Ê±Ëü²»ÊÊÓÃ¡£
 if /i not "%DEC_ARG%"=="qsv" goto AFTER_QSV
 :QSV_DEC
 call "%~dp0common.bat" src_hw_decode_hostile
@@ -210,16 +210,16 @@ set "SRC_PIXFMT=%P_streams.stream.0.pix_fmt%"
 if defined SRC_PIXFMT echo SRC_PIXFMT=%SRC_PIXFMT%
 call "%~dp0common.bat" src_is_10bit
 if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" set "QSV_VF= -vf scale_qsv=format=nv12"
-if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" echo 10bit source: scale_qsv=format=nv12 (QSV hw å†…é™ 8bit)
+if "%HW_HOSTILE%"=="0" if "%SRC_IS10%"=="1" echo 10bit source: scale_qsv=format=nv12 (QSV hw ÄÚ½µ 8bit)
 if "%QSV_HWDEC%"=="1" set RUN_COM=%RUN_COM% -hwaccel qsv -hwaccel_output_format qsv
 :AFTER_QSV
 set RUN_COM=%RUN_COM% -i %SRC_FILE%
 echo RUN_COM0=%RUN_COM%
 
-rem æºæ¢æµ‹ç»Ÿä¸€èµ° common.bat çš„ probe_source: ä¸€æ¬¡ ffprobe å–å›å…¨éƒ¨å­—æ®µ,
-rem ç»“æœåœ¨ P_* å˜é‡é‡Œ(å€¼å·²å‰¥å¼•å·)ã€‚æ­¤å‰è¿™é‡Œè¦èµ· 6 ä¸ª ffprobe è¿›ç¨‹ã€æ¯ä¸ª
-rem é…ä¸€æ¬¡ä¸´æ—¶æ–‡ä»¶å†™å…¥+del, æ˜¯å†’çƒŸå¥—ä»¶å¢™é’Ÿçš„ä¸»è¦æˆåˆ†(è§ test/README 6.5 èŠ‚)ã€‚
-rem å­—æ®µç¼ºå¤±(æ— è§†é¢‘æµç­‰)æ—¶ P_ å˜é‡æœªå®šä¹‰ã€å±•å¼€ä¸ºç©º â€”â€” ä¸åŸå®ç°çš„ç©ºå€¼è·¯å¾„ä¸€è‡´ã€‚
+rem Ô´Ì½²âÍ³Ò»×ß common.bat µÄ probe_source: Ò»´Î ffprobe È¡»ØÈ«²¿×Ö¶Î,
+rem ½á¹ûÔÚ P_* ±äÁ¿Àï(ÖµÒÑ°şÒıºÅ)¡£´ËÇ°ÕâÀïÒªÆğ 6 ¸ö ffprobe ½ø³Ì¡¢Ã¿¸ö
+rem ÅäÒ»´ÎÁÙÊ±ÎÄ¼şĞ´Èë+del, ÊÇÃ°ÑÌÌ×¼şÇ½ÖÓµÄÖ÷Òª³É·Ö(¼û test/README 6.5 ½Ú)¡£
+rem ×Ö¶ÎÈ±Ê§(ÎŞÊÓÆµÁ÷µÈ)Ê± P_ ±äÁ¿Î´¶¨Òå¡¢Õ¹¿ªÎª¿Õ ¡ª¡ª ÓëÔ­ÊµÏÖµÄ¿ÕÖµÂ·¾¶Ò»ÖÂ¡£
 set "SRC_CODEC=%P_streams.stream.0.codec_name%"
 echo SRC_CODEC=%SRC_CODEC%
 
@@ -232,8 +232,8 @@ if %SRC_FRAMERATE% gtr 31 (
     echo TURN DOWN TARGET FRAME RATE TO 30
 )
 
-rem å®½é«˜ç›´æ¥è¯» P_*, çœæ‰åŸ resolution æ®µçš„ EnableDelayedExpansion å—:
-rem é‚£ä¸ªå—é‡Œ %VAR% å±•å¼€è¦å†è¿‡ä¸€éå»¶è¿Ÿæ‰«æ, ç‰‡åå¸¦æ„Ÿå¹å·æ—¶ä¼šä¸¢å­—ç¬¦; ç°åœ¨æ•´æ®µæ— è·¯å¾„, æ— æ­¤é£é™©
+rem ¿í¸ßÖ±½Ó¶Á P_*, Ê¡µôÔ­ resolution ¶ÎµÄ EnableDelayedExpansion ¿é:
+rem ÄÇ¸ö¿éÀï %VAR% Õ¹¿ªÒªÔÙ¹ıÒ»±éÑÓ³ÙÉ¨Ãè, Æ¬Ãû´ø¸ĞÌ¾ºÅÊ±»á¶ª×Ö·û; ÏÖÔÚÕû¶ÎÎŞÂ·¾¶, ÎŞ´Ë·çÏÕ
 set "SRC_W=%P_streams.stream.0.width%"
 set "SRC_H=%P_streams.stream.0.height%"
 echo SRC_W=%SRC_W%
@@ -251,10 +251,10 @@ echo SRC_SIZE=%SRC_SIZE%
 set "SRC_DURATION=%P_format.duration%"
 echo SRC_DURATION=%SRC_DURATION%
 
-rem ç ç‡å…œåº•: format.bit_rate -> stream.bit_rate -> size/duration(éœ€æœ‰æ•ˆæ—¶é•¿)
+rem ÂëÂÊ¶µµ×: format.bit_rate -> stream.bit_rate -> size/duration(ĞèÓĞĞ§Ê±³¤)
 set "SRC_BITRATE=%P_format.bit_rate%"
 call "%~dp0common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
-rem å—å†… %VAR% ä¸ºè§£ææœŸå±•å¼€: å˜é‡åœ¨å—å†…è¢«é‡èµ‹å€¼å, å—å†…å†å¼•ç”¨ä¼šæ‹¿åˆ°æ—§å€¼, æ•…æ‹†åˆ°å—å¤–
+rem ¿éÄÚ %VAR% Îª½âÎöÆÚÕ¹¿ª: ±äÁ¿ÔÚ¿éÄÚ±»ÖØ¸³Öµºó, ¿éÄÚÔÙÒıÓÃ»áÄÃµ½¾ÉÖµ, ¹Ê²ğµ½¿éÍâ
 if %SRC_BITRATE_OK% == 0 set "SRC_BITRATE=%P_streams.stream.0.bit_rate%"
 call "%~dp0common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
 call "%~dp0common.bat" is_pos_num "%P_format.duration%" SRC_DUR_OK
@@ -264,7 +264,7 @@ if %SRC_BITRATE_OK% == 0 if %SRC_DUR_OK% == 1 (
 call "%~dp0common.bat" is_pos_num "%SRC_BITRATE%" SRC_BITRATE_OK
 if %SRC_BITRATE_OK% == 0 set "SRC_BITRATE=0"
 echo SRC_BITRATE=%SRC_BITRATE%
-rem æ—¶é•¿å…œåº•: format.duration -> size*8/bitrate(éœ€æœ‰æ•ˆç ç‡)
+rem Ê±³¤¶µµ×: format.duration -> size*8/bitrate(ĞèÓĞĞ§ÂëÂÊ)
 call "%~dp0common.bat" is_pos_num "%SRC_DURATION%" SRC_DUR_OK
 if %SRC_DUR_OK% == 0 if %SRC_BITRATE_OK% == 1 (
     call "%~dp0common.bat" calc_duration_fromsize %SRC_SIZE% %SRC_BITRATE% SRC_DURATION
@@ -272,7 +272,7 @@ if %SRC_DUR_OK% == 0 if %SRC_BITRATE_OK% == 1 (
 call "%~dp0common.bat" is_pos_num "%SRC_DURATION%" SRC_DUR_OK
 if %SRC_DUR_OK% == 0 set "SRC_DURATION=0"
 echo SRC_DURATION=%SRC_DURATION%
-rem ---------- ç ç‡æŸ¥è¡¨: lib\bitrate_table_avc.csv (æ›¿ä»£åŸ 190 è¡Œ if-elif) ----------
+rem ---------- ÂëÂÊ²é±í: lib\bitrate_table_avc.csv (Ìæ´úÔ­ 190 ĞĞ if-elif) ----------
 set "BIT="
 set "ENC_TABLE=bitrate_table_hevc.csv"
 if /I "%ENC%"=="libx264" set "ENC_TABLE=bitrate_table_avc.csv"
@@ -282,7 +282,7 @@ if /I "%ENC%"=="av1_nvenc" set "ENC_TABLE=bitrate_table_av1.csv"
 if /I "%ENC%"=="libsvtav1" set "ENC_TABLE=bitrate_table_av1.csv"
 call "%~dp0common.bat" lookup_bitrate %SRC_PIX% BIT %ENC_TABLE%
 if not defined BIT (
-    echo SRC_PIX=%SRC_PIX% è¶…å‡ºç ç‡è¡¨èŒƒå›´, Manual handle it
+    echo SRC_PIX=%SRC_PIX% ³¬³öÂëÂÊ±í·¶Î§, Manual handle it
     exit /b 2
 )
 call "%~dp0common.bat" bitrate_from_table BIT
@@ -296,8 +296,8 @@ if %SRC_BITRATE% gtr 0 (
 )
 echo percentage=%percentage%%%
 
-rem ä¸‹é¢ä¸¤ä¸ªåˆ¤å®šä¸é™äºäº¤äº’æ¨¡å¼: arg(æ‹–æ”¾/å‘½ä»¤è¡Œ)æ¨¡å¼åŒæ ·ç”Ÿæ•ˆ, ä¸ .sh ä¿æŒä¸€è‡´
-rem (åŸå†™æ³•å¤šäº† if "%~1"=="" å‰ç½®, ä½¿ä½ç ç‡æºåœ¨ arg æ¨¡å¼ä¸‹è¢«é‡ç¼–ç æ”¾å¤§)
+rem ÏÂÃæÁ½¸öÅĞ¶¨²»ÏŞÓÚ½»»¥Ä£Ê½: arg(ÍÏ·Å/ÃüÁîĞĞ)Ä£Ê½Í¬ÑùÉúĞ§, Óë .sh ±£³ÖÒ»ÖÂ
+rem (Ô­Ğ´·¨¶àÁË if "%~1"=="" Ç°ÖÃ, Ê¹µÍÂëÂÊÔ´ÔÚ arg Ä£Ê½ÏÂ±»ÖØ±àÂë·Å´ó)
 if %SRC_BITRATE% gtr 0 (
     if %percentage% geq 100 (
         set BIT=%SRC_BITRATE%
@@ -312,14 +312,14 @@ if %TARGET_BITRATE% leq 0 (
    exit /b 5
 )
 
-IF not defined PARSE_POS SET /P BIT=è¯·è¾“å…¥è¾“å‡ºç ç‡(å¦‚1150k,ä¸è¾“å…¥åˆ™ä¿æŒé»˜è®¤):
+IF not defined PARSE_POS SET /P BIT=ÇëÊäÈëÊä³öÂëÂÊ(Èç1150k,²»ÊäÈëÔò±£³ÖÄ¬ÈÏ):
 echo TARGET_BITRATE=%BIT%
-rem ---------- å°é¢ä¿ç•™èƒ½åŠ›é—¨: è§ lib\common.bat çš„ :cover_map ----------
+rem ---------- ·âÃæ±£ÁôÄÜÁ¦ÃÅ: ¼û lib\common.bat µÄ :cover_map ----------
 call "%~dp0common.bat" cover_map
-rem EXT=mkv æ—¶å­—å¹•é»˜è®¤åŸæ ·å¤åˆ¶(-c:s copy): mkv è£…å¾—ä¸‹ä½å›¾å­—å¹•, æ¯” mp4 å°‘ä¸¢ä¸œè¥¿ã€‚
-rem å”¯ä¸€ä¾‹å¤–æ˜¯æºé‡Œå¸¦ mov_text â€”â€” mp4 çš„è½¯å­—å¹•æ ¼å¼, matroska è£…ä¸ä¸‹, å®æµ‹
-rem -c:s copy åœ¨è¿™é‡Œç›´æ¥ rc=-40 / 0 å­—èŠ‚ â€”â€” æ‰€ä»¥è¿™ç§æºæŠŠæ–‡æœ¬å­—å¹•è½¬æˆ assã€‚
-rem CM_MOV ç”±ä¸Šé¢çš„å°é¢é—¸é—¨é¡ºè·¯æ•°å‡ºæ¥, æ²¡æœ‰é¢å¤–èµ· ffprobeã€‚
+rem EXT=mkv Ê±×ÖÄ»Ä¬ÈÏÔ­Ñù¸´ÖÆ(-c:s copy): mkv ×°µÃÏÂÎ»Í¼×ÖÄ», ±È mp4 ÉÙ¶ª¶«Î÷¡£
+rem Î¨Ò»ÀıÍâÊÇÔ´Àï´ø mov_text ¡ª¡ª mp4 µÄÈí×ÖÄ»¸ñÊ½, matroska ×°²»ÏÂ, Êµ²â
+rem -c:s copy ÔÚÕâÀïÖ±½Ó rc=-40 / 0 ×Ö½Ú ¡ª¡ª ËùÒÔÕâÖÖÔ´°ÑÎÄ±¾×ÖÄ»×ª³É ass¡£
+rem CM_MOV ÓÉÉÏÃæµÄ·âÃæÕ¢ÃÅË³Â·Êı³öÀ´, Ã»ÓĞ¶îÍâÆğ ffprobe¡£
 if "%EXT%"=="mkv" if "%CM_MOV%"=="1" set "SENC=-c:s ass"
 set "ENC_ARGS=-c:v:0 libx264 -profile:v:0 high -preset fast -b:v %BIT% -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if /I "%ENC%"=="libx265" set "ENC_ARGS=-c:v:0 libx265 -profile:v:0 main -preset fast -b:v %BIT% -pix_fmt nv12 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -sws_flags bicubic -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
@@ -327,10 +327,10 @@ if /I "%ENC%"=="avc_qsv" set "ENC_ARGS=-c:v:0 h264_qsv -profile:v:0 main -preset
 if /I "%ENC%"=="hevc_qsv" set "ENC_ARGS=-c:v:0 hevc_qsv -profile:v:0 main -preset veryfast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if /I "%ENC%"=="av1_qsv" set "ENC_ARGS=-c:v:0 av1_qsv -profile:v:0 main -preset fast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if /I "%ENC%"=="hevc_nvenc" set "ENC_ARGS=-c:v:0 hevc_nvenc -profile:v:0 main -preset p4 -tune:v hq -rc cbr -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
-rem av1_nvenc ä¸æ¥å— -profile:v:0(å®æµ‹æŠ¥æœªçŸ¥å‚æ•°), æ‰€ä»¥è¿™è¡Œæ¯” hevc_nvenc å°‘ä¸€æ®µ
+rem av1_nvenc ²»½ÓÊÜ -profile:v:0(Êµ²â±¨Î´Öª²ÎÊı), ËùÒÔÕâĞĞ±È hevc_nvenc ÉÙÒ»¶Î
 if /I "%ENC%"=="avc_nvenc" set "ENC_ARGS=-c:v:0 h264_nvenc -profile:v:0 high -preset p4 -tune:v hq -rc cbr -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
-rem è½¯ä»¶ AV1: å‚æ•°å¯¹é½ ffmpeg_dvd_hevc.sh çš„ VENC_BASE="-preset 8"(SVT-AV1 çš„é€Ÿåº¦æ¡£
-rem æ˜¯ -preset 0..13); ä¸å†™ -profile:v:0 -- main/high æ˜¯ x264/x265 çš„ profile æ¦‚å¿µã€‚
+rem Èí¼ş AV1: ²ÎÊı¶ÔÆë ffmpeg_dvd_hevc.sh µÄ VENC_BASE="-preset 8"(SVT-AV1 µÄËÙ¶Èµµ
+rem ÊÇ -preset 0..13); ²»Ğ´ -profile:v:0 -- main/high ÊÇ x264/x265 µÄ profile ¸ÅÄî¡£
 if /I "%ENC%"=="libsvtav1" set "ENC_ARGS=-c:v:0 libsvtav1 -preset 8 -b:v %BIT% -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if /I "%ENC%"=="av1_nvenc" set "ENC_ARGS=-c:v:0 av1_nvenc -preset p4 -tune:v hq -rc cbr -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if defined BIT set RUN_COM=%RUN_COM%%QSV_VF% %ENC_ARGS%
@@ -342,17 +342,17 @@ if defined SRC_FILE call "%~dp0common.bat" extract %SRC_FILE% TARGET_PATH TARGET
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
-IF not defined PARSE_POS SET /P TARGET_FILE=è¯·è¾“å…¥è¾“å‡ºæ–‡ä»¶(å¦‚output.mp4,ä¸è¾“å…¥åˆ™è¾“å‡ºåˆ°ç›¸åŒæ–‡ä»¶å¤¹å¹¶åŠ åç¼€):
+IF not defined PARSE_POS SET /P TARGET_FILE=ÇëÊäÈëÊä³öÎÄ¼ş(Èçoutput.mp4,²»ÊäÈëÔòÊä³öµ½ÏàÍ¬ÎÄ¼ş¼Ğ²¢¼Óºó×º):
 if not defined TARGET_FILE set "TARGET_FILE=output.mp4"
-rem ç»Ÿä¸€ç»™è¾“å‡ºè·¯å¾„è¡¥å¼•å·: ç”¨æˆ·æ‰‹è¾“çš„å¯èƒ½ä¸å¸¦å¼•å·, è€Œä¸å¸¦å¼•å·çš„è·¯å¾„
-rem ä¸€æ—¦å« ç©ºæ ¼/&/( ) å°±ä¼šè¢« RUN_COM çš„å±•å¼€æ‹†å¼€
+rem Í³Ò»¸øÊä³öÂ·¾¶²¹ÒıºÅ: ÓÃ»§ÊÖÊäµÄ¿ÉÄÜ²»´øÒıºÅ, ¶ø²»´øÒıºÅµÄÂ·¾¶
+rem Ò»µ©º¬ ¿Õ¸ñ/&/( ) ¾Í»á±» RUN_COM µÄÕ¹¿ª²ğ¿ª
 if defined TARGET_FILE set TARGET_FILE="%TARGET_FILE:"=%"
 echo SRC_FILE=%SRC_FILE%
 echo TARGET_FILE=%TARGET_FILE%
 
 echo RUN_COM3:%RUN_COM%
 rem handler name with ) (   call set
-rem ---- äº§ç‰©å·²å­˜åœ¨æ—¶çš„ç­–ç•¥: è§ lib\common.bat çš„ :on_exist ----
+rem ---- ²úÎïÒÑ´æÔÚÊ±µÄ²ßÂÔ: ¼û lib\common.bat µÄ :on_exist ----
 if defined PARSE_POS call "%~dp0common.bat" on_exist %TARGET_FILE%
 if defined FF_EXIST_FAIL exit /b 6
 if defined FF_EXIST_SKIP exit /b 0
@@ -370,54 +370,54 @@ echo.
 exit /b 0
 
 rem ============================================================================================
-rem :copy_run -- æ— æŸè½¬å°è£…(--venc copy)ã€‚ä¸ç¼–ç æµç¨‹çš„å››å¤„ç»“æ„å·®å¼‚:
-rem   1. æ— ç ç‡è¡¨(ä¸é‡ç¼–ç , æ²¡æœ‰"é‡"è¿™ä¸€è¯´); 2. è¾“å‡ºåä¸å¸¦ -compressed;
-rem   3. æºå·²æ˜¯ç›®æ ‡å®¹å™¨(EXT)å°±ç›´æ¥é€€å‡º; 4. -c copy + **-movflags +faststart**ã€‚
-rem ç¬¬ 4 æ¡æ˜¯ 2026-09-17 ç”¨æˆ·è¦æ±‚åŠ çš„: é»˜è®¤ mp4 æŠŠç´¢å¼• moov å†™åœ¨ mdat ä¹‹å, æ’­æ”¾å™¨
-rem å¾—æ‹¿åˆ°æ–‡ä»¶æœ«å°¾æ‰èƒ½èµ·æ’­, æˆå“å¸¸è¢«æ‹·èµ°/è¾¹ä¸‹è¾¹æ’­ã€‚å®æµ‹åŒä¸€å¤¹å…·ä¸åŠ  =
-rem ftyp/free/mdat/moov, åŠ äº† = ftyp/moov/free/mdat, å­—èŠ‚æ•°å®Œå…¨ç›¸åŒ(ffmpeg å°±åœ°æ¬ç´¢å¼•)ã€‚
-rem 7 ä¸ªç¼–ç å…¥å£ç›®å‰éƒ½**æ²¡æœ‰**å®ƒ(è§ test/README.md L17), æœ¬æ®µä¸ remux æ—§å…¥å£æ˜¯ä»…æœ‰çš„è½ç‚¹ã€‚
-rem è½¬å°è£…**ä¸å¼•ç”¨å°é¢æ˜ å°„**: mp4 å­˜å¾—ä¸‹å¤åˆ¶æ¥çš„ mjpeg å°é¢, å†åŠ ä¸€æ¡ -map åªä¼šæŠŠåŒä¸€
-rem å¼ å›¾æ˜ å°„ä¸¤æ¬¡(è§ test/README.md L16 çš„ remux ä¾‹å¤–è¯´æ˜)ã€‚
+rem :copy_run -- ÎŞËğ×ª·â×°(--venc copy)¡£Óë±àÂëÁ÷³ÌµÄËÄ´¦½á¹¹²îÒì:
+rem   1. ÎŞÂëÂÊ±í(²»ÖØ±àÂë, Ã»ÓĞ"ÖØ"ÕâÒ»Ëµ); 2. Êä³öÃû²»´ø -compressed;
+rem   3. Ô´ÒÑÊÇÄ¿±êÈİÆ÷(EXT)¾ÍÖ±½ÓÍË³ö; 4. -c copy + **-movflags +faststart**¡£
+rem µÚ 4 ÌõÊÇ 2026-09-17 ÓÃ»§ÒªÇó¼ÓµÄ: Ä¬ÈÏ mp4 °ÑË÷Òı moov Ğ´ÔÚ mdat Ö®ºó, ²¥·ÅÆ÷
+rem µÃÄÃµ½ÎÄ¼şÄ©Î²²ÅÄÜÆğ²¥, ³ÉÆ·³£±»¿½×ß/±ßÏÂ±ß²¥¡£Êµ²âÍ¬Ò»¼Ğ¾ß²»¼Ó =
+rem ftyp/free/mdat/moov, ¼ÓÁË = ftyp/moov/free/mdat, ×Ö½ÚÊıÍêÈ«ÏàÍ¬(ffmpeg ¾ÍµØ°áË÷Òı)¡£
+rem 7 ¸ö±àÂëÈë¿ÚÄ¿Ç°¶¼**Ã»ÓĞ**Ëü(¼û test/README.md L17), ±¾¶ÎÓë remux ¾ÉÈë¿ÚÊÇ½öÓĞµÄÂäµã¡£
+rem ×ª·â×°**²»ÒıÓÃ·âÃæÓ³Éä**: mp4 ´æµÃÏÂ¸´ÖÆÀ´µÄ mjpeg ·âÃæ, ÔÙ¼ÓÒ»Ìõ -map Ö»»á°ÑÍ¬Ò»
+rem ÕÅÍ¼Ó³ÉäÁ½´Î(¼û test/README.md L16 µÄ remux ÀıÍâËµÃ÷)¡£
 rem
-rem å¼•å·çº¦å®šç…§æ—§(è§å„å…¥å£é¡¶éƒ¨é‚£æ®µ"ç¬¬å…­è½®å®æµ‹"æ³¨é‡Š): %SRC_FILE% è‡ª
-rem `set SRC_FILE="%SRC_FILE:"=%"` èµ·å°±**è‡ªå¸¦å¼•å·**, æ‰€ä»¥ä¸‹é¢ä¸€å¾‹**è£¸ç”¨**, ç»ä¸å†å¥—
-rem ä¸€å±‚å¼•å· â€”â€” é‚£ä¼šæŠŠè·¯å¾„é‡Œçš„ & ä¸å°æ‹¬å·æ”¾å‡ºå¼•å·å¤–è¢« cmd å½“è¯­æ³•å­—ç¬¦(L09/L21)ã€‚
-rem SENC çš„åˆå€¼ç”± :init_ext ç»™(mp4 -> -c:s mov_text, mkv -> -c:s copy), è¿™é‡Œåªåœ¨
-rem "mkv ä¸”æºé‡Œæœ‰ mov_text"æ—¶æ”¹å†™å®ƒã€‚
+rem ÒıºÅÔ¼¶¨ÕÕ¾É(¼û¸÷Èë¿Ú¶¥²¿ÄÇ¶Î"µÚÁùÂÖÊµ²â"×¢ÊÍ): %SRC_FILE% ×Ô
+rem `set SRC_FILE="%SRC_FILE:"=%"` Æğ¾Í**×Ô´øÒıºÅ**, ËùÒÔÏÂÃæÒ»ÂÉ**ÂãÓÃ**, ¾ø²»ÔÙÌ×
+rem Ò»²ãÒıºÅ ¡ª¡ª ÄÇ»á°ÑÂ·¾¶ÀïµÄ & ÓëĞ¡À¨ºÅ·Å³öÒıºÅÍâ±» cmd µ±Óï·¨×Ö·û(L09/L21)¡£
+rem SENC µÄ³õÖµÓÉ :init_ext ¸ø(mp4 -> -c:s mov_text, mkv -> -c:s copy), ÕâÀïÖ»ÔÚ
+rem "mkv ÇÒÔ´ÀïÓĞ mov_text"Ê±¸ÄĞ´Ëü¡£
 :copy_run
 set "ENC=copy"
 echo ============================================================
-echo æ¬¢è¿ä½¿ç”¨ffmpegè§†é¢‘å‹ç¼©æ‰¹å¤„ç†å·¥å…·
+echo »¶Ó­Ê¹ÓÃffmpegÊÓÆµÑ¹ËõÅú´¦Àí¹¤¾ß
 echo.
-echo ç”± andreas ç¼–å†™
+echo ÓÉ andreas ±àĞ´
 echo ============================================================
 
 call "%~dp0common.bat" init_ext
 if errorlevel 1 exit /b 1
-rem æœ¬æ®µæ˜¯ -c copy, å“ªä¸ªæ„å»ºéƒ½èƒ½å¹², æ‰€ä»¥ä¸ä¼ èƒ½åŠ›è¦æ±‚(ä¸ :find_ffmpeg åŒå£å¾„)
+rem ±¾¶ÎÊÇ -c copy, ÄÄ¸ö¹¹½¨¶¼ÄÜ¸É, ËùÒÔ²»´«ÄÜÁ¦ÒªÇó(Óë :find_ffmpeg Í¬¿Ú¾¶)
 call "%~dp0common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 set "FB_NO_PATH=1"
 if defined FB_NO_PATH exit /b 1
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
-echo å·²æ‰¾åˆ°ffmpegäº:%FFMPEG_PATH%
+echo ÒÑÕÒµ½ffmpegÓÚ:%FFMPEG_PATH%
 
 set "SRC_FILE="
 if defined PARSE_POS set "SRC_FILE=%PARSE_POS%"
-if not defined SRC_FILE SET /P SRC_FILE=è¯·è¾“å…¥å¾…è½¬æ¢è§†é¢‘åœ°å€:
+if not defined SRC_FILE SET /P SRC_FILE=ÇëÊäÈë´ı×ª»»ÊÓÆµµØÖ·:
 if not defined SRC_FILE (
-    echo æ²¡æœ‰è¾“å…¥æ–‡ä»¶
+    echo Ã»ÓĞÊäÈëÎÄ¼ş
     exit /b 1
 )
 set SRC_FILE="%SRC_FILE:"=%"
 echo SRC_FILE:%SRC_FILE%
 
-rem è¾“å…¥å¿…é¡»å«è§†é¢‘æµ: æ— è§†é¢‘æµçš„è¾“å…¥äº§ä¸å‡ºæœ‰æ„ä¹‰çš„æˆå“, æå‰æ‹’ç»(ä¸ .sh å¯¹é½)
+rem ÊäÈë±ØĞëº¬ÊÓÆµÁ÷: ÎŞÊÓÆµÁ÷µÄÊäÈë²ú²»³öÓĞÒâÒåµÄ³ÉÆ·, ÌáÇ°¾Ü¾ø(Óë .sh ¶ÔÆë)
 call "%~dp0common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
 
-rem ---------- æºå·²æ˜¯ç›®æ ‡å®¹å™¨å°±æ²¡ä»€ä¹ˆå¯åšçš„ ----------
-rem EXT å†³å®š"å·²ç»æ˜¯ç›®æ ‡å®¹å™¨å°±é€€å‡º"çš„é‚£ä¸ªåç¼€: EXT=mkv æ—¶ .mp4 æºç…§æ ·è¦è½¬
+rem ---------- Ô´ÒÑÊÇÄ¿±êÈİÆ÷¾ÍÃ»Ê²Ã´¿É×öµÄ ----------
+rem EXT ¾ö¶¨"ÒÑ¾­ÊÇÄ¿±êÈİÆ÷¾ÍÍË³ö"µÄÄÇ¸öºó×º: EXT=mkv Ê± .mp4 Ô´ÕÕÑùÒª×ª
 call "%~dp0common.bat" get_suffix %SRC_FILE% SUFFIX
 echo SUFFIX:%SUFFIX%
 if /I "%SUFFIX%" == ".%EXT%" (
@@ -427,7 +427,7 @@ if /I "%SUFFIX%" == ".%EXT%" (
 echo suffix is not %EXT%, need to convert
 
 if /I "%EXT%"=="mkv" (
-    rem EXT=mkv è€Œ matroska è£…ä¸ä¸‹ mov_text è½¯å­—å¹•(å®æµ‹ rc=-40 / 0 å­—èŠ‚), å…ˆæ•°ä¸€æ¬¡æµ
+    rem EXT=mkv ¶ø matroska ×°²»ÏÂ mov_text Èí×ÖÄ»(Êµ²â rc=-40 / 0 ×Ö½Ú), ÏÈÊıÒ»´ÎÁ÷
     call "%~dp0common.bat" cover_map
     if "%CM_MOV%"=="1" set "SENC=-c:s ass"
 )
@@ -442,7 +442,7 @@ call "%~dp0common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME %EXT%
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
 echo TARGET_FILE:%TARGET_FILE%
 
-rem äº§ç‰©å·²å­˜åœ¨æ—¶çš„ç­–ç•¥: è§ lib\common.bat çš„ :on_exist
+rem ²úÎïÒÑ´æÔÚÊ±µÄ²ßÂÔ: ¼û lib\common.bat µÄ :on_exist
 if defined PARSE_POS call "%~dp0common.bat" on_exist %TARGET_FILE%
 if defined FF_EXIST_FAIL exit /b 6
 if defined FF_EXIST_SKIP exit /b 0
@@ -455,7 +455,7 @@ IF not defined PARSE_POS (
 )
 echo RUN_COM4=%RUN_COM%
 
-rem dry-run: DRY_RUN ä¸ºçœŸæ—¶åªæ‰“å°è¿™æ¡å‘½ä»¤, ä¸æ‰§è¡Œ(è§ lib\common.bat çš„ :dry_run)
+rem dry-run: DRY_RUN ÎªÕæÊ±Ö»´òÓ¡ÕâÌõÃüÁî, ²»Ö´ĞĞ(¼û lib\common.bat µÄ :dry_run)
 call "%~dp0common.bat" dry_run
 if defined DRY_HIT exit /b 0
 %RUN_COM%
@@ -463,24 +463,24 @@ set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo.
     echo Convert failed! rc=%FB_RC%
-    rem ä¸ .sh å­ªç”Ÿå¯¹é½: ffmpeg å¤±è´¥å¿…é¡»ä¼ å› 1, ä¸èƒ½åæˆ 0ã€‚
+    rem Óë .sh ÂÏÉú¶ÔÆë: ffmpeg Ê§°Ü±ØĞë´«»Ø 1, ²»ÄÜÍÌ³É 0¡£
     exit /b 1
 )
-echo è½¬å°è£…å®Œæˆ: %TARGET_FILE%
+echo ×ª·â×°Íê³É: %TARGET_FILE%
 exit /b 0
 
-rem ---------- ç»Ÿä¸€å…¥å£è®¤è¯†çš„ç¼–ç å™¨é”®(ä¾› ffmpeg_encode.bat æ‰“é”™å­—æ—¶æç¤º) ----------
+rem ---------- Í³Ò»Èë¿ÚÈÏÊ¶µÄ±àÂëÆ÷¼ü(¹© ffmpeg_encode.bat ´ò´í×ÖÊ±ÌáÊ¾) ----------
 :enc_known
 echo libx264 libx265 libsvtav1 avc_qsv hevc_qsv av1_qsv avc_nvenc hevc_nvenc av1_nvenc copy
 exit /b 0
 
-rem ---------- --venc çš„åˆ«åç¿»è¯‘: avc_* -> h264_* ----------
-rem åªæœ‰è¿™ä¸€ä»½ã€‚ffmpeg_dvd_hevc.bat çš„ --venc ä¸ ffmpeg_encode.bat çš„ --venc éƒ½è°ƒå®ƒ,
-rem ä»¥å‰æ˜¯ä¸¤è¾¹å„å†™ä¸€ä»½ if(2026-10-08 æ”¶æ•›)ã€‚enc_ffenc <åå­—> æŠŠç»“æœ echo å‡ºæ¥,
-rem è®¤ä¸å‡ºæ¥çš„åŸæ ·è¿”å› â€”â€” è°ƒç”¨æ–¹åªåœ¨è¯¥åå­—è‡ªå·±çš„å–å€¼è¡¨é‡Œæ ¡éªŒã€‚
-rem **å‚æ•°æ˜¯ %~2 ä¸æ˜¯ %~1**: æœ¬æ–‡ä»¶çš„ dispatcher çº¦å®šä¸ lib\common.bat ä¸€æ ·,
-rem %~1 æ˜¯å‡½æ•°å(enc_ffenc), %~2 æ‰æ˜¯å®ƒè¦ç¿»è¯‘çš„åå­— â€”â€” å†™æˆ %~1 ä¼šæŠŠå‡½æ•°å
-rem æœ¬èº«å½“è¾“å…¥åŸæ · echo å›å»(å®æµ‹è¾“å‡º "enc_ffenc")ã€‚
+rem ---------- --venc µÄ±ğÃû·­Òë: avc_* -> h264_* ----------
+rem Ö»ÓĞÕâÒ»·İ¡£ffmpeg_dvd_hevc.bat µÄ --venc Óë ffmpeg_encode.bat µÄ --venc ¶¼µ÷Ëü,
+rem ÒÔÇ°ÊÇÁ½±ß¸÷Ğ´Ò»·İ if(2026-10-08 ÊÕÁ²)¡£enc_ffenc <Ãû×Ö> °Ñ½á¹û echo ³öÀ´,
+rem ÈÏ²»³öÀ´µÄÔ­Ñù·µ»Ø ¡ª¡ª µ÷ÓÃ·½Ö»ÔÚ¸ÃÃû×Ö×Ô¼ºµÄÈ¡Öµ±íÀïĞ£Ñé¡£
+rem **²ÎÊıÊÇ %~2 ²»ÊÇ %~1**: ±¾ÎÄ¼şµÄ dispatcher Ô¼¶¨Óë lib\common.bat Ò»Ñù,
+rem %~1 ÊÇº¯ÊıÃû(enc_ffenc), %~2 ²ÅÊÇËüÒª·­ÒëµÄÃû×Ö ¡ª¡ª Ğ´³É %~1 »á°Ñº¯ÊıÃû
+rem ±¾Éíµ±ÊäÈëÔ­Ñù echo »ØÈ¥(Êµ²âÊä³ö "enc_ffenc")¡£
 :enc_ffenc
 set "FF_IN=%~2"
 if /i "%FF_IN%"=="avc_nvenc" (

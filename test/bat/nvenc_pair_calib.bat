@@ -41,11 +41,11 @@ exit /b %errorlevel%
 
 :main
 setlocal EnableExtensions
-rem ç»Ÿä¸€ --help / -help / -h: ä¸ sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
-rem æœ¬è„šæœ¬ä¸è®¾ REPO(å®ƒæŒ‰ PATH ä¸Šçš„ ffmpeg å·¥ä½œ), ç›´æ¥æŒ‰è‡ªèº«ä½ç½®æ¨ä»“åº“æ ¹ã€‚
-rem ä½ç½®å¿…é¡»åœ¨æŠŠ %1 å½“è¾“å…¥æ–‡ä»¶ä¹‹å‰, å¦åˆ™ -h ä¼šè¢«å½“æˆè§†é¢‘è·¯å¾„ã€‚
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
+rem ±¾½Å±¾²»Éè REPO(Ëü°´ PATH ÉÏµÄ ffmpeg ¹¤×÷), Ö±½Ó°´×ÔÉíÎ»ÖÃÍÆ²Ö¿â¸ù¡£
+rem Î»ÖÃ±ØĞëÔÚ°Ñ %1 µ±ÊäÈëÎÄ¼şÖ®Ç°, ·ñÔò -h »á±»µ±³ÉÊÓÆµÂ·¾¶¡£
 call "%~dp0..\..\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%~dp0..\..\lib\common.bat" usage "nvenc_pair_calib.bat  -  NVENC ç­‰è´¨é‡é…å¯¹æ ‡å®šï¼ˆAV1 å¯¹ HEVCï¼‰" "ç”¨æ³•: test\bat\nvenc_pair_calib.bat æºæ–‡ä»¶    ä¹Ÿå¯ç›´æ¥æŠŠæ–‡ä»¶æ‹–åˆ°æœ¬ bat ä¸Š" "åŒä¸€ç´ æåœ¨å‡ æ¡£ç ç‡ä¸Šæ¯” VMAF, è¾“å‡ºè¯¥æœº NVENC çš„æ¨èç ç‡æ¯”; éœ€è¦å¸¦ libvmaf çš„ ffmpeg ä¸ Ada åŠæ›´æ–°çš„ NVIDIA æ˜¾å¡"
+if defined FB_WANT_HELP call "%~dp0..\..\lib\common.bat" usage "nvenc_pair_calib.bat  -  NVENC µÈÖÊÁ¿Åä¶Ô±ê¶¨£¨AV1 ¶Ô HEVC£©" "ÓÃ·¨: test\bat\nvenc_pair_calib.bat Ô´ÎÄ¼ş    Ò²¿ÉÖ±½Ó°ÑÎÄ¼şÍÏµ½±¾ bat ÉÏ" "Í¬Ò»ËØ²ÄÔÚ¼¸µµÂëÂÊÉÏ±È VMAF, Êä³ö¸Ã»ú NVENC µÄÍÆ¼öÂëÂÊ±È; ĞèÒª´ø libvmaf µÄ ffmpeg Óë Ada ¼°¸üĞÂµÄ NVIDIA ÏÔ¿¨"
 if defined FB_WANT_HELP exit /b 0
 set "SRC=%~1"
 if not defined SRC (

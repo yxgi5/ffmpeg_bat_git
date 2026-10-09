@@ -52,9 +52,9 @@ set "REPO=%~dp0..\.."
 for %%I in ("%REPO%") do set "REPO=%%~fI"
 if not exist "%REPO%\lib\common.bat" goto NO_REPO
 
-rem ç»Ÿä¸€ --help / -help / -h: ä¸ sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "soft_pair_calib.bat  -  è½¯ç¼–ç­‰è´¨é‡é…å¯¹æ ‡å®šï¼ˆSVT-AV1 p8 å¯¹ libx265 fastï¼‰" "ç”¨æ³•: test\bat\soft_pair_calib.bat [full æˆ– 1080 æˆ– probe]" "fullï¼ˆé»˜è®¤ï¼Œ720p + 1080p + 2160p ä¸€èµ·æ ‡ï¼‰/ 1080ï¼ˆåªè·‘ 1080pï¼‰/ probeï¼ˆåªæŸ¥å·¥å…·é“¾ï¼‰ï¼›ä¹Ÿå¯ç›´æ¥æŠŠæ–‡ä»¶æ‹–åˆ°æœ¬ bat ä¸Š"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "soft_pair_calib.bat  -  Èí±àµÈÖÊÁ¿Åä¶Ô±ê¶¨£¨SVT-AV1 p8 ¶Ô libx265 fast£©" "ÓÃ·¨: test\bat\soft_pair_calib.bat [full »ò 1080 »ò probe]" "full£¨Ä¬ÈÏ£¬720p + 1080p + 2160p Ò»Æğ±ê£©/ 1080£¨Ö»ÅÜ 1080p£©/ probe£¨Ö»²é¹¤¾ßÁ´£©£»Ò²¿ÉÖ±½Ó°ÑÎÄ¼şÍÏµ½±¾ bat ÉÏ"
 if defined FB_WANT_HELP exit /b 0
 
 rem ---- mode: full (default) | 1080 | probe (also /probe, --probe) ----

@@ -45,63 +45,63 @@ exit /b 0
 
 :main
 
-rem 命令行开关解析: --key value / --key=value -> 同名大写环境变量(见 lib\common.bat 的 :parse_switches)
-rem   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
-rem   位置参数(文件名)记在 PARSE_POS, 下面取它取代 %~1
+rem �����п��ؽ���: --key value / --key=value -> ͬ����д��������(�� lib\common.bat �� :parse_switches)
+rem   ���ȼ� ���� > �������� > defaults.cfg; û���Ļ��� env / cfg(�� set д���Լ���)
+rem   λ�ò���(�ļ���)���� PARSE_POS, ����ȡ��ȡ�� %~1
 call "%SELF_DIR%lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
-rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
-rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
+rem ͳһ --help / -help / -h: ��ӡ�÷����˳�, ���ɻ�(�� lib\common.bat �� :want_help / :usage)
+rem ���������������� if ������ ( ) ��: usage �Ĳ����ﲻ�����ְ��������(����ǰ�տ�)��
 call "%SELF_DIR%lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_hevc_nvenc.bat  -  HEVC NVENC 硬编压缩（需要 NVIDIA 显卡）" "用法: ffmpeg_hevc_nvenc.bat 视频文件    也可直接把文件拖到本 bat 上" "本入口固定走 NVENC 硬编，--ff_hwaccel 对它无效；硬件不可用时返回 4"
+if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_hevc_nvenc.bat  -  HEVC NVENC Ӳ��ѹ������Ҫ NVIDIA �Կ���" "�÷�: ffmpeg_hevc_nvenc.bat ��Ƶ�ļ�    Ҳ��ֱ�Ӱ��ļ��ϵ��� bat ��" "����ڹ̶��� NVENC Ӳ�࣬--ff_hwaccel ������Ч��Ӳ��������ʱ���� 4"
 if defined FB_WANT_HELP exit /b 0
 
 rem ============================================================
-rem ffmpeg_hevc_nvenc.bat - HEVC NVENC 硬件加速压缩 (P1 重构版)
-rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址
-rem 码率查表: lib\bitrate_table_hevc.csv | 公共函数: lib\common.bat
+rem ffmpeg_hevc_nvenc.bat - HEVC NVENC Ӳ������ѹ�� (P1 �ع���)
+rem �÷�: �Ϸ���Ƶ�ļ����� bat ��, ��˫����������Ƶ��ַ
+rem ���ʲ��: lib\bitrate_table_hevc.csv | ��������: lib\common.bat
 rem ------------------------------------------------------------
-rem 路径/命令行拼接规则「第六轮实测, 勿改回 set 包装写法」:
-rem   本脚本的 RUN_COM / SRC_CODEC / SRC_FILE / TARGET_FILE 里存的是
-rem   「已用双引号包好的路径, 或整条已拼好的命令行」。
-rem   set 的包装写法 set "VAR=值" 要求「值里不能出现字面量双引号」;
-rem   一旦出现, 例如值以 %FFMPEG_PATH% 的带引号形式开头, 或值里又嵌了带引号的
-rem   %SRC_FILE%, 包装引号就会与值里第一个引号配对闭合,
-rem   后面的路径段落落进「未加引号区」, 路径里的与号和小括号立刻被 cmd
-rem   当成语法字符, 命令行当场被截断。
-rem   日志实证: 给 SRC_FILE 赋值那行用的是非包装写法, 路径含「A 与 B 2020」,
-rem             结果完整正确; 而拼接 RUN_COM 那行用包装写法加同一路径,
-rem             结果 RUN_COM 在 -i 处就被截断, 并报 B is not recognized。
-rem   结论: 值里会出现引号的 set 一律用非包装写法 set VAR=值, 这样整行引号
-rem   配对是平衡的, 路径里的与号 / 小括号 / 脱字符全落在引号内被保护;
-rem   只有值内确定没有引号的常量赋值, 才可以用包装写法。
-rem   原版曾用「把与号替换成 脱字符 再跟与号」来补偿包装写法造成的不配对,
-rem   在非包装写法下必须去掉, 否则脱字符会进到真实路径里, 勿恢复。
+rem ·��/������ƴ�ӹ��򡸵�����ʵ��, ��Ļ� set ��װд����:
+rem   ���ű��� RUN_COM / SRC_CODEC / SRC_FILE / TARGET_FILE ������
+rem   ������˫���Ű��õ�·��, ��������ƴ�õ������С���
+rem   set �İ�װд�� set "VAR=ֵ" Ҫ��ֵ�ﲻ�ܳ���������˫���š�;
+rem   һ������, ����ֵ�� %FFMPEG_PATH% �Ĵ�������ʽ��ͷ, ��ֵ����Ƕ�˴����ŵ�
+rem   %SRC_FILE%, ��װ���žͻ���ֵ���һ��������Ապ�,
+rem   �����·�����������δ����������, ·�������ź�С�������̱� cmd
+rem   �����﷨�ַ�, �����е������ضϡ�
+rem   ��־ʵ֤: �� SRC_FILE ��ֵ�����õ��Ƿǰ�װд��, ·������A �� B 2020��,
+rem             ���������ȷ; ��ƴ�� RUN_COM �����ð�װд����ͬһ·��,
+rem             ��� RUN_COM �� -i ���ͱ��ض�, ���� B is not recognized��
+rem   ����: ֵ���������ŵ� set һ���÷ǰ�װд�� set VAR=ֵ, ������������
+rem   �����ƽ���, ·�������� / С���� / ���ַ�ȫ���������ڱ�����;
+rem   ֻ��ֵ��ȷ��û�����ŵĳ�����ֵ, �ſ����ð�װд����
+rem   ԭ�����á�������滻�� ���ַ� �ٸ���š���������װд����ɵĲ����,
+rem   �ڷǰ�װд���±���ȥ��, �������ַ��������ʵ·����, ��ָ���
 rem ------------------------------------------------------------
-rem 注意: 本文件必须保持 CRLF 行尾
+rem ע��: ���ļ����뱣�� CRLF ��β
 rem ============================================================
 
-rem ---------- 公共流程在 lib\encode_core.bat (TODO.md 阶段 0) ----------
-rem banner / ffmpeg 定位 / 源探测 / 码率查表 / 命令拼装 / 输出路径 全在里面; 编码器
-rem 之间的差异压成 ENC_TABLE / ENC_ARGS 两张表与 DEC / GATE 两个钩子。本文件只留
-rem 三样搬不走的东西: cp65001 守卫 + :HWACCEL_FALLBACK(上面)、执行段与失败守卫
-rem (下面)、以及自己的 usage 文案与头部说明。
+rem ---------- ���������� lib\encode_core.bat (TODO.md �׶� 0) ----------
+rem banner / ffmpeg ��λ / Դ̽�� / ���ʲ�� / ����ƴװ / ���·�� ȫ������; ������
+rem ֮��Ĳ���ѹ�� ENC_TABLE / ENC_ARGS ���ű��� DEC / GATE �������ӡ����ļ�ֻ��
+rem �����᲻�ߵĶ���: cp65001 ���� + :HWACCEL_FALLBACK(����)��ִ�ж���ʧ������
+rem (����)���Լ��Լ��� usage �İ���ͷ��˵����
 call "%SELF_DIR%lib\encode_core.bat" enc_build hevc_nvenc
 set "FB_RC=%ERRORLEVEL%"
-rem 找不到 ffmpeg 时内核只置 FB_NO_PATH(goto 不能跨文件), 由这里跳过去 —— 那边的
-rem 提示与 pause 是入口的交互, 不该搬进内核。
+rem �Ҳ��� ffmpeg ʱ�ں�ֻ�� FB_NO_PATH(goto ���ܿ��ļ�), ����������ȥ ���� �Ǳߵ�
+rem ��ʾ�� pause ����ڵĽ���, ���ð���ںˡ�
 if defined FB_NO_PATH goto NO_PATH_ERR
-rem 其余退出码(2 码率表未命中 / 3 输入无视频流 / 4 硬件缺失 / 5 码率异常 / 1 转码失败)
-rem 原样传回, 契约见 test\README.md 5.2。
+rem �����˳���(2 ���ʱ�δ���� / 3 ��������Ƶ�� / 4 Ӳ��ȱʧ / 5 �����쳣 / 1 ת��ʧ��)
+rem ԭ������, ��Լ�� test\README.md 5.2��
 if not "%FB_RC%"=="0" exit /b %FB_RC%
 set "FF_HWERR=%TEMP%\ff_hwaccel_%RANDOM%.err"
-rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
+rem dry-run: DRY_RUN Ϊ��ʱֻ��ӡ��������, ��ִ��(�� lib\common.bat �� :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
-rem 仅 -hwaccel auto 时需要捕获 stderr 做 D3D 回退(锁屏/断会话下 auto 会崩);
-rem 其余情况(含硬件入口归一后的 none / 显式 cuda 等)直接把 stderr 打到控制台
-rem -> 进度实时可见。硬件入口的 FF_HWACCEL 已归一为 none, 恒走 else 支。
+rem �� -hwaccel auto ʱ��Ҫ���� stderr �� D3D ����(����/�ϻỰ�� auto ���);
+rem �������(��Ӳ����ڹ�һ��� none / ��ʽ cuda ��)ֱ�Ӱ� stderr �򵽿���̨
+rem -> ����ʵʱ�ɼ���Ӳ����ڵ� FF_HWACCEL �ѹ�һΪ none, ���� else ֧��
 if /i "%FF_HWACCEL%"=="auto" (
     %RUN_COM% 2>"%FF_HWERR%"
     set "FB_RC=%ERRORLEVEL%"
@@ -111,27 +111,27 @@ if /i "%FF_HWACCEL%"=="auto" (
     %RUN_COM%
     set "FB_RC=%ERRORLEVEL%"
 )
-rem 负退出码陷阱 (2026-09-17 实测根因): Windows 版 ffmpeg 失败时常常
-rem 返回「负」的 AVERROR 值 —— 本机 av1_qsv 拿不到编码器时 ffmpeg.exe
-rem 退出码是 -40 (Function not implemented), 而 cmd 的 `if errorlevel N`
-rem 是「带符号」比较, -40 >= 1 不成立 → 守卫不会触发,
-rem 真失败一路落到文件末尾的 exit /b 0 (探针因此报 rc=0 假 OK).
-rem 改成「不等于 0」判定: 它同时兜住负数与正数, 且赋值到变量后
-rem 走字符串相等比较, 不依赖 cmd 对负数的数值解析;
-rem 值空时也会判成失败(安全侧), 而 if errorlevel 写法在值为空时
-rem 只会报语法错误并继续往下跑.
+rem ���˳������� (2026-09-17 ʵ�����): Windows �� ffmpeg ʧ��ʱ����
+rem ���ء������� AVERROR ֵ ���� ���� av1_qsv �ò���������ʱ ffmpeg.exe
+rem �˳����� -40 (Function not implemented), �� cmd �� `if errorlevel N`
+rem �ǡ������š��Ƚ�, -40 >= 1 ������ �� �������ᴥ��,
+rem ��ʧ��һ·�䵽�ļ�ĩβ�� exit /b 0 (̽����˱� rc=0 �� OK).
+rem �ĳɡ������� 0���ж�: ��ͬʱ��ס����������, �Ҹ�ֵ��������
+rem ���ַ�����ȱȽ�, ������ cmd �Ը�������ֵ����;
+rem ֵ��ʱҲ���г�ʧ��(��ȫ��), �� if errorlevel д����ֵΪ��ʱ
+rem ֻ�ᱨ�﷨���󲢼���������.
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo.
     echo Convert failed! rc=%FB_RC%
-    rem 与 .sh 孪生对齐: ffmpeg 失败必须传回 1, 不能吞成 0.
-    rem 探针/冒烟/convert_from_list 都依赖这个非零退出码(见 test/README 退出码契约).
+    rem �� .sh ��������: ffmpeg ʧ�ܱ��봫�� 1, �����̳� 0.
+    rem ̽��/ð��/convert_from_list ��������������˳���(�� test/README �˳�����Լ).
     exit /b 1
 )
 
 
 echo ERRORLEVEL:%ERRORLEVEL%
-echo 转换已出错或完成, 默认不替换, 请手动确认输出文件完整性
+echo ת���ѳ��������, Ĭ�ϲ��滻, ���ֶ�ȷ������ļ�������
 
 echo SRC_W=%SRC_W%
 echo SRC_H=%SRC_H%
@@ -144,7 +144,7 @@ echo TARGET_FILE:%TARGET_FILE%
 exit /b 0
 
 :NO_PATH_ERR
-echo 找不到 ffmpeg.exe: 请安装 ffmpeg(默认查找 C:\Program Files\ffmpeg\bin)
-echo 或设置环境变量 FFMPEG 指向 ffmpeg 可执行文件后重试
+echo �Ҳ��� ffmpeg.exe: �밲װ ffmpeg(Ĭ�ϲ��� C:\Program Files\ffmpeg\bin)
+echo �����û������� FFMPEG ָ�� ffmpeg ��ִ���ļ�������
 pause
 exit /b 1

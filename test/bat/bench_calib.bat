@@ -47,9 +47,9 @@ set "REPO=%~dp0..\.."
 for %%I in ("%REPO%") do set "REPO=%%~fI"
 if not exist "%REPO%\lib\common.bat" goto NO_REPO
 
-rem ç»Ÿä¸€ --help / -help / -h: ä¸ sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "bench_calib.bat  -  ç¡¬ä»¶ç¼–ç ç­‰è´¨é‡æ¡£ä½æ ‡å®š" "ç”¨æ³•: test\bat\bench_calib.bat æºæ–‡ä»¶1 æºæ–‡ä»¶2" "ä¸ sh å­ªç”ŸåŒå£å¾„: åŒä¸€ç´ æåœ¨è‹¥å¹²ç ç‡æ¡£ä¸Šæ¯” VMAFï¼Œè¾“å‡ºè¯¥æœºè¯¥å…¥å£çš„æ¨èæ¡£ä½"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "bench_calib.bat  -  Ó²¼ş±àÂëµÈÖÊÁ¿µµÎ»±ê¶¨" "ÓÃ·¨: test\bat\bench_calib.bat Ô´ÎÄ¼ş1 Ô´ÎÄ¼ş2" "Óë sh ÂÏÉúÍ¬¿Ú¾¶: Í¬Ò»ËØ²ÄÔÚÈô¸ÉÂëÂÊµµÉÏ±È VMAF£¬Êä³ö¸Ã»ú¸ÃÈë¿ÚµÄÍÆ¼öµµÎ»"
 if defined FB_WANT_HELP exit /b 0
 
 set "CODEC=hevc"

@@ -92,9 +92,9 @@ rem ============================================================
 setlocal EnableExtensions
 set "REPO=%~1"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
-rem ç»Ÿä¸€ --help / -help / -h: ä¸Ž sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat æ—å›žå½’å†’çƒŸï¼ˆT1-T31ï¼‰" "ç”¨æ³•: test\bat\smoke_ffmpeg.bat [ä»“åº“è·¯å¾„] [LIST]" "ç¬¬äºŒä¸ªå‚æ•°å†™ LIST æ—¶åªè·‘æ¸…å•æ®µï¼ˆT9 / T11 / T12 / T23 / T30ï¼‰"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat ×å»Ø¹éÃ°ÑÌ£¨T1-T31£©" "ÓÃ·¨: test\bat\smoke_ffmpeg.bat [²Ö¿âÂ·¾¶] [LIST]" "µÚ¶þ¸ö²ÎÊýÐ´ LIST Ê±Ö»ÅÜÇåµ¥¶Î£¨T9 / T11 / T12 / T23 / T30£©"
 if defined FB_WANT_HELP exit /b 0
 set "ONLY=%~2"
 if /I not "%ONLY%"=="LIST" set "ONLY="
@@ -328,7 +328,7 @@ set "RC31=%errorlevel%"
 set "V31=PASS"
 set "N31="
 if not "%RC31%"=="0" ( set "V31=FAIL" & set "N31=%N31% rc=%RC31% want0;" )
-rem æ ‡è®°è¡Œè¯´æ˜Ž"è¿™ä¸€æ­¥æ²¡çœŸè·‘"; å†å•ç‹¬ç¡®è®¤æ‰“å‡ºæ¥çš„å‘½ä»¤å¸¦ç€è¾“å…¥æ–‡ä»¶å
+rem ±ê¼ÇÐÐËµÃ÷"ÕâÒ»²½Ã»ÕæÅÜ"; ÔÙµ¥¶ÀÈ·ÈÏ´ò³öÀ´µÄÃüÁî´ø×ÅÊäÈëÎÄ¼þÃû
 findstr /c:"[dry-run]" "%T31LOG%" >nul 2>&1
 if errorlevel 1 ( set "V31=FAIL" & set "N31=%N31% noDryRunMarker;" )
 findstr /c:"clip.mp4" "%T31LOG%" >nul 2>&1
@@ -514,9 +514,9 @@ for %%f in ("%LOGDIR%\*.log") do (
         set "BAD=1"
     )
 )
-rem ============ T32: ç»Ÿä¸€å…¥å£å®žè·‘ --venc libx265 ============
-rem é˜¶æ®µ 1(ç»Ÿä¸€å…¥å£)çš„æ–­è¨€ã€‚æ¯æ¡å•ç‹¬åŠ ã€å•ç‹¬åœ¨çœŸæœºè·‘ä¸€éå†’çƒŸ â€”â€” ä¸€æ¬¡åŠ ä¸€æ‰¹çš„è¯,
-rem ä¸€æ—¦æŠŠæ–‡ä»¶ç»“æž„å¼„å(å‰è½¦: å¼•å·è¢«åžå¯¼è‡´å¥—ä»¶è·‘ä¸åˆ°æ–­è¨€å°±æ­»), å¾ˆéš¾å®šä½æ˜¯å“ªä¸€è¡Œã€‚
+rem ============ T32: Í³Ò»Èë¿ÚÊµÅÜ --venc libx265 ============
+rem ½×¶Î 1(Í³Ò»Èë¿Ú)µÄ¶ÏÑÔ¡£Ã¿Ìõµ¥¶À¼Ó¡¢µ¥¶ÀÔÚÕæ»úÅÜÒ»±éÃ°ÑÌ ¡ª¡ª Ò»´Î¼ÓÒ»ÅúµÄ»°,
+rem Ò»µ©°ÑÎÄ¼þ½á¹¹Åª»µ(Ç°³µ: ÒýºÅ±»ÍÌµ¼ÖÂÌ×¼þÅÜ²»µ½¶ÏÑÔ¾ÍËÀ), ºÜÄÑ¶¨Î»ÊÇÄÄÒ»ÐÐ¡£
 chcp %CP0% >nul
 set "T32LOG=%LOGDIR%\T32_encode_libx265.log"
 set "T32OUT=%WORK%\unified clip-compressed.mp4"
@@ -532,12 +532,12 @@ findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
 if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
 echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
 if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
-rem ============ T33: æ–°æ—§å…¥å£åŒå‚ -> RUN_COM é€å­—ä¸€è‡´ ============
-rem è¿™æ˜¯"ç­‰ä»·"çš„ç›´æŽ¥è¯æ®ã€‚è€ç”¨ä¾‹åªæ–­è¨€å„è‡ªè·‘é€š, ä¸æ–­è¨€ä¸¤ä¸ªå…¥å£å‘½ä»¤è¡Œç›¸åŒ â€”â€”
-rem æŠ½å†…æ ¸æ—¶æœ€å€¼å¾—ç›¯çš„å°±æ˜¯è¿™ä¸ª, ä»»ä½•ä¸€ä¾§æ”¹äº†å‚æ•°é¡ºåºæˆ–å¤šä¸€ä¸ªç©ºæ ¼éƒ½ä¼šè¢«æŠ“åˆ°ã€‚
-rem æ¯”è¾ƒæ–¹å¼ç”¨ findstr æŠ½è¡Œ + fc å­—èŠ‚æ¯”å¯¹, **ä¸ç”¨** for /f è¯»å›žæ¥:
-rem åŽè€…é‚£å¥— for /f "delims=" %%L in ('... "...%VAR%"...') çš„åµŒå¥—å¼•å·åœ¨ cmd ä¸‹
-rem ä¼šè¢«åž, è¡¨çŽ°ä¸ºæ•´ä¸ªæ–‡ä»¶è¢«å½“å‘½ä»¤æ‰§è¡Œã€å¥—ä»¶è·‘ä¸åˆ°æ–­è¨€å°±æ­»(2026-10-08 è¸©è¿‡)ã€‚
+rem ============ T33: ÐÂ¾ÉÈë¿ÚÍ¬²Î -> RUN_COM Öð×ÖÒ»ÖÂ ============
+rem ÕâÊÇ"µÈ¼Û"µÄÖ±½ÓÖ¤¾Ý¡£ÀÏÓÃÀýÖ»¶ÏÑÔ¸÷×ÔÅÜÍ¨, ²»¶ÏÑÔÁ½¸öÈë¿ÚÃüÁîÐÐÏàÍ¬ ¡ª¡ª
+rem ³éÄÚºËÊ±×îÖµµÃ¶¢µÄ¾ÍÊÇÕâ¸ö, ÈÎºÎÒ»²à¸ÄÁË²ÎÊýË³Ðò»ò¶àÒ»¸ö¿Õ¸ñ¶¼»á±»×¥µ½¡£
+rem ±È½Ï·½Ê½ÓÃ findstr ³éÐÐ + fc ×Ö½Ú±È¶Ô, **²»ÓÃ** for /f ¶Á»ØÀ´:
+rem ºóÕßÄÇÌ× for /f "delims=" %%L in ('... "...%VAR%"...') µÄÇ¶Ì×ÒýºÅÔÚ cmd ÏÂ
+rem »á±»ÍÌ, ±íÏÖÎªÕû¸öÎÄ¼þ±»µ±ÃüÁîÖ´ÐÐ¡¢Ì×¼þÅÜ²»µ½¶ÏÑÔ¾ÍËÀ(2026-10-08 ²È¹ý)¡£
 chcp %CP0% >nul
 set "T33LNEW=%LOGDIR%\T33_equiv_new.log"
 set "T33LOLD=%LOGDIR%\T33_equiv_old.log"
@@ -555,10 +555,10 @@ fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
 if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
 echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
 if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
-rem ============ T34: --dec çš„å‘½ä»¤è¡Œå½¢æ€ ============
-rem é˜¶æ®µ 1 çš„ç»Ÿä¸€å…¥å£æ–­è¨€, æ¯æ¡å•ç‹¬åŠ ã€å•ç‹¬åœ¨çœŸæœºè·‘ä¸€éå†’çƒŸã€‚
-rem è¿™é‡Œç”¨ --dry-run æ–­è¨€å‘½ä»¤è¡Œ, æ‰€ä»¥æœ¬æœºæœ‰æ²¡æœ‰ç¡¬ç¼–éƒ½èƒ½è·‘ã€‚
-rem cpu çš„è¯­ä¹‰å°±æ˜¯ none(Â§6 ç¬¬ 3 æ¡): ä¸€æ¬¡ -hwaccel éƒ½ä¸åŠ , ä¸Ž FF_HWACCEL=none å¯¹é½ã€‚
+rem ============ T34: --dec µÄÃüÁîÐÐÐÎÌ¬ ============
+rem ½×¶Î 1 µÄÍ³Ò»Èë¿Ú¶ÏÑÔ, Ã¿Ìõµ¥¶À¼Ó¡¢µ¥¶ÀÔÚÕæ»úÅÜÒ»±éÃ°ÑÌ¡£
+rem ÕâÀïÓÃ --dry-run ¶ÏÑÔÃüÁîÐÐ, ËùÒÔ±¾»úÓÐÃ»ÓÐÓ²±à¶¼ÄÜÅÜ¡£
+rem cpu µÄÓïÒå¾ÍÊÇ none(¡ì6 µÚ 3 Ìõ): Ò»´Î -hwaccel ¶¼²»¼Ó, Óë FF_HWACCEL=none ¶ÔÆë¡£
 chcp %CP0% >nul
 set "L34=%LOGDIR%\T34_dec_auto.log"
 call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec auto --dry-run "%IN%" < nul > "%L34%" 2>&1
@@ -576,10 +576,10 @@ if not "%RC34%"=="0" set "V34=FAIL"
 findstr /c:"-hwaccel" "%L34%" >nul 2>&1
 if not errorlevel 1 set "V34=FAIL"
 echo [%V34%] T34 dec=cpu -> no hwaccel at all >> "%SUM%"
-rem ============ T35: --dec ä¸Žæ—ä¸ä¸€è‡´ -> è­¦å‘Šä½†ä¸æ‹¦ ============
-rem æ–­è¨€æŠ“ [warn] è¿™ä¸ª ASCII æ ‡ç­¾: å†’çƒŸä¸€å¾‹æŠ“ ASCII æ ‡è®°(åŒ :check_isvideo çš„åšæ³•),
-rem findstr /c:"è­¦å‘Š" åœ¨ bat çš„ç¼–ç ä¸‹åŒ¹é…ä¸ä¸Šã€‚
-rem é¡ºå¸¦æ–­è¨€è­¦å‘Šé‡Œè¯´äº† 10bit é™ä½æ»¤é•œä¸è·Ÿè¿‡æ¥ â€”â€” é‚£æ˜¯å®žæµ‹æœ€å®¹æ˜“é™é»˜ä¸¢ä¸œè¥¿çš„åœ°æ–¹ã€‚
+rem ============ T35: --dec Óë×å²»Ò»ÖÂ -> ¾¯¸æµ«²»À¹ ============
+rem ¶ÏÑÔ×¥ [warn] Õâ¸ö ASCII ±êÇ©: Ã°ÑÌÒ»ÂÉ×¥ ASCII ±ê¼Ç(Í¬ :check_isvideo µÄ×ö·¨),
+rem findstr /c:"¾¯¸æ" ÔÚ bat µÄ±àÂëÏÂÆ¥Åä²»ÉÏ¡£
+rem Ë³´ø¶ÏÑÔ¾¯¸æÀïËµÁË 10bit ½µÎ»ÂË¾µ²»¸ú¹ýÀ´ ¡ª¡ª ÄÇÊÇÊµ²â×îÈÝÒ×¾²Ä¬¶ª¶«Î÷µÄµØ·½¡£
 chcp %CP0% >nul
 set "L35=%LOGDIR%\T35_dec_mismatch.log"
 call "%REPO%\ffmpeg_encode.bat" --venc hevc_qsv --dec cuda --dry-run "%IN%" < nul > "%L35%" 2>&1
@@ -591,9 +591,9 @@ if errorlevel 1 set "V35=FAIL"
 findstr /c:"10bit" "%L35%" >nul 2>&1
 if errorlevel 1 set "V35=FAIL"
 echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
-rem ============ T36: æ‰“é”™å­— / ä¸ç»™ --venc éƒ½å¾—æŠ¥é”™ ============
-rem ä¸è®¸é™é»˜èµ°è¿›æŸä¸ªé»˜è®¤ç¼–ç å™¨ â€”â€” é‚£å°±æ˜¯"æ‰“é”™å­—ä¹Ÿèƒ½è·‘, åªæ˜¯è·‘é”™ç¼–ç å™¨"ã€‚
-rem æ‰“é”™å­—æ—¶è¿˜è¦åˆ—å‡ºå¯é€‰å€¼, å¦åˆ™ç”¨æˆ·ä¸çŸ¥é“è¯¥å¡«ä»€ä¹ˆã€‚
+rem ============ T36: ´ò´í×Ö / ²»¸ø --venc ¶¼µÃ±¨´í ============
+rem ²»Ðí¾²Ä¬×ß½øÄ³¸öÄ¬ÈÏ±àÂëÆ÷ ¡ª¡ª ÄÇ¾ÍÊÇ"´ò´í×ÖÒ²ÄÜÅÜ, Ö»ÊÇÅÜ´í±àÂëÆ÷"¡£
+rem ´ò´í×ÖÊ±»¹ÒªÁÐ³ö¿ÉÑ¡Öµ, ·ñÔòÓÃ»§²»ÖªµÀ¸ÃÌîÊ²Ã´¡£
 chcp %CP0% >nul
 set "L36=%LOGDIR%\T36_badvenc.log"
 call "%REPO%\ffmpeg_encode.bat" --venc libx266 --dry-run "%IN%" < nul > "%L36%" 2>&1
@@ -607,9 +607,9 @@ call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%L36%" 2>&1
 set "RC36=%errorlevel%"
 if "%RC36%"=="0" set "V36=FAIL"
 echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
-rem ============ T37: --venc copy å¹¶å…¥è½¬å°è£… ============
-rem ä¸‰ä¸ªè¦ç‚¹: äº§ç‰©ä¸ŽæºåŒå(ä¸å¸¦ -compressed)ã€å¸¦ moov å‰ç½®ã€æºå·²æ˜¯ç›®æ ‡å®¹å™¨èƒ½æ—©é€€ã€‚
-rem âš ï¸ åˆ«åœ¨ %WORK% é‡Œç•™å¤šä½™æ–‡ä»¶: å…ƒå­—ç¬¦çŸ©é˜µä¼šæ•°è¿™ä¸ªç›®å½•çš„æ–‡ä»¶, ä¹‹å‰ A19 å°±æ˜¯è¿™ä¹ˆæŒ‚çš„ã€‚
+rem ============ T37: --venc copy ²¢Èë×ª·â×° ============
+rem Èý¸öÒªµã: ²úÎïÓëÔ´Í¬Ãû(²»´ø -compressed)¡¢´ø moov Ç°ÖÃ¡¢Ô´ÒÑÊÇÄ¿±êÈÝÆ÷ÄÜÔçÍË¡£
+rem [!] ±ðÔÚ %WORK% ÀïÁô¶àÓàÎÄ¼þ: Ôª×Ö·û¾ØÕó»áÊýÕâ¸öÄ¿Â¼µÄÎÄ¼þ, Ö®Ç° A19 ¾ÍÊÇÕâÃ´¹ÒµÄ¡£
 chcp %CP0% >nul
 set "L37=%LOGDIR%\T37_copy.log"
 set "O37=%WORK%\unified remux.mp4"

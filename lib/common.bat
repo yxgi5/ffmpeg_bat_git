@@ -1,22 +1,24 @@
 
 rem ============================================================
-rem lib\common.bat - å…¬å…±å­ç¨‹åºåº“ (P1 é‡æž„)
-rem ç”¨æ³•: call "%~dp0lib\common.bat" <å‡½æ•°å> [å‚æ•°...]
-rem   å‡½æ•°çš„å®žé™…å‚æ•°ä»Ž %2 å¼€å§‹ ( %1 ä¸ºå‡½æ•°å)
-rem   find_ffmpeg: å®šä½ ffmpeg/ffprobe (FFMPEG æ–‡ä»¶å¼ > ä»“åº“å†… > PATH > é»˜è®¤ç›®å½•; FFPROBE æ–‡ä»¶å¼ä¼˜å…ˆ, å¦åˆ™åŒç›®å½•)
-rem                 æœ¬å‡½æ•°**ä¸åšèƒ½åŠ›ç­›é€‰**(2026-09-20 åŒæ—¥å›žé€€, åŽŸå› è§ä¸‹æ–¹ :find_ffmpeg æ³¨é‡Š)
-rem   check_isvideo: æ ¡éªŒè¾“å…¥å«è§†é¢‘æµ, æ— åˆ™æ‰“å°é”™è¯¯å¹¶è¿”å›ž 1
-rem   on_exist:      äº§ç‰©å·²å­˜åœ¨æ—¶çš„ç­–ç•¥(FF_ON_EXIST=skip é»˜è®¤ / overwrite / fail),
-rem                  å¯¼å‡º FF_OUT_FLAG / FF_EXIST_SKIP / FF_EXIST_FAIL, è§ :on_exist
-rem   dry_run:       DRY_RUN ä¸ºçœŸæ—¶æ‰“å° %RUN_COM%(æœ¬å…¥å£å°†è¦æ‰§è¡Œçš„ ffmpeg å‘½ä»¤)
-rem                  è€Œä¸æ‰§è¡Œ, å¯¼å‡º DRY_HIT ä¾›è°ƒç”¨æ–¹è·³è¿‡é‚£æ¬¡æ‰§è¡Œ, è§ :dry_run
-rem   want_help:     æ‰« --help / -help / -h, å‘½ä¸­ç½® FB_WANT_HELP=1, è§ :want_help
-rem   usage:         æ‰“å°ç”¨æ³•(æ ‡é¢˜ / ç”¨æ³•è¡Œ / é€šç”¨å¼€å…³è¡¨ / å…¥å£ä¸“å±žå¼€å…³), è§ :usage
-rem   load_defaults: è¯» lib\defaults.cfg çš„ KEY=VALUE(å…¬å…±å¼€å…³é»˜è®¤å€¼)
-rem   init_ext:      EXT å®¹å™¨å¼€å…³ -> EXT + SENC, è§ :init_ext
-rem   bitrate_from_table: ç›®æ ‡ç çŽ‡å£å¾„(è¦ä¸è¦ /2), è§ :bitrate_from_table
-rem   call è·¨æ–‡ä»¶å…±äº«çŽ¯å¢ƒ: å‡½æ•°å†… set çš„å˜é‡(éž setlocal å†…)å¯¹è°ƒç”¨æ–¹å¯è§
-rem æ³¨æ„: æœ¬æ–‡ä»¶å¿…é¡»ä¿æŒ CRLF è¡Œå°¾, å‹¿ç”¨ä¼šå‰¥ CR çš„ç¼–è¾‘å™¨ä¿å­˜
+rem lib\common.bat - ¹«¹²×Ó³ÌÐò¿â (P1 ÖØ¹¹)
+rem ÓÃ·¨: call "%~dp0lib\common.bat" <º¯ÊýÃû> [²ÎÊý...]
+rem   º¯ÊýµÄÊµ¼Ê²ÎÊý´Ó %2 ¿ªÊ¼ ( %1 Îªº¯ÊýÃû)
+rem   find_ffmpeg: ¶¨Î» ffmpeg/ffprobe (FFMPEG ÎÄ¼þÊ½ > ²Ö¿âÄÚ > PATH > Ä¬ÈÏÄ¿Â¼; FFPROBE ÎÄ¼þÊ½ÓÅÏÈ, ·ñÔòÍ¬Ä¿Â¼)
+rem                 ±¾º¯Êý**²»×öÄÜÁ¦É¸Ñ¡**(2026-09-20 Í¬ÈÕ»ØÍË, Ô­Òò¼ûÏÂ·½ :find_ffmpeg ×¢ÊÍ)
+rem   check_isvideo: Ð£ÑéÊäÈëº¬ÊÓÆµÁ÷, ÎÞÔò´òÓ¡´íÎó²¢·µ»Ø 1
+rem   on_exist:      ²úÎïÒÑ´æÔÚÊ±µÄ²ßÂÔ(FF_ON_EXIST=skip Ä¬ÈÏ / overwrite / fail),
+rem                  µ¼³ö FF_OUT_FLAG / FF_EXIST_SKIP / FF_EXIST_FAIL, ¼û :on_exist
+rem   dry_run:       DRY_RUN ÎªÕæÊ±´òÓ¡ %RUN_COM%(±¾Èë¿Ú½«ÒªÖ´ÐÐµÄ ffmpeg ÃüÁî)
+rem                  ¶ø²»Ö´ÐÐ, µ¼³ö DRY_HIT ¹©µ÷ÓÃ·½Ìø¹ýÄÇ´ÎÖ´ÐÐ, ¼û :dry_run
+rem   want_help:     É¨ --help / -help / -h, ÃüÖÐÖÃ FB_WANT_HELP=1, ¼û :want_help
+rem   usage:         ´òÓ¡ÓÃ·¨(±êÌâ / ÓÃ·¨ÐÐ / Í¨ÓÃ¿ª¹Ø±í / Èë¿Ú×¨Êô¿ª¹Ø), ¼û :usage
+rem   load_defaults: ¶Á lib\defaults.cfg µÄ KEY=VALUE(¹«¹²¿ª¹ØÄ¬ÈÏÖµ)
+rem   init_ext:      EXT ÈÝÆ÷¿ª¹Ø -> EXT + SENC, ¼û :init_ext
+rem   bitrate_from_table: Ä¿±êÂëÂÊ¿Ú¾¶(Òª²»Òª /2), ¼û :bitrate_from_table
+rem   call ¿çÎÄ¼þ¹²Ïí»·¾³: º¯ÊýÄÚ set µÄ±äÁ¿(·Ç setlocal ÄÚ)¶Ôµ÷ÓÃ·½¿É¼û
+rem ×¢Òâ: ±¾ÎÄ¼þ±ØÐë±£³Ö CRLF ÐÐÎ², ÎðÓÃ»á°þ CR µÄ±à¼­Æ÷±£´æ
+rem ±àÂëÔ¼¶¨: ±¾²Ö¿âËùÓÐ .bat ±ØÐëÎª GBK(CP936) ±àÂë + CRLF ÐÐÎ²; Îð´æÎª UTF-8 ¡ª¡ª cmd °´ÏµÍ³´úÂëÒ³ GBK ½âÎöÅú´¦ÀíÎÄ¼þ,
+rem   ÎÄ¼þÀïµÄ UTF-8 ÖÐÎÄ»á±»Îó¶Á, µ¼ÖÂ×¢ÊÍÀïµÄ rem ±»ÍÌ¡¢²ÐÆ¬±»µ±ÃüÁîÖ´ÐÐ(ÔëÉù)¡£UTF-8 BOM Ò²²»ÐÐ(»áÈÃ @echo off Ê§Ð§)¡£
 rem ============================================================
 
 if "%~1"=="" exit /b 1
@@ -44,13 +46,13 @@ if /I "%~1"=="parse_switches"      goto parse_switches
 if /I "%~1"=="want_help"           goto want_help
 if /I "%~1"=="usage"              goto usage
 if /I "%~1"=="dry_run"             goto dry_run
-echo æœªçŸ¥å‡½æ•°: %~1
+echo Î´Öªº¯Êý: %~1
 exit /b 1
 
 :lookup_bitrate
-rem æŒ‰åƒç´ æ€»æ•°æŸ¥ç›®æ ‡ç çŽ‡: call ... lookup_bitrate <åƒç´ æ•°> <è¾“å‡ºå˜é‡å> [csvæ–‡ä»¶å]
-rem   csv æ–‡ä»¶åå¯é€‰, ä½äºŽæœ¬ç›®å½•: bitrate_table_hevc.csv(é»˜è®¤) / bitrate_table_avc.csv / bitrate_table_av1.csv
-rem   å‘½ä¸­: è¿”å›ž 0 å¹¶è®¾ç½®è¾“å‡ºå˜é‡; è¶…å‡ºè¡¨èŒƒå›´æˆ–å‚æ•°ç¼ºå¤±: è¿”å›ž 2 ä¸”è¾“å‡ºå˜é‡è¢«æ¸…ç©º
+rem °´ÏñËØ×ÜÊý²éÄ¿±êÂëÂÊ: call ... lookup_bitrate <ÏñËØÊý> <Êä³ö±äÁ¿Ãû> [csvÎÄ¼þÃû]
+rem   csv ÎÄ¼þÃû¿ÉÑ¡, Î»ÓÚ±¾Ä¿Â¼: bitrate_table_hevc.csv(Ä¬ÈÏ) / bitrate_table_avc.csv / bitrate_table_av1.csv
+rem   ÃüÖÐ: ·µ»Ø 0 ²¢ÉèÖÃÊä³ö±äÁ¿; ³¬³ö±í·¶Î§»ò²ÎÊýÈ±Ê§: ·µ»Ø 2 ÇÒÊä³ö±äÁ¿±»Çå¿Õ
 set "LB_VAR=%~3"
 set "LB_CSV=%~4"
 if not defined LB_VAR exit /b 2
@@ -64,7 +66,7 @@ if not exist "%LB_FILE%" (
 )
 setlocal EnableDelayedExpansion
 set "LB_VAL="
-rem æ–¹å‘ä¸Ž common.sh ä¸€è‡´: å–ç¬¬ä¸€ä¸ª max_pixels >= åƒç´ æ•°çš„æ¡£ä½ (å‘ä¸Šå–æ¡£)
+rem ·½ÏòÓë common.sh Ò»ÖÂ: È¡µÚÒ»¸ö max_pixels >= ÏñËØÊýµÄµµÎ» (ÏòÉÏÈ¡µµ)
 for /f "usebackq skip=1 tokens=1,2 delims=," %%a in ("%LB_FILE%") do (
     if not defined LB_VAL if %~2 leq %%a set "LB_VAL=%%b"
 )
@@ -73,8 +75,8 @@ if not defined %LB_VAR% exit /b 2
 exit /b 0
 
 :numOK
-rem æ•´æ•°é™¤æ³•å–æ•´: call ... numOK <è¢«é™¤æ•°> <é™¤æ•°> <è¾“å‡ºå˜é‡å>
-rem (å‚æ•°åç§»: åŽŸ %~1/%~2/%~3 å˜ä¸º %~2/%~3/%~4, å›  %1 ä¸ºå‡½æ•°å)
+rem ÕûÊý³ý·¨È¡Õû: call ... numOK <±»³ýÊý> <³ýÊý> <Êä³ö±äÁ¿Ãû>
+rem (²ÎÊýÆ«ÒÆ: Ô­ %~1/%~2/%~3 ±äÎª %~2/%~3/%~4, Òò %1 Îªº¯ÊýÃû)
 setlocal EnableDelayedExpansion
 set numA=%~2
 set numB=%~3
@@ -104,7 +106,7 @@ endlocal & set /a %~4=%ret%
 exit /b 0
 
 :calc_bitrate_fromsize
-rem ç”±æ–‡ä»¶å¤§å°ä¸Žæ—¶é•¿ä¼°ç®—ç çŽ‡: call ... calc_bitrate_fromsize <å­—èŠ‚æ•°> <ç§’æ•°> <è¾“å‡ºå˜é‡å>
+rem ÓÉÎÄ¼þ´óÐ¡ÓëÊ±³¤¹ÀËãÂëÂÊ: call ... calc_bitrate_fromsize <×Ö½ÚÊý> <ÃëÊý> <Êä³ö±äÁ¿Ãû>
 setlocal EnableDelayedExpansion
 set numA=%~2
 set numB=%~3
@@ -122,9 +124,9 @@ endlocal & set /a %~4=%ret%
 exit /b 0
 
 :is_pos_num
-rem åˆ¤æ–­å€¼æ˜¯å¦ä¸ºæ­£æ•°(æ•´æ•°æˆ–å°æ•°å‡å¯), ç»“æžœå†™å…¥è¾“å‡ºå˜é‡(1/0)
-rem   call ... is_pos_num <å€¼> <è¾“å‡ºå˜é‡å>
-rem   æ³¨æ„: æœ¬æ–‡ä»¶ç» goto åˆ†å‘, %1 ä¸ºå‡½æ•°å, çœŸå®žå‚æ•°ä»Ž %2 èµ·
+rem ÅÐ¶ÏÖµÊÇ·ñÎªÕýÊý(ÕûÊý»òÐ¡Êý¾ù¿É), ½á¹ûÐ´ÈëÊä³ö±äÁ¿(1/0)
+rem   call ... is_pos_num <Öµ> <Êä³ö±äÁ¿Ãû>
+rem   ×¢Òâ: ±¾ÎÄ¼þ¾­ goto ·Ö·¢, %1 Îªº¯ÊýÃû, ÕæÊµ²ÎÊý´Ó %2 Æð
 set "IPN_OUT=%~3"
 set "IPN_STR=%~2"
 set "IPN_STR=%IPN_STR:.=%"
@@ -134,9 +136,9 @@ if %IPN_VAL% gtr 0 ( set /a %IPN_OUT%=1 ) else ( set /a %IPN_OUT%=0 )
 exit /b 0
 
 :calc_duration_fromsize
-rem ç”±æ–‡ä»¶å¤§å°ä¸Žç çŽ‡åæŽ¨æ—¶é•¿(ç§’): call ... calc_duration_fromsize <å­—èŠ‚æ•°> <ç çŽ‡bps> <è¾“å‡ºå˜é‡å>
-rem   ä¸Ž calc_bitrate_fromsize äº’é€†: duration = 8*size/bitrate
-rem   æ³¨æ„: æœ¬æ–‡ä»¶ç» goto åˆ†å‘, %1 ä¸ºå‡½æ•°å, çœŸå®žå‚æ•°ä»Ž %2 èµ·
+rem ÓÉÎÄ¼þ´óÐ¡ÓëÂëÂÊ·´ÍÆÊ±³¤(Ãë): call ... calc_duration_fromsize <×Ö½ÚÊý> <ÂëÂÊbps> <Êä³ö±äÁ¿Ãû>
+rem   Óë calc_bitrate_fromsize »¥Äæ: duration = 8*size/bitrate
+rem   ×¢Òâ: ±¾ÎÄ¼þ¾­ goto ·Ö·¢, %1 Îªº¯ÊýÃû, ÕæÊµ²ÎÊý´Ó %2 Æð
 setlocal EnableDelayedExpansion
 set numA=%~2
 set numB=%~3
@@ -153,63 +155,63 @@ endlocal & set /a %~4=%ret%
 exit /b 0
 
 :extract
-rem æ‹†åˆ†æ–‡ä»¶è·¯å¾„: call ... extract <æ–‡ä»¶> <è¾“å‡ºè·¯å¾„å˜é‡> <è¾“å‡ºæ–‡ä»¶åå˜é‡>
-rem   è¾“å‡ºå½¢å¦‚ "D:\dir\" ä¸Ž "name-compressed.mp4"
-rem èŽ·å–åˆ°æ–‡ä»¶è·¯å¾„
+rem ²ð·ÖÎÄ¼þÂ·¾¶: call ... extract <ÎÄ¼þ> <Êä³öÂ·¾¶±äÁ¿> <Êä³öÎÄ¼þÃû±äÁ¿>
+rem   Êä³öÐÎÈç "D:\dir\" Óë "name-compressed.mp4"
+rem »ñÈ¡µ½ÎÄ¼þÂ·¾¶
 set %~3="%~dp2"
-rem èŽ·å–åˆ°æ–‡ä»¶ç›˜ç¬¦
-rem èŽ·å–åˆ°æ–‡ä»¶åç§°
-rem èŽ·å–åˆ°æ–‡ä»¶åŽç¼€
-rem ç¬¬ 4 å‚æ˜¯å®¹å™¨åŽç¼€(EXT å¼€å…³), çœç•¥æŒ‰ mp4
+rem »ñÈ¡µ½ÎÄ¼þÅÌ·û
+rem »ñÈ¡µ½ÎÄ¼þÃû³Æ
+rem »ñÈ¡µ½ÎÄ¼þºó×º
+rem µÚ 4 ²ÎÊÇÈÝÆ÷ºó×º(EXT ¿ª¹Ø), Ê¡ÂÔ°´ mp4
 set "EX_SUF=%~5"
 if not defined EX_SUF set "EX_SUF=mp4"
 set %~4="%~n2-compressed.%EX_SUF%"
 exit /b 0
 
 :get_suffix
-rem èŽ·å–æ–‡ä»¶åŽç¼€: call ... get_suffix <æ–‡ä»¶> <è¾“å‡ºå˜é‡å>
+rem »ñÈ¡ÎÄ¼þºó×º: call ... get_suffix <ÎÄ¼þ> <Êä³ö±äÁ¿Ãû>
 set %~3=%~x2
 exit /b 0
 
 :extract_mp4
-rem æ‹†åˆ†æ–‡ä»¶è·¯å¾„(remux ç”¨, è¾“å‡ºåä¸åŠ åŽç¼€): call ... extract_mp4 <æ–‡ä»¶> <è¾“å‡ºè·¯å¾„å˜é‡> <è¾“å‡ºæ–‡ä»¶åå˜é‡>
-rem   è¾“å‡ºå½¢å¦‚ "D:\dir\" ä¸Ž "name.mp4"
-rem èŽ·å–åˆ°æ–‡ä»¶è·¯å¾„
+rem ²ð·ÖÎÄ¼þÂ·¾¶(remux ÓÃ, Êä³öÃû²»¼Óºó×º): call ... extract_mp4 <ÎÄ¼þ> <Êä³öÂ·¾¶±äÁ¿> <Êä³öÎÄ¼þÃû±äÁ¿>
+rem   Êä³öÐÎÈç "D:\dir\" Óë "name.mp4"
+rem »ñÈ¡µ½ÎÄ¼þÂ·¾¶
 set %~3="%~dp2"
-rem åŒä¸Š: ç¬¬ 4 å‚æ˜¯å®¹å™¨åŽç¼€, çœç•¥æŒ‰ mp4
+rem Í¬ÉÏ: µÚ 4 ²ÎÊÇÈÝÆ÷ºó×º, Ê¡ÂÔ°´ mp4
 set "EX_SUF=%~5"
 if not defined EX_SUF set "EX_SUF=mp4"
-rem èŽ·å–åˆ°æ–‡ä»¶åç§°
+rem »ñÈ¡µ½ÎÄ¼þÃû³Æ
 set %~4="%~n2.%EX_SUF%"
 exit /b 0
 
 :find_ffmpeg
-rem å®šä½ ffmpeg/ffprobe å¯æ‰§è¡Œæ–‡ä»¶: call ... find_ffmpeg <è¾“å‡ºå˜é‡å>
-rem ä¼˜å…ˆçº§: çŽ¯å¢ƒå˜é‡ FFMPEG(æŒ‡å‘å¯æ‰§è¡Œæ–‡ä»¶æœ¬èº«) > ä»“åº“å†… ffmpeg\bin > gyan é»˜è®¤å®‰è£…ç›®å½• > PATH(where) > å…¶ä½™å¸¸è§ç›®å½•
-rem   gyan é‚£ä¸€æ¡£åˆ»æ„æŽ’åœ¨ PATH **ä¹‹å‰**(2026-09-30): åªè¦æ˜¯ Windows, å°±å¼ºåˆ¶ç”¨ gyan
-rem   full â€”â€” PATH é‡Œç¬¬ä¸€ä¸ªå¸¸å¸¸æ˜¯åˆ«çš„æ‰“åŒ…ç‰ˆæœ¬(choco / scoop / æŸè½¯ä»¶çš„ç§æœ‰å‰¯æœ¬),
-rem   èƒ½åŠ›ä¸å…¨ã€‚æ˜¾å¼ FFMPEG ä»æ˜¯æœ€é«˜ä¼˜å…ˆçº§, ä¸ä¼šè¢«è¿™ä¸€æ¡£é¡¶æŽ‰; gyan ç›®å½•ä¸å­˜åœ¨
-rem   æ—¶ç…§æ—§å›žè½åˆ° PATH ä¸Žå…¶ä½™å…œåº•ç›®å½•(é‚£æ—¶è¡Œä¸ºä¸Žæ”¹åŠ¨å‰ä¸€è‡´)ã€‚
-rem å‘½ä¸­: è¾“å‡ºå˜é‡=binç›®å½•(æ— å°¾éƒ¨åæ–œæ ), è¿”å›ž 0; æœªæ‰¾åˆ°: è¿”å›ž 1ã€‚
-rem ä¸¤æ—ç»Ÿä¸€å¥‘çº¦(2026-10-03 å†³ç­–): åªä¿ç•™æ–‡ä»¶å¼ FFMPEG / FFPROBE, åŽ»æŽ‰ç›®å½•å¼ FFMPEG_BINã€‚
-rem   - FFMPEG æŒ‡å‘ ffmpeg å¯æ‰§è¡Œæ–‡ä»¶æœ¬èº«(æ˜¾å¼, æœ€é«˜ä¼˜å…ˆ, ä¸åšèƒ½åŠ›ç­›é€‰)ã€‚
-rem   - FFPROBE æŒ‡å‘ ffprobe å¯æ‰§è¡Œæ–‡ä»¶æœ¬èº«(æ˜¾å¼, æœ€é«˜ä¼˜å…ˆ); æ²¡ç»™åˆ™é»˜è®¤å–ä¸Ž ffmpeg åŒç›®å½•é‚£ä»½ã€‚
-rem   æœ¬å‡½æ•°æŠŠ FFPROBE_PATH ä½œä¸ºå…¨å±€å˜é‡å¯¼å‡º(FFPROBE ä¼˜å…ˆ, å¦åˆ™ <ffmpegç›®å½•>\ffprobe.exe),
-rem   è°ƒç”¨æ–¹ä¸è¦å†è‡ªè¡Œ `set FFPROBE_PATH=...` è¦†ç›–, å¦åˆ™ä¼šä¸¢å¤± FFPROBE æ˜¾å¼è¦†ç›–ã€‚
-rem æœ¬å‡½æ•°åˆ»æ„ä¸åš"èƒ½åŠ›ç­›é€‰"(2026-09-20 å›žé€€, æ›¾åŠ è¿‡ç¬¬ 3 å‚æ•° + :ff_satisfies):
-rem   é‚£é‡Œçš„ "%1\ffmpeg.exe" æ˜¯åŒå¼•å·å åŠ  â€”â€” è°ƒç”¨æ–¹ä¼ è¿›æ¥çš„æ˜¯**å¸¦å¼•å·**çš„ %FFBIN%,
-rem   å±•å¼€æˆ ""C:\Program Files\ffmpeg\bin"\ffmpeg.exe", ç¨‹åºåè¢«è§£æžæˆç©ºä¸², é”™è¯¯åˆè¢«
-rem   2>nul åžæŽ‰ â†’ å¯¹ä»»ä½•å€™é€‰éƒ½åˆ¤"ç¼ºå°‘èƒ½åŠ›"ã€‚è€Œæœ¬æœº ffmpeg æ ¹æœ¬ä¸åœ¨ PATH ä¸Š, èµ°çš„æ˜¯
-rem   ä¸‹é¢çš„å…œåº•ç›®å½•, é‚£æ®µç­›é€‰å¯¹è¿™å°æœºå™¨æ¯«æ— ä½œç”¨ã€‚å°†æ¥è¦é‡åšå¿…é¡»å†™ "%~1\ffmpeg.exe"
-rem   (lint L21 å·²èƒ½æ‹¦ä½è¿™ç§å†™æ³•), ä¸”å¿…é¡»æœ‰çœŸæœºåŒå‡»éªŒè¯çš„ä½™åœ°ã€‚
+rem ¶¨Î» ffmpeg/ffprobe ¿ÉÖ´ÐÐÎÄ¼þ: call ... find_ffmpeg <Êä³ö±äÁ¿Ãû>
+rem ÓÅÏÈ¼¶: »·¾³±äÁ¿ FFMPEG(Ö¸Ïò¿ÉÖ´ÐÐÎÄ¼þ±¾Éí) > ²Ö¿âÄÚ ffmpeg\bin > gyan Ä¬ÈÏ°²×°Ä¿Â¼ > PATH(where) > ÆäÓà³£¼ûÄ¿Â¼
+rem   gyan ÄÇÒ»µµ¿ÌÒâÅÅÔÚ PATH **Ö®Ç°**(2026-09-30): Ö»ÒªÊÇ Windows, ¾ÍÇ¿ÖÆÓÃ gyan
+rem   full ¡ª¡ª PATH ÀïµÚÒ»¸ö³£³£ÊÇ±ðµÄ´ò°ü°æ±¾(choco / scoop / Ä³Èí¼þµÄË½ÓÐ¸±±¾),
+rem   ÄÜÁ¦²»È«¡£ÏÔÊ½ FFMPEG ÈÔÊÇ×î¸ßÓÅÏÈ¼¶, ²»»á±»ÕâÒ»µµ¶¥µô; gyan Ä¿Â¼²»´æÔÚ
+rem   Ê±ÕÕ¾É»ØÂäµ½ PATH ÓëÆäÓà¶µµ×Ä¿Â¼(ÄÇÊ±ÐÐÎªÓë¸Ä¶¯Ç°Ò»ÖÂ)¡£
+rem ÃüÖÐ: Êä³ö±äÁ¿=binÄ¿Â¼(ÎÞÎ²²¿·´Ð±¸Ü), ·µ»Ø 0; Î´ÕÒµ½: ·µ»Ø 1¡£
+rem Á½×åÍ³Ò»ÆõÔ¼(2026-10-03 ¾ö²ß): Ö»±£ÁôÎÄ¼þÊ½ FFMPEG / FFPROBE, È¥µôÄ¿Â¼Ê½ FFMPEG_BIN¡£
+rem   - FFMPEG Ö¸Ïò ffmpeg ¿ÉÖ´ÐÐÎÄ¼þ±¾Éí(ÏÔÊ½, ×î¸ßÓÅÏÈ, ²»×öÄÜÁ¦É¸Ñ¡)¡£
+rem   - FFPROBE Ö¸Ïò ffprobe ¿ÉÖ´ÐÐÎÄ¼þ±¾Éí(ÏÔÊ½, ×î¸ßÓÅÏÈ); Ã»¸øÔòÄ¬ÈÏÈ¡Óë ffmpeg Í¬Ä¿Â¼ÄÇ·Ý¡£
+rem   ±¾º¯Êý°Ñ FFPROBE_PATH ×÷ÎªÈ«¾Ö±äÁ¿µ¼³ö(FFPROBE ÓÅÏÈ, ·ñÔò <ffmpegÄ¿Â¼>\ffprobe.exe),
+rem   µ÷ÓÃ·½²»ÒªÔÙ×ÔÐÐ `set FFPROBE_PATH=...` ¸²¸Ç, ·ñÔò»á¶ªÊ§ FFPROBE ÏÔÊ½¸²¸Ç¡£
+rem ±¾º¯Êý¿ÌÒâ²»×ö"ÄÜÁ¦É¸Ñ¡"(2026-09-20 »ØÍË, Ôø¼Ó¹ýµÚ 3 ²ÎÊý + :ff_satisfies):
+rem   ÄÇÀïµÄ "%1\ffmpeg.exe" ÊÇË«ÒýºÅµþ¼Ó ¡ª¡ª µ÷ÓÃ·½´«½øÀ´µÄÊÇ**´øÒýºÅ**µÄ %FFBIN%,
+rem   Õ¹¿ª³É ""C:\Program Files\ffmpeg\bin"\ffmpeg.exe", ³ÌÐòÃû±»½âÎö³É¿Õ´®, ´íÎóÓÖ±»
+rem   2>nul ÍÌµô ¡ú ¶ÔÈÎºÎºòÑ¡¶¼ÅÐ"È±ÉÙÄÜÁ¦"¡£¶ø±¾»ú ffmpeg ¸ù±¾²»ÔÚ PATH ÉÏ, ×ßµÄÊÇ
+rem   ÏÂÃæµÄ¶µµ×Ä¿Â¼, ÄÇ¶ÎÉ¸Ñ¡¶ÔÕâÌ¨»úÆ÷ºÁÎÞ×÷ÓÃ¡£½«À´ÒªÖØ×ö±ØÐëÐ´ "%~1\ffmpeg.exe"
+rem   (lint L21 ÒÑÄÜÀ¹×¡ÕâÖÖÐ´·¨), ÇÒ±ØÐëÓÐÕæ»úË«»÷ÑéÖ¤µÄÓàµØ¡£
 set "FF_OUT=%~2"
 if not defined FF_OUT exit /b 1
 set "FFBIN="
-rem é˜¶æ®µä¸€: æ˜¾å¼æ–‡ä»¶å¼ FFMPEG(æœ€é«˜ä¼˜å…ˆ)ã€‚FFMPEG æŒ‡å‘ ffmpeg å¯æ‰§è¡Œæ–‡ä»¶æœ¬èº«ã€‚
+rem ½×¶ÎÒ»: ÏÔÊ½ÎÄ¼þÊ½ FFMPEG(×î¸ßÓÅÏÈ)¡£FFMPEG Ö¸Ïò ffmpeg ¿ÉÖ´ÐÐÎÄ¼þ±¾Éí¡£
 if defined FFMPEG if exist "%FFMPEG%" for %%I in ("%FFMPEG%") do set "FFBIN=%%~dpI"
-rem é˜¶æ®µäºŒ: è‡ªåŠ¨å›žé€€(ç›®å½•å¼)
+rem ½×¶Î¶þ: ×Ô¶¯»ØÍË(Ä¿Â¼Ê½)
 if not defined FFBIN if exist "%~dp0..\ffmpeg\bin\ffmpeg.exe" for %%I in ("%~dp0..\ffmpeg\bin") do set "FFBIN=%%~fI"
-rem gyan full çš„é»˜è®¤å®‰è£…ä½ç½®ä¼˜å…ˆäºŽ PATH(è§ä¸Šæ–¹ä¼˜å…ˆçº§è¯´æ˜Ž)
+rem gyan full µÄÄ¬ÈÏ°²×°Î»ÖÃÓÅÏÈÓÚ PATH(¼ûÉÏ·½ÓÅÏÈ¼¶ËµÃ÷)
 if not defined FFBIN if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files\ffmpeg\bin"
 if not defined FFBIN (
     for /f "delims=" %%p in ('where ffmpeg.exe 2^>nul') do (
@@ -219,36 +221,36 @@ if not defined FFBIN (
 if not defined FFBIN if exist "C:\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\ffmpeg\bin"
 if not defined FFBIN if exist "C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe" set "FFBIN=C:\Program Files (x86)\ffmpeg\bin"
 if not defined FFBIN (
-    echo [find_ffmpeg] æœªæ‰¾åˆ° ffmpeg.exe: è¯·å®‰è£… ffmpeg æˆ–è®¾ç½®çŽ¯å¢ƒå˜é‡ FFMPEG æŒ‡å‘ ffmpeg å¯æ‰§è¡Œæ–‡ä»¶
+    echo [find_ffmpeg] Î´ÕÒµ½ ffmpeg.exe: Çë°²×° ffmpeg »òÉèÖÃ»·¾³±äÁ¿ FFMPEG Ö¸Ïò ffmpeg ¿ÉÖ´ÐÐÎÄ¼þ
     set "%FF_OUT%="
     exit /b 1
 )
 if "%FFBIN:~-1%"=="\" set "FFBIN=%FFBIN:~0,-1%"
-rem FFPROBE: æ˜¾å¼æ–‡ä»¶å¼ FFPROBE(æœ€é«˜ä¼˜å…ˆ), å¦åˆ™å–ä¸Ž ffmpeg åŒç›®å½•é‚£ä»½
+rem FFPROBE: ÏÔÊ½ÎÄ¼þÊ½ FFPROBE(×î¸ßÓÅÏÈ), ·ñÔòÈ¡Óë ffmpeg Í¬Ä¿Â¼ÄÇ·Ý
 if defined FFPROBE if exist "%FFPROBE%" set "FFPROBE_PATH=%FFPROBE%"
 if not defined FFPROBE_PATH set "FFPROBE_PATH=%FFBIN%\ffprobe.exe"
 set "%FF_OUT%=%FFBIN%"
-rem é†’ç›®å›žæ˜¾æœ€ç»ˆé€‰å®šçš„ ffmpeg(ä¸Ž .sh ä¾§ ff_report åŒä¹‰): å®šä½è¿‡ç¨‹ä¸€å †è¯Šæ–­å¾ˆå®¹æ˜“ç›–è¿‡
-rem çœŸæ­£è¢«é‡‡ç”¨çš„é‚£ä¸ª, ç”¨æˆ·é—®"åˆ°åº•ç”¨çš„å“ªä¸ª ffmpeg"æ—¶çœ‹çš„å°±æ˜¯è¿™å—ç‰Œå­ã€‚
-rem ç‰ˆæœ¬ä¸²èµ°"å…ˆå†™ä¸´æ—¶æ–‡ä»¶å† for /f usebackq å›žè¯»" â€”â€” æœ¬æœºçœŸæœºéªŒè¯è¿‡çš„è¯»æ³•; ä¸å†™æˆ
-rem for /f åå¼•å·ç›´æŽ¥è·‘ %FFBIN%\ffmpeg.exe(é‚£æ ·æ˜¯å˜é‡å±•å¼€çš„ç¨‹åºè·¯å¾„, lint L21 ä¼šæ‹¦)
+rem ÐÑÄ¿»ØÏÔ×îÖÕÑ¡¶¨µÄ ffmpeg(Óë .sh ²à ff_report Í¬Òå): ¶¨Î»¹ý³ÌÒ»¶ÑÕï¶ÏºÜÈÝÒ×¸Ç¹ý
+rem ÕæÕý±»²ÉÓÃµÄÄÇ¸ö, ÓÃ»§ÎÊ"µ½µ×ÓÃµÄÄÄ¸ö ffmpeg"Ê±¿´µÄ¾ÍÊÇÕâ¿éÅÆ×Ó¡£
+rem °æ±¾´®×ß"ÏÈÐ´ÁÙÊ±ÎÄ¼þÔÙ for /f usebackq »Ø¶Á" ¡ª¡ª ±¾»úÕæ»úÑéÖ¤¹ýµÄ¶Á·¨; ²»Ð´³É
+rem for /f ·´ÒýºÅÖ±½ÓÅÜ %FFBIN%\ffmpeg.exe(ÄÇÑùÊÇ±äÁ¿Õ¹¿ªµÄ³ÌÐòÂ·¾¶, lint L21 »áÀ¹)
 set "FF_SHOW=%FFBIN%\ffmpeg.exe"
 set "FF_VER="
 if defined TEMP "%FF_SHOW%" -hide_banner -version > "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
 if defined TEMP if exist "%TEMP%\ffmpeg_bat_ffver.tmp" for /f "usebackq tokens=3" %%v in ("%TEMP%\ffmpeg_bat_ffver.tmp") do if not defined FF_VER set "FF_VER=%%v"
 if defined TEMP del "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
 echo ============================================================
-echo  ä½¿ç”¨ ffmpeg : %FF_SHOW%
-echo  ä½¿ç”¨ ffprobe: %FFPROBE_PATH%
-if defined FF_VER echo  ç‰ˆæœ¬       : %FF_VER%
+echo  Ê¹ÓÃ ffmpeg : %FF_SHOW%
+echo  Ê¹ÓÃ ffprobe: %FFPROBE_PATH%
+if defined FF_VER echo  °æ±¾       : %FF_VER%
 echo ============================================================
 exit /b 0
 
 :check_isvideo
-rem æ ¡éªŒè¾“å…¥æ˜¯å¦å«è§†é¢‘æµ: call ... check_isvideo <æ–‡ä»¶>
-rem   è¿”å›ž 0 = å«è§†é¢‘æµ; è¿”å›ž 1 = æ— è§†é¢‘æµ/å‚æ•°ç¼ºå¤±/FFPROBE_PATH æœªè®¾(å‡å·²æ‰“å°é”™è¯¯)
-rem   ä¾èµ–è°ƒç”¨æ–¹å·²è®¾ç½® FFPROBE_PATH; å‚æ•°ç›´æŽ¥ä¼ å¸¦å¼•å·çš„ %SRC_FILE% å³å¯
-rem   (è·¯å¾„åœ¨åŒå¼•å·å†…æ— éœ€è½¬ä¹‰, åŠ  ^& åè€Œä¼šæŠŠå­—é¢é‡è„±å­—ç¬¦å¸¦è¿›è·¯å¾„)
+rem Ð£ÑéÊäÈëÊÇ·ñº¬ÊÓÆµÁ÷: call ... check_isvideo <ÎÄ¼þ>
+rem   ·µ»Ø 0 = º¬ÊÓÆµÁ÷; ·µ»Ø 1 = ÎÞÊÓÆµÁ÷/²ÎÊýÈ±Ê§/FFPROBE_PATH Î´Éè(¾ùÒÑ´òÓ¡´íÎó)
+rem   ÒÀÀµµ÷ÓÃ·½ÒÑÉèÖÃ FFPROBE_PATH; ²ÎÊýÖ±½Ó´«´øÒýºÅµÄ %SRC_FILE% ¼´¿É
+rem   (Â·¾¶ÔÚË«ÒýºÅÄÚÎÞÐè×ªÒå, ¼Ó ^& ·´¶ø»á°Ñ×ÖÃæÁ¿ÍÑ×Ö·û´ø½øÂ·¾¶)
 set "CV_FILE=%~2"
 if not defined CV_FILE (
     echo [check_isvideo] missing file argument
@@ -258,29 +260,29 @@ if not defined FFPROBE_PATH (
     echo [check_isvideo] FFPROBE_PATH not set by caller
     exit /b 1
 )
-rem 2026-09-17: æŽ¢æµ‹ç»Ÿä¸€èµ° probe_source(ä¸€æ¬¡ ffprobe); å…¥å£éšåŽç”¨åŒæ–‡ä»¶å†è°ƒ
-rem probe_source æ—¶å‘½ä¸­ç¼“å­˜, ä¸å†èµ·ç¬¬äºŒä¸ª ffprobe è¿›ç¨‹ã€‚
-rem 2026-10-03: è·¯å¾„å« &/ç©ºæ ¼æ—¶, æŠŠå€¼ç»çŽ¯å¢ƒå˜é‡ä¼ ç»™ probe_source, é¿å…
-rem   call æŠŠå¼•å·å†…çš„ & å½“å‘½ä»¤åˆ†éš”ç¬¦æ‹†å(CV_FILE å·²å®Œæ•´, ä½†äºŒæ¬¡ call ä¼ å‚ä¼šå)ã€‚
+rem 2026-09-17: Ì½²âÍ³Ò»×ß probe_source(Ò»´Î ffprobe); Èë¿ÚËæºóÓÃÍ¬ÎÄ¼þÔÙµ÷
+rem probe_source Ê±ÃüÖÐ»º´æ, ²»ÔÙÆðµÚ¶þ¸ö ffprobe ½ø³Ì¡£
+rem 2026-10-03: Â·¾¶º¬ &/¿Õ¸ñÊ±, °ÑÖµ¾­»·¾³±äÁ¿´«¸ø probe_source, ±ÜÃâ
+rem   call °ÑÒýºÅÄÚµÄ & µ±ÃüÁî·Ö¸ô·û²ð»µ(CV_FILE ÒÑÍêÕû, µ«¶þ´Î call ´«²Î»á»µ)¡£
 set "FF_SRC_FILE=%CV_FILE%"
 call "%~f0" probe_source
-rem æ³¨æ„: ä¸‹é¢è¿™è¡Œåˆ»æ„ä¸è¿›æ‹¬å·å—ã€ä¸”ç»™è·¯å¾„åŠ å¼•å· â€”â€” è·¯å¾„å« ) æˆ– & æ—¶æ‰ä¸ä¼šè¢«è§£æžå
+rem ×¢Òâ: ÏÂÃæÕâÐÐ¿ÌÒâ²»½øÀ¨ºÅ¿é¡¢ÇÒ¸øÂ·¾¶¼ÓÒýºÅ ¡ª¡ª Â·¾¶º¬ ) »ò & Ê±²Å²»»á±»½âÎö»µ
 if defined P_streams.stream.0.codec_type exit /b 0
-echo [check_isvideo] "%CV_FILE%" ä¸æ˜¯è§†é¢‘æ–‡ä»¶, æœªæ£€æµ‹åˆ°è§†é¢‘æµ
+echo [check_isvideo] "%CV_FILE%" ²»ÊÇÊÓÆµÎÄ¼þ, Î´¼ì²âµ½ÊÓÆµÁ÷
 exit /b 1
 
 :probe_source
-rem å–å›žå…¨éƒ¨æºå­—æ®µ: call ... probe_source <æ–‡ä»¶>
-rem   ä¸€æ¬¡ ffprobe -of flat(å­—æ®µé›†ä¸Ž .sh ä¾§ lib/common.sh çš„ probe_source é€å­—å¯¹é½),
-rem   ç»“æžœå­˜å…¥ P_* å˜é‡(å€¼å·²ç”± %%~b å‰¥å¼•å·):
+rem È¡»ØÈ«²¿Ô´×Ö¶Î: call ... probe_source <ÎÄ¼þ>
+rem   Ò»´Î ffprobe -of flat(×Ö¶Î¼¯Óë .sh ²à lib/common.sh µÄ probe_source Öð×Ö¶ÔÆë),
+rem   ½á¹û´æÈë P_* ±äÁ¿(ÖµÒÑÓÉ %%~b °þÒýºÅ):
 rem     P_streams.stream.0.{codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,bit_rate}
 rem     P_format.{size,duration,bit_rate}
-rem   -select_streams v:0 ä¼šæŠŠé€‰ä¸­æµé‡æ–°ç¼–å·ä¸º stream.0; æ— è§†é¢‘æµæ—¶ stream.* æ•´ä½“ç¼ºå¤±
-rem   (format.* ä»åœ¨)è€Œ rc ä»ä¸º 0 -- ä¸ŽåŽŸé€å­—æ®µ v:0 æŽ¢æµ‹çš„è¡¨çŽ°ä¸€è‡´ã€‚
-rem   è¿”å›ž ffprobe çš„é€€å‡ºç ã€‚åŒä¸€æ–‡ä»¶åœ¨åŒä¸€è¿›ç¨‹å†…é‡å¤è°ƒç”¨å‘½ä¸­ç¼“å­˜(PS_LAST/PS_RC):
-rem   check_isvideo å…ˆæŽ¢ä¸€æ¬¡, å…¥å£ç´§æŽ¥çš„ probe_source è°ƒç”¨æ˜¯é›¶è¿›ç¨‹çš„ã€‚
-rem   P_* ä¸æ¸…ç†: æ¯ä¸ªå…¥å£è¿›ç¨‹åªæŽ¢ä¸€ä¸ªæºæ–‡ä»¶, é‡å¤è°ƒç”¨æŒ‰åŒé”®è¦†ç›–ã€‚
-rem   æ³¨æ„: æœ¬å‡½æ•°ä¸ setlocal -- P_*/PS_* å¿…é¡»å¯¹è°ƒç”¨æ–¹å¯è§(æœ¬æ–‡ä»¶å‡½æ•°çº¦å®š)ã€‚
+rem   -select_streams v:0 »á°ÑÑ¡ÖÐÁ÷ÖØÐÂ±àºÅÎª stream.0; ÎÞÊÓÆµÁ÷Ê± stream.* ÕûÌåÈ±Ê§
+rem   (format.* ÈÔÔÚ)¶ø rc ÈÔÎª 0 -- ÓëÔ­Öð×Ö¶Î v:0 Ì½²âµÄ±íÏÖÒ»ÖÂ¡£
+rem   ·µ»Ø ffprobe µÄÍË³öÂë¡£Í¬Ò»ÎÄ¼þÔÚÍ¬Ò»½ø³ÌÄÚÖØ¸´µ÷ÓÃÃüÖÐ»º´æ(PS_LAST/PS_RC):
+rem   check_isvideo ÏÈÌ½Ò»´Î, Èë¿Ú½ô½ÓµÄ probe_source µ÷ÓÃÊÇÁã½ø³ÌµÄ¡£
+rem   P_* ²»ÇåÀí: Ã¿¸öÈë¿Ú½ø³ÌÖ»Ì½Ò»¸öÔ´ÎÄ¼þ, ÖØ¸´µ÷ÓÃ°´Í¬¼ü¸²¸Ç¡£
+rem   ×¢Òâ: ±¾º¯Êý²» setlocal -- P_*/PS_* ±ØÐë¶Ôµ÷ÓÃ·½¿É¼û(±¾ÎÄ¼þº¯ÊýÔ¼¶¨)¡£
 set "PS_FILE=%~2"
 if not defined PS_FILE set "PS_FILE=%FF_SRC_FILE%"
 if not defined PS_FILE (
@@ -301,9 +303,9 @@ del "%PS_TMP%" 2>nul
 exit /b %PS_RC%
 
 :src_is_10bit
-rem æºåƒç´ æ ¼å¼æ˜¯å¦ 10bit -> SRC_IS10=1 / 0
-rem   è¯» probe_source å·²ç¼“å­˜çš„ P_*(è°ƒç”¨æ–¹å¿…é¡»å…ˆæŽ¢è¿‡), ä¸å†å•ç‹¬èµ· ffprobeã€‚
-rem   10bit çš„å†™æ³•å°±è¿™å‡ ç§: yuv420p10le / yuv422p10le / yuv444p10le / p010le ...
+rem Ô´ÏñËØ¸ñÊ½ÊÇ·ñ 10bit -> SRC_IS10=1 / 0
+rem   ¶Á probe_source ÒÑ»º´æµÄ P_*(µ÷ÓÃ·½±ØÐëÏÈÌ½¹ý), ²»ÔÙµ¥¶ÀÆð ffprobe¡£
+rem   10bit µÄÐ´·¨¾ÍÕâ¼¸ÖÖ: yuv420p10le / yuv422p10le / yuv444p10le / p010le ...
 set "SRC_IS10=0"
 if not defined P_streams.stream.0.pix_fmt exit /b 0
 echo %P_streams.stream.0.pix_fmt% | findstr /i "10le 10be p010" >nul
@@ -311,14 +313,14 @@ if not errorlevel 1 set "SRC_IS10=1"
 exit /b 0
 
 :src_hw_decode_hostile
-rem ç¡¬ä»¶è§£ç å™¨åƒä¸ä¸‹è¿™ä¸ªæº -> HW_HOSTILE=1
-rem   ç›®å‰åªæœ‰ä¸€ç§: H.264 High 10 (profile 110)ã€‚å®žæµ‹ QSV ä¸Ž VAAPI çš„ H.264
-rem   è§£ç å™¨éƒ½ä¸æ”¯æŒ â€”â€” "Codec h264 profile 110 not supported for hardware decode.",
-rem   ç¡¬è§£æŒ‚æŽ‰åŽ 10bit å¸§é€€å›žç³»ç»Ÿå†…å­˜, è€Œç¼–ç å™¨è¦ç¡¬ä»¶è¡¨é¢, äºŽæ˜¯
-rem   "Impossible to convert ... auto_scale_0" -> rc=1 / äº§ç‰© 0 å­—èŠ‚ã€‚
-rem   è¿™æ˜¯**è§£ç **ä¾§çš„é—®é¢˜, ä¸Ž"ç¼–ç å™¨ä¸åƒ 10bit"æ˜¯ä¸¤å›žäº‹(åŽè€…é  scale_qsv ä¿®)ã€‚
-rem   HEVC Main10 ä¸åœ¨æ­¤åˆ—: ç¡¬è§£æ”¯æŒã€‚
-rem   profile å–ä¸åˆ°æ—¶æŒ‰"å¯ä»¥ç¡¬è§£"å¤„ç†(ç»´æŒåŽŸè·¯å¾„, è®© ffmpeg è‡ªå·±æŠ¥é”™)ã€‚
+rem Ó²¼þ½âÂëÆ÷³Ô²»ÏÂÕâ¸öÔ´ -> HW_HOSTILE=1
+rem   Ä¿Ç°Ö»ÓÐÒ»ÖÖ: H.264 High 10 (profile 110)¡£Êµ²â QSV Óë VAAPI µÄ H.264
+rem   ½âÂëÆ÷¶¼²»Ö§³Ö ¡ª¡ª "Codec h264 profile 110 not supported for hardware decode.",
+rem   Ó²½â¹Òµôºó 10bit Ö¡ÍË»ØÏµÍ³ÄÚ´æ, ¶ø±àÂëÆ÷ÒªÓ²¼þ±íÃæ, ÓÚÊÇ
+rem   "Impossible to convert ... auto_scale_0" -> rc=1 / ²úÎï 0 ×Ö½Ú¡£
+rem   ÕâÊÇ**½âÂë**²àµÄÎÊÌâ, Óë"±àÂëÆ÷²»³Ô 10bit"ÊÇÁ½»ØÊÂ(ºóÕß¿¿ scale_qsv ÐÞ)¡£
+rem   HEVC Main10 ²»ÔÚ´ËÁÐ: Ó²½âÖ§³Ö¡£
+rem   profile È¡²»µ½Ê±°´"¿ÉÒÔÓ²½â"´¦Àí(Î¬³ÖÔ­Â·¾¶, ÈÃ ffmpeg ×Ô¼º±¨´í)¡£
 set "HW_HOSTILE=0"
 if /I not "%P_streams.stream.0.codec_name%"=="h264" exit /b 0
 if not defined P_streams.stream.0.profile exit /b 0
@@ -327,15 +329,15 @@ if not errorlevel 1 set "HW_HOSTILE=1"
 exit /b 0
 
 :qsv_encoder_ready
-rem QSV ç¼–ç å™¨èƒ½åŠ›æŽ¢æµ‹: call ... qsv_encoder_ready <ç¼–ç å™¨å> -> QSV_ENC_OK=1 / 0
-rem   æ‹¿ 1 å¸§ lavfi æºè¯•å¼€ä¸€æ¬¡ç¼–ç å™¨: ä¸ç¢°ç”¨æˆ·æ–‡ä»¶ã€ä¸è½ç›˜ã€‚
-rem   320x240 è€Œä¸æ˜¯ 128x128 â€”â€” å°ºå¯¸è¿‡å°ä¼šè®©"GPU æ­£å¸¸"çš„æœºå™¨è¢«åˆ¤æˆä¸æ”¯æŒ
-rem   (NVENC ä¼š InitializeEncoder failed: invalid argument)ã€‚
-rem   ç”¨é€”: av1_qsv è¿™ç±»"ç¼–ç å™¨ç¼–è¿› ffmpeg äº†ã€ç¡¬ä»¶å´ä¸æ”¯æŒ"çš„å…¥å£ â€”â€”
-rem   UHD 770 å®žæµ‹ ffmpeg -encoders é‡Œå°±æœ‰ av1_qsv, ä¸€å¼€å´æ˜¯
-rem   "Current codec type is unsupported" / rc=-40, è·‘åˆ°åº•åªç•™ 0 å­—èŠ‚äº§ç‰©ã€‚
-rem   è´Ÿæ•°å®‰å…¨: Windows ç‰ˆ ffmpeg å¤±è´¥æ—¶è¿”å›ž**è´Ÿ** AVERROR(æœ¬æœº av1_qsv æ˜¯ -40),
-rem   è€Œ `if not errorlevel 1` æ˜¯å¸¦ç¬¦å·æ¯”è¾ƒ, -40 >= 1 ä¸æˆç«‹ -> ä¼šè¯¯åˆ¤æˆåŠŸã€‚
+rem QSV ±àÂëÆ÷ÄÜÁ¦Ì½²â: call ... qsv_encoder_ready <±àÂëÆ÷Ãû> -> QSV_ENC_OK=1 / 0
+rem   ÄÃ 1 Ö¡ lavfi Ô´ÊÔ¿ªÒ»´Î±àÂëÆ÷: ²»ÅöÓÃ»§ÎÄ¼þ¡¢²»ÂäÅÌ¡£
+rem   320x240 ¶ø²»ÊÇ 128x128 ¡ª¡ª ³ß´ç¹ýÐ¡»áÈÃ"GPU Õý³£"µÄ»úÆ÷±»ÅÐ³É²»Ö§³Ö
+rem   (NVENC »á InitializeEncoder failed: invalid argument)¡£
+rem   ÓÃÍ¾: av1_qsv ÕâÀà"±àÂëÆ÷±à½ø ffmpeg ÁË¡¢Ó²¼þÈ´²»Ö§³Ö"µÄÈë¿Ú ¡ª¡ª
+rem   UHD 770 Êµ²â ffmpeg -encoders Àï¾ÍÓÐ av1_qsv, Ò»¿ªÈ´ÊÇ
+rem   "Current codec type is unsupported" / rc=-40, ÅÜµ½µ×Ö»Áô 0 ×Ö½Ú²úÎï¡£
+rem   ¸ºÊý°²È«: Windows °æ ffmpeg Ê§°ÜÊ±·µ»Ø**¸º** AVERROR(±¾»ú av1_qsv ÊÇ -40),
+rem   ¶ø `if not errorlevel 1` ÊÇ´ø·ûºÅ±È½Ï, -40 >= 1 ²»³ÉÁ¢ -> »áÎóÅÐ³É¹¦¡£
 set "QSV_ENC_OK=0"
 if "%~2"=="" exit /b 0
 "%FFMPEG_PATH%" -hide_banner -v error -init_hw_device qsv=hw -filter_hw_device hw -f lavfi -i color=c:color=black:s=320x240:r=30 -frames:v 1 -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v %~2 -f null - >nul 2>nul
@@ -344,30 +346,30 @@ if "%FB_RC%"=="0" set "QSV_ENC_OK=1"
 exit /b 0
 
 :probe_field
-rem å–å•ä¸ªæ ‡é‡å¹¶å›žå¡«å˜é‡: call ... probe_field <æ–‡ä»¶> <æ¡ç›®å…³é”®è¯> <è¾“å‡ºå˜é‡å>
-rem   **å‚æ•°é‡Œç»ä¸å« "="** â€”â€” cmd åˆ‡åˆ†æ‰¹å¤„ç†å‚æ•° %1..%9 æ—¶æŠŠ**ç­‰å·ä¹Ÿå½“åˆ†éš”ç¬¦**,
-rem   æ‰€ä»¥ `probe_field "%OUT%" stream=bit_rate DEL` å®žé™…è¢«åˆ‡æˆ
-rem     %2=<æ–‡ä»¶>  %3=stream  %4=bit_rate  %5=DEL
-rem   äºŽæ˜¯"è¾“å‡ºå˜é‡å"æˆäº† bit_rate, è€Œè°ƒç”¨æ–¹è¯»çš„ DEL ä»Žæœªè¢«èµ‹å€¼ -> é™é»˜ delivered=0
-rem   (ç”¨æˆ· 2026-09-20 çœŸæœºæŠ¥éšœ: äº”ç‚¹å…¨è·‘å®Œã€vmaf æ­£å¸¸, å”¯ç‹¬ delivered æ’ä¸º 0;
-rem    å¼€å‘æ²™ç®±è·‘ä¸äº† cmd.exe, é™æ€å®¡æŸ¥æŸ¥ä¸å‡ºæ¥ â€”â€” åªèƒ½é è¿™æ¡è§„åˆ™æŒ¡ä½).
-rem   å› æ­¤ show_entries ä¸²æ”¹åœ¨æœ¬å‡½æ•°å†…éƒ¨æŒ‰**å…³é”®è¯**å±•å¼€, å¤–éƒ¨åªä¼ ä¸€ä¸ªä¸å« "=" çš„å•è¯;
-rem   lint L22 æ‹¦æˆªä»»ä½•"call çš„å‚æ•°é‡Œå‡ºçŽ°è£¸ç­‰å·"çš„å†™æ³•. å…³é”®è¯:
-rem     vbr = è§†é¢‘æµç çŽ‡   (stream=bit_rate)
-rem     fbr = å®¹å™¨å¹³å‡ç çŽ‡ (format=bit_rate)
-rem   æ–°å…³é”®è¯æŒ‰éœ€åœ¨è¿™é‡ŒåŠ , **ä¸è¦**æ”¹æˆè®©è°ƒç”¨æ–¹ä¼  show_entries ä¸².
-rem   è¿”å›ž ffprobe çš„é€€å‡ºç ; å–ä¸åˆ°å€¼æ—¶è¾“å‡ºå˜é‡è¢«æ¸…ç©º.
-rem   **ç»ä¸**ç”¨ for /f åå¼•å·åŽ»è·‘ ffprobe: ç¨‹åºè·¯å¾„å¤šä¸º
-rem   "C:\Program Files\ffmpeg\bin\ffprobe.exe", è€Œåå¼•å·é‡Œçš„å‘½ä»¤ç”±å­ cmd /c æ‰§è¡Œ,
-rem   å˜é‡å±•å¼€çš„ç¨‹åºè·¯å¾„ä¸¤ç§å†™æ³•éƒ½ä¸å®‰å…¨:
-rem     è£¸å†™   `%FFPROBE_PATH% -v error ...` -> ç©ºæ ¼æˆªæ–­ -> cmd æŠ¥
-rem            'C:\Program' ä¸æ˜¯å†…éƒ¨æˆ–å¤–éƒ¨å‘½ä»¤ (ç”¨æˆ· 2026-09-20 æŠ¥éšœ)
-rem     åŠ å¼•å· `"%FFPROBE_PATH%" -v error ...` -> cmd /c çš„å¼•å·å‰¥ç¦»è§„åˆ™
-rem            ("é¦–å­—ç¬¦æ˜¯å¼•å·æ—¶, å‰¥æŽ‰é¦–ä¸ªå¼•å·ä¸Žå‘½ä»¤è¡Œæœ€åŽä¸€ä¸ªå¼•å·") ä¼šåƒæŽ‰
-rem            æœ«å°¾å‚æ•°çš„æ”¶å°¾å¼•å·, åªè¦è·¯å¾„é‡Œæœ‰ç©ºæ ¼å°±åŒæ ·æ•£æž¶
-rem   æ”¹æˆå¸¸è§„å‘½ä»¤è¡Œé‡å®šå‘åˆ°ä¸´æ—¶æ–‡ä»¶(æ­¤å¤„æ— å¼•å·å‰¥ç¦»é—®é¢˜), å†ç”¨
-rem   for /f "usebackq" è¯»æ–‡ä»¶ â€”â€” æœ¬ä»“åº“ 2026-09-17 é‡æž„å‰ä¸€ç›´åœ¨ç”¨ã€ç»çœŸæœºéªŒè¯çš„å†™æ³•.
-rem   æ³¨æ„: åŒ probe_source, æœ¬å‡½æ•°ä¸ setlocal -- è¾“å‡ºå˜é‡å¿…é¡»å¯¹è°ƒç”¨æ–¹å¯è§.
+rem È¡µ¥¸ö±êÁ¿²¢»ØÌî±äÁ¿: call ... probe_field <ÎÄ¼þ> <ÌõÄ¿¹Ø¼ü´Ê> <Êä³ö±äÁ¿Ãû>
+rem   **²ÎÊýÀï¾ø²»º¬ "="** ¡ª¡ª cmd ÇÐ·ÖÅú´¦Àí²ÎÊý %1..%9 Ê±°Ñ**µÈºÅÒ²µ±·Ö¸ô·û**,
+rem   ËùÒÔ `probe_field "%OUT%" stream=bit_rate DEL` Êµ¼Ê±»ÇÐ³É
+rem     %2=<ÎÄ¼þ>  %3=stream  %4=bit_rate  %5=DEL
+rem   ÓÚÊÇ"Êä³ö±äÁ¿Ãû"³ÉÁË bit_rate, ¶øµ÷ÓÃ·½¶ÁµÄ DEL ´ÓÎ´±»¸³Öµ -> ¾²Ä¬ delivered=0
+rem   (ÓÃ»§ 2026-09-20 Õæ»ú±¨ÕÏ: ÎåµãÈ«ÅÜÍê¡¢vmaf Õý³£, Î¨¶À delivered ºãÎª 0;
+rem    ¿ª·¢É³ÏäÅÜ²»ÁË cmd.exe, ¾²Ì¬Éó²é²é²»³öÀ´ ¡ª¡ª Ö»ÄÜ¿¿ÕâÌõ¹æÔòµ²×¡).
+rem   Òò´Ë show_entries ´®¸ÄÔÚ±¾º¯ÊýÄÚ²¿°´**¹Ø¼ü´Ê**Õ¹¿ª, Íâ²¿Ö»´«Ò»¸ö²»º¬ "=" µÄµ¥´Ê;
+rem   lint L22 À¹½ØÈÎºÎ"call µÄ²ÎÊýÀï³öÏÖÂãµÈºÅ"µÄÐ´·¨. ¹Ø¼ü´Ê:
+rem     vbr = ÊÓÆµÁ÷ÂëÂÊ   (stream=bit_rate)
+rem     fbr = ÈÝÆ÷Æ½¾ùÂëÂÊ (format=bit_rate)
+rem   ÐÂ¹Ø¼ü´Ê°´ÐèÔÚÕâÀï¼Ó, **²»Òª**¸Ä³ÉÈÃµ÷ÓÃ·½´« show_entries ´®.
+rem   ·µ»Ø ffprobe µÄÍË³öÂë; È¡²»µ½ÖµÊ±Êä³ö±äÁ¿±»Çå¿Õ.
+rem   **¾ø²»**ÓÃ for /f ·´ÒýºÅÈ¥ÅÜ ffprobe: ³ÌÐòÂ·¾¶¶àÎª
+rem   "C:\Program Files\ffmpeg\bin\ffprobe.exe", ¶ø·´ÒýºÅÀïµÄÃüÁîÓÉ×Ó cmd /c Ö´ÐÐ,
+rem   ±äÁ¿Õ¹¿ªµÄ³ÌÐòÂ·¾¶Á½ÖÖÐ´·¨¶¼²»°²È«:
+rem     ÂãÐ´   `%FFPROBE_PATH% -v error ...` -> ¿Õ¸ñ½Ø¶Ï -> cmd ±¨
+rem            'C:\Program' ²»ÊÇÄÚ²¿»òÍâ²¿ÃüÁî (ÓÃ»§ 2026-09-20 ±¨ÕÏ)
+rem     ¼ÓÒýºÅ `"%FFPROBE_PATH%" -v error ...` -> cmd /c µÄÒýºÅ°þÀë¹æÔò
+rem            ("Ê××Ö·ûÊÇÒýºÅÊ±, °þµôÊ×¸öÒýºÅÓëÃüÁîÐÐ×îºóÒ»¸öÒýºÅ") »á³Ôµô
+rem            Ä©Î²²ÎÊýµÄÊÕÎ²ÒýºÅ, Ö»ÒªÂ·¾¶ÀïÓÐ¿Õ¸ñ¾ÍÍ¬ÑùÉ¢¼Ü
+rem   ¸Ä³É³£¹æÃüÁîÐÐÖØ¶¨Ïòµ½ÁÙÊ±ÎÄ¼þ(´Ë´¦ÎÞÒýºÅ°þÀëÎÊÌâ), ÔÙÓÃ
+rem   for /f "usebackq" ¶ÁÎÄ¼þ ¡ª¡ª ±¾²Ö¿â 2026-09-17 ÖØ¹¹Ç°Ò»Ö±ÔÚÓÃ¡¢¾­Õæ»úÑéÖ¤µÄÐ´·¨.
+rem   ×¢Òâ: Í¬ probe_source, ±¾º¯Êý²» setlocal -- Êä³ö±äÁ¿±ØÐë¶Ôµ÷ÓÃ·½¿É¼û.
 set "PF_FILE=%~2"
 set "PF_KEY=%~3"
 set "PF_OUT=%~4"
@@ -389,46 +391,46 @@ set "%PF_OUT%="
 set "PF_TMP=%TEMP%\ffmpeg_bat_pfield_%RANDOM%%RANDOM%.tmp"
 "%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries %PF_ENT% -of csv=p=0 "%PF_FILE%" > "%PF_TMP%" 2>nul
 set "PF_RC=%ERRORLEVEL%"
-rem ç´¯åŠ ç”¨å›ºå®šå PF_VAL: do å­å¥é‡Œå‡ºçŽ° %å˜é‡% ä¼šåœ¨**è§£æžæ—¶**å†»ç»“, å›ºå®šåæœ€çœå¿ƒ
+rem ÀÛ¼ÓÓÃ¹Ì¶¨Ãû PF_VAL: do ×Ó¾äÀï³öÏÖ %±äÁ¿% »áÔÚ**½âÎöÊ±**¶³½á, ¹Ì¶¨Ãû×îÊ¡ÐÄ
 set "PF_VAL="
 for /f "usebackq delims=" %%a in ("%PF_TMP%") do if not defined PF_VAL set "PF_VAL=%%a"
-rem å–ä¸åˆ°å€¼åˆä¸å­å£°æœ€å®³äºº: rc éž 0 æ—¶è‡³å°‘æŠŠ rc ä¸Žæ–‡ä»¶å›žæ˜¾ä¸€è¡Œ
+rem È¡²»µ½ÖµÓÖ²»¿ÔÉù×îº¦ÈË: rc ·Ç 0 Ê±ÖÁÉÙ°Ñ rc ÓëÎÄ¼þ»ØÏÔÒ»ÐÐ
 if not defined PF_VAL if not "%PF_RC%"=="0" echo [probe_field] ffprobe rc=%PF_RC% on "%PF_FILE%" ^(%PF_KEY%^)
 del "%PF_TMP%" 2>nul
 set "%PF_OUT%=%PF_VAL%"
 exit /b %PF_RC%
 
 :cover_map
-rem å°é¢(attached picture)ä¿ç•™èƒ½åŠ›é—¨: call ... cover_map   (æ— å‚æ•°, ç”¨ %FFMPEG_PATH%)
-rem   è°ƒç”¨åŽè¯»å…¨å±€ COVERMAP: "-map 0:v:disp:attached_pic?" åŽé¢è·Ÿè‹¥å¹² "-c:v:<n> copy",
-rem   n ç”±æºæµè¡¨ç®—å‡º(è§ä¸‹); æˆ–ç©ºä¸²(é€€å›žä¸¢å°é¢)ã€‚å°é¢å¤åˆ¶**æŒ‰è¾“å‡ºæµå·**ä¸‹å‘, ä¸ç”¨
-rem   å…¨å±€ -c:v copy â€”â€” åŽè€…ä¼šå’Œ `-c:v:0 <ç¼–ç å™¨>` æ’žåœ¨åŒä¸€æ¡æµä¸Š, ffmpeg å¿…æŠ¥
-rem   Multiple -codec è­¦å‘Š(è¯¦è§ lib\common.sh åŒåæ³¨é‡Š)ã€‚
-rem   ä¸Ž lib\common.sh çš„ cover_map_gate åŒä¹‰åŒåˆ¤æ®, å®Œæ•´æ¥é¾™åŽ»è„‰å†™åœ¨é‚£è¾¹çš„æ³¨é‡Šé‡Œã€‚
-rem   è¦ç‚¹:
-rem     * `disp:` è¯´æ˜Žç¬¦æ˜¯ ffmpeg 7.1(2024-09)æ‰åŠ å…¥çš„; è€æž„å»ºè§†ä¸ºè¯­æ³•é”™è¯¯,
-rem       ç»“å°¾çš„ `?` æ•‘ä¸äº†è§£æžé”™è¯¯ -> å…ˆæŽ¢ä¸€æ¬¡: ä¸æ”¯æŒåªä¸¢å°é¢, ç»ä¸è®©ç¼–ç å¤±è´¥ã€‚
-rem     * æŽ¢æµ‹èµ° lavfi å‡æº + nul è¾“å‡º, ä¸ç¢°ç”¨æˆ·æ–‡ä»¶; æ¯ä¸ªå…¥å£è¿›ç¨‹åªæŽ¢ä¸€æ¬¡(CM_DONE)ã€‚
-rem     * rc åˆ¤æ®ç”¨ %ERRORLEVEL% çš„**å­—ç¬¦ä¸²**æ¯”è¾ƒ: Windows ffmpeg çš„å¤±è´¥ç æ˜¯è´Ÿ
-rem       AVERROR, `if errorlevel N` æŒ‰æœ‰ç¬¦å·æ¯”è¾ƒçœ‹ä¸è§(æœ¬ä»“åº“ç¡¬å¥‘çº¦)ã€‚
-rem     * å¤åˆ¶ä¸‹æ ‡ = [m, m+n): m = `-map 0:V` å‘½ä¸­çš„è·¯æ•°, n = å°é¢æ•°ã€‚**ä¸èƒ½å†™æ­»** â€”â€”
-rem       2 è·¯è§†é¢‘ + 2 å¼ å°é¢çš„å®žæµ‹é‡Œå†™æ­»çš„ 1ã€2 ä¼šæ•´ä½“é”™ä½, ç¬¬ 2 å¼ å°é¢è¢«é€è¿›ç¼–ç å™¨
-rem       -> `Could not find tag for codec h264 in stream #4` -> æ•´æ¡å†™ 0 å­—èŠ‚ã€‚
-rem     * æœ¬å˜é‡**ä¸åªæ˜¯å°é¢**: è¿˜å…¼å¸¦ä½å›¾å­—å¹•çš„æŽ’é™¤æŒ‡ä»¤ `-map -0:s:<i>`ã€‚å…¥å£ç”¨çš„æ˜¯
-rem       `-c:s mov_text`, è€Œ mp4 è£…ä¸ä¸‹ä½å›¾å­—å¹•(hdmv_pgs_subtitle / dvd_subtitle /
-rem       xsub / dvb_subtitle), ffmpeg ç›´æŽ¥ EINVAL æ”¶å°¾ -> æ•´ç‰‡ 0 å­—èŠ‚ã€‚å®žæµ‹ç”¨æˆ·
-rem       838 æ¡æ¸…å•é‡Œ 14 ä¸ªå¸¦ PGSã€‚æŒ‰ per-type ä¸‹æ ‡**é€æ¡**æŽ’é™¤, ä¸€åˆ€åˆ‡å†™ `-map -0:s`
-rem       ä¼šæŠŠåŒæ–‡ä»¶é‡Œèƒ½æ•‘çš„ ass / subrip ä¸€èµ·ä¸¢æŽ‰ã€‚ä½å›¾åå•æ˜¯é»‘åå•: æ²¡åˆ—åˆ°çš„ä¸€å¾‹
-rem       ç»´æŒåŽŸè¡Œä¸º, ä¸ä¼šå› ä¸ºæ¼åˆ—è€Œç™½ç™½ä¸¢å­—å¹•ã€‚
-rem     * ffprobe è¾“å‡ºå…ˆè½ä¸´æ—¶æ–‡ä»¶å†è®¡æ•°: æœ¬ä»“åº“ç¡¬å¥‘çº¦ â€”â€” ç»ä¸ç”¨ for /f åå¼•å·ç›´æŽ¥è·‘
-rem       ffprobe(å®ƒçš„è·¯å¾„å¸¸å«ç©ºæ ¼, å­ cmd /c çš„å¼•å·å‰¥ç¦»ä¼šæŠŠå‘½ä»¤æ‹¦è…°æˆªæ–­)ã€‚
-rem     * ä¸€å¾‹ç”¨ goto, ä¸å†™æ‹¬å·å—ã€‚ä¸¤ä¸ªå‘: â‘  å—å†… set å‡ºæ¥çš„å€¼åœ¨åŒä¸€å—é‡Œè¯»ä¸åˆ°
-rem       (è§£æžæœŸå°±å±•å¼€äº†); â‘¡ **å—å†…ä»»ä½•åŠè§’å³æ‹¬å·éƒ½ä¼šæå‰ç»ˆæ­¢å—** â€”â€” ä¸­æ–‡æ³¨é‡Šæˆ–
-rem       echo æ–‡æœ¬é‡Œå†™"(éœ€ ffmpeg 7.1 æˆ–æ›´é«˜)"è¿™ç§, é‚£ä¸ª ) ä¼šæŠŠå—æ‹¦è…°æˆªæ–­,
-rem       åŽé¢çš„è¡Œå…¨è¢«å½“æˆå‘½ä»¤æ‰§è¡Œ(å®žæµ‹æŠ¥ä¸€ä¸²"ä¸æ˜¯å†…éƒ¨æˆ–å¤–éƒ¨å‘½ä»¤")ã€‚
-rem       å—å¤–æ³¨é‡Šéšä¾¿å†™; ä¸€æ—¦è¿›å—, æ‹¬å·ä¸€å¾‹ç”¨å…¨è§’ã€‚
-rem     * æœ¬å‡½æ•°ä¸ setlocal â€”â€” COVERMAP / CM_DONE å¿…é¡»å¯¹è°ƒç”¨æ–¹å¯è§ã€‚
-rem       (è®¡æ•°é‚£å‡ è¡Œä¾‹å¤–: ç”¨ setlocal + `endlocal & set` æŠŠç»“æžœå¸¦å›žæ¥ã€‚)
+rem ·âÃæ(attached picture)±£ÁôÄÜÁ¦ÃÅ: call ... cover_map   (ÎÞ²ÎÊý, ÓÃ %FFMPEG_PATH%)
+rem   µ÷ÓÃºó¶ÁÈ«¾Ö COVERMAP: "-map 0:v:disp:attached_pic?" ºóÃæ¸úÈô¸É "-c:v:<n> copy",
+rem   n ÓÉÔ´Á÷±íËã³ö(¼ûÏÂ); »ò¿Õ´®(ÍË»Ø¶ª·âÃæ)¡£·âÃæ¸´ÖÆ**°´Êä³öÁ÷ºÅ**ÏÂ·¢, ²»ÓÃ
+rem   È«¾Ö -c:v copy ¡ª¡ª ºóÕß»áºÍ `-c:v:0 <±àÂëÆ÷>` ×²ÔÚÍ¬Ò»ÌõÁ÷ÉÏ, ffmpeg ±Ø±¨
+rem   Multiple -codec ¾¯¸æ(Ïê¼û lib\common.sh Í¬Ãû×¢ÊÍ)¡£
+rem   Óë lib\common.sh µÄ cover_map_gate Í¬ÒåÍ¬ÅÐ¾Ý, ÍêÕûÀ´ÁúÈ¥ÂöÐ´ÔÚÄÇ±ßµÄ×¢ÊÍÀï¡£
+rem   Òªµã:
+rem     * `disp:` ËµÃ÷·ûÊÇ ffmpeg 7.1(2024-09)²Å¼ÓÈëµÄ; ÀÏ¹¹½¨ÊÓÎªÓï·¨´íÎó,
+rem       ½áÎ²µÄ `?` ¾È²»ÁË½âÎö´íÎó -> ÏÈÌ½Ò»´Î: ²»Ö§³ÖÖ»¶ª·âÃæ, ¾ø²»ÈÃ±àÂëÊ§°Ü¡£
+rem     * Ì½²â×ß lavfi ¼ÙÔ´ + nul Êä³ö, ²»ÅöÓÃ»§ÎÄ¼þ; Ã¿¸öÈë¿Ú½ø³ÌÖ»Ì½Ò»´Î(CM_DONE)¡£
+rem     * rc ÅÐ¾ÝÓÃ %ERRORLEVEL% µÄ**×Ö·û´®**±È½Ï: Windows ffmpeg µÄÊ§°ÜÂëÊÇ¸º
+rem       AVERROR, `if errorlevel N` °´ÓÐ·ûºÅ±È½Ï¿´²»¼û(±¾²Ö¿âÓ²ÆõÔ¼)¡£
+rem     * ¸´ÖÆÏÂ±ê = [m, m+n): m = `-map 0:V` ÃüÖÐµÄÂ·Êý, n = ·âÃæÊý¡£**²»ÄÜÐ´ËÀ** ¡ª¡ª
+rem       2 Â·ÊÓÆµ + 2 ÕÅ·âÃæµÄÊµ²âÀïÐ´ËÀµÄ 1¡¢2 »áÕûÌå´íÎ», µÚ 2 ÕÅ·âÃæ±»ËÍ½ø±àÂëÆ÷
+rem       -> `Could not find tag for codec h264 in stream #4` -> ÕûÌõÐ´ 0 ×Ö½Ú¡£
+rem     * ±¾±äÁ¿**²»Ö»ÊÇ·âÃæ**: »¹¼æ´øÎ»Í¼×ÖÄ»µÄÅÅ³ýÖ¸Áî `-map -0:s:<i>`¡£Èë¿ÚÓÃµÄÊÇ
+rem       `-c:s mov_text`, ¶ø mp4 ×°²»ÏÂÎ»Í¼×ÖÄ»(hdmv_pgs_subtitle / dvd_subtitle /
+rem       xsub / dvb_subtitle), ffmpeg Ö±½Ó EINVAL ÊÕÎ² -> ÕûÆ¬ 0 ×Ö½Ú¡£Êµ²âÓÃ»§
+rem       838 ÌõÇåµ¥Àï 14 ¸ö´ø PGS¡£°´ per-type ÏÂ±ê**ÖðÌõ**ÅÅ³ý, Ò»µ¶ÇÐÐ´ `-map -0:s`
+rem       »á°ÑÍ¬ÎÄ¼þÀïÄÜ¾ÈµÄ ass / subrip Ò»Æð¶ªµô¡£Î»Í¼Ãûµ¥ÊÇºÚÃûµ¥: Ã»ÁÐµ½µÄÒ»ÂÉ
+rem       Î¬³ÖÔ­ÐÐÎª, ²»»áÒòÎªÂ©ÁÐ¶ø°×°×¶ª×ÖÄ»¡£
+rem     * ffprobe Êä³öÏÈÂäÁÙÊ±ÎÄ¼þÔÙ¼ÆÊý: ±¾²Ö¿âÓ²ÆõÔ¼ ¡ª¡ª ¾ø²»ÓÃ for /f ·´ÒýºÅÖ±½ÓÅÜ
+rem       ffprobe(ËüµÄÂ·¾¶³£º¬¿Õ¸ñ, ×Ó cmd /c µÄÒýºÅ°þÀë»á°ÑÃüÁîÀ¹Ñü½Ø¶Ï)¡£
+rem     * Ò»ÂÉÓÃ goto, ²»Ð´À¨ºÅ¿é¡£Á½¸ö¿Ó: ¢Ù ¿éÄÚ set ³öÀ´µÄÖµÔÚÍ¬Ò»¿éÀï¶Á²»µ½
+rem       (½âÎöÆÚ¾ÍÕ¹¿ªÁË); ¢Ú **¿éÄÚÈÎºÎ°ë½ÇÓÒÀ¨ºÅ¶¼»áÌáÇ°ÖÕÖ¹¿é** ¡ª¡ª ÖÐÎÄ×¢ÊÍ»ò
+rem       echo ÎÄ±¾ÀïÐ´"(Ðè ffmpeg 7.1 »ò¸ü¸ß)"ÕâÖÖ, ÄÇ¸ö ) »á°Ñ¿éÀ¹Ñü½Ø¶Ï,
+rem       ºóÃæµÄÐÐÈ«±»µ±³ÉÃüÁîÖ´ÐÐ(Êµ²â±¨Ò»´®"²»ÊÇÄÚ²¿»òÍâ²¿ÃüÁî")¡£
+rem       ¿éÍâ×¢ÊÍËæ±ãÐ´; Ò»µ©½ø¿é, À¨ºÅÒ»ÂÉÓÃÈ«½Ç¡£
+rem     * ±¾º¯Êý²» setlocal ¡ª¡ª COVERMAP / CM_DONE ±ØÐë¶Ôµ÷ÓÃ·½¿É¼û¡£
+rem       (¼ÆÊýÄÇ¼¸ÐÐÀýÍâ: ÓÃ setlocal + `endlocal & set` °Ñ½á¹û´ø»ØÀ´¡£)
 if defined CM_DONE exit /b 0
 set "CM_DONE=1"
 set "COVERMAP="
@@ -439,13 +441,13 @@ set "CM_SUBDROP="
 set "CM_DVD=0"
 set "CM_MOV=0"
 set "CM_TMP=%TEMP%\ffbat_cover_%RANDOM%.tmp"
-rem ---- å…ˆæ•°æµ ----
+rem ---- ÏÈÊýÁ÷ ----
 if not defined FFPROBE_PATH goto cover_probe_done
 if not defined SRC_FILE goto cover_probe_done
-rem è®¡æ•°**çº¯ bat**, ä¸ç”¨ find/findstr: PATH é‡Œä¸€æ—¦æœ‰ Git Bash / MSYS2 çš„ /usr/bin,
-rem `find` å°±å˜æˆ GNU find â€”â€” å®žæµ‹å®ƒæŠŠ ",video," å½“è·¯å¾„æ‰«å…¨ç›˜, åˆ·ä¸€å±
-rem Permission denied è¿˜å·¨æ…¢ã€‚é€è¡Œè§£æž + å»¶è¿Ÿæ‰©å±•é€’å¢žã€‚
-rem csv è¡Œå°¾å¸¦ CR, æ‰€ä»¥ attached_pic åªæ¯”é¦–å­—ç¬¦; åˆ—åºå›ºå®šä¸º ç¼–ç ,ç±»åž‹,å°é¢ä½ã€‚
+rem ¼ÆÊý**´¿ bat**, ²»ÓÃ find/findstr: PATH ÀïÒ»µ©ÓÐ Git Bash / MSYS2 µÄ /usr/bin,
+rem `find` ¾Í±ä³É GNU find ¡ª¡ª Êµ²âËü°Ñ ",video," µ±Â·¾¶É¨È«ÅÌ, Ë¢Ò»ÆÁ
+rem Permission denied »¹¾ÞÂý¡£ÖðÐÐ½âÎö + ÑÓ³ÙÀ©Õ¹µÝÔö¡£
+rem csv ÐÐÎ²´ø CR, ËùÒÔ attached_pic Ö»±ÈÊ××Ö·û; ÁÐÐò¹Ì¶¨Îª ±àÂë,ÀàÐÍ,·âÃæÎ»¡£
 "%FFPROBE_PATH%" -v error -show_entries stream=codec_name,codec_type -show_entries stream_disposition=attached_pic -of csv=p=0 %SRC_FILE% > "%CM_TMP%" 2>nul
 setlocal enabledelayedexpansion
 for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
@@ -459,7 +461,7 @@ for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
         if "%%B"=="subtitle" (
             set "CM_IDX=!CM_SI!"
             set /a CM_SI=!CM_SI!+1
-            rem mov_text æ˜¯ mp4 çš„è½¯å­—å¹•æ ¼å¼, matroska è£…ä¸ä¸‹ -> è®°ä¸‹æ¥ç»™ EXT=mkv ç”¨
+            rem mov_text ÊÇ mp4 µÄÈí×ÖÄ»¸ñÊ½, matroska ×°²»ÏÂ -> ¼ÇÏÂÀ´¸ø EXT=mkv ÓÃ
             if "%%A"=="mov_text" set "CM_MOV=1"
             set "CM_BMP="
             if "%%A"=="hdmv_pgs_subtitle" set "CM_BMP=%%A"
@@ -473,18 +475,18 @@ for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
 endlocal & set "CM_VT=%CM_VT%" & set "CM_NA=%CM_NA%" & set "CM_SUBDROP=%CM_SUBDROP%" & set "CM_DVD=%CM_DVD%" & set "CM_MOV=%CM_MOV%"
 :cover_probe_done
 del "%CM_TMP%" 2>nul
-rem å¯¼èˆªåŒ…åªåœ¨ DVD-Video çš„ ISO / VOB é‡Œæœ‰, å®žæµ‹ 192 ä¸ª mpg/m2ts ç‰‡æº 0 å‘½ä¸­
-if "%CM_DVD%"=="1" echo [dvd] æœ¬æºæ˜¯ DVD-Video â€”â€” ä¸å¸¦ -f dvdvideo ä¼šè¢«å½“ MPEG-PS èƒ¡ä¹±æ­å¼€, å†…å®¹ä¸å¯¹; è¯·æ”¹ç”¨ ffmpeg_dvd_hevc.bat
-rem ---- ä½å›¾å­—å¹•æŽ’é™¤: ä¸Ž disp: èƒ½åŠ›æ— å…³, è€ ffmpeg ä¸€æ ·ä¼šæ•´ç‰‡å†™ 0 å­—èŠ‚ ----
-rem EXT=mkv èµ° -c:s copy, è€Œ mkv è£…å¾—ä¸‹ä½å›¾å­—å¹• â€”â€” ä¸æŽ’é™¤; åªæœ‰å½“è¿˜è¦æŠŠæ–‡æœ¬
-rem å­—å¹•è½¬æˆ ass æ—¶(æºé‡ŒåŒæ—¶æœ‰ mov_text)ass æ‰åŒæ ·åƒä¸ä¸‹ä½å›¾, é‚£æ—¶æ‰æŽ’é™¤ã€‚
+rem µ¼º½°üÖ»ÔÚ DVD-Video µÄ ISO / VOB ÀïÓÐ, Êµ²â 192 ¸ö mpg/m2ts Æ¬Ô´ 0 ÃüÖÐ
+if "%CM_DVD%"=="1" echo [dvd] ±¾Ô´ÊÇ DVD-Video ¡ª¡ª ²»´ø -f dvdvideo »á±»µ± MPEG-PS ºúÂÒ½Ò¿ª, ÄÚÈÝ²»¶Ô; Çë¸ÄÓÃ ffmpeg_dvd_hevc.bat
+rem ---- Î»Í¼×ÖÄ»ÅÅ³ý: Óë disp: ÄÜÁ¦ÎÞ¹Ø, ÀÏ ffmpeg Ò»Ñù»áÕûÆ¬Ð´ 0 ×Ö½Ú ----
+rem EXT=mkv ×ß -c:s copy, ¶ø mkv ×°µÃÏÂÎ»Í¼×ÖÄ» ¡ª¡ª ²»ÅÅ³ý; Ö»ÓÐµ±»¹Òª°ÑÎÄ±¾
+rem ×ÖÄ»×ª³É ass Ê±(Ô´ÀïÍ¬Ê±ÓÐ mov_text)ass ²ÅÍ¬Ñù³Ô²»ÏÂÎ»Í¼, ÄÇÊ±²ÅÅÅ³ý¡£
 if "%EXT%"=="mkv" if not "%CM_MOV%"=="1" goto cover_aftersub
 if not defined CM_SUBDROP goto cover_aftersub
 set "COVERMAP=%COVERMAP% %CM_SUBDROP%"
-echo [sub] å«ä½å›¾å­—å¹• â€”â€” æœ¬æ¬¡å†³å®šä¸ä¿ç•™
-echo [sub]   mp4 è£…ä¸ä¸‹ä½å›¾å­—å¹•; EXT=mkv æ—¶è‹¥è¦ä¿ä½å®ƒ, è¯·è®©æºé‡Œä¸è¦å¸¦ mov_text
+echo [sub] º¬Î»Í¼×ÖÄ» ¡ª¡ª ±¾´Î¾ö¶¨²»±£Áô
+echo [sub]   mp4 ×°²»ÏÂÎ»Í¼×ÖÄ»; EXT=mkv Ê±ÈôÒª±£×¡Ëü, ÇëÈÃÔ´Àï²»Òª´ø mov_text
 :cover_aftersub
-rem ---- å°é¢éƒ¨åˆ† ----
+rem ---- ·âÃæ²¿·Ö ----
 if not defined FFMPEG_PATH goto cover_noff
 "%FFMPEG_PATH%" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 -t 0.04 -map 0:v:disp:attached_pic? -f null - >nul 2>nul
 if not "%ERRORLEVEL%"=="0" goto cover_nodisp
@@ -504,10 +506,10 @@ goto cover_loop
 echo [cover] FFMPEG_PATH not set by caller
 exit /b 0
 :cover_nodisp
-echo [cover] æœ¬ ffmpeg ä¸è®¤ disp: æµè¯´æ˜Žç¬¦ â€”â€” éœ€ ffmpeg 7.1 æˆ–æ›´é«˜; æœ¬æ¬¡è¿è¡Œä¸ä¿ç•™å°é¢
+echo [cover] ±¾ ffmpeg ²»ÈÏ disp: Á÷ËµÃ÷·û ¡ª¡ª Ðè ffmpeg 7.1 »ò¸ü¸ß; ±¾´ÎÔËÐÐ²»±£Áô·âÃæ
 exit /b 0
 :cover_fallback
-rem æŽ¢æµ‹ä¸å¯ç”¨ â€”â€” æ²¡æœ‰ ffprobe æˆ–æºæŽ¢æµ‹å¤±è´¥: é€€å›žå†™æ­»æ§½ä½, è‡³å°‘è¦†ç›– 1~2 å¼ å°é¢
+rem Ì½²â²»¿ÉÓÃ ¡ª¡ª Ã»ÓÐ ffprobe »òÔ´Ì½²âÊ§°Ü: ÍË»ØÐ´ËÀ²ÛÎ», ÖÁÉÙ¸²¸Ç 1~2 ÕÅ·âÃæ
 set "COVERMAP=%COVERMAP% -c:v:1 copy -c:v:2 copy"
 :cover_done
 exit /b 0
@@ -534,11 +536,11 @@ set "FF_EXIST_SKIP="
 set "FF_EXIST_FAIL="
 if "%~2"=="" exit /b 0
 if not exist %2 exit /b 0
-rem 2026-10-03 ä¿®æ‹¬å· bug: æ–‡ä»¶åå«åŠè§’ ) (å¦‚ "...(ç¸çš‡)28...") æ—¶, %%2 è¿™ä¸ªå‚æ•°
-rem   æ˜¯åœ¨è§£æžæœŸè¢«æ›¿æ¢è¿›å‘½ä»¤çš„, è‹¥è½åœ¨ if(...)(...) å—é‡Œ, cmd ä¼šæŠŠå€¼é‡Œçš„ )
-rem   å½“æˆå—ç»“æŸç¬¦, åŽé¢çš„æ–‡å­—è¢«å½“æˆå‘½ä»¤æ‰§è¡Œ, æŠ¥ "28 was unexpected at this time"ã€‚
-rem   æ”¹ç”¨ goto åˆ†æ”¯, è®©æ‰€æœ‰å¸¦ %%2 çš„ echo éƒ½æ”¾åœ¨é¡¶å±‚(æ— æ‹¬å·å—) â€”â€” é¡¶å±‚å‘½ä»¤é‡Œ
-rem   çš„ ) åœ¨å¼•å·/æ™®é€šæ–‡æœ¬ä¸­æ˜¯å®‰å…¨çš„(ä¸Ž :cover_map é‚£å¥—æ‹¬å·çºªå¾‹åŒæº)ã€‚
+rem 2026-10-03 ÐÞÀ¨ºÅ bug: ÎÄ¼þÃûº¬°ë½Ç ) (Èç "...(«F»Ê)28...") Ê±, %%2 Õâ¸ö²ÎÊý
+rem   ÊÇÔÚ½âÎöÆÚ±»Ìæ»»½øÃüÁîµÄ, ÈôÂäÔÚ if(...)(...) ¿éÀï, cmd »á°ÑÖµÀïµÄ )
+rem   µ±³É¿é½áÊø·û, ºóÃæµÄÎÄ×Ö±»µ±³ÉÃüÁîÖ´ÐÐ, ±¨ "28 was unexpected at this time"¡£
+rem   ¸ÄÓÃ goto ·ÖÖ§, ÈÃËùÓÐ´ø %%2 µÄ echo ¶¼·ÅÔÚ¶¥²ã(ÎÞÀ¨ºÅ¿é) ¡ª¡ª ¶¥²ãÃüÁîÀï
+rem   µÄ ) ÔÚÒýºÅ/ÆÕÍ¨ÎÄ±¾ÖÐÊÇ°²È«µÄ(Óë :cover_map ÄÇÌ×À¨ºÅ¼ÍÂÉÍ¬Ô´)¡£
 if /i "%FF_ON_EXIST%"=="overwrite" goto oe_overwrite
 if /i "%FF_ON_EXIST%"=="fail" goto oe_fail
 echo [on_exist] output exists -^> SKIPPED, nothing was encoded: %~2
@@ -554,14 +556,14 @@ echo [on_exist] output exists, FF_ON_EXIST=fail -^> not overwritten, exit 6: %~2
 set "FF_EXIST_FAIL=1"
 exit /b 0
 :load_defaults
-rem è¯» lib\defaults.cfg çš„ KEY=VALUE é»˜è®¤å€¼: call ... load_defaults
-rem   å·²ç» set è¿‡çš„åŒåå˜é‡ä¸è¦†ç›–(å‘½ä»¤è¡Œ set EXT=mkv ä¼˜å…ˆ, æ–‡ä»¶åªè¡¥æ²¡è®¾è¿‡çš„é”®);
-rem   æ–‡ä»¶ç¼ºå¤±ç›´æŽ¥è¿”å›ž 0 â€”â€” å…¥å£æœ‰å†…ç½®å…œåº•å€¼, ä¸è¯¥å› ä¸ºå°‘ä¸€ä¸ªé…ç½®æ–‡ä»¶å°±å…¨çº¿è·‘ä¸èµ·æ¥ã€‚
-rem   å†™æ³•æ²¿ç”¨ :probe_source é‚£ä¸€å¤„(for /f + tokens=1,* delims==), eol=# é¡ºæ‰‹åƒæŽ‰æ³¨é‡Šè¡Œã€‚
-rem   å®žæµ‹ cmd ä¼šæŠŠ CRLF è¡Œå°¾é‚£ä¸ª CR ä¸€èµ·åžæŽ‰: åŒä¸€ä»½æ–‡ä»¶å­˜æˆ LF æˆ– CRLF, å–åˆ°çš„å€¼
-rem   é€å­—èŠ‚ç›¸åŒ(å·²ç”¨åŒä¸€ä»½ cfg çš„ä¸¤ç§è¡Œå°¾å¯¹ç…§è¿‡), æ‰€ä»¥è¿™é‡Œä¸éœ€è¦å†åŽ» CRã€‚
-rem   FB_DEFAULTS: æ¢ä¸€ä»½é…ç½®æ–‡ä»¶(æ‰¹é‡é‡ŒæŒ‰æ¸…å•ç»™ä¸åŒå£å¾„æ—¶ç”¨å¾—ç€), ç¼ºçœæ˜¯æœ¬æ–‡ä»¶æ—è¾¹
-rem     çš„ defaults.cfg; çŽ¯å¢ƒå˜é‡ç”±å­è¿›ç¨‹ç»§æ‰¿, æ‰€ä»¥æ¸…å•é©±åŠ¨è®¾ä¸€æ¬¡, æ¯æ¡æ¡ç›®éƒ½æŒ‰å®ƒèµ°ã€‚
+rem ¶Á lib\defaults.cfg µÄ KEY=VALUE Ä¬ÈÏÖµ: call ... load_defaults
+rem   ÒÑ¾­ set ¹ýµÄÍ¬Ãû±äÁ¿²»¸²¸Ç(ÃüÁîÐÐ set EXT=mkv ÓÅÏÈ, ÎÄ¼þÖ»²¹Ã»Éè¹ýµÄ¼ü);
+rem   ÎÄ¼þÈ±Ê§Ö±½Ó·µ»Ø 0 ¡ª¡ª Èë¿ÚÓÐÄÚÖÃ¶µµ×Öµ, ²»¸ÃÒòÎªÉÙÒ»¸öÅäÖÃÎÄ¼þ¾ÍÈ«ÏßÅÜ²»ÆðÀ´¡£
+rem   Ð´·¨ÑØÓÃ :probe_source ÄÇÒ»´¦(for /f + tokens=1,* delims==), eol=# Ë³ÊÖ³Ôµô×¢ÊÍÐÐ¡£
+rem   Êµ²â cmd »á°Ñ CRLF ÐÐÎ²ÄÇ¸ö CR Ò»ÆðÍÌµô: Í¬Ò»·ÝÎÄ¼þ´æ³É LF »ò CRLF, È¡µ½µÄÖµ
+rem   Öð×Ö½ÚÏàÍ¬(ÒÑÓÃÍ¬Ò»·Ý cfg µÄÁ½ÖÖÐÐÎ²¶ÔÕÕ¹ý), ËùÒÔÕâÀï²»ÐèÒªÔÙÈ¥ CR¡£
+rem   FB_DEFAULTS: »»Ò»·ÝÅäÖÃÎÄ¼þ(ÅúÁ¿Àï°´Çåµ¥¸ø²»Í¬¿Ú¾¶Ê±ÓÃµÃ×Å), È±Ê¡ÊÇ±¾ÎÄ¼þÅÔ±ß
+rem     µÄ defaults.cfg; »·¾³±äÁ¿ÓÉ×Ó½ø³Ì¼Ì³Ð, ËùÒÔÇåµ¥Çý¶¯ÉèÒ»´Î, Ã¿ÌõÌõÄ¿¶¼°´Ëü×ß¡£
 set "DF_FILE=%FB_DEFAULTS%"
 if not defined DF_FILE set "DF_FILE=%~dp0defaults.cfg"
 if not exist "%DF_FILE%" exit /b 0
@@ -571,16 +573,16 @@ for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%DF_FILE%") do (
 exit /b 0
 
 :init_ext
-rem è¾“å‡ºå®¹å™¨å¼€å…³: call ... init_ext -> EXT(mp4|mkv) + SENC(-c:s mov_text|copy)
-rem   é»˜è®¤å€¼ä¸Žå–å€¼æ¥è‡ª lib\defaults.cfg; æ ¡éªŒå’Œæ´¾ç”Ÿå€¼åœ¨è¿™é‡Œç»Ÿç®¡, å„å…¥å£ä¸å†å„å†™ä¸€éã€‚
-rem   è®¤ä¸å‡ºæ¥çš„å€¼æŠ¥é”™è¿”å›ž 1(è°ƒç”¨æ–¹ exit /b 1), ä¸é™é»˜å›žé€€ mp4ã€‚
-rem   EXT è‹¥å«ç©ºæ ¼(set EXT=mkv && xxx.bat é‚£ç§å†™æ³•ä¼šå¸¦è¿›æ¥)å…ˆæŠ¹æŽ‰å†æ¯”è¾ƒã€‚
+rem Êä³öÈÝÆ÷¿ª¹Ø: call ... init_ext -> EXT(mp4|mkv) + SENC(-c:s mov_text|copy)
+rem   Ä¬ÈÏÖµÓëÈ¡ÖµÀ´×Ô lib\defaults.cfg; Ð£ÑéºÍÅÉÉúÖµÔÚÕâÀïÍ³¹Ü, ¸÷Èë¿Ú²»ÔÙ¸÷Ð´Ò»±é¡£
+rem   ÈÏ²»³öÀ´µÄÖµ±¨´í·µ»Ø 1(µ÷ÓÃ·½ exit /b 1), ²»¾²Ä¬»ØÍË mp4¡£
+rem   EXT Èôº¬¿Õ¸ñ(set EXT=mkv && xxx.bat ÄÇÖÖÐ´·¨»á´ø½øÀ´)ÏÈÄ¨µôÔÙ±È½Ï¡£
 call "%~f0" load_defaults
 if defined EXT set "EXT=%EXT: =%"
 if not defined EXT goto IE_MP4
 if /i "%EXT%"=="mp4" goto IE_MP4
 if /i "%EXT%"=="mkv" goto IE_MKV
-echo [é”™è¯¯] EXT åªèƒ½æ˜¯ mp4 æˆ– mkv: %EXT%
+echo [´íÎó] EXT Ö»ÄÜÊÇ mp4 »ò mkv: %EXT%
 exit /b 1
 :IE_MP4
 set "EXT=mp4"
@@ -592,9 +594,9 @@ set "SENC=-c:s copy"
 exit /b 0
 
 :bitrate_from_table
-rem ç›®æ ‡ç çŽ‡å£å¾„: call ... bitrate_from_table <å˜é‡å>
-rem   BITRATE_NO_HALF=1 -> å˜é‡ä¿æŒæŸ¥è¡¨åŽŸå€¼; å¦åˆ™åŽŸåœ° / 2(åŽ†å²å£å¾„)ã€‚
-rem   é»˜è®¤å€¼åŒæ ·æ¥è‡ª lib\defaults.cfgã€‚ç¼ºå‚æ•°è¿”å›ž 2ã€‚
+rem Ä¿±êÂëÂÊ¿Ú¾¶: call ... bitrate_from_table <±äÁ¿Ãû>
+rem   BITRATE_NO_HALF=1 -> ±äÁ¿±£³Ö²é±íÔ­Öµ; ·ñÔòÔ­µØ / 2(ÀúÊ·¿Ú¾¶)¡£
+rem   Ä¬ÈÏÖµÍ¬ÑùÀ´×Ô lib\defaults.cfg¡£È±²ÎÊý·µ»Ø 2¡£
 call "%~f0" load_defaults
 if "%~2"=="" exit /b 2
 setlocal EnableDelayedExpansion
@@ -608,34 +610,34 @@ endlocal & set /a %~2=%_BT_OUT%
 exit /b 0
 
 :parse_switches
-rem è§£æž --key value / --key=value -> åŒåå¤§å†™çŽ¯å¢ƒå˜é‡(è§ lib/common.sh åŒä¹‰)
-rem   è°ƒç”¨: call ... parse_switches %*   ( %1 ä¸ºå‡½æ•°å, çœŸå®žå‚æ•°ä»Ž %2 èµ·)
-rem   ä½ç½®å‚æ•°(æ–‡ä»¶ / æ¸…å•è·¯å¾„)è®°åˆ° PARSE_POS(å–ç¬¬ä¸€ä¸ªéž -- å‚æ•°)
-rem   æœ¬å‡½æ•°ä¸ setlocal â€”â€” è®¾å‡ºçš„å¼€å…³å¿…é¡»å¯¹è°ƒç”¨æ–¹å¯è§(åŒ :load_defaults çº¦å®š)
-rem   æ³¨æ„: åˆ»æ„ç”¨ goto è€Œéž if() å—, å¦åˆ™å—å†… %PK%/%PV% åœ¨ DisableDelayedExpansion
-rem         ä¸‹ä¸ä¼šåˆ·æ–°ä¸ºæ–°è®¾çš„å€¼(ç»å…¸ cmd é™·é˜±, ä¼šå¯¼è‡´ -- å‰ç¼€åŽ»ä¸æŽ‰ / å€¼å–ç©º)
+rem ½âÎö --key value / --key=value -> Í¬Ãû´óÐ´»·¾³±äÁ¿(¼û lib/common.sh Í¬Òå)
+rem   µ÷ÓÃ: call ... parse_switches %*   ( %1 Îªº¯ÊýÃû, ÕæÊµ²ÎÊý´Ó %2 Æð)
+rem   Î»ÖÃ²ÎÊý(ÎÄ¼þ / Çåµ¥Â·¾¶)¼Çµ½ PARSE_POS(È¡µÚÒ»¸ö·Ç -- ²ÎÊý)
+rem   ±¾º¯Êý²» setlocal ¡ª¡ª Éè³öµÄ¿ª¹Ø±ØÐë¶Ôµ÷ÓÃ·½¿É¼û(Í¬ :load_defaults Ô¼¶¨)
+rem   ×¢Òâ: ¿ÌÒâÓÃ goto ¶ø·Ç if() ¿é, ·ñÔò¿éÄÚ %PK%/%PV% ÔÚ DisableDelayedExpansion
+rem         ÏÂ²»»áË¢ÐÂÎªÐÂÉèµÄÖµ(¾­µä cmd ÏÝÚå, »áµ¼ÖÂ -- Ç°×ºÈ¥²»µô / ÖµÈ¡¿Õ)
 shift
-rem æ¯æ¬¡è°ƒç”¨éƒ½å…ˆæ¸…ç©º PARSE_POS / PS_CNT: æœ¬å‡½æ•°è¢« call è¿›æ¥çš„åœºæ™¯ä¸‹, è°ƒç”¨æ–¹ä¸Šä¸€æ¬¡
-rem   è§£æžè®¾ä¸‹çš„ä½ç½®å‚æ•°ä¼šæ®‹ç•™åœ¨åŒä¸€ cmd ä½œç”¨åŸŸé‡Œ( call ä¸æ–°å»ºå˜é‡ä½œç”¨åŸŸ),
-rem   å¯¼è‡´"ä½ç½®å‚æ•°"è¢«æ—§å€¼é¡¶æŽ‰ â€”â€” æ¸…å• bat è§£æžæ¸…å•è·¯å¾„åŽ call å…¥å£ bat å†è§£æž
-rem   æ–‡ä»¶åæ—¶, æ–‡ä»¶åå°±é”™è½æˆæ¸…å•è·¯å¾„ã€‚è¿™é‡Œæ¯æ¬¡è¿›æ¥éƒ½é‡ç½®, ä¿è¯åªè®°æœ¬æ¬¡çš„ä½ç½®å‚æ•°ã€‚
+rem Ã¿´Îµ÷ÓÃ¶¼ÏÈÇå¿Õ PARSE_POS / PS_CNT: ±¾º¯Êý±» call ½øÀ´µÄ³¡¾°ÏÂ, µ÷ÓÃ·½ÉÏÒ»´Î
+rem   ½âÎöÉèÏÂµÄÎ»ÖÃ²ÎÊý»á²ÐÁôÔÚÍ¬Ò» cmd ×÷ÓÃÓòÀï( call ²»ÐÂ½¨±äÁ¿×÷ÓÃÓò),
+rem   µ¼ÖÂ"Î»ÖÃ²ÎÊý"±»¾ÉÖµ¶¥µô ¡ª¡ª Çåµ¥ bat ½âÎöÇåµ¥Â·¾¶ºó call Èë¿Ú bat ÔÙ½âÎö
+rem   ÎÄ¼þÃûÊ±, ÎÄ¼þÃû¾Í´íÂä³ÉÇåµ¥Â·¾¶¡£ÕâÀïÃ¿´Î½øÀ´¶¼ÖØÖÃ, ±£Ö¤Ö»¼Ç±¾´ÎµÄÎ»ÖÃ²ÎÊý¡£
 set "PARSE_POS="
 set "PS_CNT=0"
 :ps_loop
 if "%~1"=="" exit /b 0
 set "PK=%~1"
 if not "%PK:~0,2%"=="--" goto ps_pos
-rem ---- æ˜¯ -- å¼€å¤´å¼€å…³: å…ˆåŽ»æŽ‰ -- å‰ç¼€ ----
+rem ---- ÊÇ -- ¿ªÍ·¿ª¹Ø: ÏÈÈ¥µô -- Ç°×º ----
 set "PK=%PK:~2%"
 set "PV="
 for /f "tokens=1,* delims==" %%a in ("%PK%") do (
     set "PK=%%a"
     set "PV=%%b"
 )
-rem è¿žå­—ç¬¦å½’ä¸€(åªåŠ¨é”®, ä¸åŠ¨å€¼): çŽ¯å¢ƒå˜é‡åé‡Œä¸èƒ½æœ‰ -, --dry-run ä¸Ž --dry_run éƒ½æ”¶
+rem Á¬×Ö·û¹éÒ»(Ö»¶¯¼ü, ²»¶¯Öµ): »·¾³±äÁ¿ÃûÀï²»ÄÜÓÐ -, --dry-run Óë --dry_run ¶¼ÊÕ
 set "PK=%PK:-=_%"
-rem å¸ƒå°”å¼€å…³ --dry-run ä¸å–å€¼: å®ƒåŽé¢ç´§è·Ÿçš„é€šå¸¸å°±æ˜¯æ–‡ä»¶å, æŒ‰ "--key value" çš„
-rem è€è§„çŸ©å–ä¸‹ä¸€ä¸ªå‚æ•°å½“å€¼, ä¼šæŠŠæ–‡ä»¶ååƒæŽ‰(ä¸Ž lib/common.sh çš„ SWITCH_FLAGS åŒä¹‰)
+rem ²¼¶û¿ª¹Ø --dry-run ²»È¡Öµ: ËüºóÃæ½ô¸úµÄÍ¨³£¾ÍÊÇÎÄ¼þÃû, °´ "--key value" µÄ
+rem ÀÏ¹æ¾ØÈ¡ÏÂÒ»¸ö²ÎÊýµ±Öµ, »á°ÑÎÄ¼þÃû³Ôµô(Óë lib/common.sh µÄ SWITCH_FLAGS Í¬Òå)
 if /I "%PK%"=="dry_run" (
     set "DRY_RUN=1"
     if not "%PV%"=="" set "DRY_RUN=%PV%"
@@ -643,12 +645,12 @@ if /I "%PK%"=="dry_run" (
     goto ps_loop
 )
 if "%PV%"=="" goto ps_val_next
-rem å« = å½¢å¼: key å·²å– = å‰, value å·²å– = åŽ, æ— éœ€å†å– %2
+rem º¬ = ÐÎÊ½: key ÒÑÈ¡ = Ç°, value ÒÑÈ¡ = ºó, ÎÞÐèÔÙÈ¡ %2
 call :ps_set "%PK%" "%PV%"
 shift
 goto ps_loop
 :ps_val_next
-rem ç©ºæ ¼åˆ†éš”å½¢å¼: å€¼å–ä¸‹ä¸€ä¸ªä½ç½®å‚æ•°
+rem ¿Õ¸ñ·Ö¸ôÐÎÊ½: ÖµÈ¡ÏÂÒ»¸öÎ»ÖÃ²ÎÊý
 set "PV=%~2"
 call :ps_set "%PK%" "%PV%"
 shift & shift
@@ -661,7 +663,7 @@ shift
 goto ps_loop
 
 :ps_set
-rem å°å†™/ä»»æ„å¤§å°å†™ key -> å¤§å†™ env(é”®è¡¨ä¸Ž .sh ä¾§ SWITCH_KEYS åŒè¡¨, lint ä¼šæ¯”å¯¹)
+rem Ð¡Ð´/ÈÎÒâ´óÐ¡Ð´ key -> ´óÐ´ env(¼ü±íÓë .sh ²à SWITCH_KEYS Í¬±í, lint »á±È¶Ô)
 set "PK=%~1"
 set "PV=%~2"
 if /I "%PK%"=="ext" set "EXT=%PV%" & exit /b 0
@@ -680,41 +682,41 @@ if /I "%PK%"=="extra_titles" set "EXTRA_TITLES=%PV%" & exit /b 0
 if /I "%PK%"=="vbitrate" set "VBITRATE=%PV%" & exit /b 0
 if /I "%PK%"=="venc" set "VENC=%PV%" & exit /b 0
 if /I "%PK%"=="dec" set "DEC=%PV%" & exit /b 0
-rem --help ä¸æ˜¯å¼€å…³, æ˜¯"è¦çœ‹ç”¨æ³•": æ”¾è¡Œ, ç”± :want_help æ‰«åŽŸå§‹å‚æ•°åŽ»å‘½ä¸­ã€‚æ”¾è¡Œä¹‹å‰
-rem ä¼šå…ˆæ‰“ä¸€å¥ unknown switch --help â€”â€” ç”¨æˆ·åªæ˜¯æƒ³çž„ä¸€çœ¼ç”¨æ³•, å´å…ˆçœ‹åˆ°ä¸€å¥æŠ¥é”™ã€‚
-rem (å•æ¨ªçº¿çš„ -h / -help èµ°ä¸åˆ°è¿™é‡Œ: ps_loop åªæŠŠ -- å¼€å¤´çš„å½“å¼€å…³, å®ƒä»¬ä¼šè¿› PARSE_POS,
-rem  ä½† :want_help åœ¨å…¥å£å– PARSE_POS ä¹‹å‰å°±é€€å‡ºäº†, ä¸ä¼šè¢«è¯¯å½“æ–‡ä»¶åã€‚)
+rem --help ²»ÊÇ¿ª¹Ø, ÊÇ"Òª¿´ÓÃ·¨": ·ÅÐÐ, ÓÉ :want_help É¨Ô­Ê¼²ÎÊýÈ¥ÃüÖÐ¡£·ÅÐÐÖ®Ç°
+rem »áÏÈ´òÒ»¾ä unknown switch --help ¡ª¡ª ÓÃ»§Ö»ÊÇÏëÃéÒ»ÑÛÓÃ·¨, È´ÏÈ¿´µ½Ò»¾ä±¨´í¡£
+rem (µ¥ºáÏßµÄ -h / -help ×ß²»µ½ÕâÀï: ps_loop Ö»°Ñ -- ¿ªÍ·µÄµ±¿ª¹Ø, ËüÃÇ»á½ø PARSE_POS,
+rem  µ« :want_help ÔÚÈë¿ÚÈ¡ PARSE_POS Ö®Ç°¾ÍÍË³öÁË, ²»»á±»Îóµ±ÎÄ¼þÃû¡£)
 if /I "%PK%"=="help" exit /b 0
 echo unknown switch: --%PK%
 exit /b 2
 exit /b 0
 
 :dry_run
-rem DRY_RUN ä¸ºçœŸ(å·²å®šä¹‰ä¸”ä¸æ˜¯ 0)æ—¶: æ‰“å°æœ¬å…¥å£å°†è¦æ‰§è¡Œçš„ ffmpeg å‘½ä»¤, ä¸€ä¸ªå­—èŠ‚éƒ½ä¸è·‘ã€‚
-rem   ç”¨æ³•(æ”¾åœ¨çœŸæ­£æ‰§è¡Œ %RUN_COM% çš„é‚£ä¸€è¡Œä¹‹å‰):
+rem DRY_RUN ÎªÕæ(ÒÑ¶¨ÒåÇÒ²»ÊÇ 0)Ê±: ´òÓ¡±¾Èë¿Ú½«ÒªÖ´ÐÐµÄ ffmpeg ÃüÁî, Ò»¸ö×Ö½Ú¶¼²»ÅÜ¡£
+rem   ÓÃ·¨(·ÅÔÚÕæÕýÖ´ÐÐ %RUN_COM% µÄÄÇÒ»ÐÐÖ®Ç°):
 rem     call "%SELF_DIR%lib\common.bat" dry_run
 rem     if defined DRY_HIT exit /b 0
-rem   å¼€å…³: --dry-run / --dry-run=1(å‚æ•°å¼, è§ :parse_switches)æˆ– set DRY_RUN=1ã€‚
-rem   ä¸Ž .sh ä¾§ ff_run é‡Œçš„é—¸é—¨åŒä¹‰: åªæ‹¦ ffmpeg æœ¬ä½“, ffprobe æŽ¢æµ‹ç…§è·‘ â€”â€” ä¸æŽ¢æµ‹
-rem   å°±æ²¡æœ‰åˆ†è¾¨çŽ‡ / ç çŽ‡, å‘½ä»¤è¡Œè¿˜æ²¡æ‹¼å‡ºæ¥è„šæœ¬å…ˆæ•£äº†ã€‚
-rem   æç¤ºèµ° stderrã€å‘½ä»¤èµ° stdout: stdout ä¸Šåªç•™é‚£æ¡çº¯å‘½ä»¤, æ–¹ä¾¿æŽ¥ç®¡é“ / å¤åˆ¶ç²˜è´´ã€‚
-rem   DRY_HIT æ¯æ¬¡è¿›æ¥å…ˆæ¸…ç©º: call ä¸æ–°å»ºå˜é‡ä½œç”¨åŸŸ, ä¸Šä¸€æ¬¡è°ƒç”¨ç•™ä¸‹çš„å€¼ä¼šè¯¯å¯¼è°ƒç”¨æ–¹ã€‚
+rem   ¿ª¹Ø: --dry-run / --dry-run=1(²ÎÊýÊ½, ¼û :parse_switches)»ò set DRY_RUN=1¡£
+rem   Óë .sh ²à ff_run ÀïµÄÕ¢ÃÅÍ¬Òå: Ö»À¹ ffmpeg ±¾Ìå, ffprobe Ì½²âÕÕÅÜ ¡ª¡ª ²»Ì½²â
+rem   ¾ÍÃ»ÓÐ·Ö±æÂÊ / ÂëÂÊ, ÃüÁîÐÐ»¹Ã»Æ´³öÀ´½Å±¾ÏÈÉ¢ÁË¡£
+rem   ÌáÊ¾×ß stderr¡¢ÃüÁî×ß stdout: stdout ÉÏÖ»ÁôÄÇÌõ´¿ÃüÁî, ·½±ã½Ó¹ÜµÀ / ¸´ÖÆÕ³Ìù¡£
+rem   DRY_HIT Ã¿´Î½øÀ´ÏÈÇå¿Õ: call ²»ÐÂ½¨±äÁ¿×÷ÓÃÓò, ÉÏÒ»´Îµ÷ÓÃÁôÏÂµÄÖµ»áÎóµ¼µ÷ÓÃ·½¡£
 set "DRY_HIT="
 if not defined DRY_RUN exit /b 0
 if /I "%DRY_RUN%"=="0" exit /b 0
-echo [dry-run] æœªæ‰§è¡Œ, ä»…æ‰“å°å‘½ä»¤: 1>&2
+echo [dry-run] Î´Ö´ÐÐ, ½ö´òÓ¡ÃüÁî: 1>&2
 echo %RUN_COM%
 set "DRY_HIT=1"
 exit /b 0
 
 :want_help
-rem ç»Ÿä¸€ --help / -help / -h: è°ƒç”¨æ–¹åœ¨ parse_switches ä¹‹åŽé—®ä¸€æ¬¡, å‘½ä¸­åˆ™ FB_WANT_HELP=1
-rem   ç”¨æ³•: call "%SELF_DIR%lib\common.bat" want_help %*
+rem Í³Ò» --help / -help / -h: µ÷ÓÃ·½ÔÚ parse_switches Ö®ºóÎÊÒ»´Î, ÃüÖÐÔò FB_WANT_HELP=1
+rem   ÓÃ·¨: call "%SELF_DIR%lib\common.bat" want_help %*
 rem            if defined FB_WANT_HELP call ... usage ...
 rem            if defined FB_WANT_HELP exit /b 0
-rem   æ‰«çš„æ˜¯åŽŸå§‹ %*(ä¸Žè§£æžç»“æžœæ— å…³)ã€‚å¤§å°å†™ä¸æ•æ„Ÿã€‚
-rem   åªè®¤ç²¾ç¡®ç›¸ç­‰çš„ä¸‰ä¸ª token, ä¸åšå‰ç¼€åŒ¹é… â€”â€” å…å¾—æŠŠ --filt -h è¿™ç±»**å€¼**è¯¯åˆ¤æˆæ±‚åŠ©
-rem   (cmd æ²¡æœ‰"è·³è¿‡å‰ä¸€ä¸ª token"çš„æ¦‚å¿µ, åªèƒ½è¿™ä¹ˆæ”¶ç€)ã€‚
+rem   É¨µÄÊÇÔ­Ê¼ %*(Óë½âÎö½á¹ûÎÞ¹Ø)¡£´óÐ¡Ð´²»Ãô¸Ð¡£
+rem   Ö»ÈÏ¾«È·ÏàµÈµÄÈý¸ö token, ²»×öÇ°×ºÆ¥Åä ¡ª¡ª ÃâµÃ°Ñ --filt -h ÕâÀà**Öµ**ÎóÅÐ³ÉÇóÖú
+rem   (cmd Ã»ÓÐ"Ìø¹ýÇ°Ò»¸ö token"µÄ¸ÅÄî, Ö»ÄÜÕâÃ´ÊÕ×Å)¡£
 set "FB_WANT_HELP="
 shift
 :wh_loop
@@ -726,28 +728,28 @@ shift
 goto wh_loop
 
 :usage
-rem æ‰“å°ç”¨æ³•: call å…¬å…±åº“ usage æ ‡é¢˜ ç”¨æ³•è¡Œ [ä¸“å±žå¼€å…³è¡Œ...]
-rem   é€šç”¨å¼€å…³è¡¨åªåœ¨è¿™é‡Œç»´æŠ¤ä¸€å¤„, å„å…¥å£åªä¼ è‡ªå·±çš„æ ‡é¢˜ / ç”¨æ³• / ä¸“å±žå¼€å…³(ç¬¬ 4 ä¸ªå‚æ•°èµ·
-rem   æ¯ä¸ªå„å ä¸€è¡Œ)ã€‚
-rem   å‚æ•°é‡Œåªèƒ½ç”¨å…¨è§’æ ‡ç‚¹: åŠè§’çš„å¼•å· / & / | / < / > / ^ / % / å³æ‹¬å·éƒ½ä¸è¡Œ â€”â€”
-rem     å¼•å·ä¼šæŠŠæ•´è¡Œçš„é…å¯¹æ‹†å(è§å„å…¥å£é¡¶éƒ¨é‚£æ®µ"å‹¿æ”¹å›ž set åŒ…è£…å†™æ³•"), å…¶ä½™æ˜¯ cmd çš„
-rem     å‘½ä»¤è¯­æ³•ç¬¦(ç®¡é“ / è¿žæŽ¥), åŠè§’å³æ‹¬å·è¿˜ä¼šæå‰é—­åˆè°ƒç”¨æ–¹çš„æ‹¬å·å—ã€‚
-rem     < > å°¤å…¶å±é™© â€”â€” **å®žæµ‹è¸©è¿‡**: å¸®åŠ©æ–‡æœ¬é‡Œå†™"å›žå½’å¥—ä»¶ -> å…ƒå­—ç¬¦çŸ©é˜µ", é‚£ä¸ª > è¢«
-rem     cmd å½“æˆé‡å®šå‘, äºŽæ˜¯åœ¨ä»“åº“æ ¹ç›®å½•ç”Ÿæˆäº†ä¸€ä¸ªåå« DVD çš„åžƒåœ¾æ–‡ä»¶(æ–‡æœ¬è¢«æˆªæ–­æˆ
-rem     "ä¾æ¬¡è·‘: å›žå½’å¥—ä»¶ - - å·¥å…·é“¾")ã€‚è¦è¡¨è¾¾"åˆ° / ç®­å¤´"è¯·ç”¨å…¨è§’ç®­å¤´ â†’ã€‚
+rem ´òÓ¡ÓÃ·¨: call ¹«¹²¿â usage ±êÌâ ÓÃ·¨ÐÐ [×¨Êô¿ª¹ØÐÐ...]
+rem   Í¨ÓÃ¿ª¹Ø±íÖ»ÔÚÕâÀïÎ¬»¤Ò»´¦, ¸÷Èë¿ÚÖ»´«×Ô¼ºµÄ±êÌâ / ÓÃ·¨ / ×¨Êô¿ª¹Ø(µÚ 4 ¸ö²ÎÊýÆð
+rem   Ã¿¸ö¸÷Õ¼Ò»ÐÐ)¡£
+rem   ²ÎÊýÀïÖ»ÄÜÓÃÈ«½Ç±êµã: °ë½ÇµÄÒýºÅ / & / | / < / > / ^ / % / ÓÒÀ¨ºÅ¶¼²»ÐÐ ¡ª¡ª
+rem     ÒýºÅ»á°ÑÕûÐÐµÄÅä¶Ô²ð»µ(¼û¸÷Èë¿Ú¶¥²¿ÄÇ¶Î"Îð¸Ä»Ø set °ü×°Ð´·¨"), ÆäÓàÊÇ cmd µÄ
+rem     ÃüÁîÓï·¨·û(¹ÜµÀ / Á¬½Ó), °ë½ÇÓÒÀ¨ºÅ»¹»áÌáÇ°±ÕºÏµ÷ÓÃ·½µÄÀ¨ºÅ¿é¡£
+rem     < > ÓÈÆäÎ£ÏÕ ¡ª¡ª **Êµ²â²È¹ý**: °ïÖúÎÄ±¾ÀïÐ´"»Ø¹éÌ×¼þ -> Ôª×Ö·û¾ØÕó", ÄÇ¸ö > ±»
+rem     cmd µ±³ÉÖØ¶¨Ïò, ÓÚÊÇÔÚ²Ö¿â¸ùÄ¿Â¼Éú³ÉÁËÒ»¸öÃû½Ð DVD µÄÀ¬»øÎÄ¼þ(ÎÄ±¾±»½Ø¶Ï³É
+rem     "ÒÀ´ÎÅÜ: »Ø¹éÌ×¼þ - - ¹¤¾ßÁ´")¡£Òª±í´ï"µ½ / ¼ýÍ·"ÇëÓÃÈ«½Ç¼ýÍ· ¡ú¡£
 echo ============================================================
 echo  %~2
 echo.
 echo  %~3
 echo.
-echo  é€šç”¨å¼€å…³ï¼ˆä¸¤æ—åŒåï¼›ä¹Ÿå¯å†™æˆçŽ¯å¢ƒå˜é‡ï¼Œå‚æ•°ä¼˜å…ˆï¼‰:
-echo    --ext mp4,mkv            è¾“å‡ºå®¹å™¨ï¼ˆç¼–ç ç±»é»˜è®¤ mp4ï¼ŒDVD ç±»é»˜è®¤ mkvï¼‰
-echo    --dry-run                åªæ‰“å°å°†è¦æ‰§è¡Œçš„ ffmpeg å‘½ä»¤ï¼Œä¸è½¬ç 
-echo    --bitrate_no_half 1      ç›®æ ‡ç çŽ‡ä¸é™¤ä»¥ 2
+echo  Í¨ÓÃ¿ª¹Ø£¨Á½×åÍ¬Ãû£»Ò²¿ÉÐ´³É»·¾³±äÁ¿£¬²ÎÊýÓÅÏÈ£©:
+echo    --ext mp4,mkv            Êä³öÈÝÆ÷£¨±àÂëÀàÄ¬ÈÏ mp4£¬DVD ÀàÄ¬ÈÏ mkv£©
+echo    --dry-run                Ö»´òÓ¡½«ÒªÖ´ÐÐµÄ ffmpeg ÃüÁî£¬²»×ªÂë
+echo    --bitrate_no_half 1      Ä¿±êÂëÂÊ²»³ýÒÔ 2
 echo    --ff_hwaccel auto,none,cuda,qsv,vaapi,d3d11va,dxva2
-echo                            è§£ç åŠ é€Ÿå™¨ï¼ˆé»˜è®¤ autoï¼›none = ä¸€æ¬¡ -hwaccel éƒ½ä¸åŠ ï¼‰
+echo                            ½âÂë¼ÓËÙÆ÷£¨Ä¬ÈÏ auto£»none = Ò»´Î -hwaccel ¶¼²»¼Ó£©
 echo    --ff_on_exist skip,overwrite,fail
-echo                            äº§ç‰©å·²å­˜åœ¨æ—¶çš„ç­–ç•¥ï¼ˆé»˜è®¤ skipï¼šæ‰“å°å·²è·³è¿‡ï¼Œrc=0ï¼‰
+echo                            ²úÎïÒÑ´æÔÚÊ±µÄ²ßÂÔ£¨Ä¬ÈÏ skip£º´òÓ¡ÒÑÌø¹ý£¬rc=0£©
 :usage_more
 if "%~4"=="" goto usage_end
 echo    %~4
@@ -755,6 +757,6 @@ shift
 goto usage_more
 :usage_end
 echo.
-echo  å®Œæ•´å¼€å…³è¡¨ / å¹³å°å·®å¼‚ / é€€å‡ºç å¥‘çº¦è§ readme.md
+echo  ÍêÕû¿ª¹Ø±í / Æ½Ì¨²îÒì / ÍË³öÂëÆõÔ¼¼û readme.md
 echo ============================================================
 exit /b 0

@@ -39,9 +39,9 @@ set "SELF=%~dp0"
 rem repo root = two levels up from this file (<repo>\test\bat\); %1 may override
 set "REPO=%~1"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
-rem ç»Ÿä¸€ --help / -help / -h: ä¸Ž sh å­ªç”ŸåŒä¸€å¥—ç‰ˆå¼(è§ lib\common.bat çš„ :want_help / :usage)
+rem Í³Ò» --help / -help / -h: Óë sh ÂÏÉúÍ¬Ò»Ì×°æÊ½(¼û lib\common.bat µÄ :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_special_chars.bat  -  ç‰¹æ®Šå­—ç¬¦ / å…ƒå­—ç¬¦è·¯å¾„å†’çƒŸ" "ç”¨æ³•: test\bat\smoke_special_chars.bat [ä»“åº“è·¯å¾„]" "è¦†ç›–: æ–‡ä»¶åå¸¦å…ƒå­—ç¬¦ï¼ˆand / åœ†æ‹¬å· / æ„Ÿå¹å· / ç™¾åˆ†å· ç­‰ï¼‰ã€æ¸…å•é©±åŠ¨ã€æ— å‚ stdin æ¨¡å¼ä¸Žæž„é€ å¾®æµ‹ï¼ˆpart Zï¼‰"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_special_chars.bat  -  ÌØÊâ×Ö·û / Ôª×Ö·ûÂ·¾¶Ã°ÑÌ" "ÓÃ·¨: test\bat\smoke_special_chars.bat [²Ö¿âÂ·¾¶]" "¸²¸Ç: ÎÄ¼þÃû´øÔª×Ö·û£¨and / Ô²À¨ºÅ / ¸ÐÌ¾ºÅ / °Ù·ÖºÅ µÈ£©¡¢Çåµ¥Çý¶¯¡¢ÎÞ²Î stdin Ä£Ê½Óë¹¹ÔìÎ¢²â£¨part Z£©"
 if defined FB_WANT_HELP exit /b 0
 set "WORK=%TEMP%\ffmpeg_bat_chars"
 set "CDIR=%WORK%\chars"
@@ -66,19 +66,19 @@ if not defined FF (
     pause
     exit /b 1
 )
-rem ffprobe å–ä¸Ž ffmpeg åŒç›®å½•é‚£ä»½(ä¸Ž lib\common.bat find_ffmpeg çš„åŒç›®å½•çº¦å®šä¸€è‡´)
+rem ffprobe È¡Óë ffmpeg Í¬Ä¿Â¼ÄÇ·Ý(Óë lib\common.bat find_ffmpeg µÄÍ¬Ä¿Â¼Ô¼¶¨Ò»ÖÂ)
 for %%I in ("%FF%") do set "FP=%%~dpIffprobe.exe"
-rem å¼€è·‘å‰æŠŠ"è¿™ä»½å¥—ä»¶ç”¨å“ªä¸ª ffmpeg / ffprobe"æ‰“åˆ°å±å¹•ä¸Š â€”â€” å…¶ä½™ä¿¡æ¯åªå†™è¿› summary.txt
+rem ¿ªÅÜÇ°°Ñ"Õâ·ÝÌ×¼þÓÃÄÄ¸ö ffmpeg / ffprobe"´òµ½ÆÁÄ»ÉÏ ¡ª¡ª ÆäÓàÐÅÏ¢Ö»Ð´½ø summary.txt
 echo ============================================================
-echo  ä½¿ç”¨ ffmpeg : %FF%
-echo  ä½¿ç”¨ ffprobe: %FP%
-rem ç‰ˆæœ¬ä¸²èµ°"å…ˆè½ä¸´æ—¶æ–‡ä»¶å† for /f å›žè¯»"(ä¸Ž lib\common.bat find_ffmpeg åŒæ¬¾):
-rem ç»ä¸åœ¨ for /f åå¼•å·é‡Œç›´æŽ¥è·‘å¸¦ç©ºæ ¼è·¯å¾„çš„ ffmpeg.exe
+echo  Ê¹ÓÃ ffmpeg : %FF%
+echo  Ê¹ÓÃ ffprobe: %FP%
+rem °æ±¾´®×ß"ÏÈÂäÁÙÊ±ÎÄ¼þÔÙ for /f »Ø¶Á"(Óë lib\common.bat find_ffmpeg Í¬¿î):
+rem ¾ø²»ÔÚ for /f ·´ÒýºÅÀïÖ±½ÓÅÜ´ø¿Õ¸ñÂ·¾¶µÄ ffmpeg.exe
 set "FFVER="
 if defined TEMP "%FF%" -hide_banner -version > "%TEMP%\ffmpeg_bat_chars_ver.tmp" 2>nul
 if defined TEMP if exist "%TEMP%\ffmpeg_bat_chars_ver.tmp" for /f "usebackq tokens=3" %%v in ("%TEMP%\ffmpeg_bat_chars_ver.tmp") do if not defined FFVER set "FFVER=%%v"
 if defined TEMP del "%TEMP%\ffmpeg_bat_chars_ver.tmp" 2>nul
-if defined FFVER echo  ç‰ˆæœ¬       : %FFVER%
+if defined FFVER echo  °æ±¾       : %FFVER%
 echo ============================================================
 
 rem ---------------- fixtures ----------------

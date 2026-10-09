@@ -24,118 +24,118 @@ exit /b %errorlevel%
 :main
 
 rem ============================================================
-rem å‘½ä»¤è¡Œå¼€å…³è§£æž: --key value -> åŒåå¤§å†™çŽ¯å¢ƒå˜é‡(è§ lib/common.bat çš„ :parse_switches)
-rem   ä¼˜å…ˆçº§ å‚æ•° > çŽ¯å¢ƒå˜é‡ > defaults.cfg; æ²¡ç»™çš„å›žé€€ env / cfg(è€ set å†™æ³•ä»å…¼å®¹)
-rem   ä½ç½®å‚æ•°(æº / è¾“å‡ºç›®å½• / titleå·)è®°åœ¨ PARSE_1 / PARSE_2 / PARSE_3(é¦–å‚æ•°å¦è®° PARSE_POS)
-rem   ä¸‹é¢å–å®ƒä»¬å–ä»£ %~1 / %~2 / %~3
+rem ÃüÁîÐÐ¿ª¹Ø½âÎö: --key value -> Í¬Ãû´óÐ´»·¾³±äÁ¿(¼û lib/common.bat µÄ :parse_switches)
+rem   ÓÅÏÈ¼¶ ²ÎÊý > »·¾³±äÁ¿ > defaults.cfg; Ã»¸øµÄ»ØÍË env / cfg(ÀÏ set Ð´·¨ÈÔ¼æÈÝ)
+rem   Î»ÖÃ²ÎÊý(Ô´ / Êä³öÄ¿Â¼ / titleºÅ)¼ÇÔÚ PARSE_1 / PARSE_2 / PARSE_3(Ê×²ÎÊýÁí¼Ç PARSE_POS)
+rem   ÏÂÃæÈ¡ËüÃÇÈ¡´ú %~1 / %~2 / %~3
 call "%SELF_DIR%lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
-rem ç»Ÿä¸€ --help / -help / -h: æ‰“å°ç”¨æ³•åŽé€€å‡º, ä¸å¹²æ´»(è§ lib\common.bat çš„ :want_help / :usage)
-rem åˆ»æ„ç”¨ä¸¤æ¡ç‹¬ç«‹çš„ if è€Œä¸æ˜¯ ( ) å—: usage çš„å‚æ•°é‡Œä¸è®¸å‡ºçŽ°åŠè§’å³æ‹¬å·(ä¼šæå‰é—­å—)ã€‚
+rem Í³Ò» --help / -help / -h: ´òÓ¡ÓÃ·¨ºóÍË³ö, ²»¸É»î(¼û lib\common.bat µÄ :want_help / :usage)
+rem ¿ÌÒâÓÃÁ½Ìõ¶ÀÁ¢µÄ if ¶ø²»ÊÇ ( ) ¿é: usage µÄ²ÎÊýÀï²»Ðí³öÏÖ°ë½ÇÓÒÀ¨ºÅ(»áÌáÇ°±Õ¿é)¡£
 call "%SELF_DIR%lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_dvd_hevc.bat  -  DVD/BD è½¬ HEVCï¼ˆå¤š titleï¼Œç‹¬ç«‹æµç¨‹ï¼‰" "ç”¨æ³•: ffmpeg_dvd_hevc.bat DVDæº è¾“å‡ºç›®å½• titleå·    è¾“å‡ºç›®å½•ä¸Ž title å·éƒ½å¯çœ" "ä¸“å±žå¼€å…³:" "  --mode ALL,AUTO,TITLE        å¤„ç†å“ªäº› titleï¼ˆDVD æºé»˜è®¤ ALLï¼ŒBD æºé»˜è®¤ AUTOï¼‰" "  --dvd_title N               åªå¤„ç†ç¬¬ N æ¡ title" "  --venc libx265,hevc_nvenc,hevc_qsv,libsvtav1    HEVC ç¼–ç å™¨ï¼ˆé»˜è®¤ auto ä¾æ¬¡æŽ¢æµ‹ï¼‰"
+if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_dvd_hevc.bat  -  DVD/BD ×ª HEVC£¨¶à title£¬¶ÀÁ¢Á÷³Ì£©" "ÓÃ·¨: ffmpeg_dvd_hevc.bat DVDÔ´ Êä³öÄ¿Â¼ titleºÅ    Êä³öÄ¿Â¼Óë title ºÅ¶¼¿ÉÊ¡" "×¨Êô¿ª¹Ø:" "  --mode ALL,AUTO,TITLE        ´¦ÀíÄÄÐ© title£¨DVD Ô´Ä¬ÈÏ ALL£¬BD Ô´Ä¬ÈÏ AUTO£©" "  --dvd_title N               Ö»´¦ÀíµÚ N Ìõ title" "  --venc libx265,hevc_nvenc,hevc_qsv,libsvtav1    HEVC ±àÂëÆ÷£¨Ä¬ÈÏ auto ÒÀ´ÎÌ½²â£©"
 if defined FB_WANT_HELP exit /b 0
 
 rem =========================================================================
-rem  ffmpeg_dvd_hevc.bat  -  DVD-Video(ISO / VIDEO_TS ç›®å½• / å…‰é©±) -> HEVC
+rem  ffmpeg_dvd_hevc.bat  -  DVD-Video(ISO / VIDEO_TS Ä¿Â¼ / ¹âÇý) -> HEVC
 rem
-rem  ç”¨æ³•:
-rem    ffmpeg_dvd_hevc.bat <æº> [è¾“å‡ºç›®å½•] [titleå·]
-rem      æº       DVD: ISO é•œåƒ / å« VIDEO_TS çš„ç›®å½• / å…‰é©±ç›˜ç¬¦(å¦‚ E:)
-rem               BD : .iso é•œåƒ(è‡ªåŠ¨æŒ‚è½½) / å« BDMV çš„ç›®å½• / å•ä¸ª .m2ts
-rem      è¾“å‡ºç›®å½• é»˜è®¤ <æºæ‰€åœ¨ç›®å½•>\HEVC_OUT
-rem      titleå·  ç»™äº†è¿™ä¸ªå°±åˆ‡åˆ° MODE=TITLE åªå¤„ç†è¿™ä¸€æ¡(BD ä¸‹å¡«åºå·å³å¯)
+rem  ÓÃ·¨:
+rem    ffmpeg_dvd_hevc.bat <Ô´> [Êä³öÄ¿Â¼] [titleºÅ]
+rem      Ô´       DVD: ISO ¾µÏñ / º¬ VIDEO_TS µÄÄ¿Â¼ / ¹âÇýÅÌ·û(Èç E:)
+rem               BD : .iso ¾µÏñ(×Ô¶¯¹ÒÔØ) / º¬ BDMV µÄÄ¿Â¼ / µ¥¸ö .m2ts
+rem      Êä³öÄ¿Â¼ Ä¬ÈÏ <Ô´ËùÔÚÄ¿Â¼>\HEVC_OUT
+rem      titleºÅ  ¸øÁËÕâ¸ö¾ÍÇÐµ½ MODE=TITLE Ö»´¦ÀíÕâÒ»Ìõ(BD ÏÂÌîÐòºÅ¼´¿É)
 rem
-rem  è“å…‰(BD)è¿™ä¸€å—çš„å£å¾„ä¸Žè¾¹ç•Œ(2026-10-03 å®žæµ‹ BD-M28.iso, 19.25GB / 90 åˆ†é’Ÿ):
-rem    * æœ¬æœºä¸‰ä»½ ffmpeg éƒ½æ²¡æœ‰ bluray è§£å¤ç”¨å™¨(gyan full build åªæœ‰ dvdvideo;
-rem      MSYS2 çš„ 8.1 é…ç½®é‡Œå†™ç€ --enable-libbluray ä½† demuxer åˆ—è¡¨é‡Œæ²¡æœ‰), æ‰€ä»¥
-rem      ä¸ç¢° -f bluray: BD æŒ‰ BDMV\STREAM\*.m2ts é€æ¡ç›´è¯»(mpegts), ä¸€æ¡ = ä¸€ä¸ª title
-rem    * .iso å…ˆæŒ‰ DVD è¯•, è¯»ä¸åˆ°å°±è°ƒ PowerShell æŒ‚è½½(UDF å·)å†æ‰¾ BDMV, ç»“æŸæ—¶å¸è½½;
-rem      ä¸­é€” Ctrl-C ä¸­æ–­è¯·æ‰‹åŠ¨: Dismount-DiskImage -ImagePath "<iso>"
-rem    * ç« èŠ‚å†™åœ¨ mpls é‡Œ, ç›´è¯» m2ts æ‹¿ä¸åˆ° â€”â€” BD ä¸‹ SPLIT_CHAPTER ä¼šè¢«å¿½ç•¥
-rem    * BD çš„ MODE é»˜è®¤ä¹Ÿæ˜¯ ALL(ä¸Ž DVD ä¸€è‡´: æ¯ä¸ª title å„å‡ºä¸€ä¸ªæ–‡ä»¶); æƒ³åªæ‹¿æ­£ç‰‡
-rem      æ˜¾å¼ MODE=AUTO(è‡ªåŠ¨æŒ‘æœ€é•¿é‚£æ¡) â€”â€” ç›˜é‡Œé€šå¸¸åå‡ æ¡ m2ts å¤šåŠæ˜¯èœå•/ç‰¹å…¸ç¢Žç‰‡
-rem    * éŸ³é¢‘: pcm_bluray(LPCM) è£…ä¸è¿› Matroska(å®žæµ‹å†™å¤´å³å¤±è´¥ rc=-22), ä¸Ž pcm_dvd
-rem      åŒä¸€å£å¾„è‡ªåŠ¨è½¬ AAC 192k
-rem    * å­—å¹•: PGS(hdmv_pgs_subtitle) åªèƒ½è¿› MKV; EXT=mp4 æ—¶æ•´æ¡ä¸¢å¼ƒ â€”â€” å®žæµ‹
-rem      -c:s dvdsub åœ¨ PGS ä¸Šå†™ trailer å°±å¤±è´¥
-rem    * éš”è¡Œ: BD çš„ FILT é»˜è®¤ NONE(åŽŸæ ·ç¼–ç ), ä¸Ž DVD çš„é»˜è®¤ AUTO ä¸åŒ â€”â€” 1080i
-rem      çœŸéš”è¡Œç¡¬å¥— IVTC ä¼šæŽ‰å¸§ã€‚è¦åŽ»äº¤é”™æ˜¾å¼ FILT=BWDIF
+rem  À¶¹â(BD)ÕâÒ»¿éµÄ¿Ú¾¶Óë±ß½ç(2026-10-03 Êµ²â BD-M28.iso, 19.25GB / 90 ·ÖÖÓ):
+rem    * ±¾»úÈý·Ý ffmpeg ¶¼Ã»ÓÐ bluray ½â¸´ÓÃÆ÷(gyan full build Ö»ÓÐ dvdvideo;
+rem      MSYS2 µÄ 8.1 ÅäÖÃÀïÐ´×Å --enable-libbluray µ« demuxer ÁÐ±íÀïÃ»ÓÐ), ËùÒÔ
+rem      ²»Åö -f bluray: BD °´ BDMV\STREAM\*.m2ts ÖðÌõÖ±¶Á(mpegts), Ò»Ìõ = Ò»¸ö title
+rem    * .iso ÏÈ°´ DVD ÊÔ, ¶Á²»µ½¾Íµ÷ PowerShell ¹ÒÔØ(UDF ¾í)ÔÙÕÒ BDMV, ½áÊøÊ±Ð¶ÔØ;
+rem      ÖÐÍ¾ Ctrl-C ÖÐ¶ÏÇëÊÖ¶¯: Dismount-DiskImage -ImagePath "<iso>"
+rem    * ÕÂ½ÚÐ´ÔÚ mpls Àï, Ö±¶Á m2ts ÄÃ²»µ½ ¡ª¡ª BD ÏÂ SPLIT_CHAPTER »á±»ºöÂÔ
+rem    * BD µÄ MODE Ä¬ÈÏÒ²ÊÇ ALL(Óë DVD Ò»ÖÂ: Ã¿¸ö title ¸÷³öÒ»¸öÎÄ¼þ); ÏëÖ»ÄÃÕýÆ¬
+rem      ÏÔÊ½ MODE=AUTO(×Ô¶¯Ìô×î³¤ÄÇÌõ) ¡ª¡ª ÅÌÀïÍ¨³£Ê®¼¸Ìõ m2ts ¶à°ëÊÇ²Ëµ¥/ÌØµäËéÆ¬
+rem    * ÒôÆµ: pcm_bluray(LPCM) ×°²»½ø Matroska(Êµ²âÐ´Í·¼´Ê§°Ü rc=-22), Óë pcm_dvd
+rem      Í¬Ò»¿Ú¾¶×Ô¶¯×ª AAC 192k
+rem    * ×ÖÄ»: PGS(hdmv_pgs_subtitle) Ö»ÄÜ½ø MKV; EXT=mp4 Ê±ÕûÌõ¶ªÆú ¡ª¡ª Êµ²â
+rem      -c:s dvdsub ÔÚ PGS ÉÏÐ´ trailer ¾ÍÊ§°Ü
+rem    * ¸ôÐÐ: BD µÄ FILT Ä¬ÈÏ NONE(Ô­Ñù±àÂë), Óë DVD µÄÄ¬ÈÏ AUTO ²»Í¬ ¡ª¡ª 1080i
+rem      Õæ¸ôÐÐÓ²Ì× IVTC »áµôÖ¡¡£ÒªÈ¥½»´íÏÔÊ½ FILT=BWDIF
 rem
-rem  ä¸ºä»€ä¹ˆä¸èƒ½ç›´æŽ¥æ‹¿ ffmpeg_hevc_nvenc.bat ç”¨:
-rem    1) å®ƒç”¨ -i ç›´æŽ¥å–‚æ–‡ä»¶, ffmpeg ä¸è®¤ UDF é•œåƒ/IFOã€‚è£¸ -i å–‚ ISO **ä¸ä¼šæŠ¥é”™**,
-rem       è€Œæ˜¯æŠŠé•œåƒå½“ MPEG-PS ç³Šä¹±è§£å¼€, å®žæµ‹å¾—åˆ° ~130s / 110504 å¸§çš„åºŸå“
-rem       (æ­£ç‰‡å…¶å®žæ˜¯ 55 åˆ†é’Ÿ)ã€‚å¿…é¡»èµ° -f dvdvideo
-rem    2) å®ƒçš„ -c:s mov_text é‡åˆ° DVD ä½å›¾å­—å¹•ä¼šç›´æŽ¥æŠ¥
+rem  ÎªÊ²Ã´²»ÄÜÖ±½ÓÄÃ ffmpeg_hevc_nvenc.bat ÓÃ:
+rem    1) ËüÓÃ -i Ö±½ÓÎ¹ÎÄ¼þ, ffmpeg ²»ÈÏ UDF ¾µÏñ/IFO¡£Âã -i Î¹ ISO **²»»á±¨´í**,
+rem       ¶øÊÇ°Ñ¾µÏñµ± MPEG-PS ºýÂÒ½â¿ª, Êµ²âµÃµ½ ~130s / 110504 Ö¡µÄ·ÏÆ·
+rem       (ÕýÆ¬ÆäÊµÊÇ 55 ·ÖÖÓ)¡£±ØÐë×ß -f dvdvideo
+rem    2) ËüµÄ -c:s mov_text Óöµ½ DVD Î»Í¼×ÖÄ»»áÖ±½Ó±¨
 rem       "Subtitle encoding currently only possible from text to text or bitmap
-rem        to bitmap" ç„¶åŽå¤±è´¥
-rem    3) å°±ç®—æŠŠ mov_text æ¢æˆ copy, mov(mp4) å°è£…ä¹Ÿä¼šé™é»˜ä¸¢æŽ‰ç¬¬ 2 æ¡å­—å¹•è½¨
-rem       (å®žæµ‹: 300s ç‰‡æ®µ -> mkv ä¿ç•™ 2 æ¡, mp4 åªå‰© 1 æ¡)
-rem    4) å®ƒä¸åš IVTC: DVD é‡Œå¤§é‡å†…å®¹æ˜¯ 3:2 pulldown çš„ 23.976p, æŒ‰ 29.97 ç¼–ç 
-rem       ç™½æ‰” 20% ç çŽ‡è¿˜ç•™æ¢³çŠ¶æ³¢çº¹
+rem        to bitmap" È»ºóÊ§°Ü
+rem    3) ¾ÍËã°Ñ mov_text »»³É copy, mov(mp4) ·â×°Ò²»á¾²Ä¬¶ªµôµÚ 2 Ìõ×ÖÄ»¹ì
+rem       (Êµ²â: 300s Æ¬¶Î -> mkv ±£Áô 2 Ìõ, mp4 Ö»Ê£ 1 Ìõ)
+rem    4) Ëü²»×ö IVTC: DVD Àï´óÁ¿ÄÚÈÝÊÇ 3:2 pulldown µÄ 23.976p, °´ 29.97 ±àÂë
+rem       °×ÈÓ 20% ÂëÂÊ»¹ÁôÊá×´²¨ÎÆ
 rem
-rem  æœ¬è„šæœ¬ç›¸å¯¹çŽ°æœ‰è„šæœ¬æ–°å¢žçš„ä¸‰ä»¶äº‹:
-rem    A. -f dvdvideo ç›´æŽ¥è¯»æ•´å¼ é•œåƒ / VIDEO_TS ç›®å½• / å…‰é©±, ä¸ç”¨å…ˆè§£ VOB
-rem    B. é»˜è®¤æŒ‰æºåˆ¶å¼é€‰æ»¤é•œ(FILT=AUTO): NTSC 29.97i -> IVTC åˆ° 23.976p,
-rem      PAL 25i -> BWDIF åŽ»äº¤é”™ä¿ç•™ 25p(PAL ç¡¬å¥— IVTC ä¼šæŽ‰åˆ° 20fps, å®žæµ‹è¸©è¿‡);
-rem      è¦æ‰‹åŠ¨æŒ‡å®šå°± FILT=IVTC / BWDIF / NONE
-rem    C. é»˜è®¤ MKV + AC3 remux + ä½å›¾å­—å¹•æ— æŸä¿ç•™å…¨éƒ¨è½¨
+rem  ±¾½Å±¾Ïà¶ÔÏÖÓÐ½Å±¾ÐÂÔöµÄÈý¼þÊÂ:
+rem    A. -f dvdvideo Ö±½Ó¶ÁÕûÕÅ¾µÏñ / VIDEO_TS Ä¿Â¼ / ¹âÇý, ²»ÓÃÏÈ½â VOB
+rem    B. Ä¬ÈÏ°´Ô´ÖÆÊ½Ñ¡ÂË¾µ(FILT=AUTO): NTSC 29.97i -> IVTC µ½ 23.976p,
+rem      PAL 25i -> BWDIF È¥½»´í±£Áô 25p(PAL Ó²Ì× IVTC »áµôµ½ 20fps, Êµ²â²È¹ý);
+rem      ÒªÊÖ¶¯Ö¸¶¨¾Í FILT=IVTC / BWDIF / NONE
+rem    C. Ä¬ÈÏ MKV + AC3 remux + Î»Í¼×ÖÄ»ÎÞËð±£ÁôÈ«²¿¹ì
 rem
-rem  é€šç”¨åŒ–è®¾è®¡(åˆ»æ„ä¸æ”¹çš„ä¸¤ä»¶äº‹):
-rem    * ä¸åŠ¨ SAR, ä¸è£è¾¹ã€‚DVD çš„å®½é«˜æ¯”è¦åŒæ—¶çœ‹ IFO ä¸Ž MPEG-2 åºåˆ—å¤´, åŒä¸€å¼ ç›˜
-rem      ä¸¤è€…éƒ½å¯èƒ½ä¸ä¸€è‡´, æ²¡æœ‰æ”¾ä¹‹å››æµ·çš†å‡†çš„å†™æ³• â€”â€” äº¤ç»™ ffmpeg ä»Žå®¹å™¨é‡Œå¸¦æ¥
-rem      çš„åŽŸå§‹ SAR é€ä¼ æœ€ç¨³ã€‚ç¡®å®žè¦ä¿®å°±å¡« VFILT_EXTRA(è¿½åŠ åˆ°æ»¤é•œé“¾æœ«å°¾):
+rem  Í¨ÓÃ»¯Éè¼Æ(¿ÌÒâ²»¸ÄµÄÁ½¼þÊÂ):
+rem    * ²»¶¯ SAR, ²»²Ã±ß¡£DVD µÄ¿í¸ß±ÈÒªÍ¬Ê±¿´ IFO Óë MPEG-2 ÐòÁÐÍ·, Í¬Ò»ÕÅÅÌ
+rem      Á½Õß¶¼¿ÉÄÜ²»Ò»ÖÂ, Ã»ÓÐ·ÅÖ®ËÄº£½Ô×¼µÄÐ´·¨ ¡ª¡ª ½»¸ø ffmpeg ´ÓÈÝÆ÷Àï´øÀ´
+rem      µÄÔ­Ê¼ SAR Í¸´«×îÎÈ¡£È·ÊµÒªÐÞ¾ÍÌî VFILT_EXTRA(×·¼Óµ½ÂË¾µÁ´Ä©Î²):
 rem         set VFILT_EXTRA=setsar=32:27
 rem         set VFILT_EXTRA=crop=704:480:8:0,setsar=40:33
-rem    * ä¸çŒœæµ‹è¯¥åˆ‡å“ªä¸€ç« ã€‚å‰ç·¨/å¾Œç·¨çš„åˆ†ç•Œç« å·æ¯å¼ ç›˜éƒ½ä¸ä¸€æ ·, ç”±è°ƒç”¨æ–¹å¡«
-rem      SPLIT_CHAPTER; é»˜è®¤ 0 = ä¸åˆ‡ã€‚
+rem    * ²»²Â²â¸ÃÇÐÄÄÒ»ÕÂ¡£Ç°¾Ž/áá¾ŽµÄ·Ö½çÕÂºÅÃ¿ÕÅÅÌ¶¼²»Ò»Ñù, ÓÉµ÷ÓÃ·½Ìî
+rem      SPLIT_CHAPTER; Ä¬ÈÏ 0 = ²»ÇÐ¡£
 rem
-rem  ç¼–ç å™¨(å¼€å…³ VENC, ä¸Ž .sh ä¾§åŒååŒä¹‰):
-rem    ç©º / auto = ä¾æ¬¡çœŸè·‘æŽ¢æµ‹ hevc_nvenc -> hevc_qsv -> libx265, å–ç¬¬ä¸€ä¸ªèƒ½ç¼–çš„
-rem    æ˜¾å¼     = ffmpeg åŽŸç”Ÿå(hevc_nvenc / hevc_qsv / h264_nvenc / h264_qsv /
-rem               av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1), æŽ¢æµ‹é€šä¸è¿‡
-rem               å°±æŠ¥é”™é€€å‡ºå¹¶åˆ—å‡ºæœ¬æœºå¯ç”¨çš„, ä¸é™é»˜é™çº§ã€‚åå­—ç”¨åŽŸç”Ÿå, ä¸å¦èµ·åˆ«å
-rem               è¿žå­—ç¬¦å†™æ³•(hevc-nvenc)ä¹Ÿè®¤; avc_nvenc / avc_qsv ç¿»æˆ h264_*ã€‚
+rem  ±àÂëÆ÷(¿ª¹Ø VENC, Óë .sh ²àÍ¬ÃûÍ¬Òå):
+rem    ¿Õ / auto = ÒÀ´ÎÕæÅÜÌ½²â hevc_nvenc -> hevc_qsv -> libx265, È¡µÚÒ»¸öÄÜ±àµÄ
+rem    ÏÔÊ½     = ffmpeg Ô­ÉúÃû(hevc_nvenc / hevc_qsv / h264_nvenc / h264_qsv /
+rem               av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1), Ì½²âÍ¨²»¹ý
+rem               ¾Í±¨´íÍË³ö²¢ÁÐ³ö±¾»ú¿ÉÓÃµÄ, ²»¾²Ä¬½µ¼¶¡£Ãû×ÖÓÃÔ­ÉúÃû, ²»ÁíÆð±ðÃû
+rem               Á¬×Ö·ûÐ´·¨(hevc-nvenc)Ò²ÈÏ; avc_nvenc / avc_qsv ·­³É h264_*¡£
 rem
-rem  ç çŽ‡ä»å¤ç”¨ä»“åº“çŽ°æœ‰çš„ power-law æ¨¡åž‹(ä¸‰å¼ è¡¨éƒ½ /2, ç”¨å“ªå¼ ç”±ç¼–ç å™¨å®š):
-rem    bitrate_table_hevc.csv / _avc.csv / _av1.csv + lib\common.bat çš„ lookup_bitrate
-rem    ä¾‹: 720x480 = 345600 px -> è¡¨å€¼ 1272042 -> å† /2 = 636021 bit/s
-rem  æ³¨æ„: VBITRATE å•ä½æ˜¯ bit/s(è£¸æ•°å­—), ä¸Ž ffmpeg_hevc_nvenc.bat åŒå£å¾„;
-rem        åˆ«å†™æˆ 636k, é‚£ä¼šè¢«å½“æˆ 636 Mbps æŠŠ NVENC é¡¶å›žåŽ»ã€‚
+rem  ÂëÂÊÈÔ¸´ÓÃ²Ö¿âÏÖÓÐµÄ power-law Ä£ÐÍ(ÈýÕÅ±í¶¼ /2, ÓÃÄÄÕÅÓÉ±àÂëÆ÷¶¨):
+rem    bitrate_table_hevc.csv / _avc.csv / _av1.csv + lib\common.bat µÄ lookup_bitrate
+rem    Àý: 720x480 = 345600 px -> ±íÖµ 1272042 -> ÔÙ /2 = 636021 bit/s
+rem  ×¢Òâ: VBITRATE µ¥Î»ÊÇ bit/s(ÂãÊý×Ö), Óë ffmpeg_hevc_nvenc.bat Í¬¿Ú¾¶;
+rem        ±ðÐ´³É 636k, ÄÇ»á±»µ±³É 636 Mbps °Ñ NVENC ¶¥»ØÈ¥¡£
 rem
-rem  è·¯å¾„/å‘½ä»¤è¡Œæ‹¼æŽ¥è§„åˆ™ã€Œæ²¿ç”¨ç¬¬å…­è½®å®žæµ‹ç»“è®º, å‹¿æ”¹å›ž set åŒ…è£…å†™æ³•ã€:
-rem    RUN_COM é‡Œå­˜çš„æ˜¯æ•´æ¡å·²æ‹¼å¥½çš„å‘½ä»¤è¡Œ(å«è‡ªå¸¦å¼•å·çš„è·¯å¾„), å€¼é‡Œæœ‰å­—é¢é‡
-rem    åŒå¼•å·, å› æ­¤å¿…é¡»ç”¨éžåŒ…è£…çš„ set RUN_COM=... å½¢å¼ã€‚
+rem  Â·¾¶/ÃüÁîÐÐÆ´½Ó¹æÔò¡¸ÑØÓÃµÚÁùÂÖÊµ²â½áÂÛ, Îð¸Ä»Ø set °ü×°Ð´·¨¡¹:
+rem    RUN_COM Àï´æµÄÊÇÕûÌõÒÑÆ´ºÃµÄÃüÁîÐÐ(º¬×Ô´øÒýºÅµÄÂ·¾¶), ÖµÀïÓÐ×ÖÃæÁ¿
+rem    Ë«ÒýºÅ, Òò´Ë±ØÐëÓÃ·Ç°ü×°µÄ set RUN_COM=... ÐÎÊ½¡£
 rem
-rem  æ³¨æ„: æœ¬æ–‡ä»¶åŠ¡å¿…ä¿æŒ UTF-8 ç¼–ç  + CRLF è¡Œå°¾
+rem  ×¢Òâ: ±¾ÎÄ¼þÎñ±Ø±£³Ö UTF-8 ±àÂë + CRLF ÐÐÎ²
 rem =========================================================================
 
-rem ============================ é…ç½®åŒº ============================
-rem æº: å‘½ä»¤è¡Œç¬¬ 1 å‚ï¼›æ²¡ç»™å°±äº¤äº’é—®ä¸€æ¬¡
+rem ============================ ÅäÖÃÇø ============================
+rem Ô´: ÃüÁîÐÐµÚ 1 ²Î£»Ã»¸ø¾Í½»»¥ÎÊÒ»´Î
 set "SRC=%PARSE_1%"
-if not defined SRC set /p "SRC=è¯·è¾“å…¥ DVD æº(ISO / VIDEO_TS ç›®å½• / å…‰é©±ç›˜ç¬¦): "
+if not defined SRC set /p "SRC=ÇëÊäÈë DVD Ô´(ISO / VIDEO_TS Ä¿Â¼ / ¹âÇýÅÌ·û): "
 if not defined SRC (
-    echo [é”™è¯¯] æ²¡ç»™æº
+    echo [´íÎó] Ã»¸øÔ´
     exit /b 1
 )
 
-rem è¾“å‡ºç›®å½•: å‘½ä»¤è¡Œç¬¬ 2 å‚ï¼›æ²¡ç»™å°±ç”¨æºæ‰€åœ¨ç›®å½•ä¸‹çš„ HEVC_OUT
+rem Êä³öÄ¿Â¼: ÃüÁîÐÐµÚ 2 ²Î£»Ã»¸ø¾ÍÓÃÔ´ËùÔÚÄ¿Â¼ÏÂµÄ HEVC_OUT
 set "OUTDIR=%PARSE_2%"
 if not defined OUTDIR for %%A in ("%PARSE_1%") do set "OUTDIR=%%~dpAHEVC_OUT"
 
-rem è¾“å‡ºåå‰ç¼€: é»˜è®¤å–æºæ–‡ä»¶å(åŽ»æ‰©å±•å)
-rem ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾(ä¸Ž .sh ä¾§ ${PREFIX:-...} åŠ EXT/MODE/VENC çš„å®ˆå«åŒå£å¾„)
+rem Êä³öÃûÇ°×º: Ä¬ÈÏÈ¡Ô´ÎÄ¼þÃû(È¥À©Õ¹Ãû)
+rem ²»¸²¸Çµ÷ÓÃ·½Ô¤Éè(Óë .sh ²à ${PREFIX:-...} ¼° EXT/MODE/VENC µÄÊØÎÀÍ¬¿Ú¾¶)
 if not defined PREFIX for %%A in ("%PARSE_1%") do set "PREFIX=%%~nA"
 if not defined PREFIX set "PREFIX=dvd"
 
-rem EXT=mkv  æŽ¨è: èƒ½åŒæ—¶è£… HEVC + å¤šæ¡åŽŸç”Ÿ AC3 + å¤šæ¡ DVD ä½å›¾å­—å¹•
-rem EXT=mp4  åªèƒ½ HEVC + AAC + 1 æ¡å­—å¹•ï¼Œä¸” AC3 å¿…é¡»é‡ç¼–ç 
-rem åŒä¸Š: ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾çš„å€¼(ä¸Ž .sh ä¾§åŒå£å¾„)ã€‚é»˜è®¤å€¼æ¥è‡ª lib\defaults.cfg çš„
-rem   DVD_EXT(DVD é“¾è·¯å•åˆ—ä¸€ä¸ªé”®, ç†ç”±è§é‚£ä¸ªæ–‡ä»¶é‡Œçš„æ³¨é‡Š): å…¬å…± EXT çš„é»˜è®¤æ˜¯ mp4,
-rem   è€Œ mp4 è£…ä¸ä¸‹ç¬¬ 2 æ¡ DVD ä½å›¾å­—å¹•, è®©å…¬å…±é»˜è®¤å€¼ç›–è¿‡æ¥ç­‰äºŽæ‚„æ‚„é™çº§äº§ç‰©ã€‚
-rem   ä¼˜å…ˆçº§: å‘½ä»¤è¡Œæ˜¾å¼ç»™çš„ EXT > DVD_EXT > å…¬å…± EXT > mkvã€‚åˆ¤å®š"æ˜¯ä¸æ˜¯æ˜¾å¼ç»™çš„"
-rem   å¿…é¡»åœ¨ load_defaults ä¹‹å‰åš â€”â€” å®ƒåªè¡¥æ²¡è®¾è¿‡çš„é”®, è·‘å®Œå°±åˆ†ä¸æ¸…æ˜¯è°è®¾çš„ã€‚
+rem EXT=mkv  ÍÆ¼ö: ÄÜÍ¬Ê±×° HEVC + ¶àÌõÔ­Éú AC3 + ¶àÌõ DVD Î»Í¼×ÖÄ»
+rem EXT=mp4  Ö»ÄÜ HEVC + AAC + 1 Ìõ×ÖÄ»£¬ÇÒ AC3 ±ØÐëÖØ±àÂë
+rem Í¬ÉÏ: ²»¸²¸Çµ÷ÓÃ·½Ô¤ÉèµÄÖµ(Óë .sh ²àÍ¬¿Ú¾¶)¡£Ä¬ÈÏÖµÀ´×Ô lib\defaults.cfg µÄ
+rem   DVD_EXT(DVD Á´Â·µ¥ÁÐÒ»¸ö¼ü, ÀíÓÉ¼ûÄÇ¸öÎÄ¼þÀïµÄ×¢ÊÍ): ¹«¹² EXT µÄÄ¬ÈÏÊÇ mp4,
+rem   ¶ø mp4 ×°²»ÏÂµÚ 2 Ìõ DVD Î»Í¼×ÖÄ», ÈÃ¹«¹²Ä¬ÈÏÖµ¸Ç¹ýÀ´µÈÓÚÇÄÇÄ½µ¼¶²úÎï¡£
+rem   ÓÅÏÈ¼¶: ÃüÁîÐÐÏÔÊ½¸øµÄ EXT > DVD_EXT > ¹«¹² EXT > mkv¡£ÅÐ¶¨"ÊÇ²»ÊÇÏÔÊ½¸øµÄ"
+rem   ±ØÐëÔÚ load_defaults Ö®Ç°×ö ¡ª¡ª ËüÖ»²¹Ã»Éè¹ýµÄ¼ü, ÅÜÍê¾Í·Ö²»ÇåÊÇË­ÉèµÄ¡£
 if defined EXT (set "EXT_GIVEN=1") else (set "EXT_GIVEN=")
 call "%SELF_DIR%lib\common.bat" load_defaults
 if defined EXT_GIVEN goto HAVE_EXT
@@ -144,119 +144,119 @@ if not defined DVD_EXT set "DVD_EXT=mkv"
 set "EXT=%DVD_EXT%"
 :HAVE_EXT
 
-rem AUTO(é»˜è®¤) æŒ‰æºåˆ¶å¼é€‰: NTSC 29.97i -> IVTC è¿˜åŽŸ 23.976p; PAL 25i -> BWDIF åŽ»äº¤é”™
-rem           ä¿ç•™ 25p; æºå·²æ˜¯ 23.976p -> ä¸åŠ æ»¤é•œã€‚è¯»ä¸åˆ°å¸§çŽ‡å°±æŒ‰é«˜åº¦çŒœ(576/288=PAL,
-rem           480/240=NTSC)ã€‚PAL ç›˜æ²¡æœ‰ 3:2 pulldown, ç¡¬å¥— IVTC ä¼šæŽ‰åˆ° 20fps(å®žæµ‹: æœ¬æœº
-rem           ä¸¤å¼  720x576 PAL ç›˜è·‘ IVTC å‡ºæ¥ r_frame_rate=20/1, ç™½æ‰” 20% å¸§)
-rem IVTC    3:2 pulldown -> 23.976pï¼ŒNTSC åŠ¨ç”»/ç”µå½± DVD å¤šæ•°æ˜¯è¿™ç§
-rem BWDIF   åŽ»äº¤é”™ä½†ä¿ç•™åŽŸå¸§çŽ‡(PAL 25i -> 25p)ã€‚æ³¨æ„ bwdif=mode=1 æ˜¯ send_field,
-rem         å¸§çŽ‡ç›´æŽ¥ç¿»å€(å®žæµ‹ 25i -> 50p), å¸§æ•°ç¿»å€ä¼šæŠŠç çŽ‡æ‘Šè–„, æ•…è¿™é‡Œç”¨ mode=0
-rem NONE    åŽŸæ ·ç¼–ç ï¼Œä¸åšåŽ»äº¤é”™
-rem BD çš„é»˜è®¤æ»¤é•œä¸Ž DVD ä¸åŒ(è§æ–‡ä»¶å¤´"è“å…‰(BD)è¿™ä¸€å—çš„å£å¾„ä¸Žè¾¹ç•Œ"), æ‰€ä»¥è¦å…ˆè®°ä¸‹
-rem FILT æ˜¯ä¸æ˜¯è°ƒç”¨æ–¹æ˜¾å¼ç»™çš„ â€”â€” ä¸Žä¸Šé¢ EXT é‚£å¥— EXT_GIVEN åŒå£å¾„
+rem AUTO(Ä¬ÈÏ) °´Ô´ÖÆÊ½Ñ¡: NTSC 29.97i -> IVTC »¹Ô­ 23.976p; PAL 25i -> BWDIF È¥½»´í
+rem           ±£Áô 25p; Ô´ÒÑÊÇ 23.976p -> ²»¼ÓÂË¾µ¡£¶Á²»µ½Ö¡ÂÊ¾Í°´¸ß¶È²Â(576/288=PAL,
+rem           480/240=NTSC)¡£PAL ÅÌÃ»ÓÐ 3:2 pulldown, Ó²Ì× IVTC »áµôµ½ 20fps(Êµ²â: ±¾»ú
+rem           Á½ÕÅ 720x576 PAL ÅÌÅÜ IVTC ³öÀ´ r_frame_rate=20/1, °×ÈÓ 20% Ö¡)
+rem IVTC    3:2 pulldown -> 23.976p£¬NTSC ¶¯»­/µçÓ° DVD ¶àÊýÊÇÕâÖÖ
+rem BWDIF   È¥½»´íµ«±£ÁôÔ­Ö¡ÂÊ(PAL 25i -> 25p)¡£×¢Òâ bwdif=mode=1 ÊÇ send_field,
+rem         Ö¡ÂÊÖ±½Ó·­±¶(Êµ²â 25i -> 50p), Ö¡Êý·­±¶»á°ÑÂëÂÊÌ¯±¡, ¹ÊÕâÀïÓÃ mode=0
+rem NONE    Ô­Ñù±àÂë£¬²»×öÈ¥½»´í
+rem BD µÄÄ¬ÈÏÂË¾µÓë DVD ²»Í¬(¼ûÎÄ¼þÍ·"À¶¹â(BD)ÕâÒ»¿éµÄ¿Ú¾¶Óë±ß½ç"), ËùÒÔÒªÏÈ¼ÇÏÂ
+rem FILT ÊÇ²»ÊÇµ÷ÓÃ·½ÏÔÊ½¸øµÄ ¡ª¡ª ÓëÉÏÃæ EXT ÄÇÌ× EXT_GIVEN Í¬¿Ú¾¶
 if defined FILT (set "FILT_GIVEN=1") else (set "FILT_GIVEN=")
 if not defined FILT set FILT=AUTO
 
-rem è¿½åŠ åˆ°æ»¤é•œé“¾æœ«å°¾çš„å¯é€‰å¤„ç†ï¼ˆé€šç”¨åŒ–ï¼šé»˜è®¤ç©ºï¼Œä¸æ”¹ SAR ä¹Ÿä¸è£è¾¹ï¼‰
-rem   ä¾‹: setsar=32:27            16:9 å˜å½¢å®½é“¶å¹•
+rem ×·¼Óµ½ÂË¾µÁ´Ä©Î²µÄ¿ÉÑ¡´¦Àí£¨Í¨ÓÃ»¯£ºÄ¬ÈÏ¿Õ£¬²»¸Ä SAR Ò²²»²Ã±ß£©
+rem   Àý: setsar=32:27            16:9 ±äÐÎ¿íÒøÄ»
 rem       setsar=8:9              4:3
-rem       crop=704:480:8:0,setsar=40:33   è£æŽ‰å·¦å³è¿‡æ‰«è¾¹åŽå†ä¿® SAR
-rem ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾(ä¸Ž .sh ä¾§ ${VFILT_EXTRA:-} åŒä¹‰)
+rem       crop=704:480:8:0,setsar=40:33   ²Ãµô×óÓÒ¹ýÉ¨±ßºóÔÙÐÞ SAR
+rem ²»¸²¸Çµ÷ÓÃ·½Ô¤Éè(Óë .sh ²à ${VFILT_EXTRA:-} Í¬Òå)
 if not defined VFILT_EXTRA set VFILT_EXTRA=
 
-rem AUDIO=copy  MKV ä¸‹ä¿ç•™åŽŸå§‹ AC3 / DTS / MP2ï¼Œé›¶é‡æŸå¤±ï¼Œæœ€å¿«ã€‚
-rem             å”¯ä¸€ä¾‹å¤–: æºéŸ³è½¨æ˜¯ LPCM(pcm_dvd) æ—¶ Matroska è£…ä¸ä¸‹(å®žæµ‹æŠ¥
-rem             "No wav codec tag found for codec pcm_dvd")ï¼Œä¼šè‡ªåŠ¨è½¬æˆ AAC
-rem             æŒ‰**æ¯æ¡ title å„è‡ª**æŽ¢æµ‹: ä¸€å¼ ç›˜çš„ title 1 ä¸Ž title 2 éŸ³è½¨å¯ä»¥ä¸åŒ
-rem AUDIO=aac   å¼ºåˆ¶é‡ç¼–ç æˆ AAC 192k(MP4 ä¸‹å¼ºåˆ¶ç”¨è¿™ä¸ª)
-rem AUDIO=flac  å¼ºåˆ¶é‡ç¼–ç æˆ FLACï¼Œæ— æŸï¼Œä½“ç§¯çº¦ä¸º LPCM çš„ä¸€åŠ
+rem AUDIO=copy  MKV ÏÂ±£ÁôÔ­Ê¼ AC3 / DTS / MP2£¬ÁãÖØËðÊ§£¬×î¿ì¡£
+rem             Î¨Ò»ÀýÍâ: Ô´Òô¹ìÊÇ LPCM(pcm_dvd) Ê± Matroska ×°²»ÏÂ(Êµ²â±¨
+rem             "No wav codec tag found for codec pcm_dvd")£¬»á×Ô¶¯×ª³É AAC
+rem             °´**Ã¿Ìõ title ¸÷×Ô**Ì½²â: Ò»ÕÅÅÌµÄ title 1 Óë title 2 Òô¹ì¿ÉÒÔ²»Í¬
+rem AUDIO=aac   Ç¿ÖÆÖØ±àÂë³É AAC 192k(MP4 ÏÂÇ¿ÖÆÓÃÕâ¸ö)
+rem AUDIO=flac  Ç¿ÖÆÖØ±àÂë³É FLAC£¬ÎÞËð£¬Ìå»ýÔ¼Îª LPCM µÄÒ»°ë
 if not defined AUDIO set AUDIO=copy
 
-rem MODE=ALL    æ¯ä¸ª title å„å‡ºä¸€ä¸ªæ–‡ä»¶(é»˜è®¤, DVD/BD ä¸€è‡´)
-rem MODE=AUTO   è‡ªåŠ¨æ‰«ææ‰€æœ‰ titleï¼ŒæŒ‘æ—¶é•¿æœ€é•¿çš„é‚£æ¡å½“æ­£ç‰‡(éœ€æ˜¾å¼æŒ‡å®š)
-rem MODE=TITLE  åªå¤„ç† DVD_TITLE æŒ‡å®šçš„ä¸€æ¡
-rem ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾çš„å€¼: setlocal æŒ¡ä¸ä½ç»§æ‰¿æ¥çš„çŽ¯å¢ƒå˜é‡, å†™æˆ set MODE=ALL ä¼šæŠŠ
-rem "set MODE=AUTO && ffmpeg_dvd_hevc.bat ..." é‡Œçš„ AUTO æ‚„æ‚„å†²æŽ‰
+rem MODE=ALL    Ã¿¸ö title ¸÷³öÒ»¸öÎÄ¼þ(Ä¬ÈÏ, DVD/BD Ò»ÖÂ)
+rem MODE=AUTO   ×Ô¶¯É¨ÃèËùÓÐ title£¬ÌôÊ±³¤×î³¤µÄÄÇÌõµ±ÕýÆ¬(ÐèÏÔÊ½Ö¸¶¨)
+rem MODE=TITLE  Ö»´¦Àí DVD_TITLE Ö¸¶¨µÄÒ»Ìõ
+rem ²»¸²¸Çµ÷ÓÃ·½Ô¤ÉèµÄÖµ: setlocal µ²²»×¡¼Ì³ÐÀ´µÄ»·¾³±äÁ¿, Ð´³É set MODE=ALL »á°Ñ
+rem "set MODE=AUTO && ffmpeg_dvd_hevc.bat ..." ÀïµÄ AUTO ÇÄÇÄ³åµô
 if not defined MODE set MODE=ALL
 set "DVD_TITLE=%PARSE_3%"
 if defined DVD_TITLE set MODE=TITLE
 
-rem SPLIT_CHAPTER=N  æŒ‰ç¬¬ N ç« æŠŠæ­£ç‰‡åˆ‡æˆä¸¤æ®µ(ä¾‹å¦‚å‰ç·¨/å¾Œç·¨)ï¼Œ0 = ä¸åˆ‡
-rem   ç¬¬ 1 æ®µ = ç¬¬ 1 ç« åˆ°ç¬¬ N-1 ç« ï¼Œç¬¬ 2 æ®µ = ç¬¬ N ç« åˆ°ç»“å°¾
-rem   æŸ¥ç« èŠ‚ç‚¹: ffprobe -f dvdvideo -preindex 1 -title 3 -show_chapters <æº>
-rem ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾(ä¸Ž .sh ä¾§ ${SPLIT_CHAPTER:-0} åŒä¹‰)
+rem SPLIT_CHAPTER=N  °´µÚ N ÕÂ°ÑÕýÆ¬ÇÐ³ÉÁ½¶Î(ÀýÈçÇ°¾Ž/áá¾Ž)£¬0 = ²»ÇÐ
+rem   µÚ 1 ¶Î = µÚ 1 ÕÂµ½µÚ N-1 ÕÂ£¬µÚ 2 ¶Î = µÚ N ÕÂµ½½áÎ²
+rem   ²éÕÂ½Úµã: ffprobe -f dvdvideo -preindex 1 -title 3 -show_chapters <Ô´>
+rem ²»¸²¸Çµ÷ÓÃ·½Ô¤Éè(Óë .sh ²à ${SPLIT_CHAPTER:-0} Í¬Òå)
 if not defined SPLIT_CHAPTER set SPLIT_CHAPTER=0
 
-rem é¢å¤–è¦å¯¼å‡ºçš„ title å·ï¼Œç©ºæ ¼åˆ†éš”ï¼›ç•™ç©ºåˆ™è·³è¿‡ã€‚ä¾‹: set EXTRA_TITLES=1 4 5
-rem ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾(ä¸Ž .sh ä¾§ ${EXTRA_TITLES:-} åŒä¹‰)
+rem ¶îÍâÒªµ¼³öµÄ title ºÅ£¬¿Õ¸ñ·Ö¸ô£»Áô¿ÕÔòÌø¹ý¡£Àý: set EXTRA_TITLES=1 4 5
+rem ²»¸²¸Çµ÷ÓÃ·½Ô¤Éè(Óë .sh ²à ${EXTRA_TITLES:-} Í¬Òå)
 if not defined EXTRA_TITLES set EXTRA_TITLES=
 
-rem ç©º = æŸ¥è¡¨å† /2ï¼ˆæŽ¨èï¼‰ï¼›å¡«æ•°å­—åˆ™ç›´æŽ¥è¦†ç›–(bit/s)
-rem   ç”¨å“ªå¼ è¡¨ç”±ç¼–ç å™¨å®š: hevc_* -> hevc è¡¨, h264_* / libx264 -> avc è¡¨,
-rem   av1_* / libsvtav1 -> av1 è¡¨(ä¸‰å¼ è¡¨éƒ½ /2, ä¸Žä»“åº“å…¶ä½™å…¥å£åŒå£å¾„)
-rem ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾(ä¸Ž .sh ä¾§ ${VBITRATE:-} åŒä¹‰)
+rem ¿Õ = ²é±íÔÙ /2£¨ÍÆ¼ö£©£»ÌîÊý×ÖÔòÖ±½Ó¸²¸Ç(bit/s)
+rem   ÓÃÄÄÕÅ±íÓÉ±àÂëÆ÷¶¨: hevc_* -> hevc ±í, h264_* / libx264 -> avc ±í,
+rem   av1_* / libsvtav1 -> av1 ±í(ÈýÕÅ±í¶¼ /2, Óë²Ö¿âÆäÓàÈë¿ÚÍ¬¿Ú¾¶)
+rem ²»¸²¸Çµ÷ÓÃ·½Ô¤Éè(Óë .sh ²à ${VBITRATE:-} Í¬Òå)
 if not defined VBITRATE set VBITRATE=
 
-rem VENC ç©º / auto = ä¾æ¬¡æŽ¢æµ‹ hevc_nvenc -> hevc_qsv -> libx265, ç”¨ç¬¬ä¸€ä¸ªçœŸèƒ½ç¼–çš„
-rem VENC æ˜¾å¼     = ç›´æŽ¥å¡« ffmpeg åŽŸç”Ÿå: hevc_nvenc / hevc_qsv / h264_nvenc /
+rem VENC ¿Õ / auto = ÒÀ´ÎÌ½²â hevc_nvenc -> hevc_qsv -> libx265, ÓÃµÚÒ»¸öÕæÄÜ±àµÄ
+rem VENC ÏÔÊ½     = Ö±½ÓÌî ffmpeg Ô­ÉúÃû: hevc_nvenc / hevc_qsv / h264_nvenc /
 rem                 h264_qsv / av1_nvenc / av1_qsv / libx265 / libx264 / libsvtav1
-rem                 (è¿žå­—ç¬¦å†™æ³• hevc-nvenc ä¹Ÿè®¤; avc_nvenc / avc_qsv ä¼šè‡ªåŠ¨ç¿»æˆ
-rem                  h264_nvenc / h264_qsv â€”â€” ffmpeg é‡Œæ²¡æœ‰ avc_* è¿™ä¸ªç¼–ç å™¨å)
-rem æ˜¾å¼æŒ‡å®šçš„é‚£ä¸ªæŽ¢æµ‹é€šä¸è¿‡ -> æŠ¥é”™é€€å‡ºå¹¶åˆ—å‡ºæœ¬æœºå¯ç”¨çš„ï¼Œä¸é™é»˜é™çº§
-rem åŒä¸Š: ä¸è¦†ç›–è°ƒç”¨æ–¹é¢„è®¾çš„ VENC
+rem                 (Á¬×Ö·ûÐ´·¨ hevc-nvenc Ò²ÈÏ; avc_nvenc / avc_qsv »á×Ô¶¯·­³É
+rem                  h264_nvenc / h264_qsv ¡ª¡ª ffmpeg ÀïÃ»ÓÐ avc_* Õâ¸ö±àÂëÆ÷Ãû)
+rem ÏÔÊ½Ö¸¶¨µÄÄÇ¸öÌ½²âÍ¨²»¹ý -> ±¨´íÍË³ö²¢ÁÐ³ö±¾»ú¿ÉÓÃµÄ£¬²»¾²Ä¬½µ¼¶
+rem Í¬ÉÏ: ²»¸²¸Çµ÷ÓÃ·½Ô¤ÉèµÄ VENC
 if not defined VENC set "VENC=auto"
 rem ==================================================================
 
-rem ---------------------------- æ‰¾ ffmpeg ----------------------------
+rem ---------------------------- ÕÒ ffmpeg ----------------------------
 set "FF="
 set "FP="
-rem é˜¶æ®µä¸€: æ˜¾å¼æ–‡ä»¶å¼ FFMPEG / FFPROBE(æœ€é«˜ä¼˜å…ˆ, ä¸Ž .bat å…¶ä½™å…¥å£åŠ .sh åŒå¥‘çº¦)
+rem ½×¶ÎÒ»: ÏÔÊ½ÎÄ¼þÊ½ FFMPEG / FFPROBE(×î¸ßÓÅÏÈ, Óë .bat ÆäÓàÈë¿Ú¼° .sh Í¬ÆõÔ¼)
 if defined FFMPEG if exist "%FFMPEG%" set "FF=%FFMPEG%"
 if defined FFPROBE if exist "%FFPROBE%" set "FP=%FFPROBE%"
-rem é˜¶æ®µäºŒ: å¤ç”¨å…¬å…±å®šä½å™¨(ç›®å½•å¼å›žé€€), å†è¡¥ gyan / PATH å…œåº•
+rem ½×¶Î¶þ: ¸´ÓÃ¹«¹²¶¨Î»Æ÷(Ä¿Â¼Ê½»ØÍË), ÔÙ²¹ gyan / PATH ¶µµ×
 if not defined FF if exist "%SELF_DIR%lib\common.bat" call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if defined FF_BIN set "FF=%FF_BIN%\ffmpeg.exe"
 if not defined FF if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FF=C:\Program Files\ffmpeg\bin\ffmpeg.exe"
 if not defined FF for /f "delims=" %%A in ('where ffmpeg 2^>nul') do if not defined FF set "FF=%%A"
 if not defined FF (
-    echo [é”™è¯¯] æ‰¾ä¸åˆ° ffmpeg.exe: è¯·å®‰è£… ffmpeg æˆ–è®¾ç½®çŽ¯å¢ƒå˜é‡ FFMPEG æŒ‡å‘ ffmpeg å¯æ‰§è¡Œæ–‡ä»¶
+    echo [´íÎó] ÕÒ²»µ½ ffmpeg.exe: Çë°²×° ffmpeg »òÉèÖÃ»·¾³±äÁ¿ FFMPEG Ö¸Ïò ffmpeg ¿ÉÖ´ÐÐÎÄ¼þ
     exit /b 1
 )
 if not defined FP set "FP=%FF:ffmpeg.exe=ffprobe.exe%"
 echo ffmpeg    : %FF%
-echo æº        : "%SRC%"
-rem æŽ¢é’ˆç»“æžœå…ˆè½åˆ° %WORK% ä¸‹çš„ä¸´æ—¶æ–‡ä»¶, å†ç”¨ for /f "usebackq" å›žè¯»ã€‚
-rem **ä¸è¦**æŠŠå›žè¯»å†™æˆ set /p é…è„±å­—ç¬¦å°äºŽå·: è„±å­—ç¬¦ä¼šæŠŠå°äºŽå·è½¬æˆå­—é¢é‡å‚æ•°,
-rem set /p éšå³é€€åŒ–æˆ"ä»Žé”®ç›˜è¯»ä¸€è¡Œ", æ•´ä¸ªè„šæœ¬é™é»˜å¡ä½ç­‰äººæŒ‰é”®
-rem (2026-09-22 ç”¨æˆ·æŠ¥éšœ: æ‰“å°å®Œ"æº"å°±å†æ— è¾“å‡º)ã€‚æœ¬ä»“åº“çœŸæœºéªŒè¯è¿‡çš„è¯»æ³•æ˜¯
-rem for /f "usebackq" è¯»æ–‡ä»¶, è§ lib\common.bat çš„ probe_source / probe_fieldã€‚
+echo Ô´        : "%SRC%"
+rem Ì½Õë½á¹ûÏÈÂäµ½ %WORK% ÏÂµÄÁÙÊ±ÎÄ¼þ, ÔÙÓÃ for /f "usebackq" »Ø¶Á¡£
+rem **²»Òª**°Ñ»Ø¶ÁÐ´³É set /p ÅäÍÑ×Ö·ûÐ¡ÓÚºÅ: ÍÑ×Ö·û»á°ÑÐ¡ÓÚºÅ×ª³É×ÖÃæÁ¿²ÎÊý,
+rem set /p Ëæ¼´ÍË»¯³É"´Ó¼üÅÌ¶ÁÒ»ÐÐ", Õû¸ö½Å±¾¾²Ä¬¿¨×¡µÈÈË°´¼ü
+rem (2026-09-22 ÓÃ»§±¨ÕÏ: ´òÓ¡Íê"Ô´"¾ÍÔÙÎÞÊä³ö)¡£±¾²Ö¿âÕæ»úÑéÖ¤¹ýµÄ¶Á·¨ÊÇ
+rem for /f "usebackq" ¶ÁÎÄ¼þ, ¼û lib\common.bat µÄ probe_source / probe_field¡£
 if not defined WORK set "WORK=%TEMP%"
 if not defined WORK set "WORK=%SELF_DIR%"
 
-rem ---------------------------- è¯†åˆ«æºç±»åž‹(DVD / BD) ----------------------------
-rem dvdvideo è§£å¤ç”¨å™¨ä¾èµ– libdvdread/libdvdnavï¼Œç²¾ç®€æž„å»ºæ²¡æœ‰ â€”â€” ä½†åªæœ‰ DVD æºéœ€è¦å®ƒï¼Œ
-rem BD æ˜¯ mpegts ç›´è¯»ï¼Œæ‰€ä»¥è¿™é¡¹æ£€æŸ¥æŒªè¿› :DETECTï¼Œä¸å†ä¸€ä¸Šæ¥å°±æŠŠæ‰€æœ‰æºéƒ½æ‹¦ä¸‹ã€‚
+rem ---------------------------- Ê¶±ðÔ´ÀàÐÍ(DVD / BD) ----------------------------
+rem dvdvideo ½â¸´ÓÃÆ÷ÒÀÀµ libdvdread/libdvdnav£¬¾«¼ò¹¹½¨Ã»ÓÐ ¡ª¡ª µ«Ö»ÓÐ DVD Ô´ÐèÒªËü£¬
+rem BD ÊÇ mpegts Ö±¶Á£¬ËùÒÔÕâÏî¼ì²éÅ²½ø :DETECT£¬²»ÔÙÒ»ÉÏÀ´¾Í°ÑËùÓÐÔ´¶¼À¹ÏÂ¡£
 call :DETECT
 if not defined SRC_KIND exit /b 1
-echo æºç±»åž‹  : %SRC_KIND_DESC%
-rem BD ä»… FILT é»˜è®¤å€¼ä¸Ž DVD ä¸åŒ(ç†ç”±è§æ–‡ä»¶å¤´):
-rem   FILT=NONE  BD çš„ 1080i å¤šæ˜¯çœŸéš”è¡Œ, DVD é‚£å¥— NTSC29 -> IVTC ä¼šæŽ‰å¸§
-rem   (MODE é»˜è®¤å€¼ DVD/BD å·²ç»Ÿä¸€ä¸º ALL; æƒ³åªæ‹¿æ­£ç‰‡æ˜¾å¼ MODE=AUTO)
+echo Ô´ÀàÐÍ  : %SRC_KIND_DESC%
+rem BD ½ö FILT Ä¬ÈÏÖµÓë DVD ²»Í¬(ÀíÓÉ¼ûÎÄ¼þÍ·):
+rem   FILT=NONE  BD µÄ 1080i ¶àÊÇÕæ¸ôÐÐ, DVD ÄÇÌ× NTSC29 -> IVTC »áµôÖ¡
+rem   (MODE Ä¬ÈÏÖµ DVD/BD ÒÑÍ³Ò»Îª ALL; ÏëÖ»ÄÃÕýÆ¬ÏÔÊ½ MODE=AUTO)
 if "%SRC_KIND%"=="bd" if not defined FILT_GIVEN set "FILT=NONE"
 
 if not exist "%OUTDIR%" md "%OUTDIR%"
 
-rem -------------------------- é€‰å®šè¦å¤„ç†çš„ title --------------------------
+rem -------------------------- Ñ¡¶¨Òª´¦ÀíµÄ title --------------------------
 if "%MODE%"=="TITLE" goto HAVE_TITLE
 if "%MODE%"=="ALL" goto ALL_TIER
 
-rem MODE=AUTO: æ‰«æ‰€æœ‰ titleï¼ŒæŒ‘æ—¶é•¿æœ€é•¿çš„
-rem ä¸èƒ½"è¯»ä¸åˆ°å°±æ”¶å°¾": DVD çš„ title ç¼–å·**ä¸è¿žç»­**(æœ¬ç›˜å®žæµ‹ç¼º title 2ï¼Œ
-rem ä¸€æ”¶å°¾å°±åªçœ‹åˆ° 84s çš„ title 1ï¼Œè€Œ 55 åˆ†é’Ÿæ­£ç‰‡æ˜¯ title 3)ã€‚
-rem æ”¹æˆè¿žç»­ç¼ºå¤± 5 æ¬¡æ‰æ”¶å°¾ã€‚
-echo æ­£åœ¨æ‰«ææ‰€æœ‰ titleï¼ˆé€æ¡å¼€é•œåƒæŽ¢æµ‹ï¼Œè¯·ç¨ç­‰ï¼›è¯»ä¸åˆ°çš„ä¼šè‡ªåŠ¨è·³è¿‡ï¼‰...
-rem BESTD ä»Ž -1 èµ·(ä¸Ž .sh ä¾§å¯¹é½): æ—¶é•¿å…¨è¯»ä¸å‡ºæ¥(N/A -> 0)æ—¶ä¹Ÿè¦èƒ½é€‰ä¸­ç¬¬ä¸€æ¡,
-rem å¦åˆ™ 0 gtr 0 æ’å‡ -> DVD_TITLE ä¸€ç›´æ²¡å®šä¹‰ -> "ä¸€ä¸ª title éƒ½æ²¡è¯»åˆ°" æŠŠæ•´ç›˜æ‹¦ä¸‹
+rem MODE=AUTO: É¨ËùÓÐ title£¬ÌôÊ±³¤×î³¤µÄ
+rem ²»ÄÜ"¶Á²»µ½¾ÍÊÕÎ²": DVD µÄ title ±àºÅ**²»Á¬Ðø**(±¾ÅÌÊµ²âÈ± title 2£¬
+rem Ò»ÊÕÎ²¾ÍÖ»¿´µ½ 84s µÄ title 1£¬¶ø 55 ·ÖÖÓÕýÆ¬ÊÇ title 3)¡£
+rem ¸Ä³ÉÁ¬ÐøÈ±Ê§ 5 ´Î²ÅÊÕÎ²¡£
+echo ÕýÔÚÉ¨ÃèËùÓÐ title£¨ÖðÌõ¿ª¾µÏñÌ½²â£¬ÇëÉÔµÈ£»¶Á²»µ½µÄ»á×Ô¶¯Ìø¹ý£©...
+rem BESTD ´Ó -1 Æð(Óë .sh ²à¶ÔÆë): Ê±³¤È«¶Á²»³öÀ´(N/A -> 0)Ê±Ò²ÒªÄÜÑ¡ÖÐµÚÒ»Ìõ,
+rem ·ñÔò 0 gtr 0 ºã¼Ù -> DVD_TITLE Ò»Ö±Ã»¶¨Òå -> "Ò»¸ö title ¶¼Ã»¶Áµ½" °ÑÕûÅÌÀ¹ÏÂ
 set BESTD=-1
 set DVD_TITLE=
 set MISS=0
@@ -267,8 +267,8 @@ if not defined TW goto AUTO_MISS
 set MISS=0
 for /f "tokens=1 delims=." %%A in ("%TD%") do set TDI=%%A
 if not defined TDI set TDI=0
-rem æ—¶é•¿è¯»ä¸åˆ°æ—¶ ffprobe ä¼šç»™ "N/A" â€”â€” éžçº¯æ•°å­—ä¸€å¾‹å½“ 0, å¦åˆ™ä¸‹é¢
-rem çš„ if gtr ä¼šå›  "N/A was unexpected at this time." å½“åœºæ‰“æ–­æ‰¹å¤„ç†
+rem Ê±³¤¶Á²»µ½Ê± ffprobe »á¸ø "N/A" ¡ª¡ª ·Ç´¿Êý×ÖÒ»ÂÉµ± 0, ·ñÔòÏÂÃæ
+rem µÄ if gtr »áÒò "N/A was unexpected at this time." µ±³¡´ò¶ÏÅú´¦Àí
 for /f "delims=0123456789" %%B in ("%TDI%") do set TDI=0
 if %TDI% gtr %BESTD% (
     set BESTD=%TDI%
@@ -289,19 +289,19 @@ goto AUTO_LOOP
 :AUTO_DONE
 if %BESTD% lss 0 set BESTD=0
 if not defined DVD_TITLE (
-    echo [é”™è¯¯] ä¸€ä¸ª title éƒ½æ²¡è¯»åˆ°ï¼Œæ£€æŸ¥æºè·¯å¾„ / æ˜¯å¦å— CSS ä¿æŠ¤
+    echo [´íÎó] Ò»¸ö title ¶¼Ã»¶Áµ½£¬¼ì²éÔ´Â·¾¶ / ÊÇ·ñÊÜ CSS ±£»¤
     exit /b 1
 )
-echo è‡ªåŠ¨é€‰å®š: title %DVD_TITLE%ï¼ˆå…± %BESTD%sï¼Œæœ€é•¿ï¼‰
+echo ×Ô¶¯Ñ¡¶¨: title %DVD_TITLE%£¨¹² %BESTD%s£¬×î³¤£©
 goto HAVE_TITLE
 
 :ALL_TIER
-rem MODE=ALL: åŒä¸€å¼  DVD ä¸Šå„ title åˆ†è¾¨çŽ‡ä¸€è‡´, ç”¨ title 1 å®šç çŽ‡æ¡£ä½å³å¯ã€‚
-rem åŽŸå®žçŽ°ç›´æŽ¥ goto DO_ALL ä¼šæ•´æ®µè·³è¿‡ç çŽ‡è®¡ç®—, VBITRATE ä¸ºç©º -> -b:v æ˜¯ç©ºå€¼
-rem -> æ¯ä¸ª title éƒ½åœ¨ ffmpeg å¤„å¤±è´¥(2026-09-22 é™æ€å®¡æŸ¥å‘çŽ°, ä¸Ž .sh ä¾§å¯¹é½)ã€‚
+rem MODE=ALL: Í¬Ò»ÕÅ DVD ÉÏ¸÷ title ·Ö±æÂÊÒ»ÖÂ, ÓÃ title 1 ¶¨ÂëÂÊµµÎ»¼´¿É¡£
+rem Ô­ÊµÏÖÖ±½Ó goto DO_ALL »áÕû¶ÎÌø¹ýÂëÂÊ¼ÆËã, VBITRATE Îª¿Õ -> -b:v ÊÇ¿ÕÖµ
+rem -> Ã¿¸ö title ¶¼ÔÚ ffmpeg ´¦Ê§°Ü(2026-09-22 ¾²Ì¬Éó²é·¢ÏÖ, Óë .sh ²à¶ÔÆë)¡£
 call :PROBE 1 SRC_W SRC_H SRC_DUR
 if not defined SRC_W (
-    echo [é”™è¯¯] è¯»ä¸åˆ° title 1ï¼Œæ£€æŸ¥æºè·¯å¾„ / æ˜¯å¦å— CSS ä¿æŠ¤
+    echo [´íÎó] ¶Á²»µ½ title 1£¬¼ì²éÔ´Â·¾¶ / ÊÇ·ñÊÜ CSS ±£»¤
     exit /b 1
 )
 goto HAVE_TITLE
@@ -309,33 +309,33 @@ goto HAVE_TITLE
 :HAVE_TITLE
 if not defined SRC_W call :PROBE %DVD_TITLE% SRC_W SRC_H SRC_DUR
 if not defined SRC_W (
-    echo [é”™è¯¯] è¯»ä¸åˆ° title %DVD_TITLE%ï¼Œæ£€æŸ¥æºè·¯å¾„ / æ˜¯å¦å— CSS ä¿æŠ¤
+    echo [´íÎó] ¶Á²»µ½ title %DVD_TITLE%£¬¼ì²éÔ´Â·¾¶ / ÊÇ·ñÊÜ CSS ±£»¤
     exit /b 1
 )
-echo æ­£ç‰‡: title %DVD_TITLE%  %SRC_W%x%SRC_H%  æ—¶é•¿ %SRC_DUR%s
-rem BD é¡ºå¸¦æ‰“å‡ºæµæ–‡ä»¶å: åŽé¢äº§ç‰©åä¸Žå®ƒåŒå, æ—¥å¿—é‡Œèƒ½å¯¹ä¸Šæ˜¯å“ªä¸€æ¡
+echo ÕýÆ¬: title %DVD_TITLE%  %SRC_W%x%SRC_H%  Ê±³¤ %SRC_DUR%s
+rem BD Ë³´ø´ò³öÁ÷ÎÄ¼þÃû: ºóÃæ²úÎïÃûÓëËüÍ¬Ãû, ÈÕÖ¾ÀïÄÜ¶ÔÉÏÊÇÄÄÒ»Ìõ
 if not "%SRC_KIND%"=="bd" goto HAVE_TITLE_NM
-rem MODE=ALL æ—¶ DVD_TITLE æ˜¯ç©ºçš„(ç çŽ‡æ¡£ä½ç”¨çš„æ˜¯ title 1), æ²¡æœ‰"æ­£ç‰‡"è¿™ä¸€æ¡å¯æŸ¥
+rem MODE=ALL Ê± DVD_TITLE ÊÇ¿ÕµÄ(ÂëÂÊµµÎ»ÓÃµÄÊÇ title 1), Ã»ÓÐ"ÕýÆ¬"ÕâÒ»Ìõ¿É²é
 if not defined DVD_TITLE goto HAVE_TITLE_NM
 call :BD_NAME %DVD_TITLE% BDNAME
-if defined BDNAME echo æ­£ç‰‡æ–‡ä»¶: %BDNAME%
+if defined BDNAME echo ÕýÆ¬ÎÄ¼þ: %BDNAME%
 :HAVE_TITLE_NM
 set /a SRC_PIX=%SRC_W%*%SRC_H%
-rem åˆ¶å¼ / éŸ³è½¨æŽ¢æµ‹ç”¨å“ªæ¡ title: ALL æ¨¡å¼ä¸Šé¢æ˜¯ç”¨ title 1 å®šç çŽ‡æ¡£ä½çš„, å…¶ä½™æ¨¡å¼æ˜¯æ­£ç‰‡é‚£æ¡
+rem ÖÆÊ½ / Òô¹ìÌ½²âÓÃÄÄÌõ title: ALL Ä£Ê½ÉÏÃæÊÇÓÃ title 1 ¶¨ÂëÂÊµµÎ»µÄ, ÆäÓàÄ£Ê½ÊÇÕýÆ¬ÄÇÌõ
 if "%MODE%"=="ALL" (set REF_TITLE=1) else (set REF_TITLE=%DVD_TITLE%)
 call :PROBE_RATE %REF_TITLE% SRC_RATE
 call :PROBE_ACODEC %REF_TITLE% SRC_ACODEC
 
-rem ---------------------------- é€‰ç¼–ç å™¨ ----------------------------
-rem æŽ¢æµ‹ä¸€å¾‹ã€ŒçœŸè·‘ä¸€æ¬¡å°ç¼–ç ã€ï¼Œä¸çœ‹ ffmpeg -encoders åˆ—è¡¨ï¼šæœ¬æœºä¸‰ä¸ª nvenc éƒ½æŒ‚åœ¨
-rem åˆ—è¡¨é‡Œï¼ŒçœŸè·‘å´åœ¨ cuInit å¤„å¤±è´¥(æ²¡ N å¡) â€”â€” åªçœ‹åˆ—è¡¨ä¼šæŠŠä¸å¯ç”¨åˆ¤æˆå¯ç”¨ã€‚
-rem å°ºå¯¸å– 320x240ï¼šå†å°(128x128) NVENC è‡ªå·±å°±æ‹’ç»åˆå§‹åŒ–ï¼Œåè¿‡æ¥ä¼šæŠŠå¯ç”¨åˆ¤æˆ
-rem ä¸å¯ç”¨(ä»“åº“ test/README.md è®°è¿‡è¿™ä¸ªå‡ SKIP)ã€‚
+rem ---------------------------- Ñ¡±àÂëÆ÷ ----------------------------
+rem Ì½²âÒ»ÂÉ¡¸ÕæÅÜÒ»´ÎÐ¡±àÂë¡¹£¬²»¿´ ffmpeg -encoders ÁÐ±í£º±¾»úÈý¸ö nvenc ¶¼¹ÒÔÚ
+rem ÁÐ±íÀï£¬ÕæÅÜÈ´ÔÚ cuInit ´¦Ê§°Ü(Ã» N ¿¨) ¡ª¡ª Ö»¿´ÁÐ±í»á°Ñ²»¿ÉÓÃÅÐ³É¿ÉÓÃ¡£
+rem ³ß´çÈ¡ 320x240£ºÔÙÐ¡(128x128) NVENC ×Ô¼º¾Í¾Ü¾ø³õÊ¼»¯£¬·´¹ýÀ´»á°Ñ¿ÉÓÃÅÐ³É
+rem ²»¿ÉÓÃ(²Ö¿â test/README.md ¼Ç¹ýÕâ¸ö¼Ù SKIP)¡£
 set "VENC_NAME=%VENC%"
 if not defined VENC_NAME set VENC_NAME=auto
 set "VENC_NAME=%VENC_NAME:-=_%"
-rem avc_* -> h264_* ç»Ÿä¸€è°ƒ lib\encode_core.bat çš„ :enc_ffenc(2026-10-08 æ”¶æ•›,
-rem ä»¥å‰æ˜¯æœ¬æ–‡ä»¶ä¸Ž encode_core.bat å„å†™ä¸€ä»½ if)ã€‚
+rem avc_* -> h264_* Í³Ò»µ÷ lib\encode_core.bat µÄ :enc_ffenc(2026-10-08 ÊÕÁ²,
+rem ÒÔÇ°ÊÇ±¾ÎÄ¼þÓë encode_core.bat ¸÷Ð´Ò»·Ý if)¡£
 for /f "delims=" %%V in ('call "%SELF_DIR%lib\encode_core.bat" enc_ffenc %VENC_NAME%') do set "VENC_NAME=%%V"
 set "VCODEC="
 if /i not "%VENC_NAME%"=="auto" goto VENC_FIXED
@@ -348,51 +348,51 @@ if defined VCODEC goto VENC_PICKED
 call :VENC_OK libx265
 if "%VRC%"=="0" set "VCODEC=libx265"
 if defined VCODEC goto VENC_PICKED
-echo [é”™è¯¯] hevc_nvenc / hevc_qsv / libx265 ä¸‰ä¸ªå€™é€‰æœ¬æœºéƒ½ä¸å¯ç”¨
+echo [´íÎó] hevc_nvenc / hevc_qsv / libx265 Èý¸öºòÑ¡±¾»ú¶¼²»¿ÉÓÃ
 exit /b 1
 :VENC_FIXED
-rem å…ˆè®¤åå­—å†æŽ¢æµ‹ï¼šæ‹¼é”™çš„åå­—ä¸è‡³äºŽè¢«å½“æˆã€Œæœ¬æœºä¸å¯ç”¨ã€è¿™ç§è¯¯å¯¼æ€§æŠ¥é”™
+rem ÏÈÈÏÃû×ÖÔÙÌ½²â£ºÆ´´íµÄÃû×Ö²»ÖÁÓÚ±»µ±³É¡¸±¾»ú²»¿ÉÓÃ¡¹ÕâÖÖÎóµ¼ÐÔ±¨´í
 call :VENC_BTAB %VENC_NAME%
 if defined BTAB goto VENC_FIXED_OK
-echo [é”™è¯¯] ä¸è®¤è¯†çš„ç¼–ç å™¨: %VENC_NAME%
-echo        è®¤è¿™äº›: hevc_nvenc hevc_qsv h264_nvenc h264_qsv av1_nvenc av1_qsv libx265 libx264 libsvtav1
+echo [´íÎó] ²»ÈÏÊ¶µÄ±àÂëÆ÷: %VENC_NAME%
+echo        ÈÏÕâÐ©: hevc_nvenc hevc_qsv h264_nvenc h264_qsv av1_nvenc av1_qsv libx265 libx264 libsvtav1
 exit /b 1
 :VENC_FIXED_OK
 set "VCODEC=%VENC_NAME%"
 call :VENC_OK %VCODEC%
 if "%VRC%"=="0" goto VENC_PICKED
-echo [é”™è¯¯] æŒ‡å®šçš„ç¼–ç å™¨ %VCODEC% æœ¬æœºä¸å¯ç”¨ï¼ŒæŽ¢æµ‹å¤±è´¥
-echo        å¸¸è§åŽŸå› : æ²¡è£…å¯¹åº”é©±åŠ¨ / è¿™ä»½ ffmpeg æ²¡ç¼–è¿›è¯¥ç¼–ç å™¨ / æ˜¾å¡ä¸æ”¯æŒè¯¥æ ¼å¼
+echo [´íÎó] Ö¸¶¨µÄ±àÂëÆ÷ %VCODEC% ±¾»ú²»¿ÉÓÃ£¬Ì½²âÊ§°Ü
+echo        ³£¼ûÔ­Òò: Ã»×°¶ÔÓ¦Çý¶¯ / Õâ·Ý ffmpeg Ã»±à½ø¸Ã±àÂëÆ÷ / ÏÔ¿¨²»Ö§³Ö¸Ã¸ñÊ½
 call :VENC_LIST
-echo        æœ¬æœºå®žæµ‹å¯ç”¨: %AVAIL_LIST%
+echo        ±¾»úÊµ²â¿ÉÓÃ: %AVAIL_LIST%
 exit /b 1
 :VENC_PICKED
 call :VENC_BTAB %VCODEC%
-echo ç¼–ç å™¨  : %VCODEC%
+echo ±àÂëÆ÷  : %VCODEC%
 
-rem ---------------------------- ç®—ç›®æ ‡ç çŽ‡ ----------------------------
+rem ---------------------------- ËãÄ¿±êÂëÂÊ ----------------------------
 if defined VBITRATE goto HAVE_BIT
 set "BIT="
 if not exist "%SELF_DIR%lib\common.bat" (
-    echo [é”™è¯¯] æ‰¾ä¸åˆ° lib\common.batï¼ŒæŸ¥ä¸äº†ç çŽ‡è¡¨ã€‚
-    echo        è¦ä¹ˆæŠŠä»“åº“æ”¾å®Œæ•´ï¼Œè¦ä¹ˆæ‰‹å·¥ç»™ç çŽ‡: set VBITRATE=636021
+    echo [´íÎó] ÕÒ²»µ½ lib\common.bat£¬²é²»ÁËÂëÂÊ±í¡£
+    echo        ÒªÃ´°Ñ²Ö¿â·ÅÍêÕû£¬ÒªÃ´ÊÖ¹¤¸øÂëÂÊ: set VBITRATE=636021
     exit /b 2
 )
 call "%SELF_DIR%lib\common.bat" lookup_bitrate %SRC_PIX% BIT bitrate_table_%BTAB%.csv
 if not defined BIT (
-    echo [é”™è¯¯] %SRC_PIX% ä¸åœ¨ç çŽ‡è¡¨èŒƒå›´å†…
+    echo [´íÎó] %SRC_PIX% ²»ÔÚÂëÂÊ±í·¶Î§ÄÚ
     exit /b 2
 )
 set "VBITRATE=%BIT%"
 call "%SELF_DIR%lib\common.bat" bitrate_from_table VBITRATE
 if errorlevel 1 exit /b 1
 :HAVE_BIT
-echo ç›®æ ‡è§†é¢‘ç çŽ‡: %VBITRATE% bit/s
-rem -b:v è¦ç­‰ç çŽ‡ç®—å®Œæ‰èƒ½æ‹¼è¿›æ¥ï¼Œæ‰€ä»¥å‚æ•°åœ¨è¿™é‡Œç»„è£…(æ¨¡æ¿è§ :VENC_ARGS)
+echo Ä¿±êÊÓÆµÂëÂÊ: %VBITRATE% bit/s
+rem -b:v ÒªµÈÂëÂÊËãÍê²ÅÄÜÆ´½øÀ´£¬ËùÒÔ²ÎÊýÔÚÕâÀï×é×°(Ä£°å¼û :VENC_ARGS)
 call :VENC_ARGS %VCODEC%
-echo ç¼–ç å‚æ•°: %VENC_ARGS%
+echo ±àÂë²ÎÊý: %VENC_ARGS%
 
-rem ---------------------------- ç»„æ»¤é•œé“¾ ----------------------------
+rem ---------------------------- ×éÂË¾µÁ´ ----------------------------
 set "FILT_IVTC=fieldmatch=mode=pc:combmatch=full,yadif=deint=interlaced,decimate"
 set "FILT_BW=bwdif=mode=0"
 set VFILT=
@@ -410,7 +410,7 @@ if "%SRC_RATE%"=="24/1" set FSYS=NTSC23
 if "%SRC_RATE%"=="25/1" set FSYS=PAL25
 if "%SRC_RATE%"=="50/1" set FSYS=PAL25
 if defined FSYS goto FILT_PICK
-rem è¯»ä¸åˆ°å¸§çŽ‡å°±æŒ‰é«˜åº¦çŒœ: 576/288 = PAL, 480/240 = NTSC
+rem ¶Á²»µ½Ö¡ÂÊ¾Í°´¸ß¶È²Â: 576/288 = PAL, 480/240 = NTSC
 if "%SRC_H%"=="576" set FSYS=PAL25
 if "%SRC_H%"=="288" set FSYS=PAL25
 if "%SRC_H%"=="480" set FSYS=NTSC29
@@ -418,90 +418,90 @@ if "%SRC_H%"=="240" set FSYS=NTSC29
 :FILT_PICK
 if "%FSYS%"=="NTSC29" set "VFILT=%FILT_IVTC%"
 if "%FSYS%"=="PAL25" set "VFILT=%FILT_BW%"
-if defined FSYS echo æºåˆ¶å¼  : %FSYS% @ %SRC_RATE%
-if not defined FSYS echo æºåˆ¶å¼  : è¯»ä¸åˆ°å¸§çŽ‡ä¹Ÿä¸è®¤è¯†é«˜åº¦ï¼Œä¸åŠ æ»¤é•œ
+if defined FSYS echo Ô´ÖÆÊ½  : %FSYS% @ %SRC_RATE%
+if not defined FSYS echo Ô´ÖÆÊ½  : ¶Á²»µ½Ö¡ÂÊÒ²²»ÈÏÊ¶¸ß¶È£¬²»¼ÓÂË¾µ
 :FILT_JOIN
 if defined VFILT_EXTRA if defined VFILT set VFILT=%VFILT%,%VFILT_EXTRA%
 if defined VFILT_EXTRA if not defined VFILT set VFILT=%VFILT_EXTRA%
 set VFOPT=
 if defined VFILT set VFOPT=-vf "%VFILT%"
 
-rem ---------------------------- å®¹å™¨ç›¸å…³é€‰é¡¹ ----------------------------
-rem å¤§å°å†™ä¸æ•æ„Ÿ, å¹¶å½’ä¸€æˆå°å†™: è¾“å‡ºæ–‡ä»¶åŽç¼€ç›´æŽ¥å– %EXT%, ä¸å½’ä¸€çš„è¯ set EXT=MP4 ä¼š
-rem äº§å‡º ".MP4"(ä¸Ž .sh ä¾§ ${EXT,,} åŒä¹‰)
+rem ---------------------------- ÈÝÆ÷Ïà¹ØÑ¡Ïî ----------------------------
+rem ´óÐ¡Ð´²»Ãô¸Ð, ²¢¹éÒ»³ÉÐ¡Ð´: Êä³öÎÄ¼þºó×ºÖ±½ÓÈ¡ %EXT%, ²»¹éÒ»µÄ»° set EXT=MP4 »á
+rem ²ú³ö ".MP4"(Óë .sh ²à ${EXT,,} Í¬Òå)
 if /i "%EXT%"=="mkv" set "EXT=mkv"
 if /i "%EXT%"=="mp4" set "EXT=mp4"
 if "%EXT%"=="mkv" goto CFG_MKV
 if "%EXT%"=="mp4" goto CFG_MP4
-echo [é”™è¯¯] EXT åªèƒ½æ˜¯ mkv æˆ– mp4
+echo [´íÎó] EXT Ö»ÄÜÊÇ mkv »ò mp4
 exit /b 3
 
 :CFG_MKV
-rem ç¼–ç å™¨å‚æ•°(-c:v çš„åå­—ä¸Ž -b:v)ç”±ä¸Šé¢ :VENC_PICKED / :VENC_ARGS ç»„è£…
+rem ±àÂëÆ÷²ÎÊý(-c:v µÄÃû×ÖÓë -b:v)ÓÉÉÏÃæ :VENC_PICKED / :VENC_ARGS ×é×°
 set AENC=-c:a copy
 if "%AUDIO%"=="aac" set AENC=-c:a aac -b:a 192k
 if "%AUDIO%"=="flac" set AENC=-c:a flac
 if not "%AUDIO%"=="copy" goto CFG_MKV_DONE
 if not defined SRC_ACODEC goto CFG_MKV_DONE
-rem LPCM å°±è½¬: DVD æ˜¯ pcm_dvd, BD æ˜¯ pcm_bluray, ä¸¤ä¸ª Matroska éƒ½è£…ä¸ä¸‹
+rem LPCM ¾Í×ª: DVD ÊÇ pcm_dvd, BD ÊÇ pcm_bluray, Á½¸ö Matroska ¶¼×°²»ÏÂ
 call :IS_PCM "%SRC_ACODEC%"
 if not defined ISPCM goto CFG_MKV_DONE
 set AENC=-c:a aac -b:a 192k
-echo æ³¨æ„: å‚è€ƒ title %REF_TITLE% çš„éŸ³è½¨æ˜¯ LPCM(%ISPCM%)ï¼ŒMatroska è£…ä¸ä¸‹ï¼Œè‡ªåŠ¨è½¬ AAC 192kï¼ˆè¦æ— æŸå°±è®¾ AUDIO=flacï¼›ALL æ¨¡å¼ä¸‹å…¶ä½™ title é€æ¡é‡æ–°æŽ¢æµ‹ï¼‰
+echo ×¢Òâ: ²Î¿¼ title %REF_TITLE% µÄÒô¹ìÊÇ LPCM(%ISPCM%)£¬Matroska ×°²»ÏÂ£¬×Ô¶¯×ª AAC 192k£¨ÒªÎÞËð¾ÍÉè AUDIO=flac£»ALL Ä£Ê½ÏÂÆäÓà title ÖðÌõÖØÐÂÌ½²â£©
 :CFG_MKV_DONE
-rem AENC_BASE = ä¸å«ä»»ä½•å•æ¡ title éŸ³è½¨æˆåˆ†çš„åŸºçº¿ -c:aï¼Œæ¯æ¡ title ç¼–ç å‰æ®æ­¤é‡ç®—
+rem AENC_BASE = ²»º¬ÈÎºÎµ¥Ìõ title Òô¹ì³É·ÖµÄ»ùÏß -c:a£¬Ã¿Ìõ title ±àÂëÇ°¾Ý´ËÖØËã
 set "AENC_BASE=%AENC%"
 set SENC=-c:s copy
 set SMAP=-map 0:s?
 goto RUN_ALL
 
 :CFG_MP4
-echo æ³¨æ„: MP4 åªèƒ½ä¿ç•™ 1 æ¡ DVD ä½å›¾å­—å¹•ï¼Œå…¶ä½™ä¼šä¸¢ï¼›è¦å…¨ç•™è¯·ç”¨ EXT=mkv
-rem ç¼–ç å™¨å‚æ•°(-c:v çš„åå­—ä¸Ž -b:v)ç”±ä¸Šé¢ :VENC_PICKED / :VENC_ARGS ç»„è£…
+echo ×¢Òâ: MP4 Ö»ÄÜ±£Áô 1 Ìõ DVD Î»Í¼×ÖÄ»£¬ÆäÓà»á¶ª£»ÒªÈ«ÁôÇëÓÃ EXT=mkv
+rem ±àÂëÆ÷²ÎÊý(-c:v µÄÃû×ÖÓë -b:v)ÓÉÉÏÃæ :VENC_PICKED / :VENC_ARGS ×é×°
 set AENC=-c:a aac -b:a 192k
 set "AENC_BASE=%AENC%"
 set SENC=-c:s dvdsub
 set SMAP=-map 0:s:0?
 if not "%SRC_KIND%"=="bd" goto RUN_ALL
-rem BD çš„å­—å¹•æ˜¯ PGS(hdmv_pgs_subtitle), mp4 è£…ä¸ä¸‹: å®žæµ‹ -c:s dvdsub åœ¨ PGS ä¸Š
-rem å†™ trailer å°±å¤±è´¥(rc=-22 "Error writing trailer"), æ‰€ä»¥æ•´æ¡ä¸¢å¼ƒè€Œä¸æ˜¯è®©å®ƒç‚¸
-echo æ³¨æ„: BD çš„ PGS ä½å›¾å­—å¹•è£…ä¸è¿› MP4ï¼Œå·²ä¸¢å¼ƒå…¨éƒ¨å­—å¹•è½¨ï¼›è¦ä¿ç•™è¯·ç”¨ EXT=mkv
+rem BD µÄ×ÖÄ»ÊÇ PGS(hdmv_pgs_subtitle), mp4 ×°²»ÏÂ: Êµ²â -c:s dvdsub ÔÚ PGS ÉÏ
+rem Ð´ trailer ¾ÍÊ§°Ü(rc=-22 "Error writing trailer"), ËùÒÔÕûÌõ¶ªÆú¶ø²»ÊÇÈÃËüÕ¨
+echo ×¢Òâ: BD µÄ PGS Î»Í¼×ÖÄ»×°²»½ø MP4£¬ÒÑ¶ªÆúÈ«²¿×ÖÄ»¹ì£»Òª±£ÁôÇëÓÃ EXT=mkv
 set SENC=
 set SMAP=
 goto RUN_ALL
 
 :RUN_ALL
-rem ä¸€ä¸ª title å¤±è´¥ä¸ç«‹åˆ»é€€å‡º: åŽé¢çš„åˆ†æ®µ/ç‰¹å…¸è¿˜è¦è·‘å®Œ, ä½†é€€å‡ºç å¿…é¡»çœŸçš„ä¼ å‡ºåŽ»
+rem Ò»¸ö title Ê§°Ü²»Á¢¿ÌÍË³ö: ºóÃæµÄ·Ö¶Î/ÌØµä»¹ÒªÅÜÍê, µ«ÍË³öÂë±ØÐëÕæµÄ´«³öÈ¥
 set FAILED=
 set /a TOTDUR=0
 set /a N_TITLE=0
-rem ä½“ç§¯ä¼°ç®—çš„æ­£ç¡®å£å¾„: MODE=ALL ä¸‹æ˜¯"å„ title æ—¶é•¿ä¹‹å’Œ", ä¸æ˜¯ title 1 çš„æ—¶é•¿
-rem (2026-10-01 å®žæµ‹: 3 title çš„ç›˜æŒ‰ title 1 ä¼°æˆ 5MB, å®žé™…äº§å‡º 845MB)
-rem æœ¬æ¬¡çœŸæ­£å†™å‡ºçš„äº§ç‰©æ¸…å•, ç»“å°¾æ®æ­¤ç»Ÿè®¡"äº§ç‰©åˆè®¡"ã€‚æ–‡ä»¶å**å¿…é¡»**å¸¦éšæœºåŽç¼€:
-rem å›ºå®šå %WORK%\_outs.txt è½åœ¨å…¨å±€ä¸´æ—¶ç›®å½•, ä¼šè·¨è¿è¡Œ/è·¨è¿›ç¨‹äº’ç›¸è¸© â€”â€” 2026-10-01
-rem å®žæµ‹: æœ¬æ¬¡åˆè®¡é‡Œæ··è¿›ä¸Šä¸€æ¬¡è¿è¡Œçš„æ¡ç›®(H:\...\DVD081_title1.mkv), è€Œæœ¬æ¬¡è‡ªå·±çš„
-rem ä¸¤æ¡åˆè¢«å¦ä¸€ä¸ªå®žä¾‹çš„ del åžæŽ‰, äºŽæ˜¯æŠ¥ "4 ä¸ªæ–‡ä»¶ 466MB"(å®žä¸º 5 ä¸ª 267MB)ã€‚
+rem Ìå»ý¹ÀËãµÄÕýÈ·¿Ú¾¶: MODE=ALL ÏÂÊÇ"¸÷ title Ê±³¤Ö®ºÍ", ²»ÊÇ title 1 µÄÊ±³¤
+rem (2026-10-01 Êµ²â: 3 title µÄÅÌ°´ title 1 ¹À³É 5MB, Êµ¼Ê²ú³ö 845MB)
+rem ±¾´ÎÕæÕýÐ´³öµÄ²úÎïÇåµ¥, ½áÎ²¾Ý´ËÍ³¼Æ"²úÎïºÏ¼Æ"¡£ÎÄ¼þÃû**±ØÐë**´øËæ»úºó×º:
+rem ¹Ì¶¨Ãû %WORK%\_outs.txt ÂäÔÚÈ«¾ÖÁÙÊ±Ä¿Â¼, »á¿çÔËÐÐ/¿ç½ø³Ì»¥Ïà²È ¡ª¡ª 2026-10-01
+rem Êµ²â: ±¾´ÎºÏ¼ÆÀï»ì½øÉÏÒ»´ÎÔËÐÐµÄÌõÄ¿(H:\...\DVD081_title1.mkv), ¶ø±¾´Î×Ô¼ºµÄ
+rem Á½ÌõÓÖ±»ÁíÒ»¸öÊµÀýµÄ del ÍÌµô, ÓÚÊÇ±¨ "4 ¸öÎÄ¼þ 466MB"(ÊµÎª 5 ¸ö 267MB)¡£
 if not defined OUTS set "OUTS=%WORK%\_outs_%RANDOM%%RANDOM%.txt"
 del "%OUTS%" 2>nul
-rem ä¸ç”¨ if(...)else(...) åŒ…ä½ %VFILT%: å€¼é‡Œä¸€æ—¦å‡ºçŽ° ASCII å³æ‹¬å·å°±ä¼šæå‰å…³å—ã€‚
-rem å…ˆè½è¿›æ™®é€šå˜é‡å† echo, å—å¤–å•è¡Œ if ä¸å‚ä¸Žæ‹¬å·è®¡æ•°ã€‚
-set "VF_SHOW=[æ— ]"
+rem ²»ÓÃ if(...)else(...) °ü×¡ %VFILT%: ÖµÀïÒ»µ©³öÏÖ ASCII ÓÒÀ¨ºÅ¾Í»áÌáÇ°¹Ø¿é¡£
+rem ÏÈÂä½øÆÕÍ¨±äÁ¿ÔÙ echo, ¿éÍâµ¥ÐÐ if ²»²ÎÓëÀ¨ºÅ¼ÆÊý¡£
+set "VF_SHOW=[ÎÞ]"
 if defined VFILT set "VF_SHOW=%VFILT%"
-echo æ»¤é•œé“¾: %VF_SHOW%
+echo ÂË¾µÁ´: %VF_SHOW%
 echo.
 
 if "%MODE%"=="ALL" goto DO_ALL
 
-rem åˆ‡åˆ†ç”¨ goto è€Œä¸æ˜¯ if(...) å—: å—å†… %CE% ä¼šåœ¨è§£æžæ—¶å°±è¢«å±•å¼€, æ‹¿ä¸åˆ°åˆšç®—çš„å€¼
-rem å‰ç¼€ä¸€å¾‹ç”¨åŒå¼•å·åŒ…ä½: æºæ–‡ä»¶åå¯èƒ½å«ç©ºæ ¼ä¸Žå°æ‹¬å·(å®žæµ‹é‚£å¼ ç›˜å«
-rem "[DVDISO](18ç¦ã‚¢ãƒ‹ãƒ¡) ...ã€ŒéŽã¡ã®å¤œ ã€+å¾Œç·¨ã€Œç¢ºã‹ã‚åˆã†æ°—æŒã¡ã€"), ä¸åŒ…çš„è¯
-rem call :ENC ä¼šæŒ‰ç©ºæ ¼æŠŠå®ƒåˆ‡æˆå¥½å‡ ä¸ªå‚æ•°, OUTN ä¸Žç« èŠ‚å·å…¨éƒ¨é”™ä½ã€‚
-rem BD æŒ‰ m2ts ç›´è¯», ç« èŠ‚è¡¨åœ¨ mpls é‡Œæ‹¿ä¸åˆ°; è€Œä¸” -chapter_start/-chapter_end æ˜¯
-rem dvdvideo ä¸“ç”¨é€‰é¡¹, å–‚ç»™ mpegts ä¼šè¢«å½“æˆæœªçŸ¥å‚æ•°
-rem ç”¨ goto è€Œä¸æ˜¯ if(...) å—: æç¤ºè¯­é‡Œé‚£ä¸ª ASCII å³æ‹¬å·ä¼šæŠŠå—æå‰å…³æŽ‰
+rem ÇÐ·ÖÓÃ goto ¶ø²»ÊÇ if(...) ¿é: ¿éÄÚ %CE% »áÔÚ½âÎöÊ±¾Í±»Õ¹¿ª, ÄÃ²»µ½¸ÕËãµÄÖµ
+rem Ç°×ºÒ»ÂÉÓÃË«ÒýºÅ°ü×¡: Ô´ÎÄ¼þÃû¿ÉÄÜº¬¿Õ¸ñÓëÐ¡À¨ºÅ(Êµ²âÄÇÕÅÅÌ½Ð
+rem "[DVDISO](18½û¥¢¥Ë¥á) ...¡¸ß^¤Á¤ÎÒ¹ ¡¹+áá¾Ž¡¸´_¤«¤áºÏ¤¦šÝ³Ö¤Á¡¹"), ²»°üµÄ»°
+rem call :ENC »á°´¿Õ¸ñ°ÑËüÇÐ³ÉºÃ¼¸¸ö²ÎÊý, OUTN ÓëÕÂ½ÚºÅÈ«²¿´íÎ»¡£
+rem BD °´ m2ts Ö±¶Á, ÕÂ½Ú±íÔÚ mpls ÀïÄÃ²»µ½; ¶øÇÒ -chapter_start/-chapter_end ÊÇ
+rem dvdvideo ×¨ÓÃÑ¡Ïî, Î¹¸ø mpegts »á±»µ±³ÉÎ´Öª²ÎÊý
+rem ÓÃ goto ¶ø²»ÊÇ if(...) ¿é: ÌáÊ¾ÓïÀïÄÇ¸ö ASCII ÓÒÀ¨ºÅ»á°Ñ¿éÌáÇ°¹Øµô
 if not "%SRC_KIND%"=="bd" goto SPLIT_CHK
 if %SPLIT_CHAPTER% leq 0 goto SPLIT_CHK
-echo æ³¨æ„: BD ç›´è¯» m2ts æ‹¿ä¸åˆ°ç« èŠ‚ï¼ˆç« èŠ‚å†™åœ¨ mpls é‡Œï¼‰ï¼ŒSPLIT_CHAPTER å·²å¿½ç•¥
+echo ×¢Òâ: BD Ö±¶Á m2ts ÄÃ²»µ½ÕÂ½Ú£¨ÕÂ½ÚÐ´ÔÚ mpls Àï£©£¬SPLIT_CHAPTER ÒÑºöÂÔ
 set SPLIT_CHAPTER=0
 :SPLIT_CHK
 if %SPLIT_CHAPTER% gtr 0 goto DO_SPLIT
@@ -526,14 +526,14 @@ set MISS=0
 call :PROBE %N% TW TH TD
 if not defined TW goto NEXT_MISS
 set MISS=0
-rem æ”’è¯¥ title çš„æ—¶é•¿ç»™ç»“å°¾çš„ä½“ç§¯ä¼°ç®—(éžæ•°å­—å¦‚ N/A æŒ‰ 0 å¤„ç†, å¦åˆ™ set /a ä¼šæŠ¥
-rem Missing operator â€”â€” ä¸Ž :DONE é‡Œå¯¹ SRC_DUR çš„é˜²æŠ¤åŒæ¬¾)
+rem ÔÜ¸Ã title µÄÊ±³¤¸ø½áÎ²µÄÌå»ý¹ÀËã(·ÇÊý×ÖÈç N/A °´ 0 ´¦Àí, ·ñÔò set /a »á±¨
+rem Missing operator ¡ª¡ª Óë :DONE Àï¶Ô SRC_DUR µÄ·À»¤Í¬¿î)
 set "TDI=%TD%"
 for /f "tokens=1 delims=." %%D in ("%TD%") do set "TDI=%%D"
 for /f "delims=0123456789" %%E in ("%TDI%") do set "TDI=0"
 set /a TOTDUR+=%TDI%
 set /a N_TITLE+=1
-rem BD ç”¨æµæ–‡ä»¶åå½“äº§ç‰©å(00005.m2ts -> _00005): æ¯”çº¯åºå·å¥½è®¤å“ªæ¡æ˜¯æ­£ç‰‡
+rem BD ÓÃÁ÷ÎÄ¼þÃûµ±²úÎïÃû(00005.m2ts -> _00005): ±È´¿ÐòºÅºÃÈÏÄÄÌõÊÇÕýÆ¬
 set "OUTN=%PREFIX%_title%N%"
 if not "%SRC_KIND%"=="bd" goto OUTN_DONE
 call :BD_NAME %N% BDF
@@ -551,22 +551,22 @@ if %N% gtr %TITLE_MAX% goto DONE
 goto NEXT_TITLE
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ ENC  title  outname  chapter_start  chapter_end
-rem  æ³¨æ„: è¿™é‡Œåˆ»æ„ä¸ç”¨ -ssã€‚dvdvideo è§£å¤ç”¨å™¨ seek åŽæ—¶é—´è½´ä¸å¯é ï¼Œ
-rem        å®žæµ‹ä¼šè®©ç« èŠ‚æ•´ä½“åç§»ï¼Œé  -chapter_start/-chapter_end æ‰æ˜¯å‡†çš„ã€‚
+rem  ×Ó¹ý³Ì ENC  title  outname  chapter_start  chapter_end
+rem  ×¢Òâ: ÕâÀï¿ÌÒâ²»ÓÃ -ss¡£dvdvideo ½â¸´ÓÃÆ÷ seek ºóÊ±¼äÖá²»¿É¿¿£¬
+rem        Êµ²â»áÈÃÕÂ½ÚÕûÌåÆ«ÒÆ£¬¿¿ -chapter_start/-chapter_end ²ÅÊÇ×¼µÄ¡£
 rem =========================================================================
 :ENC
 set "T=%~1"
 set "OUTN=%~2"
 set "CS=%~3"
 set "CE=%~4"
-rem å–è¿™æ¡ title çš„è¾“å…¥å‚æ•°: DVD æ˜¯ -f dvdvideo -title N + æ•´å¼ é•œåƒ, BD æ˜¯é‚£ä¸ª m2ts
+rem È¡ÕâÌõ title µÄÊäÈë²ÎÊý: DVD ÊÇ -f dvdvideo -title N + ÕûÕÅ¾µÏñ, BD ÊÇÄÇ¸ö m2ts
 call :INARGS %T%
 if not defined IN_FILE (
-    echo [é”™è¯¯] title %T% å–ä¸åˆ°è¾“å…¥æ–‡ä»¶
+    echo [´íÎó] title %T% È¡²»µ½ÊäÈëÎÄ¼þ
     exit /b 1
 )
-rem é€ title é‡ç®— -c:a: æ‹¿ title 1 çš„éŸ³è½¨å¥—æ‰€æœ‰ title ä¼šæ¼æŽ‰ LPCM(è§ :ENC_AENC)
+rem Öð title ÖØËã -c:a: ÄÃ title 1 µÄÒô¹ìÌ×ËùÓÐ title »áÂ©µô LPCM(¼û :ENC_AENC)
 call :ENC_AENC %T%
 call :QSV10 %T%
 set "CHOP="
@@ -576,18 +576,18 @@ echo ------------------------------------------------------------
 echo ^> title %T% ^-^> "%OUTN%.%EXT%"  %CHOP%
 set RUN_COM="%FF%" -y -hide_banner -v error -stats %QSV_INIT% %IN_DEMUX% %CHOP% -i "%IN_FILE%" -map 0:V -map 0:a? %SMAP% %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% %SENC% -map_chapters 0 -map_metadata 0 -rtbufsize 120m -max_muxing_queue_size 1024 "%OUTDIR%\%OUTN%.%EXT%"
 echo RUN_COM:%RUN_COM%
-rem dry-run: DRY_RUN ä¸ºçœŸæ—¶åªæ‰“å°è¿™æ¡å‘½ä»¤, ä¸æ‰§è¡Œ(è§ lib\common.bat çš„ :dry_run)
+rem dry-run: DRY_RUN ÎªÕæÊ±Ö»´òÓ¡ÕâÌõÃüÁî, ²»Ö´ÐÐ(¼û lib\common.bat µÄ :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
 %RUN_COM%
-rem è´Ÿé€€å‡ºç é™·é˜±: Windows ffmpeg å¤±è´¥æ—¶è¿”å›žè´Ÿçš„ AVERROR å€¼, è€Œ cmd çš„
-rem `if errorlevel N` æ˜¯å¸¦ç¬¦å·æ¯”è¾ƒ, è´Ÿå€¼ >= 1 ä¸æˆç«‹ -> å®ˆå«ä¸è§¦å‘,
-rem çœŸå¤±è´¥ä¸€è·¯è½åˆ° exit /b 0ã€‚æ”¹æˆ"ä¸ç­‰äºŽ 0"çš„å­—ç¬¦ä¸²æ¯”è¾ƒå…œä½è´Ÿæ•°ä¸Žæ­£æ•°ã€‚
+rem ¸ºÍË³öÂëÏÝÚå: Windows ffmpeg Ê§°ÜÊ±·µ»Ø¸ºµÄ AVERROR Öµ, ¶ø cmd µÄ
+rem `if errorlevel N` ÊÇ´ø·ûºÅ±È½Ï, ¸ºÖµ >= 1 ²»³ÉÁ¢ -> ÊØÎÀ²»´¥·¢,
+rem ÕæÊ§°ÜÒ»Â·Âäµ½ exit /b 0¡£¸Ä³É"²»µÈÓÚ 0"µÄ×Ö·û´®±È½Ï¶µ×¡¸ºÊýÓëÕýÊý¡£
 set "FB_RC=%ERRORLEVEL%"
 if not "%FB_RC%"=="0" (
     echo Convert failed! rc=%FB_RC%
-    echo å¸¸è§åŽŸå› : [1] -c:s å¤„ç†ä¸äº†ä½å›¾å­—å¹•  [2] MP4 ä¸‹ AC3 æ²¡è½¬æˆ AAC
-    echo            [3] %VCODEC% çš„å‚æ•°ä¸è¢«æŽ¥å— â†’ æ¢ VENC=libx265 æˆ– VENC=auto
+    echo ³£¼ûÔ­Òò: [1] -c:s ´¦Àí²»ÁËÎ»Í¼×ÖÄ»  [2] MP4 ÏÂ AC3 Ã»×ª³É AAC
+    echo            [3] %VCODEC% µÄ²ÎÊý²»±»½ÓÊÜ ¡ú »» VENC=libx265 »ò VENC=auto
     exit /b 1
 )
 >>"%OUTS%" echo "%OUTDIR%\%OUTN%.%EXT%"
@@ -598,15 +598,15 @@ set "T=%~1"
 set "OUTN=%~2"
 call :INARGS %T%
 if not defined IN_FILE (
-    echo [é”™è¯¯] title %T% å–ä¸åˆ°è¾“å…¥æ–‡ä»¶
+    echo [´íÎó] title %T% È¡²»µ½ÊäÈëÎÄ¼þ
     exit /b 1
 )
-rem åŒä¸Š: é™„åŠ  title çš„éŸ³è½¨åŒæ ·å¯èƒ½ä¸Žæ­£ç‰‡ä¸åŒ
+rem Í¬ÉÏ: ¸½¼Ó title µÄÒô¹ìÍ¬Ñù¿ÉÄÜÓëÕýÆ¬²»Í¬
 call :ENC_AENC %T%
 call :QSV10 %T%
-echo ^> é™„åŠ  title %T% ^-^> "%OUTN%.%EXT%"
+echo ^> ¸½¼Ó title %T% ^-^> "%OUTN%.%EXT%"
 set RUN_COM="%FF%" -y -hide_banner -v error -stats %QSV_INIT% %IN_DEMUX% -i "%IN_FILE%" -map 0:V -map 0:a? %VFOPT% -c:v %VCODEC% %VENC_ARGS% %AENC% "%OUTDIR%\%OUTN%.%EXT%"
-rem dry-run: DRY_RUN ä¸ºçœŸæ—¶åªæ‰“å°è¿™æ¡å‘½ä»¤, ä¸æ‰§è¡Œ(è§ lib\common.bat çš„ :dry_run)
+rem dry-run: DRY_RUN ÎªÕæÊ±Ö»´òÓ¡ÕâÌõÃüÁî, ²»Ö´ÐÐ(¼û lib\common.bat µÄ :dry_run)
 call "%SELF_DIR%lib\common.bat" dry_run
 if defined DRY_HIT exit /b 0
 %RUN_COM%
@@ -619,12 +619,12 @@ if not "%FB_RC%"=="0" (
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ ENC_AENC  <title>  ->  æŒ‰è¯¥ title çš„éŸ³è½¨é‡è®¾å…¨å±€ AENC
-rem  ä¸ºä»€ä¹ˆä¸èƒ½åªæŽ¢ä¸€æ¬¡: ALL ä¼šè·‘å¤šæ¡ title, å„æ¡éŸ³è½¨å¯ä»¥ä¸ä¸€æ · â€”â€” æ‹¿å…¶ä¸­ä¸€æ¡çš„
-rem  æŽ¢æµ‹ç»“æžœå¥—å…¨éƒ¨, å°±ä¼šæ¼æŽ‰ LPCMã€‚2026-10-01 å®žæµ‹ FRY001.ISO:
-rem    title 1 = AC3(èƒ½ copy) / title 2 = LPCM, äºŽæ˜¯ title 2 æ‹¿ç€ -c:a copy åŽ»è£…
-rem    pcm_dvd, ffmpeg å†™å¤´å³å¤±è´¥ rc=-22: "No wav codec tag found for codec pcm_dvd"
-rem  åªå¯¹ AUDIO=copy + MKV ç”Ÿæ•ˆ: å…¶ä½™ç»„åˆçš„ -c:a ä¸ŽæºéŸ³è½¨æ— å…³, ä¸ç”¨é€æ¡é‡æŽ¢ã€‚
+rem  ×Ó¹ý³Ì ENC_AENC  <title>  ->  °´¸Ã title µÄÒô¹ìÖØÉèÈ«¾Ö AENC
+rem  ÎªÊ²Ã´²»ÄÜÖ»Ì½Ò»´Î: ALL »áÅÜ¶àÌõ title, ¸÷ÌõÒô¹ì¿ÉÒÔ²»Ò»Ñù ¡ª¡ª ÄÃÆäÖÐÒ»ÌõµÄ
+rem  Ì½²â½á¹ûÌ×È«²¿, ¾Í»áÂ©µô LPCM¡£2026-10-01 Êµ²â FRY001.ISO:
+rem    title 1 = AC3(ÄÜ copy) / title 2 = LPCM, ÓÚÊÇ title 2 ÄÃ×Å -c:a copy È¥×°
+rem    pcm_dvd, ffmpeg Ð´Í·¼´Ê§°Ü rc=-22: "No wav codec tag found for codec pcm_dvd"
+rem  Ö»¶Ô AUDIO=copy + MKV ÉúÐ§: ÆäÓà×éºÏµÄ -c:a ÓëÔ´Òô¹ìÎÞ¹Ø, ²»ÓÃÖðÌõÖØÌ½¡£
 rem =========================================================================
 :ENC_AENC
 set "AENC=%AENC_BASE%"
@@ -633,19 +633,19 @@ call :PROBE_ACODEC %1 TAC
 if not defined TAC exit /b 0
 if not "%AUDIO%"=="copy" exit /b 0
 if not "%EXT%"=="mkv" exit /b 0
-rem LPCM å°±è½¬(DVD æ˜¯ pcm_dvd, BD æ˜¯ pcm_bluray)
+rem LPCM ¾Í×ª(DVD ÊÇ pcm_dvd, BD ÊÇ pcm_bluray)
 call :IS_PCM "%TAC%"
 if not defined ISPCM exit /b 0
 set AENC=-c:a aac -b:a 192k
-echo   æœ¬æ¡éŸ³è½¨æ˜¯ LPCM(%ISPCM%) -^> è‡ªåŠ¨è½¬ AAC 192kï¼ˆè¦æ— æŸå°±è®¾ AUDIO=flacï¼‰
+echo   ±¾ÌõÒô¹ìÊÇ LPCM(%ISPCM%) -^> ×Ô¶¯×ª AAC 192k£¨ÒªÎÞËð¾ÍÉè AUDIO=flac£©
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ DETECT  ->  SRC_KIND(dvd / bd) / SRC_KIND_DESC / TITLE_MAX
+rem  ×Ó¹ý³Ì DETECT  ->  SRC_KIND(dvd / bd) / SRC_KIND_DESC / TITLE_MAX
 rem                    BD_ROOT / BD_LIST / BD_N / BD_ONE / BD_STATE / BD_ISO
-rem  åˆ¤å®šé¡ºåºåˆ»æ„"å…ˆçœ‹ç›®å½•ç»“æž„ï¼Œå†è¯•è¯»": BDMV / VIDEO_TS ä¸¤ä¸ªç›®å½•åæ˜¯ç¡¬æŒ‡æ ‡ï¼Œ
-rem  .iso æ‰éœ€è¦çœŸåŽ»è¯» â€”â€” å…ˆæŒ‰ DVD è¯• dvdvideoï¼Œè¯»ä¸åˆ°å†æŒ‚è½½æ‰¾ BDMVã€‚å…¶ä½™åŽç¼€
-rem  (.vob / .mpg / å…‰é©±ç›˜ç¬¦ ...)ä¸€å¾‹æŒ‰ DVD å¤„ç†ï¼Œä¸ŽåŠ  BD ä¹‹å‰çš„è¡Œä¸ºä¸€è‡´ã€‚
+rem  ÅÐ¶¨Ë³Ðò¿ÌÒâ"ÏÈ¿´Ä¿Â¼½á¹¹£¬ÔÙÊÔ¶Á": BDMV / VIDEO_TS Á½¸öÄ¿Â¼ÃûÊÇÓ²Ö¸±ê£¬
+rem  .iso ²ÅÐèÒªÕæÈ¥¶Á ¡ª¡ª ÏÈ°´ DVD ÊÔ dvdvideo£¬¶Á²»µ½ÔÙ¹ÒÔØÕÒ BDMV¡£ÆäÓàºó×º
+rem  (.vob / .mpg / ¹âÇýÅÌ·û ...)Ò»ÂÉ°´ DVD ´¦Àí£¬Óë¼Ó BD Ö®Ç°µÄÐÐÎªÒ»ÖÂ¡£
 rem =========================================================================
 :DETECT
 set "SRC_KIND="
@@ -665,7 +665,7 @@ if exist "%SRC%\BDMV\" (
     goto DET_BD
 )
 if exist "%SRC%\VIDEO_TS\" goto DET_DVD
-rem ç›´æŽ¥ç»™åˆ° BDMV è¿™ä¸€å±‚ä¹Ÿç®—(å–å®ƒçš„ä¸Šä¸€çº§å½“ BD æ ¹)
+rem Ö±½Ó¸øµ½ BDMV ÕâÒ»²ãÒ²Ëã(È¡ËüµÄÉÏÒ»¼¶µ± BD ¸ù)
 if not exist "%SRC%\STREAM\" goto DET_NOTSTREAM
 for %%A in ("%SRC%\..") do set "BD_ROOT=%%~fA"
 call :BD_NORM
@@ -678,12 +678,12 @@ if /i "%SRC_EXT%"==".img" goto DET_ISO
 goto DET_DVD
 
 :DET_BD_ONE
-rem å•ä¸ª .m2ts(ä»Žç›˜é‡Œæ‹·å‡ºæ¥çš„æ•£æ–‡ä»¶ä¹Ÿç®—): å°±è¿™ä¸€æ¡ï¼Œä¸åŽ» BDMV é‡Œæ‰¾
+rem µ¥¸ö .m2ts(´ÓÅÌÀï¿½³öÀ´µÄÉ¢ÎÄ¼þÒ²Ëã): ¾ÍÕâÒ»Ìõ£¬²»È¥ BDMV ÀïÕÒ
 set "BD_ONE=%SRC%"
 goto DET_BD
 
 :DET_ISO
-rem å…ˆæŒ‰ DVD è¯•: å¾—æœ‰ dvdvideo è§£å¤ç”¨å™¨æ‰è¯•å¾—åŠ¨
+rem ÏÈ°´ DVD ÊÔ: µÃÓÐ dvdvideo ½â¸´ÓÃÆ÷²ÅÊÔµÃ¶¯
 "%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
 if errorlevel 1 goto DET_ISO_MOUNT
 set "SRC_KIND=dvd"
@@ -692,19 +692,19 @@ if defined TW goto DET_DVD
 if defined TD goto DET_DVD
 set "SRC_KIND="
 :DET_ISO_MOUNT
-echo æŒ‰ DVD-Video è¯»ä¸åˆ°ï¼Œè¯•ç€å½“è“å…‰æŒ‚è½½...
+echo °´ DVD-Video ¶Á²»µ½£¬ÊÔ×Åµ±À¶¹â¹ÒÔØ...
 call :BD_MOUNT
 if not defined BD_ROOT goto DET_FAIL
 goto DET_BD
 
 :DET_DVD
 set "SRC_KIND=dvd"
-rem DVD å¿…é¡»æœ‰ dvdvideo: ç²¾ç®€æž„å»ºæ²¡æœ‰ï¼Œè€Œè£¸ -i å–‚ ISO ä¸æŠ¥é”™ã€åªä¼šè§£å‡ºåºŸå“
+rem DVD ±ØÐëÓÐ dvdvideo: ¾«¼ò¹¹½¨Ã»ÓÐ£¬¶øÂã -i Î¹ ISO ²»±¨´í¡¢Ö»»á½â³ö·ÏÆ·
 "%FF%" -hide_banner -demuxers 2>nul | findstr /i "dvdvideo" >nul
 if not errorlevel 1 goto DET_DVD_OK
-echo [é”™è¯¯] è¿™ä»½ ffmpeg æ²¡æœ‰ dvdvideo è§£å¤ç”¨å™¨ï¼Œè¯»ä¸äº† DVD-Video
-echo        éœ€è¦å¸¦ libdvdread + libdvdnav çš„æž„å»ºï¼ˆgyan.dev full build æœ‰ï¼‰
-echo        å®žæµ‹å‘½ä»¤: ffmpeg -demuxers ^| findstr /i dvdvideo
+echo [´íÎó] Õâ·Ý ffmpeg Ã»ÓÐ dvdvideo ½â¸´ÓÃÆ÷£¬¶Á²»ÁË DVD-Video
+echo        ÐèÒª´ø libdvdread + libdvdnav µÄ¹¹½¨£¨gyan.dev full build ÓÐ£©
+echo        Êµ²âÃüÁî: ffmpeg -demuxers ^| findstr /i dvdvideo
 set "SRC_KIND="
 exit /b 0
 :DET_DVD_OK
@@ -714,35 +714,35 @@ goto DET_DONE
 set "SRC_KIND=bd"
 call :BD_LIST
 if %BD_N% gtr 0 goto DET_DONE
-echo [é”™è¯¯] BDMV\STREAM ä¸‹æ²¡æ‰¾åˆ° .m2ts
+echo [´íÎó] BDMV\STREAM ÏÂÃ»ÕÒµ½ .m2ts
 set "SRC_KIND="
 exit /b 0
 
 :DET_FAIL
-echo [é”™è¯¯] æ—¢è¯»ä¸å‡º DVD-Video ä¹ŸæŒ‚ä¸å‡º BDMVï¼Œæ£€æŸ¥æºè·¯å¾„ / æ˜¯å¦å—ä¿æŠ¤
-echo        è“å…‰ .iso ä¹Ÿå¯ä»¥å…ˆæ‰‹åŠ¨æŒ‚è½½ï¼Œå†æŠŠæŒ‚è½½ç‚¹(ç›˜ç¬¦)å½“æºä¼ è¿›æ¥:
+echo [´íÎó] ¼È¶Á²»³ö DVD-Video Ò²¹Ò²»³ö BDMV£¬¼ì²éÔ´Â·¾¶ / ÊÇ·ñÊÜ±£»¤
+echo        À¶¹â .iso Ò²¿ÉÒÔÏÈÊÖ¶¯¹ÒÔØ£¬ÔÙ°Ñ¹ÒÔØµã(ÅÌ·û)µ±Ô´´«½øÀ´:
 echo          Mount-DiskImage -ImagePath "<iso>"
 set "SRC_KIND="
 exit /b 0
 
 :DET_DONE
 if "%SRC_KIND%"=="bd" (
-    set "SRC_KIND_DESC=Blu-rayï¼ˆBDMV, m2ts ç›´è¯»ï¼‰"
+    set "SRC_KIND_DESC=Blu-ray£¨BDMV, m2ts Ö±¶Á£©"
     set "TITLE_MAX=%BD_N%"
 ) else (
-    set "SRC_KIND_DESC=DVD-Videoï¼ˆdvdvideoï¼‰"
+    set "SRC_KIND_DESC=DVD-Video£¨dvdvideo£©"
 )
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ BD_MOUNT  ->  BD_ROOT(ç›˜ç¬¦æˆ–å·è·¯å¾„, ä¸€å¾‹å¸¦å°¾åæ–œæ ) / BD_STATE
-rem  Windows æ²¡æœ‰ -o loopï¼ŒUDF é•œåƒå¿…é¡»æŒ‚æˆä¸€ä¸ªå·æ‰è¯»å¾—åˆ°ï¼›æŒ‚ä¸ŠåŽå½“æ™®é€šç›®å½•ç”¨å³å¯
-rem  (m2ts èµ° mpegts ç›´è¯»ï¼Œä¸éœ€è¦ bluray è§£å¤ç”¨å™¨)ã€‚
-rem  ä¸¤å¤„åˆ»æ„çš„å†™æ³•:
-rem   * æºè·¯å¾„èµ°çŽ¯å¢ƒå˜é‡è€Œä¸æ˜¯å‘½ä»¤è¡Œ: è·¯å¾„é‡Œå¸¸æœ‰ä¸­æ–‡/æ—¥æ–‡ï¼Œå‘½ä»¤è¡Œåœ¨ cmd ä¸Ž
-rem     PowerShell ä¹‹é—´è¿‡ä¸€é“å®¹æ˜“è¢«ç¼–ç æ‹†åï¼ŒçŽ¯å¢ƒå˜é‡æ˜¯åŽŸæ ·ä¼ çš„
-rem   * PowerShell è¯­å¥å…ˆè½æˆ .ps1 å†è·‘: æ•´æ®µå¡žè¿› for /f çš„åå¼•å·é‡Œï¼Œé‡Œé¢çš„åœ†æ‹¬å·
-rem     ä¼šè·Ÿ for è‡ªå·±çš„æ‹¬å·æ‰“æž¶
+rem  ×Ó¹ý³Ì BD_MOUNT  ->  BD_ROOT(ÅÌ·û»ò¾íÂ·¾¶, Ò»ÂÉ´øÎ²·´Ð±¸Ü) / BD_STATE
+rem  Windows Ã»ÓÐ -o loop£¬UDF ¾µÏñ±ØÐë¹Ò³ÉÒ»¸ö¾í²Å¶ÁµÃµ½£»¹ÒÉÏºóµ±ÆÕÍ¨Ä¿Â¼ÓÃ¼´¿É
+rem  (m2ts ×ß mpegts Ö±¶Á£¬²»ÐèÒª bluray ½â¸´ÓÃÆ÷)¡£
+rem  Á½´¦¿ÌÒâµÄÐ´·¨:
+rem   * Ô´Â·¾¶×ß»·¾³±äÁ¿¶ø²»ÊÇÃüÁîÐÐ: Â·¾¶Àï³£ÓÐÖÐÎÄ/ÈÕÎÄ£¬ÃüÁîÐÐÔÚ cmd Óë
+rem     PowerShell Ö®¼ä¹ýÒ»µÀÈÝÒ×±»±àÂë²ð»µ£¬»·¾³±äÁ¿ÊÇÔ­Ñù´«µÄ
+rem   * PowerShell Óï¾äÏÈÂä³É .ps1 ÔÙÅÜ: Õû¶ÎÈû½ø for /f µÄ·´ÒýºÅÀï£¬ÀïÃæµÄÔ²À¨ºÅ
+rem     »á¸ú for ×Ô¼ºµÄÀ¨ºÅ´ò¼Ü
 rem =========================================================================
 :BD_MOUNT
 set "BD_ROOT="
@@ -765,23 +765,23 @@ for /f "usebackq tokens=1,* delims=:" %%A in (`powershell -NoProfile -ExecutionP
 del "%BD_PS%" 2>nul
 if not defined BD_ROOT exit /b 0
 if "%BD_BDMV%"=="1" exit /b 0
-echo æŒ‚è½½æˆåŠŸï¼Œä½†å·é‡Œæ²¡æœ‰ BDMVï¼ˆä¸æ˜¯è“å…‰ï¼‰
+echo ¹ÒÔØ³É¹¦£¬µ«¾íÀïÃ»ÓÐ BDMV£¨²»ÊÇÀ¶¹â£©
 set "BD_ROOT="
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ BD_LIST  ->  BD_LIST(ä¸´æ—¶æ–‡ä»¶, æ¯è¡Œ "åºå·:æ–‡ä»¶å") / BD_N
-rem  ç”¨ PowerShell åˆ—ç›®å½•è€Œä¸æ˜¯ dir: æŒ‚è½½å‡ºæ¥çš„å¸¸å¸¸æ˜¯ \\?\Volume{GUID}\ è¿™ç§å·è·¯å¾„,
-rem  cmd çš„ dir è®¤ä¸äº†(ç›˜ç¬¦å½¢å¼çš„è·¯å¾„æœ¬æ¥ä¹Ÿè¡Œï¼Œè¿™é‡Œç»Ÿä¸€èµ°ä¸€æ¡è·¯)ã€‚
+rem  ×Ó¹ý³Ì BD_LIST  ->  BD_LIST(ÁÙÊ±ÎÄ¼þ, Ã¿ÐÐ "ÐòºÅ:ÎÄ¼þÃû") / BD_N
+rem  ÓÃ PowerShell ÁÐÄ¿Â¼¶ø²»ÊÇ dir: ¹ÒÔØ³öÀ´µÄ³£³£ÊÇ \\?\Volume{GUID}\ ÕâÖÖ¾íÂ·¾¶,
+rem  cmd µÄ dir ÈÏ²»ÁË(ÅÌ·ûÐÎÊ½µÄÂ·¾¶±¾À´Ò²ÐÐ£¬ÕâÀïÍ³Ò»×ßÒ»ÌõÂ·)¡£
 rem =========================================================================
 :BD_LIST
 set "BD_N=0"
 set "BD_LIST=%WORK%\_bdlist_%RANDOM%%RANDOM%.txt"
 del "%BD_LIST%" 2>nul
 if defined BD_ONE goto BD_LIST_ONE
-rem ç›®å½• / æŒ‚è½½å·: ç”¨ PowerShell åˆ—ç›®å½• â€”â€” æŒ‚è½½å‡ºæ¥çš„å¸¸å¸¸æ˜¯ \\?\Volume{GUID}\ è¿™ç§
-rem å·è·¯å¾„ï¼Œcmd çš„ dir è®¤ä¸äº†ï¼›ç›˜ç¬¦å½¢å¼çš„è·¯å¾„æœ¬æ¥ä¹Ÿè¡Œï¼Œè¿™é‡Œç»Ÿä¸€èµ°ä¸€æ¡è·¯ã€‚
-rem ä¸ç”¨ if(...)else(...) å—: å—å†… set çš„å˜é‡åœ¨åŒä¸€å—é‡Œå–ä¸åˆ°(è§£æžæ—¶å°±å±•å¼€äº†)
+rem Ä¿Â¼ / ¹ÒÔØ¾í: ÓÃ PowerShell ÁÐÄ¿Â¼ ¡ª¡ª ¹ÒÔØ³öÀ´µÄ³£³£ÊÇ \\?\Volume{GUID}\ ÕâÖÖ
+rem ¾íÂ·¾¶£¬cmd µÄ dir ÈÏ²»ÁË£»ÅÌ·ûÐÎÊ½µÄÂ·¾¶±¾À´Ò²ÐÐ£¬ÕâÀïÍ³Ò»×ßÒ»ÌõÂ·¡£
+rem ²»ÓÃ if(...)else(...) ¿é: ¿éÄÚ set µÄ±äÁ¿ÔÚÍ¬Ò»¿éÀïÈ¡²»µ½(½âÎöÊ±¾ÍÕ¹¿ªÁË)
 set "BD_STREAM=%BD_ROOT%BDMV\STREAM\"
 set "BD_PS=%WORK%\_bdls_%RANDOM%.ps1"
 >"%BD_PS%" echo Get-ChildItem -LiteralPath $env:BD_STREAM -Filter *.m2ts -File ^| Sort-Object Name ^| ForEach-Object { Write-Output $_.Name }
@@ -796,9 +796,9 @@ for /f "usebackq delims=" %%A in ("%BD_LIST%") do set /a BD_N+=1
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ BD_NORM  ->  BD_ROOT ä¸€å¾‹ä»¥åæ–œæ æ”¶å°¾(åŽé¢ç›´æŽ¥æ‹¼ BDMV\STREAM\)
-rem  ç›®å½•åž‹æºå¯èƒ½å¸¦å°¾æ–œæ ä¹Ÿå¯èƒ½ä¸å¸¦(å…‰é©±ç›˜ç¬¦æ›´æ˜¯åªæœ‰ä¸€ä¸ªå†’å·), ä¸å½’ä¸€å°±æ‹¼æˆ
-rem  "D:\xxxBDMV" è¿™ç§ä¸œè¥¿
+rem  ×Ó¹ý³Ì BD_NORM  ->  BD_ROOT Ò»ÂÉÒÔ·´Ð±¸ÜÊÕÎ²(ºóÃæÖ±½ÓÆ´ BDMV\STREAM\)
+rem  Ä¿Â¼ÐÍÔ´¿ÉÄÜ´øÎ²Ð±¸ÜÒ²¿ÉÄÜ²»´ø(¹âÇýÅÌ·û¸üÊÇÖ»ÓÐÒ»¸öÃ°ºÅ), ²»¹éÒ»¾ÍÆ´³É
+rem  "D:\xxxBDMV" ÕâÖÖ¶«Î÷
 rem =========================================================================
 :BD_NORM
 if not defined BD_ROOT exit /b 0
@@ -807,7 +807,7 @@ set "BD_ROOT=%BD_ROOT%\"
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ BD_NAME  <åºå·>  ->  &2=è¯¥åºå·å¯¹åº”çš„ m2ts æ–‡ä»¶å(æ²¡æœ‰åˆ™ç©º)
+rem  ×Ó¹ý³Ì BD_NAME  <ÐòºÅ>  ->  &2=¸ÃÐòºÅ¶ÔÓ¦µÄ m2ts ÎÄ¼þÃû(Ã»ÓÐÔò¿Õ)
 rem =========================================================================
 :BD_NAME
 set "%~2="
@@ -817,10 +817,10 @@ for /f "usebackq tokens=1,2 delims=:" %%A in ("%BD_LIST%") do if "%%A"=="%~1" se
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ INARGS  <title>  ->  IN_DEMUX(è§£å¤ç”¨å™¨å‚æ•°, BD ä¸ºç©º) / IN_FILE(è¾“å…¥è·¯å¾„)
-rem  ä¸¤æ—å…±ç”¨çš„"è¿™ä¸€æ¡ title åˆ°åº•å–‚ä»€ä¹ˆç»™ ffmpeg":
-rem    DVD: -f dvdvideo -title N  + æ•´å¼ é•œåƒ(è§£å¤ç”¨å™¨è‡ªå·±æŒ‘ title)
-rem    BD : ç›´æŽ¥å–‚é‚£æ¡ m2ts(mpegts è‡ªåŠ¨è¯†åˆ«, ä¸ç”¨ -f)
+rem  ×Ó¹ý³Ì INARGS  <title>  ->  IN_DEMUX(½â¸´ÓÃÆ÷²ÎÊý, BD Îª¿Õ) / IN_FILE(ÊäÈëÂ·¾¶)
+rem  Á½×å¹²ÓÃµÄ"ÕâÒ»Ìõ title µ½µ×Î¹Ê²Ã´¸ø ffmpeg":
+rem    DVD: -f dvdvideo -title N  + ÕûÕÅ¾µÏñ(½â¸´ÓÃÆ÷×Ô¼ºÌô title)
+rem    BD : Ö±½ÓÎ¹ÄÇÌõ m2ts(mpegts ×Ô¶¯Ê¶±ð, ²»ÓÃ -f)
 rem =========================================================================
 :INARGS
 set "IN_DEMUX="
@@ -840,9 +840,9 @@ set "IN_FILE=%BD_ROOT%BDMV\STREAM\%BDNAME%"
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ IS_PCM  <codec åˆ—è¡¨>  ->  ISPCM=å‘½ä¸­çš„ LPCM ç¼–ç å™¨åï¼Œæ²¡å‘½ä¸­åˆ™ç©º
-rem  cmd é‡Œæ²¡æœ‰ containsï¼Œç”¨"åŽ»æŽ‰å­ä¸²åŽæ˜¯å¦å˜çŸ­"æ¥åˆ¤æ–­(ä¸ŽåŽŸæ¥åˆ¤ pcm_dvd åŒæ¬¾å†™æ³•)
-rem  BD çš„ LPCM å« pcm_blurayï¼Œä¸Ž DVD çš„ pcm_dvd ä¸€æ ·è£…ä¸è¿› Matroska(å®žæµ‹ rc=-22)
+rem  ×Ó¹ý³Ì IS_PCM  <codec ÁÐ±í>  ->  ISPCM=ÃüÖÐµÄ LPCM ±àÂëÆ÷Ãû£¬Ã»ÃüÖÐÔò¿Õ
+rem  cmd ÀïÃ»ÓÐ contains£¬ÓÃ"È¥µô×Ó´®ºóÊÇ·ñ±ä¶Ì"À´ÅÐ¶Ï(ÓëÔ­À´ÅÐ pcm_dvd Í¬¿îÐ´·¨)
+rem  BD µÄ LPCM ½Ð pcm_bluray£¬Óë DVD µÄ pcm_dvd Ò»Ñù×°²»½ø Matroska(Êµ²â rc=-22)
 rem =========================================================================
 :IS_PCM
 set "ISPCM="
@@ -856,10 +856,10 @@ if not "%PCMV:pcm_bluray=%"=="%PCMV%" set "ISPCM=pcm_bluray"
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ VENC_OK  <ç¼–ç å™¨>  ->  VRC=é€€å‡ºç (0 = çœŸèƒ½ç¼–)
-rem  çœŸè·‘ä¸€æ¬¡ 320x240 å°ç¼–ç ã€‚åªçœ‹ ffmpeg -encoders åˆ—è¡¨ä¼šè¸©ã€Œå‡å¯ç”¨ã€ï¼šæœ¬æœºä¸‰ä¸ª
-rem  nvenc éƒ½åˆ—åœ¨è¡¨é‡Œï¼ŒçœŸè·‘å´åœ¨ cuInit å¤„å¤±è´¥(æ²¡ N å¡)ã€‚320x240 æ˜¯æœ€å°çš„å®‰å…¨å°ºå¯¸ï¼Œ
-rem  å†å°(128x128) NVENC è‡ªå·±æ‹’ç»åˆå§‹åŒ–ï¼Œä¼šæŠŠå¯ç”¨åˆ¤æˆä¸å¯ç”¨ã€‚
+rem  ×Ó¹ý³Ì VENC_OK  <±àÂëÆ÷>  ->  VRC=ÍË³öÂë(0 = ÕæÄÜ±à)
+rem  ÕæÅÜÒ»´Î 320x240 Ð¡±àÂë¡£Ö»¿´ ffmpeg -encoders ÁÐ±í»á²È¡¸¼Ù¿ÉÓÃ¡¹£º±¾»úÈý¸ö
+rem  nvenc ¶¼ÁÐÔÚ±íÀï£¬ÕæÅÜÈ´ÔÚ cuInit ´¦Ê§°Ü(Ã» N ¿¨)¡£320x240 ÊÇ×îÐ¡µÄ°²È«³ß´ç£¬
+rem  ÔÙÐ¡(128x128) NVENC ×Ô¼º¾Ü¾ø³õÊ¼»¯£¬»á°Ñ¿ÉÓÃÅÐ³É²»¿ÉÓÃ¡£
 rem =========================================================================
 :VENC_OK
 "%FF%" -hide_banner -v error -f lavfi -i testsrc2=s=320x240:r=25:d=1 -c:v %~1 -frames:v 2 -f null - >nul 2>&1
@@ -867,7 +867,7 @@ set "VRC=%ERRORLEVEL%"
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ VENC_BTAB  <ç¼–ç å™¨>  ->  BTAB = hevc / avc / av1(ä¸è®¤è¯†çš„åå­—ç»™ç©º)
+rem  ×Ó¹ý³Ì VENC_BTAB  <±àÂëÆ÷>  ->  BTAB = hevc / avc / av1(²»ÈÏÊ¶µÄÃû×Ö¸ø¿Õ)
 rem =========================================================================
 :VENC_BTAB
 set "BTAB="
@@ -883,8 +883,8 @@ if /i "%~1"=="libsvtav1" set BTAB=av1
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ VENC_ARGS  <ç¼–ç å™¨>  ->  VENC_ARGS(å« -b:v, ä¾èµ–å·²ç®—å¥½çš„ %VBITRATE%)
-rem  å£å¾„ç…§æŠ„ä»“åº“é‡ŒåŒåç¼–ç å™¨çš„å…¥å£(ffmpeg_hevc_qsv.bat / ffmpeg_av1_qsv.bat ...)
+rem  ×Ó¹ý³Ì VENC_ARGS  <±àÂëÆ÷>  ->  VENC_ARGS(º¬ -b:v, ÒÀÀµÒÑËãºÃµÄ %VBITRATE%)
+rem  ¿Ú¾¶ÕÕ³­²Ö¿âÀïÍ¬Ãû±àÂëÆ÷µÄÈë¿Ú(ffmpeg_hevc_qsv.bat / ffmpeg_av1_qsv.bat ...)
 rem =========================================================================
 :VENC_ARGS
 set "VENC_ARGS=-b:v %VBITRATE%"
@@ -900,8 +900,8 @@ if /i "%~1"=="libsvtav1" set "VENC_ARGS=-preset 8 -b:v %VBITRATE%"
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ VENC_LIST  ->  AVAIL_LIST(æœ¬æœºçœŸèƒ½ç¼–çš„ç¼–ç å™¨, ç©ºæ ¼åˆ†éš”)
-rem  åªåœ¨"æ˜¾å¼æŒ‡å®šçš„ç¼–ç å™¨ä¸å¯ç”¨"è¿™æ¡æŠ¥é”™è·¯å¾„ä¸Šè·‘, å¹³æ—¶ä¸ä»˜è¿™ä¸ªä»£ä»·
+rem  ×Ó¹ý³Ì VENC_LIST  ->  AVAIL_LIST(±¾»úÕæÄÜ±àµÄ±àÂëÆ÷, ¿Õ¸ñ·Ö¸ô)
+rem  Ö»ÔÚ"ÏÔÊ½Ö¸¶¨µÄ±àÂëÆ÷²»¿ÉÓÃ"ÕâÌõ±¨´íÂ·¾¶ÉÏÅÜ, Æ½Ê±²»¸¶Õâ¸ö´ú¼Û
 rem =========================================================================
 :VENC_LIST
 set "AVAIL_LIST="
@@ -923,7 +923,7 @@ call :VENC_OK libx264
 if "%VRC%"=="0" call :ADD_AVAIL libx264
 call :VENC_OK libsvtav1
 if "%VRC%"=="0" call :ADD_AVAIL libsvtav1
-if not defined AVAIL_LIST set "AVAIL_LIST=ä¸€ä¸ªéƒ½æ²¡æœ‰"
+if not defined AVAIL_LIST set "AVAIL_LIST=Ò»¸ö¶¼Ã»ÓÐ"
 exit /b 0
 
 :ADD_AVAIL
@@ -931,20 +931,20 @@ if defined AVAIL_LIST (set "AVAIL_LIST=%AVAIL_LIST% %~1") else (set "AVAIL_LIST=
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ PROBE_RATE  title -> &2=è§†é¢‘æµå¸§çŽ‡(å¦‚ 25/1 / 30000/1001), è¯»ä¸åˆ°åˆ™ç©º
-rem  å­è¿‡ç¨‹ PROBE_ACODEC title -> &2=éŸ³è½¨ codec å(ç©ºæ ¼åˆ†éš”, å¦‚ "ac3" / "pcm_dvd")
-rem  è½ç›˜å†å›žè¯»çš„ç†ç”±åŒ :PROBE; libdvdread çš„æŠ±æ€¨æ˜¯æ‰“åˆ°æ ‡å‡†è¾“å‡ºçš„, é  findstr æŒ‰
-rem  å½¢çŠ¶è¿‡æ»¤(åªç•™çº¯ "æ•°å­—/æ•°å­—" æˆ–çº¯ codec åé‚£äº›è¡Œ)
+rem  ×Ó¹ý³Ì PROBE_RATE  title -> &2=ÊÓÆµÁ÷Ö¡ÂÊ(Èç 25/1 / 30000/1001), ¶Á²»µ½Ôò¿Õ
+rem  ×Ó¹ý³Ì PROBE_ACODEC title -> &2=Òô¹ì codec Ãû(¿Õ¸ñ·Ö¸ô, Èç "ac3" / "pcm_dvd")
+rem  ÂäÅÌÔÙ»Ø¶ÁµÄÀíÓÉÍ¬ :PROBE; libdvdread µÄ±§Ô¹ÊÇ´òµ½±ê×¼Êä³öµÄ, ¿¿ findstr °´
+rem  ÐÎ×´¹ýÂË(Ö»Áô´¿ "Êý×Ö/Êý×Ö" »ò´¿ codec ÃûÄÇÐ©ÐÐ)
 rem =========================================================================
 :PROBE_RATE
 set "%~2="
 call :INARGS %1
 if not defined IN_FILE exit /b 0
 "%FP%" -v error %IN_DEMUX% -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "%IN_FILE%" 2>nul | findstr /r "^[0-9][0-9]*/[0-9][0-9]*,*$" > "%WORK%\_p3.txt"
-rem åªç•™æ•°å€¼è¡Œ(libdvdread çš„ CHECK_VALUE æŠ±æ€¨åœ¨è¿™ç±»ç›˜ä¸Šæ˜¯æ‰“åˆ°æ ‡å‡†è¾“å‡ºçš„, è§ä¸‹é¢
-rem :PROBE_ACODEC), ä½†æ­£åˆ™å¿…é¡»å®¹å¿å°¾é€—å·: csv=p=0 å¯¹å•å­—æ®µä¹Ÿæ‰“ "25/1," è¿™ç§å½¢å¼,
-rem åŽŸæ¥çš„ ^...$ é”šåŒ¹é…ä¸ä¸Š -> SRC_RATE æ’ä¸ºç©º, åˆ¶å¼åªèƒ½é€€åŒ–æˆæŒ‰é«˜åº¦çŒœ(æ—¥å¿—é‡Œ
-rem "æºåˆ¶å¼: PAL25 @" åŽé¢æ˜¯ç©ºçš„)ã€‚å›žè¯»æ—¶å†æŒ‰é€—å·å–é¦–åˆ—, ä¸Ž .sh ä¾§ tr ',' åŒæ•ˆæžœã€‚
+rem Ö»ÁôÊýÖµÐÐ(libdvdread µÄ CHECK_VALUE ±§Ô¹ÔÚÕâÀàÅÌÉÏÊÇ´òµ½±ê×¼Êä³öµÄ, ¼ûÏÂÃæ
+rem :PROBE_ACODEC), µ«ÕýÔò±ØÐëÈÝÈÌÎ²¶ººÅ: csv=p=0 ¶Ôµ¥×Ö¶ÎÒ²´ò "25/1," ÕâÖÖÐÎÊ½,
+rem Ô­À´µÄ ^...$ ÃªÆ¥Åä²»ÉÏ -> SRC_RATE ºãÎª¿Õ, ÖÆÊ½Ö»ÄÜÍË»¯³É°´¸ß¶È²Â(ÈÕÖ¾Àï
+rem "Ô´ÖÆÊ½: PAL25 @" ºóÃæÊÇ¿ÕµÄ)¡£»Ø¶ÁÊ±ÔÙ°´¶ººÅÈ¡Ê×ÁÐ, Óë .sh ²à tr ',' Í¬Ð§¹û¡£
 if exist "%WORK%\_p3.txt" for /f "usebackq tokens=1 delims=," %%A in ("%WORK%\_p3.txt") do set "%~2=%%A"
 del "%WORK%\_p3.txt" 2>nul
 exit /b 0
@@ -959,10 +959,10 @@ del "%WORK%\_p4.txt" 2>nul
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ PROBE  title  ->  &1=å®½  &2=é«˜  &3=æ—¶é•¿
-rem  ç”¨ä¸´æ—¶æ–‡ä»¶è½ç›˜å†å›žè¯»ï¼Œé¿å¼€ for /f åå¼•å·å¯¹å«ç©ºæ ¼/ä¸Žå·/å°æ‹¬å·è·¯å¾„çš„è½¬ä¹‰å‘
-rem  ï¼ˆç»ä¸èƒ½ç”¨ for /f åå¼•å·ç›´æŽ¥è·‘ ffprobeï¼šç¨‹åºè·¯å¾„å«ç©ºæ ¼ï¼Œä¸¤ç§å†™æ³•éƒ½ä¼šè¢«
-rem    cmd çš„å¼•å·å‰¥ç¦»è§„åˆ™åƒæŽ‰æ”¶å°¾å¼•å·ï¼Œè§ lib\common.bat çš„é•¿æ³¨é‡Šï¼‰
+rem  ×Ó¹ý³Ì PROBE  title  ->  &1=¿í  &2=¸ß  &3=Ê±³¤
+rem  ÓÃÁÙÊ±ÎÄ¼þÂäÅÌÔÙ»Ø¶Á£¬±Ü¿ª for /f ·´ÒýºÅ¶Ôº¬¿Õ¸ñ/ÓëºÅ/Ð¡À¨ºÅÂ·¾¶µÄ×ªÒå¿Ó
+rem  £¨¾ø²»ÄÜÓÃ for /f ·´ÒýºÅÖ±½ÓÅÜ ffprobe£º³ÌÐòÂ·¾¶º¬¿Õ¸ñ£¬Á½ÖÖÐ´·¨¶¼»á±»
+rem    cmd µÄÒýºÅ°þÀë¹æÔò³ÔµôÊÕÎ²ÒýºÅ£¬¼û lib\common.bat µÄ³¤×¢ÊÍ£©
 rem =========================================================================
 :PROBE
 set "%~2="
@@ -976,28 +976,28 @@ for /f "usebackq tokens=1,2 delims=," %%A in ("%WORK%\_p1.txt") do (
     set "%~2=%%A"
     set "%~3=%%B"
 )
-rem å›žè¯»æ—¶é•¿å¿…é¡»ç”¨ for /f "usebackq" â€”â€” æœ¬ä»“åº“çœŸæœºéªŒè¯è¿‡çš„å†™æ³•ã€‚
-rem æ›¾ç»çš„å†™æ³•æ˜¯ set /p "å˜é‡=" é…ä¸€ä¸ªè„±å­—ç¬¦å°äºŽå·ï¼Œä»¥ä¸ºé‚£æ˜¯é‡å®šå‘ï¼›
-rem å®žé™… cmd çš„è„±å­—ç¬¦åªæ˜¯æŠŠå°äºŽå·è½¬æˆå­—é¢é‡å‚æ•°ï¼ŒäºŽæ˜¯ set /p å˜æˆ
-rem "ä»Žé”®ç›˜è¯»ä¸€è¡Œ"ï¼Œè„šæœ¬åœ¨ç¬¬ä¸€æ¬¡æŽ¢é’ˆå¤„å°±é™é»˜å¡æ­»(2026-09-22 ç”¨æˆ·æŠ¥éšœ)ã€‚
+rem »Ø¶ÁÊ±³¤±ØÐëÓÃ for /f "usebackq" ¡ª¡ª ±¾²Ö¿âÕæ»úÑéÖ¤¹ýµÄÐ´·¨¡£
+rem Ôø¾­µÄÐ´·¨ÊÇ set /p "±äÁ¿=" ÅäÒ»¸öÍÑ×Ö·ûÐ¡ÓÚºÅ£¬ÒÔÎªÄÇÊÇÖØ¶¨Ïò£»
+rem Êµ¼Ê cmd µÄÍÑ×Ö·ûÖ»ÊÇ°ÑÐ¡ÓÚºÅ×ª³É×ÖÃæÁ¿²ÎÊý£¬ÓÚÊÇ set /p ±ä³É
+rem "´Ó¼üÅÌ¶ÁÒ»ÐÐ"£¬½Å±¾ÔÚµÚÒ»´ÎÌ½Õë´¦¾Í¾²Ä¬¿¨ËÀ(2026-09-22 ÓÃ»§±¨ÕÏ)¡£
 if exist "%WORK%\_p2.txt" for /f "usebackq delims=" %%A in ("%WORK%\_p2.txt") do set "%~4=%%A"
 del "%WORK%\_p1.txt" "%WORK%\_p2.txt" 2>nul
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ QSV10  <title>  ->  10bit BD æº + QSV ç¼–ç å™¨æ—¶è®¾å¥½ VFOPT / QSV_INIT
-rem  BD çš„ HEVC Main10 / AVC High10 èµ° QSV ç¼–ç å™¨æ—¶(hevc_qsv -profile main åƒä¸ä¸‹
-rem  10bit), è½¯ä»¶è§£å‡º 10bit å¸§åŽå…ˆ format=nv12 é™åˆ° 8bit å† hwupload ç»™ç¼–ç å™¨;
-rem  ä¸ç”¨ scale_qsv(æœ¬è„šæœ¬ä¸èµ° -hwaccel qsv, å¸§åœ¨ç³»ç»Ÿå†…å­˜, scale_qsv æŽ¥ä¸ä¸Š),
-rem  ç”¨ä¸Ž avc_qsv çš„ High10 è·¯å¾„ä¸€è‡´çš„ format=nv12,hwupload=extra_hw_frames=64;
-rem  hwupload éœ€è¦ -init_hw_device qsv=hw æä¾›ä¸Šä¼ ç›®æ ‡è®¾å¤‡(ä¸Žä¸“ç”¨ hevc_qsv å¯¹é½)ã€‚
-rem  ä»…å¯¹ QSV ç¼–ç å™¨ä¸”æºæ˜¯ BD çš„ 10bit ç”Ÿæ•ˆ; å…¶ä½™æƒ…å†µ VFOPT æ²¿ç”¨å…¨å±€ VFILTã€‚
+rem  ×Ó¹ý³Ì QSV10  <title>  ->  10bit BD Ô´ + QSV ±àÂëÆ÷Ê±ÉèºÃ VFOPT / QSV_INIT
+rem  BD µÄ HEVC Main10 / AVC High10 ×ß QSV ±àÂëÆ÷Ê±(hevc_qsv -profile main ³Ô²»ÏÂ
+rem  10bit), Èí¼þ½â³ö 10bit Ö¡ºóÏÈ format=nv12 ½µµ½ 8bit ÔÙ hwupload ¸ø±àÂëÆ÷;
+rem  ²»ÓÃ scale_qsv(±¾½Å±¾²»×ß -hwaccel qsv, Ö¡ÔÚÏµÍ³ÄÚ´æ, scale_qsv ½Ó²»ÉÏ),
+rem  ÓÃÓë avc_qsv µÄ High10 Â·¾¶Ò»ÖÂµÄ format=nv12,hwupload=extra_hw_frames=64;
+rem  hwupload ÐèÒª -init_hw_device qsv=hw Ìá¹©ÉÏ´«Ä¿±êÉè±¸(Óë×¨ÓÃ hevc_qsv ¶ÔÆë)¡£
+rem  ½ö¶Ô QSV ±àÂëÆ÷ÇÒÔ´ÊÇ BD µÄ 10bit ÉúÐ§; ÆäÓàÇé¿ö VFOPT ÑØÓÃÈ«¾Ö VFILT¡£
 rem =========================================================================
 :QSV10
 set "QSV_INIT="
 set "VFOPT="
 set "LOCALFILT=%VFILT%"
-rem åŽ»ç©ºæ ¼åŽå–æœ« 3 å­—ç¬¦åˆ¤ QSV: ç”¨æˆ·æ‰‹æ•² set VENC=hevc_qsv (å°¾éšç©ºæ ¼) ä¹Ÿç¨³å¥
+rem È¥¿Õ¸ñºóÈ¡Ä© 3 ×Ö·ûÅÐ QSV: ÓÃ»§ÊÖÇÃ set VENC=hevc_qsv (Î²Ëæ¿Õ¸ñ) Ò²ÎÈ½¡
 set "VC=%VCODEC: =%"
 if /i not "%VC:~-3%"=="qsv" goto QSV10_DONE
 call :IS_10BIT %1
@@ -1009,9 +1009,9 @@ if defined LOCALFILT set "VFOPT=-vf "%LOCALFILT%""
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ IS_10BIT  <title>  ->  IS10=1 å½“è¯¥ title è§†é¢‘æµæ˜¯ 10bit, å¦åˆ™ç©º
-rem  åªæŸ¥ BD(SRC_KIND=bd): DVD çš„ MPEG-2 æ°¸è¿œæ˜¯ 8bit ä¸å¿…æŽ¢; BD çš„ IN_FILE æ˜¯é‚£æ¡
-rem  m2ts, ç›´æŽ¥ ffprobe å³å¯(DVD çš„ ISO ä¸å¸¦ -f dvdvideo åè€ŒæŽ¢ä¸å‡†)ã€‚
+rem  ×Ó¹ý³Ì IS_10BIT  <title>  ->  IS10=1 µ±¸Ã title ÊÓÆµÁ÷ÊÇ 10bit, ·ñÔò¿Õ
+rem  Ö»²é BD(SRC_KIND=bd): DVD µÄ MPEG-2 ÓÀÔ¶ÊÇ 8bit ²»±ØÌ½; BD µÄ IN_FILE ÊÇÄÇÌõ
+rem  m2ts, Ö±½Ó ffprobe ¼´¿É(DVD µÄ ISO ²»´ø -f dvdvideo ·´¶øÌ½²»×¼)¡£
 rem =========================================================================
 :IS_10BIT
 set "IS10="
@@ -1023,54 +1023,54 @@ if not errorlevel 1 set "IS10=1"
 exit /b 0
 
 :DONE
-rem æœ¬æ¬¡è‡ªå·±æŒ‚çš„å°±è‡ªå·±å¸: è°ƒç”¨æ–¹äº‹å…ˆæŒ‚å¥½çš„(STATE=ALREADY)ä¸åŠ¨å®ƒ
+rem ±¾´Î×Ô¼º¹ÒµÄ¾Í×Ô¼ºÐ¶: µ÷ÓÃ·½ÊÂÏÈ¹ÒºÃµÄ(STATE=ALREADY)²»¶¯Ëü
 if not "%BD_STATE%"=="MOUNTED" goto DONE_KEEP
-echo å¸è½½æœ¬æ¬¡æŒ‚è½½çš„é•œåƒ: %BD_ISO%
+echo Ð¶ÔØ±¾´Î¹ÒÔØµÄ¾µÏñ: %BD_ISO%
 powershell -NoProfile -Command "Dismount-DiskImage -ImagePath $env:BD_ISO ^| Out-Null" >nul 2>&1
 :DONE_KEEP
 if defined BD_LIST del "%BD_LIST%" 2>nul
 echo.
 echo ============================================================
-echo  è¾“å‡ºç›®å½•: %OUTDIR%
-rem ---- äº§ç‰©åˆè®¡: ç¼–ç å·²è·‘å®Œ, ç›´æŽ¥ç»Ÿè®¡æœ¬æ¬¡çœŸæ­£å†™å‡ºçš„æ–‡ä»¶(æ¯”æŒ‰ç çŽ‡ä¼°å‡†) ----
-rem ç”¨ KB ç´¯åŠ å†æŠ˜ç®— MB: cmd çš„ set /a æ˜¯ 32 ä½æœ‰ç¬¦å·, å¤§æ–‡ä»¶ç›´æŽ¥ç´¯åŠ å­—èŠ‚ä¼šæº¢å‡º
-rem å–å¤§å°èµ° call :ACC_OUT çš„ %~z1(cmd å¯¹"å‚æ•°"çš„æ ‡å‡†è¡Œä¸º)ã€‚æ³¨: å®žæµ‹ %%~zF åœ¨
-rem for /f é‡ŒåŒæ ·èƒ½å–åˆ°æ­£ç¡®å­—èŠ‚æ•°, æ¢å†™æ³•åªæ˜¯ä¸Žå…¶ä½™å­è¿‡ç¨‹åŒé£Žæ ¼ â€”â€” çœŸæ­£è®©åˆè®¡
-rem ç®—é”™çš„å‘æ˜¯ä¸Šé¢é‚£ä»½æ¸…å•çš„å›ºå®šæ–‡ä»¶å(è·¨è¿è¡Œæ®‹ç•™), å·²æ”¹éšæœºå, è§ :RUN_ALLã€‚
+echo  Êä³öÄ¿Â¼: %OUTDIR%
+rem ---- ²úÎïºÏ¼Æ: ±àÂëÒÑÅÜÍê, Ö±½ÓÍ³¼Æ±¾´ÎÕæÕýÐ´³öµÄÎÄ¼þ(±È°´ÂëÂÊ¹À×¼) ----
+rem ÓÃ KB ÀÛ¼ÓÔÙÕÛËã MB: cmd µÄ set /a ÊÇ 32 Î»ÓÐ·ûºÅ, ´óÎÄ¼þÖ±½ÓÀÛ¼Ó×Ö½Ú»áÒç³ö
+rem È¡´óÐ¡×ß call :ACC_OUT µÄ %~z1(cmd ¶Ô"²ÎÊý"µÄ±ê×¼ÐÐÎª)¡£×¢: Êµ²â %%~zF ÔÚ
+rem for /f ÀïÍ¬ÑùÄÜÈ¡µ½ÕýÈ·×Ö½ÚÊý, »»Ð´·¨Ö»ÊÇÓëÆäÓà×Ó¹ý³ÌÍ¬·ç¸ñ ¡ª¡ª ÕæÕýÈÃºÏ¼Æ
+rem Ëã´íµÄ¿ÓÊÇÉÏÃæÄÇ·ÝÇåµ¥µÄ¹Ì¶¨ÎÄ¼þÃû(¿çÔËÐÐ²ÐÁô), ÒÑ¸ÄËæ»úÃû, ¼û :RUN_ALL¡£
 set /a TOTKB=0
 set /a N_OUT=0
 if exist "%OUTS%" for /f "usebackq delims=" %%F in ("%OUTS%") do if exist %%F call :ACC_OUT %%F
 set /a TOTMB=%TOTKB%/1024
-if %N_OUT% gtr 0 echo  äº§ç‰©åˆè®¡: %N_OUT% ä¸ªæ–‡ä»¶, %TOTMB% MB
+if %N_OUT% gtr 0 echo  ²úÎïºÏ¼Æ: %N_OUT% ¸öÎÄ¼þ, %TOTMB% MB
 del "%OUTS%" 2>nul
-rem ---- ä½“ç§¯ä¼°ç®—: MODE=ALL ä¸‹æ—¶é•¿å£å¾„æ˜¯"å„ title åˆè®¡", ä¸æ˜¯ title 1 ----
+rem ---- Ìå»ý¹ÀËã: MODE=ALL ÏÂÊ±³¤¿Ú¾¶ÊÇ"¸÷ title ºÏ¼Æ", ²»ÊÇ title 1 ----
 if "%MODE%"=="ALL" (set "DI=%TOTDUR%") else (set "DI=%SRC_DUR%")
 if not defined DI goto DONE_END
 if not defined VBITRATE goto DONE_END
 for /f "tokens=1 delims=." %%A in ("%DI%") do set DI=%%A
 if not defined DI set DI=0
-rem åŒ :AUTO_LOOP: "N/A" ä¹‹ç±»çš„éžæ•°å­—ä¼šè®© set /a æŠ¥ Missing operator
+rem Í¬ :AUTO_LOOP: "N/A" Ö®ÀàµÄ·ÇÊý×Ö»áÈÃ set /a ±¨ Missing operator
 for /f "delims=0123456789" %%B in ("%DI%") do set DI=0
-rem VBITRATE é»˜è®¤æ¥è‡ªæŸ¥è¡¨, æ˜¯è£¸ bit/sï¼›è¢«æ‰‹å·¥è¦†ç›–æˆ "636k" / "2m" æ—¶æ¢ç®—å›žæ¥
+rem VBITRATE Ä¬ÈÏÀ´×Ô²é±í, ÊÇÂã bit/s£»±»ÊÖ¹¤¸²¸Ç³É "636k" / "2m" Ê±»»Ëã»ØÀ´
 set "VBN=%VBITRATE%"
 if /i "%VBITRATE:~-1%"=="k" set /a VBN=%VBITRATE:~0,-1%*1000
 if /i "%VBITRATE:~-1%"=="m" set /a VBN=%VBITRATE:~0,-1%*1000000
-rem å…ˆ /1024 å†ä¹˜æ—¶é•¿ï¼šcmd çš„ set /a æ˜¯ 32 ä½æœ‰ç¬¦å·ï¼Œç›´æŽ¥ä¹˜ä¼šæº¢å‡º
+rem ÏÈ /1024 ÔÙ³ËÊ±³¤£ºcmd µÄ set /a ÊÇ 32 Î»ÓÐ·ûºÅ£¬Ö±½Ó³Ë»áÒç³ö
 set /a EST_MB=%VBN%/1024*%DI%/8192
 set /a EST_KB=%VBN%/1000
-if "%MODE%"=="ALL" (echo  ä½“ç§¯ä¼°ç®—: è§†é¢‘ ~%EST_KB%kbps x %DI%sï¼ˆ%N_TITLE% ä¸ª title åˆè®¡ï¼‰ â‰ˆ %EST_MB% MBï¼ˆå¦åŠ éŸ³é¢‘ï¼‰) else (echo  ä½“ç§¯ä¼°ç®—: è§†é¢‘ ~%EST_KB%kbps x %DI%s â‰ˆ %EST_MB% MBï¼ˆå¦åŠ éŸ³é¢‘ï¼‰)
+if "%MODE%"=="ALL" (echo  Ìå»ý¹ÀËã: ÊÓÆµ ~%EST_KB%kbps x %DI%s£¨%N_TITLE% ¸ö title ºÏ¼Æ£© ¡Ö %EST_MB% MB£¨Áí¼ÓÒôÆµ£©) else (echo  Ìå»ý¹ÀËã: ÊÓÆµ ~%EST_KB%kbps x %DI%s ¡Ö %EST_MB% MB£¨Áí¼ÓÒôÆµ£©)
 :DONE_END
 echo ============================================================
 if defined FAILED (
-    echo [å¤±è´¥] è‡³å°‘ä¸€ä¸ª title ç¼–ç å¤±è´¥
+    echo [Ê§°Ü] ÖÁÉÙÒ»¸ö title ±àÂëÊ§°Ü
     exit /b 1
 )
 exit /b 0
 
 rem =========================================================================
-rem  å­è¿‡ç¨‹ ACC_OUT  <å¸¦å¼•å·çš„äº§ç‰©è·¯å¾„>  ->  ç´¯åŠ è¿› TOTKB / N_OUT
-rem  %~z1 æ˜¯ cmd å¯¹"å‚æ•°"çš„æ ‡å‡†è¡Œä¸º(å–è¯¥æ–‡ä»¶çš„å­—èŠ‚æ•°), è·¯å¾„ä¸¤è¾¹çš„å¼•å·ç”± %~ è‡ªåŠ¨
-rem  å‰¥æŽ‰ã€‚å®žæµ‹ for /f å˜é‡çš„ %%~zF ä¹Ÿè¿”å›žåŒæ ·çš„å€¼, ä¸¤è€…éƒ½å¯ç”¨ã€‚
+rem  ×Ó¹ý³Ì ACC_OUT  <´øÒýºÅµÄ²úÎïÂ·¾¶>  ->  ÀÛ¼Ó½ø TOTKB / N_OUT
+rem  %~z1 ÊÇ cmd ¶Ô"²ÎÊý"µÄ±ê×¼ÐÐÎª(È¡¸ÃÎÄ¼þµÄ×Ö½ÚÊý), Â·¾¶Á½±ßµÄÒýºÅÓÉ %~ ×Ô¶¯
+rem  °þµô¡£Êµ²â for /f ±äÁ¿µÄ %%~zF Ò²·µ»ØÍ¬ÑùµÄÖµ, Á½Õß¶¼¿ÉÓÃ¡£
 rem =========================================================================
 :ACC_OUT
 set /a TOTKB+=%~z1/1024

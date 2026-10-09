@@ -24,17 +24,17 @@ exit /b %errorlevel%
 
 :main
 setlocal DisableDelayedExpansion
-rem æœ¬è„šæœ¬ä¸éœ€è¦å»¶è¿Ÿå±•å¼€: ä¸€æ—¦å¼€å¯, for å˜é‡ %%i é‡Œçš„æ„Ÿå¹å·ä¼šè¢«æˆå¯¹åƒæ‰,
-rem ç‰‡å Tora! Tora! Tora!.mp4 è¿™ç±»æ¡ç›®ä¼šå˜æˆæ®‹ç¼ºè·¯å¾„
+rem ±¾½Å±¾²»ĞèÒªÑÓ³ÙÕ¹¿ª: Ò»µ©¿ªÆô, for ±äÁ¿ %%i ÀïµÄ¸ĞÌ¾ºÅ»á±»³É¶Ô³Ôµô,
+rem Æ¬Ãû Tora! Tora! Tora!.mp4 ÕâÀàÌõÄ¿»á±ä³É²ĞÈ±Â·¾¶
 
-rem å‘½ä»¤è¡Œå¼€å…³è§£æ: --key value -> åŒåå¤§å†™ç¯å¢ƒå˜é‡(è§ lib/common.bat çš„ :parse_switches)
+rem ÃüÁîĞĞ¿ª¹Ø½âÎö: --key value -> Í¬Ãû´óĞ´»·¾³±äÁ¿(¼û lib/common.bat µÄ :parse_switches)
 call "%~dp0lib\common.bat" parse_switches %*
 if errorlevel 2 exit /b 2
 
-rem ç»Ÿä¸€ --help / -help / -h: æ‰“å°ç”¨æ³•åé€€å‡º, ä¸å¹²æ´»(è§ lib\common.bat çš„ :want_help / :usage)
-rem åˆ»æ„ç”¨ä¸¤æ¡ç‹¬ç«‹çš„ if è€Œä¸æ˜¯ ( ) å—: usage çš„å‚æ•°é‡Œä¸è®¸å‡ºç°åŠè§’å³æ‹¬å·(ä¼šæå‰é—­å—)ã€‚
+rem Í³Ò» --help / -help / -h: ´òÓ¡ÓÃ·¨ºóÍË³ö, ²»¸É»î(¼û lib\common.bat µÄ :want_help / :usage)
+rem ¿ÌÒâÓÃÁ½Ìõ¶ÀÁ¢µÄ if ¶ø²»ÊÇ ( ) ¿é: usage µÄ²ÎÊıÀï²»Ğí³öÏÖ°ë½ÇÓÒÀ¨ºÅ(»áÌáÇ°±Õ¿é)¡£
 call "%~dp0lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%~dp0lib\common.bat" usage "repack_from_list.bat  -  æŒ‰æ¸…å•é€æ¡æ— æŸè½¬å°è£…ä¸º mp4" "ç”¨æ³•: repack_from_list.bat æ¸…å•æ–‡ä»¶    ä¸å¸¦å‚æ•°é»˜è®¤ list.txt" "æ¸…å•æ¯è¡Œä¸€ä¸ªè§†é¢‘è·¯å¾„ï¼›é€æ¡è°ƒç”¨ ffmpeg_copy_to_mp4.bat"
+if defined FB_WANT_HELP call "%~dp0lib\common.bat" usage "repack_from_list.bat  -  °´Çåµ¥ÖğÌõÎŞËğ×ª·â×°Îª mp4" "ÓÃ·¨: repack_from_list.bat Çåµ¥ÎÄ¼ş    ²»´ø²ÎÊıÄ¬ÈÏ list.txt" "Çåµ¥Ã¿ĞĞÒ»¸öÊÓÆµÂ·¾¶£»ÖğÌõµ÷ÓÃ ffmpeg_copy_to_mp4.bat"
 if defined FB_WANT_HELP exit /b 0
 
 SET "SRC_FILE="
@@ -48,13 +48,13 @@ if not "%PARSE_POS%"=="" (
     SET "SRC_FILE=list.txt"
 )
 echo SRC_FILE="%SRC_FILE%"
-rem ---------- å¼€å…³é€ä¼ (æ— äººå€¼å®ˆç•™ç—•) ----------
-rem æœ¬è„šæœ¬ç» parse_switches æ¥å—æ ‡å‡† --key value å¼€å…³(EXT / BITRATE_NO_HALF /
-rem   FF_HWACCEL / FF_ON_EXIST ç­‰, è§ readme.md çš„å¼€å…³è¡¨), è®¾æˆç¯å¢ƒå˜é‡ååŸæ ·é€ä¼ ç»™ä¸‹æ¸¸å…¥å£
-rem   ffmpeg_copy_to_mp4.bat; è€çš„ç¯å¢ƒå˜é‡å†™æ³•ä»å…¼å®¹ã€‚
-rem é»˜è®¤å€¼ç»Ÿä¸€å†™åœ¨ lib\defaults.cfg â€”â€” æ— äººå€¼å®ˆå‰æ”¹é‚£ä¸ªæ–‡ä»¶å³å¯, å‘½ä»¤è¡Œ
-rem   set XXX=... çš„ä¸´æ—¶è¦†ç›–ä¼˜å…ˆã€‚ load_defaults æŠŠé»˜è®¤å€¼è£…è¿›æœ¬è¿›ç¨‹ç¯å¢ƒ(å­è¿›ç¨‹
-rem   ç»§æ‰¿), å†å›æ˜¾ä¸€è¡Œ: è·‘ä¸€æ•´æ™šçš„æ—¥å¿—é‡Œèƒ½ä¸€çœ¼çœ‹å‡ºè¿™ä»½æ¸…å•æ˜¯æŒ‰ä»€ä¹ˆè®¾ç½®è½¬çš„ã€‚
+rem ---------- ¿ª¹ØÍ¸´«(ÎŞÈËÖµÊØÁôºÛ) ----------
+rem ±¾½Å±¾¾­ parse_switches ½ÓÊÜ±ê×¼ --key value ¿ª¹Ø(EXT / BITRATE_NO_HALF /
+rem   FF_HWACCEL / FF_ON_EXIST µÈ, ¼û readme.md µÄ¿ª¹Ø±í), Éè³É»·¾³±äÁ¿ºóÔ­ÑùÍ¸´«¸øÏÂÓÎÈë¿Ú
+rem   ffmpeg_copy_to_mp4.bat; ÀÏµÄ»·¾³±äÁ¿Ğ´·¨ÈÔ¼æÈİ¡£
+rem Ä¬ÈÏÖµÍ³Ò»Ğ´ÔÚ lib\defaults.cfg ¡ª¡ª ÎŞÈËÖµÊØÇ°¸ÄÄÇ¸öÎÄ¼ş¼´¿É, ÃüÁîĞĞ
+rem   set XXX=... µÄÁÙÊ±¸²¸ÇÓÅÏÈ¡£ load_defaults °ÑÄ¬ÈÏÖµ×°½ø±¾½ø³Ì»·¾³(×Ó½ø³Ì
+rem   ¼Ì³Ğ), ÔÙ»ØÏÔÒ»ĞĞ: ÅÜÒ»ÕûÍíµÄÈÕÖ¾ÀïÄÜÒ»ÑÛ¿´³öÕâ·İÇåµ¥ÊÇ°´Ê²Ã´ÉèÖÃ×ªµÄ¡£
 call "%~dp0lib\common.bat" load_defaults
 echo SWITCHES: EXT=%EXT% BITRATE_NO_HALF=%BITRATE_NO_HALF% FF_ON_EXIST=%FF_ON_EXIST%
 
@@ -62,22 +62,22 @@ rem NOTE: usebackq + quotes makes the list path a FILE, not a literal
 rem string; CALL is required or cmd never returns from the encoder and
 rem only the first list entry gets processed; %~dp0 anchors the encoder
 rem so this also works when the repo is not the current directory.
-rem fail-fast: ä¸ .sh å­ªç”Ÿ(run_list)å¯¹é½ â€”â€” ä»»ä¸€æ–‡ä»¶å¤±è´¥ç«‹å³ä¸­æ­¢å¹¶ä¼ å› 1,
-rem ä¸å†é»˜é»˜è·‘å®Œæ•´ä»½æ¸…å•è¿˜æŠ¥ 0ã€‚goto æ˜¯ cmd é‡Œè·³å‡º for å—çš„å¯é å†™æ³•ã€‚
-rem é€€å‡ºç  4(ç¡¬ä»¶ç¼ºå¤±)å•ç‹¬åˆ¤: å®ƒä¸æ˜¯"è¿™ä¸ªæ–‡ä»¶è½¬åäº†", è€Œæ˜¯"è¿™å°æœºå™¨è·‘ä¸äº†è¿™ä¸ª
-rem   å…¥å£" â€”â€” æ¸…å•å‰©ä¸‹çš„æ¡ç›®ä¼šä¸€æ¡æ¥ä¸€æ¡æ’åŒä¸€å µå¢™, æ‰€ä»¥æŒ‰ç”¨æˆ·è£å®šä¸è·³è¿‡ã€
-rem   ç›´æ¥ä¸­æ­¢å¹¶æŠŠ 4 ä¼ å›, è®©è°ƒç”¨æ–¹ä¸€çœ¼çœ‹å‡ºæ˜¯ç¡¬ä»¶è€Œä¸æ˜¯ç‰‡å­çš„é—®é¢˜ã€‚
-rem åˆ¤å®šåªèƒ½ç”¨ if errorlevel: for å—é‡Œ %VAR% åœ¨å—è§£ææ—¶å°±å†»ç»“äº†, %ERRORLEVEL%
-rem   è¯»ä¸åˆ°å­è°ƒç”¨çš„è¿”å›å€¼; ä¸” "if errorlevel 4" + "if not errorlevel 5" æ‰æ˜¯
-rem   "æ­£å¥½ç­‰äº 4"(ä¸ä¼šæŠŠ 5/6 æˆªèµ°), ffmpeg çš„è´Ÿ AVERROR(å¦‚ av1_qsv çš„ -40)
-rem   ä¹Ÿè¿›ä¸æ¥ â€”â€” å¸¦ç¬¦å·æ¯”è¾ƒä¸‹ -40 < 4ã€‚
-rem ---------- UTF-8 BOM(è®°äº‹æœ¬å­˜å‡ºæ¥çš„æ¸…å•) ----------
-rem æ¸…å•ç¬¬ä¸€æ¡è‹¥å¸¦ BOM, cmd çš„ for /f ä¼šæŠŠå®ƒä¸€å¹¶åƒè¿›è·¯å¾„ â€”â€” check_isvideo äºæ˜¯
-rem   åˆ¤"ä¸æ˜¯è§†é¢‘"å¹¶æŠŠæ•´ä»½æ¸…å•æ‰“æˆ rc=3(sh ä¾§ run_list æ—©å°±å‰¥äº†, å®æµ‹ T21 åœ¨ sh ä¾§
-rem   PASS / bat ä¾§ FAIL)ã€‚å‰¥é™¤æ”¾åœ¨å­ç¨‹åºé‡Œåš: for å—å†…ä¸èƒ½å±•å¼€ %LINE:~1%(å—è§£ææ—¶
-rem   å°±å†»ç»“), è€Œå¼€å»¶è¿Ÿå±•å¼€åˆä¼šåƒæ‰ç‰‡åé‡Œçš„ '!'(Tora! Tora! Tora!.mp4 é‚£ä¸€ç±»),
-rem   æ‰€ä»¥è¿™é‡Œ call åˆ° :RUN_ONE, åœ¨å­ç¨‹åºé‡ŒæŒ‰æ™®é€šå±•å¼€å¤„ç†ã€‚
-rem   åªå¤„ç†ç¬¬ä¸€è¡Œ â€”â€” BOM åªå¯èƒ½å‡ºç°åœ¨æ–‡ä»¶å¼€å¤´ã€‚
+rem fail-fast: Óë .sh ÂÏÉú(run_list)¶ÔÆë ¡ª¡ª ÈÎÒ»ÎÄ¼şÊ§°ÜÁ¢¼´ÖĞÖ¹²¢´«»Ø 1,
+rem ²»ÔÙÄ¬Ä¬ÅÜÍêÕû·İÇåµ¥»¹±¨ 0¡£goto ÊÇ cmd ÀïÌø³ö for ¿éµÄ¿É¿¿Ğ´·¨¡£
+rem ÍË³öÂë 4(Ó²¼şÈ±Ê§)µ¥¶ÀÅĞ: Ëü²»ÊÇ"Õâ¸öÎÄ¼ş×ª»µÁË", ¶øÊÇ"ÕâÌ¨»úÆ÷ÅÜ²»ÁËÕâ¸ö
+rem   Èë¿Ú" ¡ª¡ª Çåµ¥Ê£ÏÂµÄÌõÄ¿»áÒ»Ìõ½ÓÒ»Ìõ×²Í¬Ò»¶ÂÇ½, ËùÒÔ°´ÓÃ»§²Ã¶¨²»Ìø¹ı¡¢
+rem   Ö±½ÓÖĞÖ¹²¢°Ñ 4 ´«»Ø, ÈÃµ÷ÓÃ·½Ò»ÑÛ¿´³öÊÇÓ²¼ş¶ø²»ÊÇÆ¬×ÓµÄÎÊÌâ¡£
+rem ÅĞ¶¨Ö»ÄÜÓÃ if errorlevel: for ¿éÀï %VAR% ÔÚ¿é½âÎöÊ±¾Í¶³½áÁË, %ERRORLEVEL%
+rem   ¶Á²»µ½×Óµ÷ÓÃµÄ·µ»ØÖµ; ÇÒ "if errorlevel 4" + "if not errorlevel 5" ²ÅÊÇ
+rem   "ÕıºÃµÈÓÚ 4"(²»»á°Ñ 5/6 ½Ø×ß), ffmpeg µÄ¸º AVERROR(Èç av1_qsv µÄ -40)
+rem   Ò²½ø²»À´ ¡ª¡ª ´ø·ûºÅ±È½ÏÏÂ -40 < 4¡£
+rem ---------- UTF-8 BOM(¼ÇÊÂ±¾´æ³öÀ´µÄÇåµ¥) ----------
+rem Çåµ¥µÚÒ»ÌõÈô´ø BOM, cmd µÄ for /f »á°ÑËüÒ»²¢³Ô½øÂ·¾¶ ¡ª¡ª check_isvideo ÓÚÊÇ
+rem   ÅĞ"²»ÊÇÊÓÆµ"²¢°ÑÕû·İÇåµ¥´ò³É rc=3(sh ²à run_list Ôç¾Í°şÁË, Êµ²â T21 ÔÚ sh ²à
+rem   PASS / bat ²à FAIL)¡£°ş³ı·ÅÔÚ×Ó³ÌĞòÀï×ö: for ¿éÄÚ²»ÄÜÕ¹¿ª %LINE:~1%(¿é½âÎöÊ±
+rem   ¾Í¶³½á), ¶ø¿ªÑÓ³ÙÕ¹¿ªÓÖ»á³ÔµôÆ¬ÃûÀïµÄ '!'(Tora! Tora! Tora!.mp4 ÄÇÒ»Àà),
+rem   ËùÒÔÕâÀï call µ½ :RUN_ONE, ÔÚ×Ó³ÌĞòÀï°´ÆÕÍ¨Õ¹¿ª´¦Àí¡£
+rem   Ö»´¦ÀíµÚÒ»ĞĞ ¡ª¡ª BOM Ö»¿ÉÄÜ³öÏÖÔÚÎÄ¼ş¿ªÍ·¡£
 
 for /f "usebackq delims=" %%i in ("%SRC_FILE%") do (
     call :RUN_ONE "%%i"
@@ -88,15 +88,15 @@ exit /b 0
 
 :RUN_ONE
 set "LINE=%~1"
-rem ç¬¬ä¸€ä¸ªå­—ç¬¦æ˜¯ UTF-8 BOM(U+FEFF, ä¸‹é¢é‚£ä¸ªå¼•å·é‡Œå°±æ˜¯å®ƒ, ä¸å¯è§)æ—¶æ‰å‰;
-rem   for /f åœ¨ cp65001 ä¸‹ä¼šæŠŠ EF BB BF è§£æˆè¿™ä¸€ä¸ªå­—ç¬¦ã€‚
-if "%LINE:~0,1%"=="ï»¿" set "LINE=%LINE:~1%"
+rem µÚÒ»¸ö×Ö·ûÊÇ UTF-8 BOM(U+FEFF, ÏÂÃæÄÇ¸öÒıºÅÀï¾ÍÊÇËü, ²»¿É¼û)Ê±²Å¶ç;
+rem   for /f ÔÚ cp65001 ÏÂ»á°Ñ EF BB BF ½â³ÉÕâÒ»¸ö×Ö·û¡£
+if "%LINE:~0,1%"=="" set "LINE=%LINE:~1%"
 call "%~dp0ffmpeg_copy_to_mp4.bat" "%LINE%"
 set "RC=%errorlevel%"
 exit /b %RC%
 
 :LIST_HWFAIL
-echo ç¡¬ä»¶ç¼ºå¤±(rc=4): è¿™å°æœºå™¨è·‘ä¸äº†è¿™ä¸ªå…¥å£, åç»­æ¡ç›®åŒæ ·è·‘ä¸äº† â€”â€” ä¸­æ­¢æ•´ä»½æ¸…å•
+echo Ó²¼şÈ±Ê§(rc=4): ÕâÌ¨»úÆ÷ÅÜ²»ÁËÕâ¸öÈë¿Ú, ºóĞøÌõÄ¿Í¬ÑùÅÜ²»ÁË ¡ª¡ª ÖĞÖ¹Õû·İÇåµ¥
 exit /b 4
 
 :LIST_FAIL
