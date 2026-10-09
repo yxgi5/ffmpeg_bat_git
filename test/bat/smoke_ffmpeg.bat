@@ -534,21 +534,25 @@ echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
 if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
 rem ============ T33: 新旧入口同参 -> RUN_COM 逐字一致 ============
 rem 这是"等价"的直接证据。老用例只断言各自跑通, 不断言两个入口命令行相同 ——
-rem 抽内核时最值得盯的就是这个, 任何一侧改了参数顺序/多一个空格都会被抓到。
+rem 抽内核时最值得盯的就是这个, 任何一侧改了参数顺序或多一个空格都会被抓到。
+rem 比较方式用 findstr 抽行 + fc 字节比对, **不用** for /f 读回来:
+rem 后者那套 for /f "delims=" %%L in ('... "...%VAR%"...') 的嵌套引号在 cmd 下
+rem 会被吞, 表现为整个文件被当命令执行、套件跑不到断言就死(2026-10-08 踩过)。
 chcp %CP0% >nul
 set "T33LNEW=%LOGDIR%\T33_equiv_new.log"
 set "T33LOLD=%LOGDIR%\T33_equiv_old.log"
+set "T33FNEW=%LOGDIR%\T33_new.txt"
+set "T33FOLD=%LOGDIR%\T33_old.txt"
 call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T33LNEW%" 2>&1
 call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T33LOLD%" 2>&1
-set "A33="
-set "B33="
-for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%T33LNEW%"') do set "A33=%%L"
-for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%T33LOLD%"') do set "B33=%%L"
+findstr /b /c:"RUN_COM0=" "%T33LNEW%" > "%T33FNEW%"
+findstr /b /c:"RUN_COM0=" "%T33LOLD%" > "%T33FOLD%"
 set "V33=PASS"
 set "N33="
-if not defined A33 set "V33=FAIL" & set "N33=newNoRUN_COM"
-if not defined B33 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
-if defined A33 if defined B33 if not "%A33%"=="%B33%" set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
+for %%A in ("%T33FNEW%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=newNoRUN_COM"
+for %%A in ("%T33FOLD%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
+fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
+if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
 echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
 if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
 echo. >> "%SUM%"
