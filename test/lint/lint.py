@@ -680,10 +680,18 @@ def entry_body_sh(text, core):
     if not m:
         return None
     key = m.group(1)
-    return "\n".join([text,
-                      core_fn_text(core, "enc_run"),
-                      core_branch(core, "enc_dec_args", key),
-                      core_branch(core, "enc_vargs", key)])
+    # enc_dec_args 从阶段1 起按**解码器**分派(soft/none/auto/cuda/qsv/vaapi), 不再按
+    # 编码器, 所以这里取整个函数而不是某个 case 分支 —— 它每个分支都发 -i, 而 -c:v:0
+    # 在 enc_vargs 里, 拼接顺序(dec 在前, vargs 在后)正是本规则要验的"先 -i 后 -c:v"。
+    # 动态键(统一入口 `enc_run "$VENC_KEY"`)则把 enc_vargs 的全部分支算进 body:
+    # 它确实包含每一个编码器, 这时"缺 -c:v:0"只可能是内核整体缺, 不是某个入口缺。
+    dynamic = key.startswith('"') or key.startswith("$")
+    body = [text, core_fn_text(core, "enc_run"), core_fn_text(core, "enc_dec_args")]
+    if dynamic:
+        body.append(core_fn_text(core, "enc_vargs"))
+    else:
+        body.append(core_branch(core, "enc_vargs", key))
+    return "\n".join(body)
 
 
 def core_text():
@@ -785,11 +793,29 @@ def check_sh_invariants(inv):
         for i in idx_in:
             if "-c:v" in lines[i]:
                 bads.append("%s:%d has -c:v on the same line as -i" % (f, i + 1))
+    # 阶段1 起 -i 全部由 enc_dec_args 发出、-c:v:0 全部由 enc_vargs 发出, 两者是**两个
+    # 函数**。上面的逐行位置比对只能看到"拼接后的文本顺序", 抓不住"调用顺序写反"这种
+    # 错 —— 所以另加一条直接断言: enc_run 里必须先调 enc_dec_args 再调 enc_vargs。
+    # 这条是本规则在新结构下真正的命根子(选项顺序是 ffmpeg 的硬约束)。
+    if core:
+        _, ctext = read_text(os.path.join(ROOT, ENC_CORE_SH))
+        body = core_fn_text(ctext, "enc_run")
+        i_dec = body.find("enc_dec_args")
+        i_vargs = body.find("enc_vargs")
+        if i_dec < 0 or i_vargs < 0:
+            bads.append("lib/encode_core.sh: enc_run no longer calls both "
+                        "enc_dec_args and enc_vargs - L11 can no longer see the "
+                        "option order, so the -i/-c:v guarantee is unverified")
+        elif i_dec > i_vargs:
+            bads.append("lib/encode_core.sh: enc_run calls enc_vargs before "
+                        "enc_dec_args - that puts -c:v:0 on the command line "
+                        "before -i (the option-order trap)")
     if bads:
         for m in bads:
             bad("L11", m)
     else:
-        ok("L11", "every encoder adds -i before -c:v (the option-order trap)")
+        ok("L11", "every encoder adds -i before -c:v (the option-order trap), "
+                  "and enc_run calls enc_dec_args before enc_vargs")
 
 
 # ---------------------------------------------------------------- L12
@@ -1341,17 +1367,33 @@ def check_stream_map(inv):
 # beginning of the file"). Pinned for both remux entries. The 11 encoder
 # entries still write the default layout until the user asks for it there too.
 MOOV_FRONT = {"ffmpeg_copy_to_mp4.bat": "-movflags +faststart",
-              "ffmpeg_copy_to_mp4.sh": "-movflags +faststart"}
+              "ffmpeg_copy_to_mp4.sh": "-movflags +faststart",
+              # 阶段1: 转封装并入统一入口(--venc copy)之后, moov 前置多了一个落点。
+              # 不给它登记的话, 把 enc_run_copy 里那句删掉不会有任何规则报出来。
+              "ffmpeg_encode.bat": "-movflags +faststart",
+              "ffmpeg_encode.sh": "-movflags +faststart"}
+
+# 这些入口自己的文件里没有那句 flag —— 转封装搬进内核了, 所以要在内核里找。
+MOOV_IN_CORE = {"ffmpeg_encode.sh", "ffmpeg_encode.bat"}
 
 
 def check_moov_front(inv):
     bads = []
     checked = 0
+    core = core_text()
     for f, token in sorted(MOOV_FRONT.items()):
         p = os.path.join(ROOT, f)
         if not os.path.isfile(p):
             continue
         _, t = read_text(p)
+        # 阶段1 起转封装住在核心里(enc_run_copy), 统一入口文件里只有一句 enc_run,
+        # 所以**只对统一入口**把内核的 copy 段拼进来。别的 remux 入口仍只看自己 ——
+        # 要是给所有 sh 都拼上, 老 copy_to_mp4.sh 自己丢掉 flag 也不会报了。
+        if f in MOOV_IN_CORE:
+            if f.endswith(".sh"):
+                t = core_fn_text(core, "enc_run_copy") + "\n" + t
+            else:
+                t = t + "\n" + core_text_bat()
         body = "\n".join(ln for ln in lf_lines(t)
                          if not ln.strip().lower().startswith(("rem", "#")))
         checked += 1

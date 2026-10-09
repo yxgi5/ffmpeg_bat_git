@@ -31,6 +31,9 @@ rem ============================================================
 
 if "%~1"=="" exit /b 1
 if /I "%~1"=="enc_build" goto enc_build
+if /I "%~1"=="copy_run" goto copy_run
+if /I "%~1"=="enc_known" goto enc_known
+if /I "%~1"=="enc_ffenc" goto enc_ffenc
 echo 未知函数: %~1
 exit /b 1
 
@@ -79,14 +82,62 @@ if not "%ENC%"=="libx264" if not "%ENC%"=="libx265" (
     set "FF_HWACCEL=none"
     set "FF_HW_ARG="
 )
+rem ---------- 解码拓扑: 由 --dec 决定, 不给就用编码器族的固定值 ----------
+rem cpu 是 none 的别名(2026-10-08 拍板); 不给 --dec 时 DEC_ARG 取族默认。
+set "DEC_ARG=soft"
+if /I "%ENC%"=="avc_qsv" set "DEC_ARG=qsv"
+if /I "%ENC%"=="hevc_qsv" set "DEC_ARG=qsv"
+if /I "%ENC%"=="av1_qsv" set "DEC_ARG=qsv"
+if /I "%ENC%"=="avc_nvenc" set "DEC_ARG=cuda"
+if /I "%ENC%"=="hevc_nvenc" set "DEC_ARG=cuda"
+if /I "%ENC%"=="av1_nvenc" set "DEC_ARG=cuda"
+if defined DEC if not "%DEC%"=="" set "DEC_ARG=%DEC%"
+if /i "%DEC_ARG%"=="cpu" set "DEC_ARG=none"
+if /i "%DEC_ARG%"=="vaapi" (
+    echo [错误] Windows 侧没有 VAAPI -- 那是 Linux 内核 API
+    echo[ 可选 --dec auto / cpu / none / qsv / cuda
+    exit /b 1
+)
+rem --dec 与族不一致时**只警告不拦**(2026-10-08 拍板): 混合硬解确实有人用。代价是
+rem 10bit 那套判据与 scale_qsv 降位滤镜属于 QSV 解码路径, 解码器不是 qsv 就不跟。
+set "DEC_FAMILY=soft"
+if /I "%ENC%"=="avc_qsv" set "DEC_FAMILY=qsv"
+if /I "%ENC%"=="hevc_qsv" set "DEC_FAMILY=qsv"
+if /I "%ENC%"=="av1_qsv" set "DEC_FAMILY=qsv"
+if /I "%ENC%"=="avc_nvenc" set "DEC_FAMILY=cuda"
+if /I "%ENC%"=="hevc_nvenc" set "DEC_FAMILY=cuda"
+if /I "%ENC%"=="av1_nvenc" set "DEC_FAMILY=cuda"
+rem 刻意用方括号而不是小括号: 这一段整体在 ( ) 块里, echo 参数里的半角右括号会
+rem 提前闭块(与 :usage / 能力门同一个坑, lint L23 拦这个)。
+if /i not "%DEC_ARG%"=="%DEC_FAMILY%" (
+    rem 前面的 [warn] 是 ASCII 标签: 冒烟套件断言的是 ASCII 标记(见 :check_isvideo 的用法),
+rem 中文在 bat 的编码下 findstr 对不上。
+    echo [warn] --dec %DEC_ARG% 与编码器 %ENC% 的固定解码 %DEC_FAMILY% 不一致, 按你给的走。
+    if /i "%DEC_ARG%"=="qsv" echo        10bit 降位滤镜属于 QSV 解码路径, 现在解码器不是 qsv, 该滤镜不会加。
+)
+
+rem 刻意用 ( ) 块 + 块内 goto, **不用** `set X=Y & goto Z` 那写法: & 前的空格会被
+rem 算进变量值, 命令行里就多出一个空格(实测 avc_qsv/hevc_nvenc 的 RUN_COM0 变成
+rem "... -filter_hw_device hw  -hwaccel qsv", 与老入口不再逐字一致)。括号里 set 语句
+rem 以换行结束, 值不带尾随空格。
 set RUN_COM="%FFMPEG_PATH%" -hide_banner -threads 0
-if /I "%ENC%"=="libx264" set RUN_COM=%RUN_COM% -v verbose%FF_HW_ARG%
-if /I "%ENC%"=="libx265" set RUN_COM=%RUN_COM% -v verbose%FF_HW_ARG%
-if /I "%ENC%"=="avc_qsv" set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
-if /I "%ENC%"=="hevc_qsv" set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
-if /I "%ENC%"=="av1_qsv" set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
-if /I "%ENC%"=="hevc_nvenc" set RUN_COM=%RUN_COM%%FF_HW_ARG% -hwaccel cuda -hwaccel_output_format cuda
-if /I "%ENC%"=="av1_nvenc" set RUN_COM=%RUN_COM%%FF_HW_ARG% -hwaccel cuda -hwaccel_output_format cuda
+if /i "%DEC_ARG%"=="soft" set RUN_COM=%RUN_COM% -v verbose%FF_HW_ARG%
+if /i "%DEC_ARG%"=="none" goto DEC_DONE
+if /i "%DEC_ARG%"=="auto" (
+    set RUN_COM=%RUN_COM% -hwaccel auto
+    goto DEC_DONE
+)
+if /i "%DEC_ARG%"=="cuda" (
+    set RUN_COM=%RUN_COM% -hwaccel cuda -hwaccel_output_format cuda
+    goto DEC_DONE
+)
+if /i "%DEC_ARG%"=="qsv" (
+    set RUN_COM=%RUN_COM%%FF_HW_ARG% -init_hw_device qsv=hw -filter_hw_device hw
+    goto DEC_DONE
+)
+rem soft 的 -v verbose 已经加过了; 走到这里说明 DEC_ARG 非法(上面已拦住), 兜个底
+set RUN_COM=%RUN_COM%%FF_HW_ARG%
+:DEC_DONE
 
 SET "SRC_FILE="
 
@@ -141,10 +192,9 @@ rem    输入 -> 编码器报错 / 产物异常。修法: scale_qsv=format=nv12 
 rem    8bit。不能用软滤镜 format=nv12(帧在硬件表面, auto_scale 照样接不上)。
 rem 判据见 lib\common.bat 的 src_hw_decode_hostile / src_is_10bit。
 rem -vf 是输出滤镜, 不能排在 -i 之前 —— 它的位置在下方编码器段的 %QSV_VF% 上。
-if /I "%ENC%"=="avc_qsv" goto QSV_DEC
-if /I "%ENC%"=="hevc_qsv" goto QSV_DEC
-if /I "%ENC%"=="av1_qsv" goto QSV_DEC
-goto AFTER_QSV
+rem 10bit 判据与 scale_qsv 降位滤镜属于 **QSV 解码路径**, 所以按 %DEC_ARG% 而不是
+rem %ENC% 触发: --dec qsv 时软编也能用上这套判据; --dec 不是 qsv 时它不适用。
+if /i not "%DEC_ARG%"=="qsv" goto AFTER_QSV
 :QSV_DEC
 call "%~dp0common.bat" src_hw_decode_hostile
 set "QSV_HWDEC=1"
@@ -225,6 +275,7 @@ if /I "%ENC%"=="libx264" set "ENC_TABLE=bitrate_table_avc.csv"
 if /I "%ENC%"=="avc_qsv" set "ENC_TABLE=bitrate_table_avc.csv"
 if /I "%ENC%"=="av1_qsv" set "ENC_TABLE=bitrate_table_av1.csv"
 if /I "%ENC%"=="av1_nvenc" set "ENC_TABLE=bitrate_table_av1.csv"
+if /I "%ENC%"=="libsvtav1" set "ENC_TABLE=bitrate_table_av1.csv"
 call "%~dp0common.bat" lookup_bitrate %SRC_PIX% BIT %ENC_TABLE%
 if not defined BIT (
     echo SRC_PIX=%SRC_PIX% 超出码率表范围, Manual handle it
@@ -273,6 +324,10 @@ if /I "%ENC%"=="hevc_qsv" set "ENC_ARGS=-c:v:0 hevc_qsv -profile:v:0 main -prese
 if /I "%ENC%"=="av1_qsv" set "ENC_ARGS=-c:v:0 av1_qsv -profile:v:0 main -preset fast -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if /I "%ENC%"=="hevc_nvenc" set "ENC_ARGS=-c:v:0 hevc_nvenc -profile:v:0 main -preset p4 -tune:v hq -rc cbr -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 rem av1_nvenc 不接受 -profile:v:0(实测报未知参数), 所以这行比 hevc_nvenc 少一段
+if /I "%ENC%"=="avc_nvenc" set "ENC_ARGS=-c:v:0 h264_nvenc -profile:v:0 high -preset p4 -tune:v hq -rc cbr -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
+rem 软件 AV1: 参数对齐 ffmpeg_dvd_hevc.sh 的 VENC_BASE="-preset 8"(SVT-AV1 的速度档
+rem 是 -preset 0..13); 不写 -profile:v:0 -- main/high 是 x264/x265 的 profile 概念。
+if /I "%ENC%"=="libsvtav1" set "ENC_ARGS=-c:v:0 libsvtav1 -preset 8 -b:v %BIT% -pix_fmt yuv420p -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if /I "%ENC%"=="av1_nvenc" set "ENC_ARGS=-c:v:0 av1_nvenc -preset p4 -tune:v hq -rc cbr -b:v %BIT% -g 250 -keyint_min 25 -ar 44100 -b:a 128k -c:a aac -ac 2 -map 0:V -map 0:a? -map 0:s? %COVERMAP% %SENC% -map_metadata 0 -map_chapters 0 -rtbufsize 120m -max_muxing_queue_size 1024"
 if defined BIT set RUN_COM=%RUN_COM%%QSV_VF% %ENC_ARGS%
 echo RUN_COM2:%RUN_COM%
@@ -309,3 +364,129 @@ echo RUN_COM4:%RUN_COM%
 echo.
 
 exit /b 0
+
+rem ============================================================================================
+rem :copy_run -- 无损转封装(--venc copy)。与编码流程的四处结构差异:
+rem   1. 无码率表(不重编码, 没有"重"这一说); 2. 输出名不带 -compressed;
+rem   3. 源已是目标容器(EXT)就直接退出; 4. -c copy + **-movflags +faststart**。
+rem 第 4 条是 2026-09-17 用户要求加的: 默认 mp4 把索引 moov 写在 mdat 之后, 播放器
+rem 得拿到文件末尾才能起播, 成品常被拷走/边下边播。实测同一夹具不加 =
+rem ftyp/free/mdat/moov, 加了 = ftyp/moov/free/mdat, 字节数完全相同(ffmpeg 就地搬索引)。
+rem 7 个编码入口目前都**没有**它(见 test/README.md L17), 本段与 remux 旧入口是仅有的落点。
+rem 转封装**不引用封面映射**: mp4 存得下复制来的 mjpeg 封面, 再加一条 -map 只会把同一
+rem 张图映射两次(见 test/README.md L16 的 remux 例外说明)。
+rem
+rem 引号约定照旧(见各入口顶部那段"第六轮实测"注释): %SRC_FILE% 自
+rem `set SRC_FILE="%SRC_FILE:"=%"` 起就**自带引号**, 所以下面一律**裸用**, 绝不再套
+rem 一层引号 —— 那会把路径里的 & 与小括号放出引号外被 cmd 当语法字符(L09/L21)。
+rem SENC 的初值由 :init_ext 给(mp4 -> -c:s mov_text, mkv -> -c:s copy), 这里只在
+rem "mkv 且源里有 mov_text"时改写它。
+:copy_run
+set "ENC=copy"
+echo ============================================================
+echo 欢迎使用ffmpeg视频压缩批处理工具
+echo.
+echo 由 andreas 编写
+echo ============================================================
+
+call "%~dp0common.bat" init_ext
+if errorlevel 1 exit /b 1
+rem 本段是 -c copy, 哪个构建都能干, 所以不传能力要求(与 :find_ffmpeg 同口径)
+call "%~dp0common.bat" find_ffmpeg FF_BIN
+if errorlevel 1 set "FB_NO_PATH=1"
+if defined FB_NO_PATH exit /b 1
+set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
+echo 已找到ffmpeg于:%FFMPEG_PATH%
+
+set "SRC_FILE="
+if defined PARSE_POS set "SRC_FILE=%PARSE_POS%"
+if not defined SRC_FILE SET /P SRC_FILE=请输入待转换视频地址:
+if not defined SRC_FILE (
+    echo 没有输入文件
+    exit /b 1
+)
+set SRC_FILE="%SRC_FILE:"=%"
+echo SRC_FILE:%SRC_FILE%
+
+rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 对齐)
+call "%~dp0common.bat" check_isvideo %SRC_FILE%
+if errorlevel 1 exit /b 3
+
+rem ---------- 源已是目标容器就没什么可做的 ----------
+rem EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
+call "%~dp0common.bat" get_suffix %SRC_FILE% SUFFIX
+echo SUFFIX:%SUFFIX%
+if /I "%SUFFIX%" == ".%EXT%" (
+    echo suffix is %EXT%, no need to convert
+    exit /b 0
+)
+echo suffix is not %EXT%, need to convert
+
+if /I "%EXT%"=="mkv" (
+    rem EXT=mkv 而 matroska 装不下 mov_text 软字幕(实测 rc=-40 / 0 字节), 先数一次流
+    call "%~dp0common.bat" cover_map
+    if "%CM_MOV%"=="1" set "SENC=-c:s ass"
+)
+
+set RUN_COM="%FFMPEG_PATH%" -hide_banner
+set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy -map 0:v -map 0:a? -map 0:s? %SENC% -map_metadata 0 -map_chapters 0 -movflags +faststart
+echo RUN_COM0=%RUN_COM%
+
+echo.
+echo SRC_FILE:%SRC_FILE%
+call "%~dp0common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME %EXT%
+set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
+echo TARGET_FILE:%TARGET_FILE%
+
+rem 产物已存在时的策略: 见 lib\common.bat 的 :on_exist
+if defined PARSE_POS call "%~dp0common.bat" on_exist %TARGET_FILE%
+if defined FF_EXIST_FAIL exit /b 6
+if defined FF_EXIST_SKIP exit /b 0
+IF not defined PARSE_POS (
+    echo executing 1
+    set RUN_COM=%RUN_COM% %TARGET_FILE%
+) else (
+    echo executing 2
+    set RUN_COM=%RUN_COM% %FF_OUT_FLAG% %TARGET_FILE%
+)
+echo RUN_COM4=%RUN_COM%
+
+rem dry-run: DRY_RUN 为真时只打印这条命令, 不执行(见 lib\common.bat 的 :dry_run)
+call "%~dp0common.bat" dry_run
+if defined DRY_HIT exit /b 0
+%RUN_COM%
+set "FB_RC=%ERRORLEVEL%"
+if not "%FB_RC%"=="0" (
+    echo.
+    echo Convert failed! rc=%FB_RC%
+    rem 与 .sh 孪生对齐: ffmpeg 失败必须传回 1, 不能吞成 0。
+    exit /b 1
+)
+echo 转封装完成: %TARGET_FILE%
+exit /b 0
+
+rem ---------- 统一入口认识的编码器键(供 ffmpeg_encode.bat 打错字时提示) ----------
+:enc_known
+echo libx264 libx265 libsvtav1 avc_qsv hevc_qsv av1_qsv avc_nvenc hevc_nvenc av1_nvenc copy
+exit /b 0
+
+rem ---------- --venc 的别名翻译: avc_* -> h264_* ----------
+rem 只有这一份。ffmpeg_dvd_hevc.bat 的 --venc 与 ffmpeg_encode.bat 的 --venc 都调它,
+rem 以前是两边各写一份 if(2026-10-08 收敛)。enc_ffenc <名字> 把结果 echo 出来,
+rem 认不出来的原样返回 —— 调用方只在该名字自己的取值表里校验。
+rem **参数是 %~2 不是 %~1**: 本文件的 dispatcher 约定与 lib\common.bat 一样,
+rem %~1 是函数名(enc_ffenc), %~2 才是它要翻译的名字 —— 写成 %~1 会把函数名
+rem 本身当输入原样 echo 回去(实测输出 "enc_ffenc")。
+:enc_ffenc
+set "FF_IN=%~2"
+if /i "%FF_IN%"=="avc_nvenc" (
+    echo h264_nvenc
+    exit /b 0
+)
+if /i "%FF_IN%"=="avc_qsv" (
+    echo h264_qsv
+    exit /b 0
+)
+echo %FF_IN%
+exit /b 0
+

@@ -608,6 +608,156 @@ RC=$?
 if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T23 missing list entry aborts run rc=$RC"
 else FAIL=$((FAIL+1)); say "[FAIL] T23 missing list entry rc=$RC want non-zero"; fi
 
+# ============================================================================================
+# 统一入口 ffmpeg_encode.sh (TODO.md 阶段 1)。老入口 T1-T31 一条没动, 断言的是
+# "新入口与老入口等价 + 新能力(--venc / --dec / copy)可用"。硬件组合不在这里真跑
+# (本机可能没有), 那部分用 --dry-run 静态断言命令行。
+# ============================================================================================
+
+# T32: 新入口的软编实跑: --venc libx265 与老入口 ffmpeg_libx265.sh 同参数同结果
+d="$W/cases/T32_encode_libx265"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+LOGF="$LOG/T32_encode_libx265.log"; OUT="$d/clip-compressed.mp4"; rm -f "$OUT"
+bash "$REPO/ffmpeg_encode.sh" --venc libx265 "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+judge T32 encode_libx265 ok INFO hevc "arg: --venc libx265 (unified entry, real run)"
+
+# T33: T32 的产物必须与老入口逐字同参 —— 用 --dry-run 比对 RUN_COM, 这是"等价"的
+# 直接证据(老入口 T1 只断言自己跑通, 不断言两个入口命令行一致)。
+d="$W/cases/T33_equiv"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+LOG_NEW="$LOG/T33_equiv_new.log"; LOG_OLD="$LOG/T33_equiv_old.log"
+bash "$REPO/ffmpeg_encode.sh"        --venc libx265 --dry-run "$d/clip.mp4" < /dev/null > "$LOG_NEW" 2>&1
+bash "$REPO/ffmpeg_libx265.sh"            --dry-run "$d/clip.mp4" < /dev/null > "$LOG_OLD" 2>&1
+RC=0
+A="$(grep -m1 '^RUN_COM:' "$LOG_NEW" | sed 's/^RUN_COM: //')"
+B="$(grep -m1 '^RUN_COM:' "$LOG_OLD" | sed 's/^RUN_COM: //')"
+if [ -n "$A" ] && [ "$A" = "$B" ]; then
+    PASS=$((PASS+1)); say "[PASS] T33 unified --venc libx265 == ffmpeg_libx265.sh (byte-identical RUN_COM)"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T33 RUN_COM differs: new=[${A:0:90}] old=[${B:0:90}]"
+fi
+
+# T34: --dec 各取值的命令行形态。软件编 + dry-run, 所以本机有没有硬编都能跑。
+# auto -> -hwaccel auto; cpu/none -> 一次 -hwaccel 都不加; qsv/cuda -> 对应设备初始化。
+DEC_BADS=0
+for combo in "auto:-hwaccel auto" "cpu:" "none:" "qsv:-init_hw_device qsv=hw" "cuda:-hwaccel cuda"; do
+    dname="${combo%%:*}"; want="${combo#*:}"
+    LOGF="$LOG/T34_dec_$dname.log"
+    bash "$REPO/ffmpeg_encode.sh" --venc libx265 --dec "$dname" --dry-run "$IN" < /dev/null > "$LOGF" 2>&1
+    RC=$?
+    line="$(grep -m1 '^RUN_COM:' "$LOGF" | sed 's/^RUN_COM: //')"
+    if [ "$RC" -ne 0 ] || [ -z "$line" ]; then
+        DEC_BADS=$((DEC_BADS+1)); say "       | T34 dec=$dname rc=$RC no RUN_COM"
+    elif [ -n "$want" ]; then
+        case "$line" in *"$want"*) : ;;
+            *) DEC_BADS=$((DEC_BADS+1)); say "       | T34 dec=$dname want '$want' missing" ;;
+        esac
+    else
+        case "$line" in
+            *-hwaccel*) DEC_BADS=$((DEC_BADS+1)); say "       | T34 dec=$dname must not add -hwaccel" ;;
+            *) : ;;
+        esac
+    fi
+done
+if [ "$DEC_BADS" -eq 0 ]; then PASS=$((PASS+1)); say "[PASS] T34 --dec auto/cpu/none/qsv/cuda map to the right hwaccel form"
+else FAIL=$((FAIL+1)); say "[FAIL] T34 --dec 5 values, $DEC_BADS wrong"; fi
+
+# T35: --dec 与族不一致 -> 警告但**不拦**(2026-10-08 拍板), 且如实说明 10bit 降位滤镜不跟过来
+LOGF="$LOG/T35_dec_mismatch.log"
+bash "$REPO/ffmpeg_encode.sh" --venc hevc_qsv --dec cuda --dry-run "$IN" < /dev/null > "$LOGF" 2>&1
+RC=$?
+WARN="$(grep -c '警告' "$LOGF")"
+HINT="$(grep -c '10bit' "$LOGF")"
+if [ "$RC" -eq 0 ] && [ "$WARN" -ge 1 ] && [ "$HINT" -ge 1 ]; then
+    PASS=$((PASS+1)); say "[PASS] T35 --dec mismatch warns, does not block, explains the 10bit caveat"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T35 rc=$RC warn=$WARN hint=$HINT (want rc=0 warn>=1 hint>=1)"
+fi
+
+# T36: 打错字 / 不给 --venc 都要报错并列出可选值(不许静默走进某个默认编码器)
+bash "$REPO/ffmpeg_encode.sh" --venc libx266 --dry-run "$IN" < /dev/null > "$LOGF" 2>&1
+RC=$?
+BADHIT="$(grep -c 'libx264' "$LOGF")"
+if [ "$RC" -ne 0 ] && [ "$BADHIT" -ge 1 ]; then
+    PASS=$((PASS+1)); say "[PASS] T36 unknown --venc rejected rc=$RC and lists the valid keys"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T36 unknown --venc rc=$RC list=$BADHIT"
+fi
+LOGF="$LOG/T36_novenс.log"
+LOGF="$LOG/T36_novenc.log"
+bash "$REPO/ffmpeg_encode.sh" --dry-run "$IN" < /dev/null > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -ne 0 ] && grep -qa '要指定编码器' "$LOGF"; then
+    PASS=$((PASS+1)); say "[PASS] T36 missing --venc rejected rc=$RC (no silent default encoder)"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T36 missing --venc rc=$RC"
+fi
+
+# T37: --venc copy 并入转封装。四个要点一次验完: rc=0 / 产物与源同名的 .mp4 /
+# moov 前置(ftyp/moov/free/mdat 而不是 ftyp/free/mdat/moov)/ 没有 -compressed 后缀。
+d="$W/cases/T37_copy"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mov"
+LOGF="$LOG/T37_copy.log"; OUT="$d/remux_me.mp4"; rm -f "$OUT" "$d/remux_me-compressed.mp4"
+bash "$REPO/ffmpeg_encode.sh" --venc copy "$d/remux_me.mov" < /dev/null > "$LOGF" 2>&1
+RC=$?
+COPY_WHY=""
+[ "$RC" -eq 0 ] || COPY_WHY="$COPY_WHY rc=$RC(want 0);"
+[ -f "$OUT" ] || COPY_WHY="$COPY_WHY noOutput;"
+[ -f "$d/remux_me-compressed.mp4" ] && COPY_WHY="$COPY_WHY wrote-compressed(want plain name);"
+if [ -f "$OUT" ]; then
+    ORDER="$(python3 - "$OUT" <<'PY' 2>/dev/null
+import sys
+d = open(sys.argv[1], 'rb').read(4096)
+atoms = []
+for a in (b'ftyp', b'moov', b'mdat'):
+    i = d.find(a)
+    atoms.append((i, a.decode()))
+atoms.sort()
+print(",".join(a[1] for a in atoms))
+PY
+)"
+    case "$ORDER" in
+        ftyp,moov,mdat) : ;;
+        *) COPY_WHY="$COPY_WHY atomOrder=$ORDER(want ftyp,moov,mdat);" ;;
+    esac
+fi
+if [ -z "$COPY_WHY" ]; then
+    PASS=$((PASS+1)); say "[PASS] T37 --venc copy: remux + moov in front + plain output name"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T37 copy:$COPY_WHY"
+fi
+
+# T38: copy 遇到"源已是目标容器"直接退出 0, 不产垃圾文件
+d="$W/cases/T38_copy_same"; mkdir -p "$d"; cp -f "$IN" "$d/already.mp4"
+LOGF="$LOG/T38_copy_same.log"; rm -f "$d/already.mp4.tmp"
+bash "$REPO/ffmpeg_encode.sh" --venc copy "$d/already.mp4" < /dev/null > "$LOGF" 2>&1
+RC=$?
+SKIPMSG="$(grep -c '不需要转换' "$LOGF")"
+if [ "$RC" -eq 0 ] && [ "$SKIPMSG" -ge 1 ]; then
+    PASS=$((PASS+1)); say "[PASS] T38 copy on an already-mp4 source exits 0 and says why"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T38 copy same-container rc=$RC msg=$SKIPMSG"
+fi
+
+# T39: 软件 AV1(libsvtav1, 阶段1 新增)。构建没有该编码器时 SKIP 而不是 FAIL。
+if "$FF" -hide_banner -encoders 2>/dev/null | grep -q 'libsvtav1'; then
+    d="$W/cases/T39_svtav1"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+    LOGF="$LOG/T39_svtav1.log"; OUT="$d/clip-compressed.mp4"; rm -f "$OUT"
+    bash "$REPO/ffmpeg_encode.sh" --venc libsvtav1 "$d/clip.mp4" < /dev/null > "$LOGF" 2>&1
+    RC=$?
+    judge T39 svtav1 ok INFO av1 "arg: --venc libsvtav1 (software AV1)"
+else
+    skipcase T39 svtav1 "this ffmpeg build has no libsvtav1 encoder"
+fi
+
+# T40: copy 不解码也不重编码, 给了 --dec 要明说被忽略(而不是默默吞掉)
+LOGF="$LOG/T40_copy_dec.log"
+bash "$REPO/ffmpeg_encode.sh" --venc copy --dec cuda --dry-run "$IN" < /dev/null > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -eq 0 ] && grep -qa '无效' "$LOGF"; then
+    PASS=$((PASS+1)); say "[PASS] T40 --dec on --venc copy is reported as ignored, not silently dropped"
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T40 copy+--dec rc=$RC (want rc=0 and an explicit 'ignored' note)"
+fi
+
 # ---- global hygiene: no log may carry the banner parse error or a shell error ----
 BADN=0
 for f in "$LOG"/*.log; do

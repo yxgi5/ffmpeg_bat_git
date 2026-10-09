@@ -148,6 +148,63 @@ tools/*                   不动结构，只做开关参数化（环境变量照
 | 5 | 阶段 1 后冒烟 T1–T31 怎么改 | **按新入口名重写断言**，老 T-id 保留含义 |
 | 6 | VAAPI 淘汰后，Linux 上的 VAAPI 用户怎么走 | **用 QSV 等替代**（`--venc <hevc_qsv/avc_qsv> --dec qsv`）；不保留 `--dec vaapi` 取值 |
 
+## 7. 阶段 1 的实际落法（2026-10-08 ~ 09，已落地）
+
+### 落了什么
+
+| 项 | 内容 |
+|---|---|
+| 统一入口 | `ffmpeg_encode.sh` / `ffmpeg_encode.bat`：`--venc <编码器>` + 可选 `--dec <解码器>` + 视频文件 |
+| `--venc` | `libx264` `libx265` `libsvtav1`（软件 AV1，本轮新增） / `avc_qsv` `hevc_qsv` `av1_qsv` / `avc_nvenc` `hevc_nvenc` `av1_nvenc` / `avc_vaapi` `hevc_vaapi`（仅 sh） / `copy`（转封装） |
+| `--dec` | `auto` `cpu`（= `none`） `none` `qsv` `cuda`（`vaapi` 仅 sh）。**省略时用编码器族的固定拓扑**；与族不一致**只警告不拦**（混合硬解有人用），但会如实说明「10bit 降位滤镜属原族解码路径、不跟过来」 |
+| `copy` | 与 9 个编码器一起并入。无码率表、产物**不带 `-compressed`**（与源同名换后缀）、源已是目标容器直接退 0、`-c copy` + `-movflags +faststart` |
+| 别名翻译 | `--venc` 的 `avc_* → h264_*` 收敛成**一份**（`enc_ffenc` / `:enc_ffenc`）。此前手工维护三处（`ffmpeg_dvd_hevc.{sh,bat}` 与内核），`ffmpeg_dvd_hevc` 两族均改为调用它 |
+
+老入口**全部保留为薄壳**，CLI 完全兼容。§6 第 2 条「保留多久」仍**待定**（本轮没删）。
+
+### 验证
+
+* **逐字对拍**（阶段 0 基线 vs 阶段 1）：sh 侧 9 个老入口 `--dry-run`/`--help` 逐字 diff **0**；
+  `ffmpeg_encode.sh` 对拍老入口 **9/9 IDENTICAL**。bat 侧 7 个老入口 + `copy_to_mp4.bat` **7/7 IDENTICAL**。
+* `copy` 的 `RUN_COM` 与 `ffmpeg_copy_to_mp4` 一致（含 `-c:s mov_text` 与 `+faststart`）。
+* `--dec` 五个取值逐一实测；混合组合的警告实测。
+* `smoke_all.bat`：**39 PASS / 6 SKIP / 5 FAIL**，5 个失败全是阶段 0 既存项（未扩大）。
+* lint `31 PASS / 0 FAIL`。
+
+### 测试覆盖（**这是阶段 1 唯一没做完的部分**）
+
+| 族 | 统一入口的断言 | 状态 |
+|---|---|---|
+| sh | T32–T40（10 条：实跑 / 与老入口 `RUN_COM` 逐字一致 / `--dec` 五取值 / 不一致警告 / 参数校验 / `copy` 三面 / 软件 AV1 / `copy`+`--dec` 说明） | **全部通过**，PASS=37 |
+| bat | T32–T33（实跑、与老入口 `RUN_COM` 逐字一致） | **通过**，PASS=39 |
+| bat | `--dec` 取值 / 不一致警告 / 参数校验 / `copy` | **未做** —— T34–T37 加过但真机恒 FAIL，且让元字符矩阵多出一条 `A19 rc=3`（FAIL 从 5 涨到 8），已撤回 |
+
+bat 侧撤回的原因没查清，但两处根因已确认（见下）。**续做时必须先单独最小复现**，
+不要一次加一批 —— 一次加 7 条时出问题定位不到是哪一行。
+
+### 本轮在 bat 上踩的坑（**续做前必读**）
+
+同一天栽了四次，其中两次是同一个 cmd 语义：
+
+| # | 坑 | 症状 |
+|---|---|---|
+| 1 | `set X=Y & goto Z` 里 `&` **前的空格算进变量值** | `avc_qsv`/`hevc_nvenc` 的 `RUN_COM0` 变成 `... hw  -hwaccel qsv` 多一个空格。**软编族恰好没走这支所以看不出来**，靠逐字对拍才发现 |
+| 2 | `if <cond> cmd1 & cmd2` 里 **`cmd2` 与 `if` 无关，无条件执行** | 断言恒 FAIL（`set "N=..."` 照样跑，于是 `why` 里永远有内容）。54 处已拆成两行 |
+| 3 | `for /f "delims=" %%L in ('... "..." ')` 的**嵌套引号被吞** | 整个文件被当命令执行，套件跑不到断言就死。改用 `findstr` 抽行 + `fc` 字节比对 |
+| 4 | `:enc_ffenc` 取 `%~1` 而不是 `%~2` | dispatcher 约定（同 `lib/common.bat`）：`%~1` 是**函数名**，`%~2` 起才是参数。写成 `%~1` 会把 `enc_ffenc` 自己原样 echo 回去 |
+
+另外两条纪律：
+
+* **冒烟断言要抓 ASCII 标记**（`check_isvideo` 就是这么做的），`findstr /c:"警告"` 在 bat 编码下匹配不上。
+  核心的 `--dec` 不一致警告已加 `[warn]` ASCII 标签（该改动**保留**在 `lib/encode_core.bat`，即使 T35 未绿）。
+* **bat 文件的行尾必须 CRLF**，且 `echo` 描述里**不能出现半角括号**（会提前闭块，L23 已能拦）。
+
+### 顺带发现的既存问题（未修，与阶段 1 无关）
+
+* `smoke_all.bat` 日志里一直有 `'…--filt' 不是内部或外部命令` 这类噪声，来自 `lib/common.bat:716` 的
+  `rem` 行被当命令执行 —— **阶段 0 之前就有**。它让「日志里出现解析错误」这个信号失去意义，
+  本轮我因此一度分辨不出哪些错误是自己引入的。建议单独查。
+
 > 第 4 项对阶段 0 的约束：`copy_to_mp4` 与 9 个编码入口有**四处**结构差异 ——
 > 无码率表、输出名不带 `-compressed`、源已是目标容器即跳过、`-c copy` + faststart。
 > 抽内核时要把这些留成钩子位，不能让公共流程假设"一定有码率表"。

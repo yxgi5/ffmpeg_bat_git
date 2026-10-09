@@ -90,6 +90,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_hevc_nvenc.bat` | HEVC NVENC | NVIDIA 显卡（cuvid 全硬解链路） |
 | `ffmpeg_av1_nvenc.bat` | AV1 NVENC | NVIDIA **Ada 及以后**（RTX 40 系起） |
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
+| **`ffmpeg_encode.bat`** | **统一入口** | **`--venc` 指定编码器**：`libx264` `libx265` `libsvtav1`（软件 AV1） / `avc_qsv` `hevc_qsv` `av1_qsv` / `avc_nvenc` `hevc_nvenc` `av1_nvenc` / `copy`（仅换容器，带 moov 前置）。可选 `--dec auto\|cpu\|none\|qsv\|cuda`（省略用编码器族的固定解码；与族不一致只警告不拦）。下面每个单编码器入口都是它的薄壳，**老用法完全兼容**（详见 `TODO.md` §7） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
 | `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
 | `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video / 蓝光** 专用：ISO / `VIDEO_TS` 目录 / `BDMV` 目录 / 光驱 / 单个 `.m2ts` → HEVC MKV。DVD 那一路需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出；蓝光那一路走 `m2ts` 直读，不需要它。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
@@ -118,6 +119,10 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 ./ffmpeg_libx265.sh  xxx.mov
 ./ffmpeg_libx264.sh  xxx.mov
 
+# 统一入口（2026-10-08 起）：--venc 指定编码器，可选 --dec 指定解码拓扑
+./ffmpeg_encode.sh --venc hevc_qsv       "xxx.mov"      # 省略 --dec 时用它那一族的固定解码
+./ffmpeg_encode.sh --venc libx265 --dec none "xxx.mov"   # 软编且一次 -hwaccel 都不加
+./ffmpeg_encode.sh --venc copy           "xxx.mov"      # 仅换容器，不重编码
 ./convert_from_list_qsv.sh              # 不带参数默认 list.txt
 ./convert_from_list_qsv.sh list0.txt
 ./convert_from_list_cuda.sh | _libx265.sh | repack_from_list.sh
@@ -187,7 +192,8 @@ EXT=mkv ./ffmpeg_copy_to_mp4.sh xxx.mov
 | `lib/common.sh` 的 `load_defaults()` / `init_ext()` | 读文件 + 校验 + 由它派生出 `-c:s` 的写法 |
 | `lib/common.bat` 的 `:load_defaults` / `:init_ext` | 同上（cmd 版） |
 
-所以**加一个新容器、改一下默认口径，只动 `lib/defaults.cfg` 那一行** —— 20 个入口不用碰。
+所以**加一个新容器、改一下默认口径，只动 `lib/defaults.cfg` 那一行** —— 全部入口不用碰
+（现在除 20 个单编码器入口外还有一个统一入口 `ffmpeg_encode`，它同样读这份配置）。
 现在里面就三条：
 
 | 键 | 默认 | 意思 |

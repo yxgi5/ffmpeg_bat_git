@@ -1258,7 +1258,7 @@ function bitrate_from_table() {
 # ================================================================
 SWITCH_KEYS=(ext bitrate_no_half ff_on_exist ff_hwaccel dvd_ext \
              mode dvd_title prefix filt vfilt_extra audio split_chapter \
-             extra_titles vbitrate venc dry_run)
+             extra_titles vbitrate venc dec dry_run)
 
 # 布尔开关(不取值): 这类开关后面紧跟的通常就是文件名, 若按 "--key value" 的老规矩
 # 取下一个参数当值, 文件名会被开关吃掉(实测 --dry-run a.mp4 之后脚本再也拿不到
