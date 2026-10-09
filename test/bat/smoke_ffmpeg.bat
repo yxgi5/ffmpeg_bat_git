@@ -555,6 +555,27 @@ fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
 if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
 echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
 if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
+rem ============ T34: --dec 的命令行形态 ============
+rem 阶段 1 的统一入口断言, 每条单独加、单独在真机跑一遍冒烟。
+rem 这里用 --dry-run 断言命令行, 所以本机有没有硬编都能跑。
+rem cpu 的语义就是 none(§6 第 3 条): 一次 -hwaccel 都不加, 与 FF_HWACCEL=none 对齐。
+chcp %CP0% >nul
+set "L34=%LOGDIR%\T34_dec_auto.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec auto --dry-run "%IN%" < nul > "%L34%" 2>&1
+set "RC34=%errorlevel%"
+set "V34=PASS"
+if not "%RC34%"=="0" set "V34=FAIL"
+findstr /c:"-hwaccel auto" "%L34%" >nul 2>&1
+if errorlevel 1 set "V34=FAIL"
+echo [%V34%] T34 dec=auto -> -hwaccel auto >> "%SUM%"
+set "L34=%LOGDIR%\T34_dec_cpu.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec cpu --dry-run "%IN%" < nul > "%L34%" 2>&1
+set "RC34=%errorlevel%"
+set "V34=PASS"
+if not "%RC34%"=="0" set "V34=FAIL"
+findstr /c:"-hwaccel" "%L34%" >nul 2>&1
+if not errorlevel 1 set "V34=FAIL"
+echo [%V34%] T34 dec=cpu -> no hwaccel at all >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
