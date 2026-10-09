@@ -555,6 +555,91 @@ fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
 if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
 echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
 if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
+rem ============ T34dec_auto "-hwaccel auto" ============
+rem --dec auto 的命令行形态。硬件组合用 dry-run 断言, 本机有无硬编都能跑。
+chcp %CP0% >nul
+set "L34=%LOGDIR%\T34_dec_auto.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec auto --dry-run "%IN%" < nul > "%L34%" 2>&1
+set "RC34=%errorlevel%"
+set "V34=PASS"
+set "N34="
+if not "%RC34%"=="0" set "V34=FAIL" & set "N34=rc=%RC34% want0"
+findstr /c:"-hwaccel auto" "%L34%" >nul 2>&1
+if errorlevel 1 set "V34=FAIL" & set "N34=%N34% noHwaccelAuto"
+echo [%V34%] T34 dec=auto -> -hwaccel auto >> "%SUM%"
+if not "%N34%"=="" echo        why: %N34% >> "%SUM%"
+echo [T34dec_auto%] "-hwaccel auto" >> "%SUM%"
+
+rem ============ T34dec_cpu 无 hwaccel ============
+rem cpu 的语义就是 none(2026-10-08 拍板): 一次 -hwaccel 都不加。
+chcp %CP0% >nul
+set "L34=%LOGDIR%\T34_dec_cpu.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec cpu --dry-run "%IN%" < nul > "%L34%" 2>&1
+set "RC34=%errorlevel%"
+set "V34=PASS"
+set "N34="
+if not "%RC34%"=="0" set "V34=FAIL" & set "N34=rc=%RC34% want0"
+findstr /c:"-hwaccel" "%L34%" >nul 2>&1
+if not errorlevel 1 set "V34=FAIL" & set "N34=%N34% mustNotAddHwaccel"
+echo [%V34%] T34 dec=cpu -> no hwaccel at all >> "%SUM%"
+if not "%N34%"=="" echo        why: %N34% >> "%SUM%"
+echo [T34dec_cpu%] 无 hwaccel >> "%SUM%"
+
+rem ============ T35 不一致只警告 ============
+rem --dec 与族不一致 -> 警告但不拦(混合硬解有人用), 且如实说明 10bit 降位滤镜不跟过来。
+chcp %CP0% >nul
+set "L35=%LOGDIR%\T35_dec_mismatch.log"
+call "%REPO%\ffmpeg_encode.bat" --venc hevc_qsv --dec cuda --dry-run "%IN%" < nul > "%L35%" 2>&1
+set "RC35=%errorlevel%"
+set "V35=PASS"
+set "N35="
+if not "%RC35%"=="0" set "V35=FAIL" & set "N35=rc=%RC35% want0"
+findstr /c:"警告" "%L35%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL" & set "N35=%N35% noWarn"
+findstr /c:"10bit" "%L35%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL" & set "N35=%N35% no10bitHint"
+echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
+if not "%N35%"=="" echo        why: %N35% >> "%SUM%"
+echo [T35%] 不一致只警告 >> "%SUM%"
+
+rem ============ T36 错编码器与缺参数 ============
+rem 打错字 / 不给 --venc 都得非零退出, 打错字时还要列出可选值(不许静默走默认编码器)。
+chcp %CP0% >nul
+set "L36=%LOGDIR%\T36_badvenc.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx266 --dry-run "%IN%" < nul > "%L36%" 2>&1
+set "RC36=%errorlevel%"
+set "V36=PASS"
+set "N36="
+if not "%RC36%"=="0" set "V36=FAIL" & set "N36=badVenc rc=%RC36% wantNonZero"
+findstr /c:"libx264" "%L36%" >nul 2>&1
+if errorlevel 1 set "V36=FAIL" & set "N36=%N36% noValidKeyList"
+set "L36B=%LOGDIR%\T36_novenc.log"
+call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%L36B%" 2>&1
+if "%RC36B%"=="0" set "V36=FAIL" & set "N36=%N36% missingVenc accepted"
+echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
+if not "%N36%"=="" echo        why: %N36% >> "%SUM%"
+echo [T36%] 错编码器与缺参数 >> "%SUM%"
+
+rem ============ T37 copy 转封装 ============
+rem copy 并入统一入口: 产物与源同名(不带 -compressed)且带 moov 前置。
+chcp %CP0% >nul
+set "L37=%LOGDIR%\T37_copy.log"
+set "O37=%WORK%\unified remux.mp4"
+del /q "%O37%" >nul 2>&1
+del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
+copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\unified remux.mov" < nul > "%L37%" 2>&1
+set "RC37=%errorlevel%"
+set "V37=PASS"
+set "N37="
+if not "%RC37%"=="0" set "V37=FAIL" & set "N37=rc=%RC37% want0"
+if not exist "%O37%" set "V37=FAIL" & set "N37=%N37% noOutput"
+if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL" & set "N37=%N37% wroteCompressedName"
+findstr /c:"-movflags +faststart" "%L37%" >nul 2>&1
+if errorlevel 1 set "V37=FAIL" & set "N37=%N37% noFaststart"
+echo [%V37%] T37 copy -- remux with faststart and plain output name >> "%SUM%"
+if not "%N37%"=="" echo        why: %N37% >> "%SUM%"
+echo [T37%] copy 转封装 >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
