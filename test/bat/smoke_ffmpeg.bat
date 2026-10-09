@@ -555,6 +555,76 @@ fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
 if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
 echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
 if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
+rem ============ T34: --dec 的命令行形态 ============
+rem 阶段 1 的统一入口断言, 每条单独加、单独在真机跑一遍冒烟。
+rem 这里用 --dry-run 断言命令行, 所以本机有没有硬编都能跑。
+rem cpu 的语义就是 none(§6 第 3 条): 一次 -hwaccel 都不加, 与 FF_HWACCEL=none 对齐。
+chcp %CP0% >nul
+set "L34=%LOGDIR%\T34_dec_auto.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec auto --dry-run "%IN%" < nul > "%L34%" 2>&1
+set "RC34=%errorlevel%"
+set "V34=PASS"
+if not "%RC34%"=="0" set "V34=FAIL"
+findstr /c:"-hwaccel auto" "%L34%" >nul 2>&1
+if errorlevel 1 set "V34=FAIL"
+echo [%V34%] T34 dec=auto -> -hwaccel auto >> "%SUM%"
+set "L34=%LOGDIR%\T34_dec_cpu.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dec cpu --dry-run "%IN%" < nul > "%L34%" 2>&1
+set "RC34=%errorlevel%"
+set "V34=PASS"
+if not "%RC34%"=="0" set "V34=FAIL"
+findstr /c:"-hwaccel" "%L34%" >nul 2>&1
+if not errorlevel 1 set "V34=FAIL"
+echo [%V34%] T34 dec=cpu -> no hwaccel at all >> "%SUM%"
+rem ============ T35: --dec 与族不一致 -> 警告但不拦 ============
+rem 断言抓 [warn] 这个 ASCII 标签: 冒烟一律抓 ASCII 标记(同 :check_isvideo 的做法),
+rem findstr /c:"警告" 在 bat 的编码下匹配不上。
+rem 顺带断言警告里说了 10bit 降位滤镜不跟过来 —— 那是实测最容易静默丢东西的地方。
+chcp %CP0% >nul
+set "L35=%LOGDIR%\T35_dec_mismatch.log"
+call "%REPO%\ffmpeg_encode.bat" --venc hevc_qsv --dec cuda --dry-run "%IN%" < nul > "%L35%" 2>&1
+set "RC35=%errorlevel%"
+set "V35=PASS"
+if not "%RC35%"=="0" set "V35=FAIL"
+findstr /c:"[warn]" "%L35%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL"
+findstr /c:"10bit" "%L35%" >nul 2>&1
+if errorlevel 1 set "V35=FAIL"
+echo [%V35%] T35 --dec mismatch warns and does not block >> "%SUM%"
+rem ============ T36: 打错字 / 不给 --venc 都得报错 ============
+rem 不许静默走进某个默认编码器 —— 那就是"打错字也能跑, 只是跑错编码器"。
+rem 打错字时还要列出可选值, 否则用户不知道该填什么。
+chcp %CP0% >nul
+set "L36=%LOGDIR%\T36_badvenc.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx266 --dry-run "%IN%" < nul > "%L36%" 2>&1
+set "RC36=%errorlevel%"
+set "V36=PASS"
+if "%RC36%"=="0" set "V36=FAIL"
+findstr /c:"libx264" "%L36%" >nul 2>&1
+if errorlevel 1 set "V36=FAIL"
+set "L36=%LOGDIR%\T36_novenc.log"
+call "%REPO%\ffmpeg_encode.bat" --dry-run "%IN%" < nul > "%L36%" 2>&1
+set "RC36=%errorlevel%"
+if "%RC36%"=="0" set "V36=FAIL"
+echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
+rem ============ T37: --venc copy 并入转封装 ============
+rem 三个要点: 产物与源同名(不带 -compressed)、带 moov 前置、源已是目标容器能早退。
+rem ⚠️ 别在 %WORK% 里留多余文件: 元字符矩阵会数这个目录的文件, 之前 A19 就是这么挂的。
+chcp %CP0% >nul
+set "L37=%LOGDIR%\T37_copy.log"
+set "O37=%WORK%\unified remux.mp4"
+del /q "%O37%" >nul 2>&1
+del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
+copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\unified remux.mov" < nul > "%L37%" 2>&1
+set "RC37=%errorlevel%"
+set "V37=PASS"
+if not "%RC37%"=="0" set "V37=FAIL"
+if not exist "%O37%" set "V37=FAIL"
+if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL"
+findstr /c:"-movflags +faststart" "%L37%" >nul 2>&1
+if errorlevel 1 set "V37=FAIL"
+echo [%V37%] T37 copy -- remux with faststart and plain output name >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========

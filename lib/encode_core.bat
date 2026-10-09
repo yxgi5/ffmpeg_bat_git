@@ -113,7 +113,11 @@ if /i not "%DEC_ARG%"=="%DEC_FAMILY%" (
     rem 前面的 [warn] 是 ASCII 标签: 冒烟套件断言的是 ASCII 标记(见 :check_isvideo 的用法),
 rem 中文在 bat 的编码下 findstr 对不上。
     echo [warn] --dec %DEC_ARG% 与编码器 %ENC% 的固定解码 %DEC_FAMILY% 不一致, 按你给的走。
-    if /i "%DEC_ARG%"=="qsv" echo        10bit 降位滤镜属于 QSV 解码路径, 现在解码器不是 qsv, 该滤镜不会加。
+    rem 判据是**族**而不是请求的解码器: 丢掉的是该族解码路径上的 10bit 判据与降位滤镜,
+rem 所以要看编码器属于哪一族。写成 %DEC_ARG% 就只有在"请求 qsv 解码"时才提示, 而真正
+rem 需要提示的恰恰是"编码器是 qsv 族、但解码器不是 qsv"这种情况(T35 抓出来的)。
+rem sh 侧 encode_core.sh 的 enc_dec_warn 用的是 $fam_d(族), 两族一致。
+    if /i "%DEC_FAMILY%"=="qsv" echo [warn] 10bit 源的判据与降位滤镜属于 qsv 解码路径, 只有解码器是 qsv 时才加, 现在解码器是 %DEC_ARG%, 不加。
 )
 
 rem 刻意用 ( ) 块 + 块内 goto, **不用** `set X=Y & goto Z` 那写法: & 前的空格会被
