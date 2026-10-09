@@ -110,7 +110,9 @@ if /I "%ENC%"=="av1_nvenc" set "DEC_FAMILY=cuda"
 rem 刻意用方括号而不是小括号: 这一段整体在 ( ) 块里, echo 参数里的半角右括号会
 rem 提前闭块(与 :usage / 能力门同一个坑, lint L23 拦这个)。
 if /i not "%DEC_ARG%"=="%DEC_FAMILY%" (
-    echo [警告] --dec %DEC_ARG% 与编码器 %ENC% 的固定解码 %DEC_FAMILY% 不一致, 按你给的走。
+    rem 前面的 [warn] 是 ASCII 标签: 冒烟套件断言的是 ASCII 标记(见 :check_isvideo 的用法),
+rem 中文在 bat 的编码下 findstr 对不上。
+    echo [warn] --dec %DEC_ARG% 与编码器 %ENC% 的固定解码 %DEC_FAMILY% 不一致, 按你给的走。
     if /i "%DEC_ARG%"=="qsv" echo        10bit 降位滤镜属于 QSV 解码路径, 现在解码器不是 qsv, 该滤镜不会加。
 )
 
