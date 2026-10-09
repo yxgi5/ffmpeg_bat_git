@@ -532,6 +532,25 @@ findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
 if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
 echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
 if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
+rem ============ T33: 新旧入口同参 -> RUN_COM 逐字一致 ============
+rem 这是"等价"的直接证据。老用例只断言各自跑通, 不断言两个入口命令行相同 ——
+rem 抽内核时最值得盯的就是这个, 任何一侧改了参数顺序/多一个空格都会被抓到。
+chcp %CP0% >nul
+set "T33LNEW=%LOGDIR%\T33_equiv_new.log"
+set "T33LOLD=%LOGDIR%\T33_equiv_old.log"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T33LNEW%" 2>&1
+call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T33LOLD%" 2>&1
+set "A33="
+set "B33="
+for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%T33LNEW%"') do set "A33=%%L"
+for /f "delims=" %%L in ('findstr /b /c:"RUN_COM0=" "%T33LOLD%"') do set "B33=%%L"
+set "V33=PASS"
+set "N33="
+if not defined A33 set "V33=FAIL" & set "N33=newNoRUN_COM"
+if not defined B33 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
+if defined A33 if defined B33 if not "%A33%"=="%B33%" set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
+echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
+if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
