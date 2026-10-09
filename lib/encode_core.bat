@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 rem ============================================================
 rem lib/encode_core.bat - 编码入口的公共内核 (TODO.md 阶段 0)
 rem

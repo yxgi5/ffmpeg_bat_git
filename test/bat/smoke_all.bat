@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 rem ============================================================
 rem smoke_all.bat   *** ASCII ONLY / CRLF ***
 rem
