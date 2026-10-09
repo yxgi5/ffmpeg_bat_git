@@ -514,6 +514,24 @@ for %%f in ("%LOGDIR%\*.log") do (
         set "BAD=1"
     )
 )
+rem ============ T32: 统一入口实跑 --venc libx265 ============
+rem 阶段 1(统一入口)的断言。每条单独加、单独在真机跑一遍冒烟 —— 一次加一批的话,
+rem 一旦把文件结构弄坏(前车: 引号被吞导致套件跑不到断言就死), 很难定位是哪一行。
+chcp %CP0% >nul
+set "T32LOG=%LOGDIR%\T32_encode_libx265.log"
+set "T32OUT=%WORK%\unified clip-compressed.mp4"
+del /q "%T32OUT%" >nul 2>&1
+copy /y "%IN%" "%WORK%\unified clip.mp4" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 "%WORK%\unified clip.mp4" < nul > "%T32LOG%" 2>&1
+set "RC32=%errorlevel%"
+set "V32=PASS"
+set "N32="
+if not "%RC32%"=="0" set "V32=FAIL" & set "N32=rc=%RC32% want0"
+if not exist "%T32OUT%" set "V32=FAIL" & set "N32=%N32% noOutput"
+findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
+if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
+echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
+if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
