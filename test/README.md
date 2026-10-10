@@ -59,6 +59,71 @@ test\bat\check_env.bat                 双击    能力报告（快查）
 test\bat\check_env.bat /probe          命令行  能力报告（深测；旧写法 "" PROBE 仍兼容）
 ```
 
+## 0.5 本机（Win11）实测通道 —— 跑测试前必读的三件事
+
+不知道这三条会得到**假失败**（看起来仓库坏了，其实是用错了通道）。
+
+### ① `cmd /c` 通道可用 —— 「沙箱跑不了 cmd」这条旧结论已作废
+
+本文件 §2.1 的 L20、§6.5，以及 `environment_matrix.md` 多处曾写「开发沙箱跑不了 `cmd.exe`，
+`.bat` 只能真机双击验证」。**这条已不成立**：`cmd /c` 能取回 `.bat` 的**完整 stdout + stderr**，
+所以 `.bat` 侧可以在本机直接跑完整套件，不必等人工双击。
+
+```powershell
+cmd /c "d:\repos\ffmpeg_bat_git\test\bat\smoke_all.bat" *> smoke_win.log 2>&1
+```
+
+> 2026-10-10 实测：`smoke_all.bat` 经 `cmd /c` 跑完，regression `rc=0`、char matrix `rc=0`，
+> 且自带断言 `[PASS] banner check: no "is not recognized" in any log` 为真。
+
+### ② sh 脚本与 lint 都要进 bash 登录 shell 跑（本机有 3 个环境可选）
+
+D 盘的底座是 **MSYS2（`D:\msys64`）**、**Cygwin64（`D:\cygwin64`）**，外加 **WSL**。
+sh 族一律用**登录 shell**（`-lc`）：
+
+```powershell
+# ① MSYS2 的 mingw64（盘符是 /d）
+$env:MSYSTEM="MINGW64"
+& "D:\msys64\usr\bin\bash.exe" -lc "cd /d/repos/ffmpeg_bat_git && bash test/sh/smoke_all.sh"
+
+# ② Cygwin64（盘符是 /cygdrive/d，不是 /d）
+& "D:\cygwin64\bin\bash.exe"   -lc "cd /cygdrive/d/repos/ffmpeg_bat_git && bash test/sh/smoke_all.sh"
+
+# ③ WSL（盘符是 /mnt/d；本机默认分发是 docker-desktop，必须显式 -d 指定 Ubuntu-22.04）
+wsl.exe -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/repos/ffmpeg_bat_git && bash test/sh/smoke_all.sh"
+```
+
+> ⚠️ **「mingw64」不是独立环境，它是 MSYS2 的一个子系统** —— 这是最容易搞错的一点：
+> * **入口 bash 永远只有 msys2 那一个**：`D:\msys64\usr\bin\bash.exe`（即 `/usr/bin/bash`）。
+>   `D:\msys64\mingw64\bin\bash.exe` **不存在**（实测 `Test-Path` 为 `False`），不要去找它。
+> * 所谓「切到 mingw64」= 设环境变量 `MSYSTEM=MINGW64`，让 msys2 把 PATH 指向 mingw-w64 工具链。
+>   实测设完之后：`MSYSTEM=MINGW64`、`command -v bash` = `/usr/bin/bash`、
+>   `command -v gcc` = `/mingw64/bin/gcc`、PATH 首段 = `/mingw64/bin`。
+> * 所以「msys2 的 mingw64」是一个整体：**用 msys2 的 bash 去跑，拿到的是 mingw64 的工具链**。
+>   不设 `MSYSTEM` 则是 msys2 自身环境（`/usr` 系工具链），两者测出的结果可能不同 ——
+>   本仓库的 sh 测试一律指 `MSYSTEM=MINGW64` 这一个。
+
+**WSL 能跑 sh，但硬加速不全 —— 别把 SKIP 当缺陷（2026-10-11 实测）**：
+WSL 里 **QSV 用不了**（拿不到 `/dev/dri` 直通），**NVENC/CUDA 可以用**。
+同一份套件在 WSL 是 `PASS=29 / FAIL=0 / SKIP=11`，SKIP 全是 QSV 相关
+（`T1` `T3` `T6` `T9` `T10` `T11` `T12` `T15` 等），而 `T2` `T14`（NVENC）硬件探针照样通过；
+msys2 / cygwin 则是 `PASS=36 / FAIL=0 / SKIP=4`。
+所以 **WSL 只适合验证 sh 脚本逻辑，不能拿它判定 QSV 用例**。
+
+**lint 也必须进 bash 里跑**：`test/lint/lint.py` 的 sh 侧检查（L12 / P05）要 `execvpe("/bin/bash")`，
+用 Windows 版 python 直接跑会**全部假 FAIL**（`execvpe(/bin/bash) failed: No such file or directory`，
+本机实测 **34 个 FAIL**）；同一份 lint 在 msys2 与 cygwin 里是 **31 PASS / 0 FAIL / 5 WARN**。
+
+### ③ 实际生效的 ffmpeg 二进制
+
+| 平台 | 实际使用的 ffmpeg | 备注 |
+|---|---|---|
+| Windows（**sh 与 bat 都一样**） | `C:\Program Files\ffmpeg\bin\ffmpeg.exe` | gyan full build（本机为 `2025-05-01-git-707c04fe06-full_build`）。`.bat` 侧固定取该目录（**无** `FFPROBE=` 覆盖）；`.sh` 侧可用 `FFMPEG=` / `FFPROBE=` 单独指定 |
+| Linux（**含 WSL**） | `/opt/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg` | **WSL 归这一侧，不归 Windows**（本机 WSL 实测即此路径，构建号 `N-117740-g7f51cf75c6-20241110`） |
+
+> 冒烟日志会回显 `使用 ffmpeg : …`（bat）或 `ffmpeg=…`（sh），核对这一行即可确认当次跑的是哪一份构建。
+> 注意两侧**构建不同**，所以跨环境比对结果时要先看这一行。
+
 ## ③b 单片源码率标尺 bench_calib（sh/bat 对等）
 
 **用途**：特殊片源需要尽可能保画质时，从原视频实测出「该给多少码率」——
@@ -208,7 +273,7 @@ test/
   `findstr /c:"警告"` 在 bat 编码下匹配不上；② `if <cond> cmd1 & cmd2` 里的 `cmd2` **无条件执行**，
   要拆成两行。
 | L18 | **锚定变量**：凡是读 `%REPO%` / `%SELF_DIR%` 的 `.bat`，必须在**首次读取之前**赋值；且 `test\bat\` 下的工具必须用 `%~dp0..\..` 自锚定 | **2026-09-20 实际缺口（用户报障）**：`bench_calib.bat` 里 `call "%REPO%\lib\common.bat"` 的 `REPO` **从未定义** → 路径塌缩成 `"\lib\common.bat"`（盘根路径）→ 任何 cwd 下都报 `The system cannot find the path specified.`，而调用方把它伪装成「ffmpeg/ffprobe not on PATH」。更早一版是 `"%SELF_DIR%lib\common.bat"`（`SELF_DIR` 同样未定义）→ 退化为**相对路径**，只在 cwd = 仓库根时碰巧可用。两类症状不同（一个必崩、一个看运气），根因同源 |
-| L20 | **libvmaf 消费者必须带能力要求去定位 ffmpeg**（**只管 `.sh` 侧**，2026-09-20 修订）：`test/sh/*.sh` 里凡是要 libvmaf 的（非注释行出现 `libvmaf`），必须有一行同时出现 `find_ffmpeg` / `--need-filter` / `libvmaf`。白名单：`test/sh/check_env.sh`（环境盘点工具，报告 libvmaf 有无所用，自带的 `find_ffmpeg` 只是挑一个"待盘点对象"） | **2026-09-20 实际缺口（用户报障）**：用户在 MSYS2 MINGW64 里跑 `test/sh/bench_calib.sh` 得到 `ERROR: this ffmpeg build has no libvmaf filter`，而**同一台机器**上 `C:\Program Files\ffmpeg\bin` 的 gyan full（2025-05-01）是带 libvmaf 的 —— 缺的不是工具链，是 sh 侧**一律信 PATH**：MSYS2 的 `/mingw64/bin/ffmpeg` 是 8.1、无 libvmaf，却排在 PATH 前面（`test/capability_matrix.md` 早写明「同一台机器三种 shell 解析到三个不同 ffmpeg」，但 sh 侧从没有对应机制）。bat 侧同一个坑换了个形态：从 MSYS2 终端跑 `.bat` 时 cmd 继承的 PATH 同样把 `/mingw64/bin` 排在前面 → `find_ffmpeg` 选中它 → NO_VMAF。两族同一天各踩一次，故立此规则。**bat 半边同日回退**：曾要求 `.bat` 调用行带第 3 参数（能力名）并在 `lib/common.bat` 里加 `:ff_satisfies` 子过程，但那个子过程正是 L21 的形态 —— 对**每一个**候选都判「缺少能力」；而且本机 ffmpeg 根本不在 PATH 上（走的是兜底目录），这道门对本机毫无作用。cmd 语义在开发沙箱里无法验证（`cmd.exe` 被拦），盲改不划算，故**整体回退**，能力筛选只留在 `.sh` 侧，写法陷阱改由 L21 永久拦截 |
+| L20 | **libvmaf 消费者必须带能力要求去定位 ffmpeg**（**只管 `.sh` 侧**，2026-09-20 修订）：`test/sh/*.sh` 里凡是要 libvmaf 的（非注释行出现 `libvmaf`），必须有一行同时出现 `find_ffmpeg` / `--need-filter` / `libvmaf`。白名单：`test/sh/check_env.sh`（环境盘点工具，报告 libvmaf 有无所用，自带的 `find_ffmpeg` 只是挑一个"待盘点对象"） | **2026-09-20 实际缺口（用户报障）**：用户在 MSYS2 MINGW64 里跑 `test/sh/bench_calib.sh` 得到 `ERROR: this ffmpeg build has no libvmaf filter`，而**同一台机器**上 `C:\Program Files\ffmpeg\bin` 的 gyan full（2025-05-01）是带 libvmaf 的 —— 缺的不是工具链，是 sh 侧**一律信 PATH**：MSYS2 的 `/mingw64/bin/ffmpeg` 是 8.1、无 libvmaf，却排在 PATH 前面（`test/capability_matrix.md` 早写明「同一台机器三种 shell 解析到三个不同 ffmpeg」，但 sh 侧从没有对应机制）。bat 侧同一个坑换了个形态：从 MSYS2 终端跑 `.bat` 时 cmd 继承的 PATH 同样把 `/mingw64/bin` 排在前面 → `find_ffmpeg` 选中它 → NO_VMAF。两族同一天各踩一次，故立此规则。**bat 半边同日回退**：曾要求 `.bat` 调用行带第 3 参数（能力名）并在 `lib/common.bat` 里加 `:ff_satisfies` 子过程，但那个子过程正是 L21 的形态 —— 对**每一个**候选都判「缺少能力」；而且本机 ffmpeg 根本不在 PATH 上（走的是兜底目录），这道门对本机毫无作用。cmd 语义在开发沙箱里无法验证（~~`cmd.exe` 被拦~~；**2026-10-10 更正**：`cmd /c` 可取回完整输出，见 §0.5），盲改不划算，故**整体回退**，能力筛选只留在 `.sh` 侧，写法陷阱改由 L21 永久拦截 |
 | L19 | **反引号里的程序路径**：`for /f` 反引号内被执行的**程序名**不得是 `%VAR%` 展开（不得出现 `` `%FFPROBE_PATH% ...` ``，也不得出现 `` `"%FFPROBE_PATH%" ...` ``）；程序路径必须走「常规命令行 + 重定向到临时文件」，再由 `for /f "usebackq"` 读文件 | **2026-09-20 实际缺口（用户报障，与 L18 同一次）**：`bench_calib.bat` 三行 `` for /f ... in (`%FFPROBE_PATH% -v error ...`) `` → cmd 打印三次 `'C:\Program' is not recognized as an internal or external command`（`C:\Program Files\ffmpeg\bin\ffprobe.exe` 在空格处被切断），紧接着工具自己的兜底文案又把它解释成「ffprobe failed / pixel count overflow on this source」。**同一文件第 161 行**还有更隐蔽的一处：它在反引号里给路径**加了**引号，看似"已经修过"，实则撞上 `cmd /c` 的引号剥离规则（「行首是引号时，剥掉首个引号与**该行最后一个**引号」）→ 末尾参数的收尾引号被吃掉，路径含空格时同样散架，而且它**静默**把 delivered 记成 0。`nvenc_pair_calib.bat` 里的裸 `ffprobe`（PATH 解析，程序名不是变量）不受影响，也不该被报 |
 | L21 | **引号里不得再嵌参数展开**：`.bat` 里不得把「**已经带引号**传进来的参数」再套一层引号（`"%1\ffmpeg.exe"` 这种）。合法形态只有两种：`"%~1\path"`（剥引号修饰符）与 `"%1"`（右引号**紧跟在** `%1` 之后，表示原样照传） | **2026-09-20 实际缺口（与 L20 的 bat 半边回退同源）**：`lib/common.bat` 新加的 `:ff_satisfies` 写成 `"%1\ffmpeg.exe" -hide_banner -filters 2>nul`，而调用方传进来的是**带引号**的 `%FFBIN%`（`C:\Program Files\ffmpeg\bin` 含空格，不加引号传不过去）→ 展开成 `""C:\Program Files\ffmpeg\bin"\ffmpeg.exe"`，cmd 取首 token 得到**空程序名**，报 `'' is not recognized as an internal or external command`，而该行尾部挂着 `2>nul` → 错误被彻底吞掉 → **任何**候选都被判成「缺少能力」。这个坑极隐蔽（表面看是「加引号更安全」），故固化成规则 |
 | L22 | **`call` 的参数里不得出现裸等号**：给批处理传参时，`=` 与空格/逗号/分号一样是**分隔符**，所以 `call ... probe_field "%OUT%" stream=bit_rate DEL` 会被切成 `%2=<文件> %3=stream %4=bit_rate %5=DEL` —— 被调用方从 `%4` 取"输出变量名"，于是它写进一个叫 `bit_rate` 的变量，而调用方读的 `DEL` **从未被赋值**。要传"带等号的值"就**加引号**（`call :x "opt=1"`，引号内不切），更好的是改成**关键词**、由被调用方内部展开（`vbr` / `fbr`） | **2026-09-20 实际缺口（用户真机报障，与 L19/L20/L21 同一现场）**：`lib/common.bat` 的 `:probe_field` 是 `e34a21c` 当天新增、**从未在真机跑过**的子过程（沙箱无 `cmd.exe`），两个调用方都写成了 `probe_field "%OUT%" stream=bit_rate DEL` → 五个梯点全跑完、`vmaf` 完全健康（87.04→96.38），**`delivered` 一列恒为 0**。静态审查查不出来，只有真机能暴露。修法：show_entries 串收到 `:probe_field` 内部按关键词展开（`vbr`=视频流码率 / `fbr`=容器平均码率，后者兼作回退，因为容器无 per-stream 码率时 ffprobe 返回字面量 `N/A`），并让 lint 拦住老写法。**召回已用真文件验证**：把 `HEAD` 版 `bench_calib.bat` 临时落到 `test/bat/`，L22 精确报出 `:188` |
@@ -460,7 +525,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 宽高段顺带省掉了 `EnableDelayedExpansion` 块（片名感叹号不再有被吃风险）。
 入口在 `check_isvideo` 之后对 `probe_source` 的退出码做负数安全检查（失败
 `exit /b 1`，与 sh 侧探测失败报错对齐）。P_* 字段缺失时展开为空，与原实现的
-空值路径一致。**bat 侧无法在沙箱运行，需真机双击验证**（见 6.5 节）。
+空值路径一致。**~~bat 侧无法在沙箱运行，需真机双击验证~~（2026-10-10 更正：`cmd /c` 通道可用，见 §0.5）**。
 
 ---
 

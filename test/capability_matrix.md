@@ -141,7 +141,7 @@
     → 展开成 `""C:\Program Files\ffmpeg\bin"\ffmpeg.exe"` → cmd 取首 token 得到**空程序名** →
     报 `'' is not recognized…`，又被该行尾部的 `2>nul` 吞掉 → **每个候选都被判"缺少能力"**。
     何况本机 ffmpeg 不在 PATH 上，走的是 `C:\Program Files\ffmpeg\bin` 兜底，这道门对本机毫无作用。
-    开发沙箱跑不了 `cmd.exe`（Bash / PowerShell 两条路都被硬拦），盲改不划算 —— 于是 `:find_ffmpeg`
+    开发沙箱跑不了 `cmd.exe`（~~Bash / PowerShell 两条路都被硬拦~~ —— **2026-10-10 更正**：`cmd /c` 通道可用且能取回完整输出，见 `test/README.md` §0.5），盲改不划算 —— 于是 `:find_ffmpeg`
     回到 `环境变量 > 仓库内 ffmpeg\bin > PATH(where) > C:\Program Files\ffmpeg\bin`。
     写法陷阱已固化为 lint **L21**（引号里不得再嵌参数展开）。
   * 灰度对照（本机，2026-09-20 实测）：`/mingw64/bin/ffmpeg`(8.1) 无 libvmaf、Cygwin 7.1.1 无 libvmaf、
