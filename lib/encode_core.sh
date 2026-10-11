@@ -457,6 +457,17 @@ function enc_run() {
     echo 由 andreas 编写
     echo ============================================================
 
+    # ---------- 阶段 3: VAAPI 已废弃(见 TODO.md §3 与 §6 第 6 项) ----------
+    # 功能照旧保留一两个版本, 期间每次运行都提示迁移方向, 下个版本再删文件。
+    # 放内核而不是两个入口里: 这样 ffmpeg_encode.sh --venc *_vaapi 也走同一条提示。
+    case "$enc" in
+        avc_vaapi|hevc_vaapi)
+            echo "警告: $enc 已废弃, 将在下个版本移除。" >&2
+            echo "      Linux 请改用 QSV: ./ffmpeg_encode.sh --venc ${enc%_vaapi}_qsv --dec qsv 视频文件" >&2
+            echo "      没有 QSV 硬件时, 用软编 libx265 / libx264 代替。" >&2
+            ;;
+    esac
+
     # ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
     # 默认值写在 lib/defaults.cfg(两族共用一份), 校验 / 去空白 / -c:s 的选法统统在
     # lib/common.sh 的 init_ext 里 —— 加容器、改默认都只动那一处, 入口不再各写一遍。

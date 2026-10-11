@@ -142,6 +142,12 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 `copy_to_mp4`，两族同名）都认这个开关 —— 与 DVD 脚本的 `EXT` **同名同义**，
 区别只在默认值：那里默认 `mkv`，这里默认 `mp4`。
 
+> ⚠️ **VAAPI 两个入口已废弃（阶段 3，2026-10-11）**：`ffmpeg_h264_vaapi.sh` /
+> `ffmpeg_hevc_vaapi.sh`，以及统一入口的 `--venc avc_vaapi` / `--venc hevc_vaapi`，
+> **将在下个版本移除**；现在运行会打印迁移提示，功能暂不受影响。
+> Linux 上请改用 QSV：`./ffmpeg_encode.sh --venc hevc_qsv --dec qsv 视频文件`
+> （没有 QSV 硬件时用软编 `libx265` / `libx264`）。依据见 `TODO.md` §3 与 §6 第 6 项。
+
 ```
 rem Windows: 开关写在脚本之前; 引号形式最稳(set EXT=mkv && ... 会把空格一起塞进值里,
 rem 入口已做了去空格兜底, 但 set "EXT=mkv" 是推荐写法)
