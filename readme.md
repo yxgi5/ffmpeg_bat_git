@@ -933,7 +933,7 @@ DRY_RUN=1 ./ffmpeg_libx264.sh xxx.mp4
 `parse_switches` 已在两族实现（`lib/common.sh` 的 `SWITCH_KEYS` + `lib/common.bat` 的 `:parse_switches` / `:ps_set`），把所有"开关"统一成 `--key value` / `--key=value` 的命令行参数，并转成同名大写环境变量；优先级为 **参数 > 环境变量 > defaults.cfg**（没给的回退 env / cfg，老的 `set EXT=mkv` 写法仍兼容）。位置参数（文件名 / 清单路径）会被挑出来交还给脚本。
 
 **白名单**（`SWITCH_KEYS` 与 `:ps_set` 两族逐字一致，lint 会比对）：
-`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dry_run`。
+`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dec` `dry_run`（新增 `dec` 是阶段 1 统一入口的 `--dec` 解码器开关，见 TODO.md §6 #3，此前漏抄）。
 
 **布尔开关（不取值，写了就是开）**：`dry_run`（在 `SWITCH_FLAGS` / `:parse_switches` 里单独处理 —— 其余开关按 `--key value` 取下一个参数当值，会把紧跟其后的文件名吃掉）。
 
