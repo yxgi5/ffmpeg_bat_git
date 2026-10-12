@@ -643,6 +643,13 @@ if /I "%PK%"=="dry_run" (
     shift
     goto ps_loop
 )
+rem 布尔开关 --repair 不取值(同 --dry-run): 修复模式, 强制 mkv 出口 + 注入修复选项
+if /I "%PK%"=="repair" (
+    set "REPAIR=1"
+    if not "%PV%"=="" set "REPAIR=%PV%"
+    shift
+    goto ps_loop
+)
 if "%PV%"=="" goto ps_val_next
 rem 含 = 形式: key 已取 = 前, value 已取 = 后, 无需再取 %2
 call :ps_set "%PK%" "%PV%"
@@ -744,6 +751,7 @@ echo.
 echo  通用开关（两族同名；也可写成环境变量，参数优先）:
 echo    --ext mp4,mkv            输出容器（编码类默认 mp4，DVD 类默认 mkv）
 echo    --dry-run                只打印将要执行的 ffmpeg 命令，不转码
+echo    --repair                 修复模式: 强制 mkv 出口并注入 -ignore_editlist/-fflags 抢救坏索引 MP4
 echo    --bitrate_no_half 1      目标码率不除以 2
 echo    --ff_hwaccel auto,none,cuda,qsv,vaapi,d3d11va,dxva2
 echo                            解码加速器（默认 auto；none = 一次 -hwaccel 都不加）

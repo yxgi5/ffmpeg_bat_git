@@ -39,6 +39,18 @@ function check_file_suffix() {
 # 默认值写在 lib/defaults.cfg(两族共用一份), 校验 / 去空白 / -c:s 的选法统统在
 # lib/common.sh 的 init_ext 里 —— 加容器、改默认都只动那一处, 入口不再各写一遍。
 # 命令行 EXT=mkv 优先于配置文件(load_defaults 只补没设过的键)。
+
+# ---------- 修复模式(--repair / REPAIR=1) ----------
+# 桌面经验(坏MP4修复经验.md): 容器索引损坏(DTS/stsc/editlist)的源, 直接 -c copy 到 mp4
+# 会在坏样本处误判 EOF(0 帧空文件); 解法 = -ignore_editlist 1 -fflags +igndts+genpts 重封装,
+# 且 mkv 对坏时间戳容忍度远高于 mp4。故修复模式: 强制 mkv 出口 + 注入这两个"输入"选项。
+# repack_from_list 透传 REPAIR 即整批进入修复模式。
+repair_on=0
+case "${REPAIR:-0}" in 1|true|on|yes|ON|TRUE|On|Yes|YES) repair_on=1 ;; esac
+if [ "$repair_on" = 1 ]; then
+    echo "[repair] mode ON: 目标容器强制为 mkv; 注入 -ignore_editlist 1 -fflags +igndts+genpts"
+    EXT=mkv
+fi
 init_ext || exit 1
 # ---------- 前置检查 ----------
 # ffmpeg 定位走 lib/common.sh 的 find_ffmpeg, 与 .bat 侧同序:
@@ -93,6 +105,10 @@ fi
 
 # ---------- 构建并执行 ffmpeg 命令 (数组, 无 eval) ----------
 CMD=("$FF" -hide_banner)
+# 修复模式: -ignore_editlist / -fflags 是"输入"选项, 必须放在 -i 之前
+if [ "$repair_on" = 1 ]; then
+    CMD+=(-ignore_editlist 1 -fflags +igndts+genpts)
+fi
 CMD+=(-i "$ABS_NAME")
 CMD+=(-c:v copy -c:a copy)
 # 流映射与 11 个编码入口完全一致 (2026-09-17 用户裁定): 默认选流只留 1 视频 + 1 音频,

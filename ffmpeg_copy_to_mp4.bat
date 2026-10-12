@@ -75,6 +75,15 @@ echo ============================================================
 call "%SELF_DIR%lib\common.bat" find_ffmpeg FF_BIN
 if errorlevel 1 goto NO_PATH_ERR
 set "FFMPEG_PATH=%FF_BIN%\ffmpeg.exe"
+rem ---------- 修复模式(--repair / REPAIR=1) ----------
+rem 归一化后强制 mkv 出口 + 注入修复选项(与 .sh 孪生同义)。-ignore_editlist /
+rem -fflags 是输入选项, 放在 -i 之前(见下方 RUN_COM 拼装)。
+set "FB_REPAIR=0"
+if /I "%REPAIR%"=="1" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="true" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="on" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="yes" set "FB_REPAIR=1"
+if "%FB_REPAIR%"=="1" set "EXT=mkv"
 rem ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
 rem 默认值写在 lib\defaults.cfg(两族共用一份), 校验 / 去空格 / -c:s 的选法统统在
 rem lib\common.bat 的 :init_ext 里 —— 加容器、改默认都只动那一处, 入口不再各写一遍。
@@ -83,6 +92,8 @@ call "%SELF_DIR%lib\common.bat" init_ext
 if errorlevel 1 exit /b 1
 echo 已找到ffmpeg于:%FFMPEG_PATH%
 set RUN_COM="%FFMPEG_PATH%" -hide_banner
+rem 修复模式: -ignore_editlist / -fflags 是输入选项, 必须放在 -i 之前
+if "%FB_REPAIR%"=="1" set RUN_COM=%RUN_COM% -ignore_editlist 1 -fflags +igndts+genpts
 
 SET "SRC_FILE="
 

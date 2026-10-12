@@ -933,7 +933,9 @@ DRY_RUN=1 ./ffmpeg_libx264.sh xxx.mp4
 `parse_switches` 已在两族实现（`lib/common.sh` 的 `SWITCH_KEYS` + `lib/common.bat` 的 `:parse_switches` / `:ps_set`），把所有"开关"统一成 `--key value` / `--key=value` 的命令行参数，并转成同名大写环境变量；优先级为 **参数 > 环境变量 > defaults.cfg**（没给的回退 env / cfg，老的 `set EXT=mkv` 写法仍兼容）。位置参数（文件名 / 清单路径）会被挑出来交还给脚本。
 
 **白名单**（`SWITCH_KEYS` 与 `:ps_set` 两族逐字一致，lint 会比对）：
-`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dec` `dry_run`（新增 `dec` 是阶段 1 统一入口的 `--dec` 解码器开关，见 TODO.md §6 #3，此前漏抄）。
+`ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dec` `dry_run` `repair`（新增 `dec` 是阶段 1 统一入口的 `--dec` 解码器开关，见 TODO.md §6 #3，此前漏抄；`repair` 为修复模式开关，见下方「修复模式」）。
+
+**修复模式（`--repair` / `REPAIR=1`）**：桌面 `坏MP4修复经验.md` 的固化——源容器索引损坏（DTS/stsc/editlist）导致 `-c copy` 到 mp4 在坏样本处误判 EOF、产出 0 字节时，用 `-ignore_editlist 1 -fflags +igndts+genpts` 重封装即可抢救；且 mkv 对坏时间戳容忍度远高于 mp4，故修复模式会**强制目标容器为 mkv**。`repack_from_list.sh` 透传 `REPAIR` 即整批进入修复模式。
 
 **布尔开关（不取值，写了就是开）**：`dry_run`（在 `SWITCH_FLAGS` / `:parse_switches` 里单独处理 —— 其余开关按 `--key value` 取下一个参数当值，会把紧跟其后的文件名吃掉）。
 

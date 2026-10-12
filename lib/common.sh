@@ -1258,12 +1258,12 @@ function bitrate_from_table() {
 # ================================================================
 SWITCH_KEYS=(ext bitrate_no_half ff_on_exist ff_hwaccel dvd_ext \
              mode dvd_title prefix filt vfilt_extra audio split_chapter \
-             extra_titles vbitrate venc dec dry_run)
+             extra_titles vbitrate venc dec dry_run repair)
 
 # 布尔开关(不取值): 这类开关后面紧跟的通常就是文件名, 若按 "--key value" 的老规矩
 # 取下一个参数当值, 文件名会被开关吃掉(实测 --dry-run a.mp4 之后脚本再也拿不到
 # 输入文件)。两族同名同义, 见 lib/common.bat 的 :parse_switches。
-SWITCH_FLAGS=(dry_run)
+SWITCH_FLAGS=(dry_run repair)
 
 # 脚本自带的开关键表(默认空 = 用上面的公共 SWITCH_KEYS)。
 #   tools/* 用它声明"本脚本自己的开关": 那批键有近百个, 且与入口同名不同义
@@ -1377,6 +1377,7 @@ function ff_usage_block() {
     printf ' 通用开关（两族同名；也可写成环境变量，参数优先）:\n'
     printf '   --ext mp4,mkv            输出容器（编码类默认 mp4，DVD 类默认 mkv）\n'
     printf '   --dry-run                只打印将要执行的 ffmpeg 命令，不转码\n'
+    printf '   --repair                 修复模式: 强制 mkv 出口并注入 -ignore_editlist/-fflags 抢救坏索引 MP4\n'
     printf '   --bitrate_no_half 1      目标码率不除以 2\n'
     printf '   --ff_hwaccel auto,none,cuda,qsv,vaapi,d3d11va,dxva2\n'
     printf '                           解码加速器（默认 auto；none = 一次 -hwaccel 都不加）\n'
