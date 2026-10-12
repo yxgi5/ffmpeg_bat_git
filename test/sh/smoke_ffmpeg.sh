@@ -424,6 +424,40 @@ bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/remux_me.mkv" > "$LOGF" 2>&1
 RC=$?
 judge T5 copy_to_mp4 ok INFO h264 "arg: remux mov -> mp4, no re-encode"
 
+# ============ T33 (shared sh/bat): copy_to_mp4 --repair 抢救失效样本 ============
+# 失效样本 broken_index.mp4 内联生成(与既有夹具同一套路, 不入库):
+#   base 用 lavfi 造 320x240@25 4s, 再 "-ss 1 -c copy" 注入 edit list / 非零起点,
+#   这正是「默认 -c copy 到 mp4(faststart) 会丢帧; --repair(-ignore_editlist
+#   +igndts+genpts)转 mkv 保真」的病理。断言 repair 产出合法 mkv 且帧数 == 源。
+BRK="$W/broken_index.mp4"
+GENOK=1
+if [ ! -f "$BRK" ]; then
+  mk_fixture "$W/_broken_base.mp4" 320x240 25 4 1M 1 || GENOK=0
+  if [ "$GENOK" = 1 ]; then
+    ff_run -hide_banner -v error -y -ss 1 -i "$W/_broken_base.mp4" -c copy "$BRK" || GENOK=0
+  fi
+  rm -f "$W/_broken_base.mp4"
+fi
+if [ "$GENOK" = 0 ] || [ ! -f "$BRK" ]; then
+  skipcase T33 repair "broken_index fixture generation failed"
+else
+  d="$W/cases/T33_repair"; mkdir -p "$d"; cp -f "$BRK" "$d/src.mp4"
+  LOGF="$LOG/T33_repair.log"; OUT="$d/src.mkv"; rm -f "$OUT"
+  bash "$REPO/ffmpeg_copy_to_mp4.sh" --repair "$d/src.mp4" > "$LOGF" 2>&1
+  RC=$?
+  if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
+    SFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$d/src.mp4" 2>/dev/null | head -1)
+    RFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$OUT" 2>/dev/null | head -1)
+    if [ "${RFR:-0}" -gt 0 ] && [ "${RFR:-0}" -ge "${SFR:-0}" ]; then
+      PASS=$((PASS+1)); say "[PASS] T33 repair rc=$RC src_frames=$SFR out_frames=$RFR (--repair recovers >= source frames into mkv)"
+    else
+      FAIL=$((FAIL+1)); say "[FAIL] T33 repair src_frames=${SFR:-?} out_frames=${RFR:-?} (repair lost frames vs source)"
+    fi
+  else
+    FAIL=$((FAIL+1)); say "[FAIL] T33 repair rc=$RC (no mkv output; log $LOGF)"
+  fi
+fi
+
 # T6: interactive mode, path via stdin, no bitrate override (src = QSV AVC)
 if can_run ffmpeg_avc_qsv.sh; then
     d="$W/cases/T6_avc_qsv_stdin"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
