@@ -348,6 +348,47 @@ rem ============ T5: copy_to_mp4 (mov -> mp4, no bitrate table) ============
 chcp %CP0% >nul
 call :runA ffmpeg_copy_to_mp4 "%INMOV%" T5_copy_to_mp4_A 0 C A h264
 
+rem ============ T33 (shared sh/bat): copy_to_mp4 --repair 抢救失效样本 ============
+rem 失效样本 broken_index.mp4 内联生成(与既有夹具同套路, 不入库):
+rem   base lavfi 造 320x240@25 4s, 再 "-ss 1 -c copy" 注入 edit list, 使默认 mp4
+rem   复制丢帧; --repair(-ignore_editlist +igndts+genpts)转 mkv 保真。
+set "BRK=%WORK%\broken_index.mp4"
+set "GENOK=1"
+if not exist "%BRK%" (
+  "%FF%" -hide_banner -loglevel error -f lavfi -i "testsrc2=size=320x240:rate=25" -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 4 -c:v libx264 -preset ultrafast -b:v 1M -pix_fmt yuv420p -c:a aac -b:a 128k -shortest -y "%WORK%\_broken_base.mp4" >nul 2>&1
+  if errorlevel 1 (set "GENOK=0") else (
+    "%FF%" -hide_banner -loglevel error -y -ss 1 -i "%WORK%\_broken_base.mp4" -c copy "%BRK%" >nul 2>&1
+    if errorlevel 1 set "GENOK=0"
+  )
+  if exist "%WORK%\_broken_base.mp4" del /q "%WORK%\_broken_base.mp4" >nul 2>&1
+)
+if "%GENOK%"=="0" (
+  call :skipcase T33 repair
+) else (
+  set "TD=%WORK%\cases\T33_repair"
+  if not exist "%TD%" mkdir "%TD%" >nul 2>&1
+  copy /y "%BRK%" "%TD%\src.mp4" >nul 2>&1
+  set "L33=%LOGDIR%\T33_repair.log"
+  set "O33=%TD%\src.mkv"
+  if exist "%O33%" del /q "%O33%" >nul 2>&1
+  call "%REPO%\ffmpeg_copy_to_mp4.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
+  set "RC33=%errorlevel%"
+  set "V33=PASS"
+  if not "%RC33%"=="0" set "V33=FAIL"
+  if not exist "%O33%" set "V33=FAIL"
+  if "%V33%"=="PASS" (
+    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD%\src.mp4" > "%LOGDIR%\T33_sfr.txt" 2>nul
+    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T33_sfr.txt") do set "SFR33=%%a"
+    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O33%" > "%LOGDIR%\T33_rfr.txt" 2>nul
+    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T33_rfr.txt") do set "RFR33=%%a"
+    if not defined SFR33 set "SFR33=0"
+    if not defined RFR33 set "RFR33=0"
+    if "%RFR33%"=="0" set "V33=FAIL"
+    if %RFR33% LSS %SFR33% set "V33=FAIL"
+  )
+  echo [%V33%] T33 copy_to_mp4 --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
+)
+
 rem ============ usage B: double click + typed path (stdin fed) ============
 chcp %CP0% >nul
 call :runB ffmpeg_avc_qsv "%IN%" T6_avc_qsv_B 3836249 B
