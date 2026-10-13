@@ -2,7 +2,7 @@
 # ffmpeg_copy_to_mp4.sh - 无损转封装为 mp4 (P1 重构版)
 # 用法: ./ffmpeg_copy_to_mp4.sh [视频文件]
 #   不带参数: 交互输入文件路径
-# 行为: 视频流/音频流直接 copy, 仅重新封装容器; 已是 mp4 后缀则直接退出
+# 行为: 视频流/音频流直接 copy, 仅重新封装容器; 无论源是什么格式都产出 <名>-repacked.<ext>(绝不覆写源)
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 # shellcheck source=lib/common.sh
@@ -19,21 +19,7 @@ set -- ${PS_REST[@]+"${PS_REST[@]}"}
 declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
     "ffmpeg_copy_to_mp4.sh  -  无损转封装为 mp4（不重编码）" \
     "用法: ./ffmpeg_copy_to_mp4.sh 源文件" \
-    "本入口没有码率表；源已是 mp4 时会直接跳过并提示" || :
-
-# 检查后缀是否已是 mp4 (不区分大小写)
-function check_file_suffix() {
-    local filename extension
-    filename="$(basename "$1")"
-    extension="${filename#*.}"
-    # EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
-    if [ "${extension,,}" == "${EXT}" ]; then
-        echo -e "suffix ${extension,,} 已经是${EXT}文件，不需要转换"
-        exit 0
-    else
-        echo "suffix ${extension,,} not ${EXT} file, need to convert"
-    fi
-}
+    "本入口没有码率表；无论源格式都产出 <名>-repacked.<ext>（绝不覆写源）" || :
 
 # ---------- 输出容器开关 EXT: mp4(默认) / mkv ----------
 # 默认值写在 lib/defaults.cfg(两族共用一份), 校验 / 去空白 / -c:s 的选法统统在
@@ -81,7 +67,6 @@ else
 fi
 
 check_file_exists "$SRC_FILE"
-check_file_suffix "$SRC_FILE"
 
 # ---------- 输出路径 ----------
 echo "SRC_FILE: $SRC_FILE"
@@ -91,7 +76,9 @@ echo "ABS_NAME: ${ABS_NAME}"
 ABS_PATH="$(dirname "$ABS_NAME")"
 filename="$(basename "$ABS_NAME")"
 filename_without_suffix="${filename%.*}"
-TARGET_FILE="${ABS_PATH}/${filename_without_suffix}.${EXT}"
+base="${filename_without_suffix}"
+case "$base" in *-repacked) ;; *) base="${base}-repacked" ;; esac
+TARGET_FILE="${ABS_PATH}/${base}.${EXT}"
 
 echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 echo

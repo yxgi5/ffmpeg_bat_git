@@ -36,7 +36,7 @@ python3 test/lint/lint.py --parity-only# 只做对等检查
 python3 test/lint/selftest.py          # 检查检查器自己（38 个用例）
 
 # ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
-bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T41）
+bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T43）
 bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
 bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
 bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
@@ -260,12 +260,12 @@ test/
 * **L16**：统一入口的流映射段拼在**内核**里（`enc_run` / `encode_core.bat` 的 `copy_run`），
   薄壳里没有字面量。lint 的 `entry_body_bat()` 取「薄壳 + 核心里该入口那一支」，所以统一入口
   同样受 L16 约束（`.bat` 侧已登记）。
-  `--venc copy` 走**转封装**路径：必须 `-c copy` + `-movflags +faststart`，产物**不带 `-compressed`**后缀。
+  `--venc copy` 走**转封装**路径：必须 `-c copy` + `-movflags +faststart`，产物**带 `-repacked`**后缀（不带 `-compressed`）；无论源是什么容器都处理（不再因"源已是目标容器"而跳过）。
 * **L17**：moov 前置的出口从 2 个变成 **3 个**（两个 remux + 统一入口的 `copy`）。
   `MOOV_IN_CORE` 登记的是 `ffmpeg_encode.{sh,bat}` —— **只有统一入口**的 copy 段拼在内核里，
   两个 remux 入口是在各自薄壳里拼的；若不限定会把内核 copy 段前置给所有入口，
   导致老 `copy_to_mp4` 丢 flag 却不报（阶段 1 中踩过一次）。
-* **冒烟断言**：新增 T32–T40（sh）/ T32–T37（bat）覆盖统一入口，见「冒烟用例」表。
+* **冒烟断言**：新增 T32–T43（sh/bat 已对齐）覆盖统一入口，见「冒烟用例」表。
   bat 侧 T32–T37（6 条）同样全过。**逐条加、每加一条就在真机跑一遍冒烟** —— 一次性加 7 条时
   T35/T36 恒 FAIL 且让元字符矩阵多出一条 `A19 rc=3`，整批撤回后才定位到；逐条加则每步基线已知。
   T35 还抓出 bat 侧 10bit 说明按 `DEC_ARG` 而非 `DEC_FAMILY`（族）判定的两族漂移，已修。
@@ -598,8 +598,9 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
    历史上以无条件 `exit /b 0` 收尾，ffmpeg 失败也报成功，于是初版深测把**不支持 AV1 编码
    的机器**上的 `av1_qsv` 也判成 `PROBE-OK`。2026-09-17 起入口已按 `.sh` 孪生改为失败传回
    `1`（L15 钉住），但探针**仍然判真实输出文件**（存在且 >4096 字节）——
-   因为「rc=0 却没写出文件」还有别的来源：`copy_to_mp4` 对 mp4 输入直接 no-op，
-   remux 入口的 `-n` 与同名输入冲突（故探针给 remux 喂 `.mkv` 夹具，与冒烟 T5 同思路）；
+   因为「rc=0 却没写出文件」还有别的来源：早期 `copy_to_mp4` 对 mp4 输入直接 no-op
+   （2026-10-13 起改为产出 `<名>-repacked.mp4`，不再 no-op），彼时 remux 入口的 `-n` 与同名输入冲突
+   （故探针给 remux 喂 `.mkv` 夹具，与冒烟 T5 同思路）；现在 `-repacked` 命名已消除同名冲突，但探针仍沿用 `.mkv` 夹具；
    实测连 `ffmpeg -n` 拒绝覆盖同名输出时**自身就返回 0**（只在日志里留
    `already exists / Error opening output file`），两族入口都传不出非零。
    判据与被检对象解耦，缺一个都还能说真话。

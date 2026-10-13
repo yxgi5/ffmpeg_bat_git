@@ -369,7 +369,7 @@ if "%GENOK%"=="0" (
   if not exist "%TD%" mkdir "%TD%" >nul 2>&1
   copy /y "%BRK%" "%TD%\src.mp4" >nul 2>&1
   set "L33=%LOGDIR%\T33_repair.log"
-  set "O33=%TD%\src.mkv"
+  set "O33=%TD%\src-repacked.mkv"
   if exist "%O33%" del /q "%O33%" >nul 2>&1
   call "%REPO%\ffmpeg_copy_to_mp4.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
   set "RC33=%errorlevel%"
@@ -399,7 +399,7 @@ if not exist "%BRK%" (
   if not exist "%TD41%" mkdir "%TD41%" >nul 2>&1
   copy /y "%BRK%" "%TD41%\src.mp4" >nul 2>&1
   set "L41=%LOGDIR%\T41_repair_unified.log"
-  set "O41=%TD41%\src.mkv"
+  set "O41=%TD41%\src-repacked.mkv"
   if exist "%O41%" del /q "%O41%" >nul 2>&1
   call "%REPO%\ffmpeg_encode.bat" --venc copy --repair "%TD41%\src.mp4" < nul > "%L41%" 2>&1
   set "RC41=%errorlevel%"
@@ -603,29 +603,30 @@ findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
 if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
 echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
 if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
-rem ============ T33: 新旧入口同参 -> RUN_COM 逐字一致 ============
+rem ============ T42: 新旧入口同参 -> RUN_COM 逐字一致 ============
 rem 这是"等价"的直接证据。老用例只断言各自跑通, 不断言两个入口命令行相同 ——
 rem 抽内核时最值得盯的就是这个, 任何一侧改了参数顺序或多一个空格都会被抓到。
 rem 比较方式用 findstr 抽行 + fc 字节比对, **不用** for /f 读回来:
 rem 后者那套 for /f "delims=" %%L in ('... "...%VAR%"...') 的嵌套引号在 cmd 下
 rem 会被吞, 表现为整个文件被当命令执行、套件跑不到断言就死(2026-10-08 踩过)。
+rem (原 T33 双重占用: 此处"新旧入口等价"与 repair 测试撞号, 2026-10-13 起挪到 T42。)
 chcp %CP0% >nul
-set "T33LNEW=%LOGDIR%\T33_equiv_new.log"
-set "T33LOLD=%LOGDIR%\T33_equiv_old.log"
-set "T33FNEW=%LOGDIR%\T33_new.txt"
-set "T33FOLD=%LOGDIR%\T33_old.txt"
-call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T33LNEW%" 2>&1
-call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T33LOLD%" 2>&1
-findstr /b /c:"RUN_COM0=" "%T33LNEW%" > "%T33FNEW%"
-findstr /b /c:"RUN_COM0=" "%T33LOLD%" > "%T33FOLD%"
-set "V33=PASS"
-set "N33="
-for %%A in ("%T33FNEW%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=newNoRUN_COM"
-for %%A in ("%T33FOLD%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
-fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
-if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
-echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
-if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
+set "T42LNEW=%LOGDIR%\T42_equiv_new.log"
+set "T42LOLD=%LOGDIR%\T42_equiv_old.log"
+set "T42FNEW=%LOGDIR%\T42_new.txt"
+set "T42FOLD=%LOGDIR%\T42_old.txt"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T42LNEW%" 2>&1
+call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T42LOLD%" 2>&1
+findstr /b /c:"RUN_COM0=" "%T42LNEW%" > "%T42FNEW%"
+findstr /b /c:"RUN_COM0=" "%T42LOLD%" > "%T42FOLD%"
+set "V42=PASS"
+set "N42="
+for %%A in ("%T42FNEW%") do if %%~zA LEQ 1 set "V42=FAIL" & set "N42=newNoRUN_COM"
+for %%A in ("%T42FOLD%") do if %%~zA LEQ 1 set "V42=FAIL" & set "N42=%N42% oldNoRUN_COM"
+fc /b "%T42FNEW%" "%T42FOLD%" >nul 2>&1
+if errorlevel 1 set "V42=FAIL" & set "N42=%N42% RUN_COM differs"
+echo [%V42%] T42 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
+if not "%N42%"=="" echo        why: %N42% >> "%SUM%"
 rem ============ T34: --dec 的命令行形态 ============
 rem 阶段 1 的统一入口断言, 每条单独加、单独在真机跑一遍冒烟。
 rem 这里用 --dry-run 断言命令行, 所以本机有没有硬编都能跑。
@@ -679,11 +680,11 @@ set "RC36=%errorlevel%"
 if "%RC36%"=="0" set "V36=FAIL"
 echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
 rem ============ T37: --venc copy 并入转封装 ============
-rem 三个要点: 产物与源同名(不带 -compressed)、带 moov 前置、源已是目标容器能早退。
+rem 三个要点: 产出 <名>-repacked.mp4(不带 -compressed)、带 moov 前置、源无论容器都处理(不再早退)。
 rem ⚠️ 别在 %WORK% 里留多余文件: 元字符矩阵会数这个目录的文件, 之前 A19 就是这么挂的。
 chcp %CP0% >nul
 set "L37=%LOGDIR%\T37_copy.log"
-set "O37=%WORK%\unified remux.mp4"
+set "O37=%WORK%\unified remux-repacked.mp4"
 del /q "%O37%" >nul 2>&1
 del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
 copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
@@ -695,7 +696,71 @@ if not exist "%O37%" set "V37=FAIL"
 if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL"
 findstr /c:"-movflags +faststart" "%L37%" >nul 2>&1
 if errorlevel 1 set "V37=FAIL"
-echo [%V37%] T37 copy -- remux with faststart and plain output name >> "%SUM%"
+echo [%V37%] T37 copy -- remux with faststart and -repacked name >> "%SUM%"
+echo. >> "%SUM%"
+rem ============ T38: --venc copy 对"源已是目标容器"的 mp4 也处理 -> -repacked.mp4 ============
+rem 与 sh T38 对齐: 不再因同容器早退, 产出 <名>-repacked.mp4, 且源文件不被覆写。
+if not exist "%WORK%\cases\T38_copy_same" mkdir "%WORK%\cases\T38_copy_same" >nul 2>&1
+copy /y "%IN%" "%WORK%\cases\T38_copy_same\already.mp4" >nul 2>&1
+set "L38=%LOGDIR%\T38_copy_same.log"
+set "O38=%WORK%\cases\T38_copy_same\already-repacked.mp4"
+if exist "%O38%" del /q "%O38%" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\cases\T38_copy_same\already.mp4" < nul > "%L38%" 2>&1
+set "RC38=%errorlevel%"
+set "V38=PASS"
+if not "%RC38%"=="0" set "V38=FAIL"
+if not exist "%O38%" set "V38=FAIL"
+echo [%V38%] T38 copy on already-mp4 source -> already-repacked.mp4 (no skip) >> "%SUM%"
+echo. >> "%SUM%"
+rem ============ T39: 软件 AV1(libsvtav1, 阶段1 新增) ============
+rem 与 sh T39 对齐: 构建没有该编码器时 SKIP 而不是 FAIL。
+"%FF%" -hide_banner -encoders 2>nul | findstr /c:"libsvtav1" >nul 2>&1
+if errorlevel 1 (
+  call :skipcase T39 svtav1
+) else (
+  if not exist "%WORK%\cases\T39_svtav1" mkdir "%WORK%\cases\T39_svtav1" >nul 2>&1
+  copy /y "%IN%" "%WORK%\cases\T39_svtav1\clip.mp4" >nul 2>&1
+  set "L39=%LOGDIR%\T39_svtav1.log"
+  set "O39=%WORK%\cases\T39_svtav1\clip-compressed.mp4"
+  if exist "%O39%" del /q "%O39%" >nul 2>&1
+  call "%REPO%\ffmpeg_encode.bat" --venc libsvtav1 "%WORK%\cases\T39_svtav1\clip.mp4" < nul > "%L39%" 2>&1
+  set "RC39=%errorlevel%"
+  set "V39=PASS"
+  if not "%RC39%"=="0" set "V39=FAIL"
+  if not exist "%O39%" set "V39=FAIL"
+  echo [%V39%] T39 svtav1 rc=%RC39% -- software AV1 >> "%SUM%"
+)
+echo. >> "%SUM%"
+rem ============ T40: copy 不解码也不重编码, 给了 --dec 要明说被忽略 ============
+rem 与 sh T40 对齐: --dec cuda 在 --venc copy 下应被明确告知忽略(不是默默吞掉)。
+set "L40=%LOGDIR%\T40_copy_dec.log"
+call "%REPO%\ffmpeg_encode.bat" --venc copy --dec cuda --dry-run "%IN%" < nul > "%L40%" 2>&1
+set "RC40=%errorlevel%"
+set "V40=PASS"
+if not "%RC40%"=="0" set "V40=FAIL"
+findstr /c:"无效" /c:"忽略" "%L40%" >nul 2>&1
+if errorlevel 1 set "V40=FAIL"
+echo [%V40%] T40 copy+--dec reported as ignored (not silently dropped) rc=%RC40% >> "%SUM%"
+echo. >> "%SUM%"
+rem ============ T43: 薄壳 ffmpeg_copy_to_mp4 对 mp4 源 -> -repacked.mp4; 产物已存在走 FF_ON_EXIST ============
+rem 与 sh T43 对齐。
+if not exist "%WORK%\cases\T43_repack" mkdir "%WORK%\cases\T43_repack" >nul 2>&1
+copy /y "%IN%" "%WORK%\cases\T43_repack\clip.mp4" >nul 2>&1
+set "L43=%LOGDIR%\T43_repack.log"
+set "O43=%WORK%\cases\T43_repack\clip-repacked.mp4"
+if exist "%O43%" del /q "%O43%" >nul 2>&1
+call "%REPO%\ffmpeg_copy_to_mp4.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43%" 2>&1
+set "RC43=%errorlevel%"
+set "V43=PASS"
+if not "%RC43%"=="0" set "V43=FAIL"
+if not exist "%O43%" set "V43=FAIL"
+if "%V43%"=="PASS" (
+  set "L43B=%LOGDIR%\T43_repack_skip.log"
+  call "%REPO%\ffmpeg_copy_to_mp4.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43B%" 2>&1
+  findstr /c:"SKIPPED" "%L43B%" >nul 2>&1
+  if errorlevel 1 set "V43=FAIL"
+)
+echo [%V43%] T43 copy_to_mp4 mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========

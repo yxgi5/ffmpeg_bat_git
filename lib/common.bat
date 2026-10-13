@@ -173,15 +173,17 @@ set %~3=%~x2
 exit /b 0
 
 :extract_mp4
-rem 拆分文件路径(remux 用, 输出名不加后缀): call ... extract_mp4 <文件> <输出路径变量> <输出文件名变量>
-rem   输出形如 "D:\dir\" 与 "name.mp4"
+rem 拆分文件路径(remux 用): call ... extract_mp4 <文件> <输出路径变量> <输出文件名变量> [容器后缀]
+rem   输出形如 "D:\dir\" 与 "name-repacked.mp4" —— 2026-10-13 起始终重命名为 -repacked,
+rem   不再因"源已是目标容器"而跳过; 重复后缀保护(源名已以 -repacked 结尾则不再追加)。
 rem 获取到文件路径
 set %~3="%~dp2"
 rem 同上: 第 4 参是容器后缀, 省略按 mp4
 set "EX_SUF=%~5"
 if not defined EX_SUF set "EX_SUF=mp4"
-rem 获取到文件名称
-set %~4="%~n2.%EX_SUF%"
+rem 获取到文件名称(去后缀), 再拼 -repacked
+set "_RP_XN=%~n2"
+if /I "%_RP_XN:~-9%"=="-repacked" (set %~4="%_RP_XN%.%EX_SUF%") else (set %~4="%_RP_XN%-repacked.%EX_SUF%")
 exit /b 0
 
 :find_ffmpeg

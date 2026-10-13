@@ -117,13 +117,7 @@ echo SRC_FILE:%SRC_FILE%
 if defined SRC_FILE call "%SELF_DIR%lib\common.bat" get_suffix %SRC_FILE% SUFFIX
 echo SUFFIX:%SUFFIX%
 
-rem EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
-if /I "%SUFFIX%" == ".%EXT%" (
-    echo "suffix is %EXT%, no need to convert"
-    goto :eof
-) else (
-    echo "suffix is not %EXT%, need to convert"
-)
+rem 不再因"源已是目标容器"而跳过: 始终重命名为 -repacked.<ext>(见下方 extract_mp4 之后)
 
 rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 提前拒绝(与 .sh 的 check_file_isvideo 对齐)
 call "%SELF_DIR%lib\common.bat" check_isvideo %SRC_FILE%
