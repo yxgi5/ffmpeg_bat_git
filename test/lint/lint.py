@@ -713,6 +713,21 @@ def core_text_bat():
     return t
 
 
+def core_label_text_bat(core, label):
+    """取出 lib/encode_core.bat 里 `:label` 段落(到下一个 `:xxx` 标签或文件尾)。
+
+    供 remux 委托入口(ffmpeg_repack.bat 调 `encode_core.bat copy_run`)复用: 真正的
+    ffmpeg 命令体、%RUN_COM% 执行行与负安全守卫都在 :copy_run 里, 薄壳入口自己只有
+    一句委托调用, 所以 L15/L16/L17 要查的是内核段而非入口文件。
+    """
+    m = re.search(r'^:%s\b' % re.escape(label), core, re.M)
+    if not m:
+        return ""
+    rest = core[m.end():]
+    end = re.search(r'\n:[A-Za-z]', rest)
+    return core[m.start(): m.end() + (end.start() if end else len(rest))]
+
+
 def entry_body_bat(text, core):
     """薄壳 bat 入口(阶段0)的有效命令体, 非薄壳返回 None。
 
@@ -1030,6 +1045,10 @@ def check_fail_propagation(inv):
         if not os.path.isfile(p):
             continue
         _, t = read_text(p)
+        # remux 委托入口(ffmpeg_repack.bat 调 `encode_core.bat copy_run`): 真正的
+        # %RUN_COM% 执行行与负安全守卫都在内核 :copy_run 里, 薄壳自己没有, 改查内核段。
+        if 'encode_core.bat" copy_run' in t:
+            t = core_label_text_bat(core_text_bat(), "copy_run") or t
         lines = lf_lines(t)
         idx = None
         for i, ln in enumerate(lines):
@@ -1229,6 +1248,10 @@ COVER_MAP_SKIP = {
     "ffmpeg_dvd_hevc.sh": "dvdvideo 源没有封面流",
 }
 
+# remux 委托入口: 把无损转封装(remux)整段委托给内核(:copy_run / enc_run_copy), 薄壳
+# 入口文件里没有 ffmpeg 命令体, L15/L16/L17 要查的是内核段而非入口文件。
+REMUX_DELEGATE = {"ffmpeg_repack.bat", "ffmpeg_repack.sh"}
+
 
 def check_stream_map(inv):
     bads = []
@@ -1243,9 +1266,15 @@ def check_stream_map(inv):
             if not os.path.isfile(p):
                 continue
             _, t = read_text(p)
-            # 薄壳入口(阶段0): 命令体要看内核里它选中的那一支, 见 entry_body_sh /
-            # entry_body_bat 的说明; 非薄壳(dvd_hevc / ffmpeg_repack)仍只看自己。
-            if fam == "sh":
+            # remux 委托入口(ffmpeg_repack.{bat,sh})把转封装整段委托给内核的
+            # :copy_run / enc_run_copy: 真正的 -map / -movflags / SENC 都在内核里,
+            # 薄壳自己没有, 直接查内核段 —— 既消 L16 误报, 又保留对共享内核的覆盖。
+            if f in REMUX_DELEGATE:
+                if fam == "sh":
+                    t = core_fn_text(core, "enc_run_copy") or t
+                else:
+                    t = core_label_text_bat(core_b, "copy_run") or t
+            elif fam == "sh":
                 t = entry_body_sh(t, core) or t
             else:
                 t = entry_body_bat(t, core_b) or t
@@ -1373,8 +1402,11 @@ MOOV_FRONT = {"ffmpeg_repack.bat": "-movflags +faststart",
               "ffmpeg_encode.bat": "-movflags +faststart",
               "ffmpeg_encode.sh": "-movflags +faststart"}
 
-# 这些入口自己的文件里没有那句 flag —— 转封装搬进内核了, 所以要在内核里找。
-MOOV_IN_CORE = {"ffmpeg_encode.sh", "ffmpeg_encode.bat"}
+# 这些入口自己的文件里没有那句 flag —— 转封装搬进内核了(统一入口走 enc_run_copy,
+# remux 薄壳走 :copy_run), 所以要在内核里找。ffmpeg_repack.{sh,bat} 现也是纯委托薄壳,
+# 必须拼内核段才查得到(老版自带 flag 时不需要, 重构后必须)。
+MOOV_IN_CORE = {"ffmpeg_repack.sh", "ffmpeg_repack.bat",
+                "ffmpeg_encode.sh", "ffmpeg_encode.bat"}
 
 
 def check_moov_front(inv):
