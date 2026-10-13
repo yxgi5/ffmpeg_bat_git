@@ -451,7 +451,7 @@ rem 设计目标: 命令行传了源文件就自动命名(<名>-repacked.<ext>),
 rem 模式才问, 留空则沿用上面的自动名。--repair 已把 EXT 强制成 mkv, 这里把用户给的
 rem 名也归一成 .mkv(否则扩展名与强制容器不符)。
 IF not defined PARSE_POS (
-    SET /P USER_OUT=请输入输出文件(不输入则自动 <名>-repacked.<ext>):
+    SET /P "USER_OUT=请输入输出文件(不输入则自动 <名>-repacked.<ext>):"
     if defined USER_OUT (
         set "TARGET_FILE=%USER_OUT%"
         if "%FB_REPAIR%"=="1" (

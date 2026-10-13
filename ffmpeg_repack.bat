@@ -24,6 +24,8 @@ chcp 65001 >nul
 cmd /c call "%~f0" %*
 exit /b %errorlevel%
 
+:main
+
 rem ============================================================
 rem ffmpeg_repack.bat - 无损转封装(remux, 不重编码); 薄壳, 公共流程在 lib\encode_core.bat
 rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址(交互模式还会再问一次输出文件名)
@@ -35,8 +37,6 @@ rem   (无参双击)会再问一次输出文件名, 留空则沿用自动名, --
 rem   (旧版独立脚本曾单独有手填输出文件名且与全家族不一致; 现已统一进 :copy_run 同口径)
 rem 注意: 本文件必须保持 CRLF 行尾
 rem ============================================================
-
-:main
 
 rem 命令行开关解析: --key value / --key=value -> 同名大写环境变量(见 lib\common.bat 的 :parse_switches)
 rem   优先级 参数 > 环境变量 > defaults.cfg; 没给的回退 env / cfg(老 set 写法仍兼容)
