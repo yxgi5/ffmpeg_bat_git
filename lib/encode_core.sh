@@ -357,6 +357,17 @@ function enc_run_copy() {
     echo 由 andreas 编写
     echo ============================================================
 
+    # ---------- 修复模式(--repair / REPAIR=1) ----------
+    # 与 ffmpeg_copy_to_mp4.sh 同源: 源容器索引损坏(DTS/stsc/editlist)导致 -c copy 到 mp4
+    # 在坏样本处误判 EOF(0 帧空文件); 解法 = -ignore_editlist 1 -fflags +igndts+genpts 重封装,
+    # 且 mkv 对坏时间戳容忍度远高于 mp4。故修复模式强制 mkv 出口 + 注入这两个"输入"选项。
+    local repair_on=0
+    case "${REPAIR:-0}" in 1|true|on|yes|ON|TRUE|On|Yes|YES) repair_on=1 ;; esac
+    if [ "$repair_on" = 1 ]; then
+        echo "[repair] mode ON: 目标容器强制为 mkv; 注入 -ignore_editlist 1 -fflags +igndts+genpts"
+        EXT=mkv
+    fi
+
     init_ext || exit 1
 
     # 本入口是 -c copy, 哪个构建都能干, 所以不传能力要求(与 .bat 侧同口径)
@@ -418,6 +429,10 @@ function enc_run_copy() {
     fi
 
     CMD=("$FF" -hide_banner)
+    # 修复模式: -ignore_editlist / -fflags 是"输入"选项, 必须放在 -i 之前
+    if [ "$repair_on" = 1 ]; then
+        CMD+=(-ignore_editlist 1 -fflags +igndts+genpts)
+    fi
     CMD+=(-i "$ABS_NAME")
     CMD+=(-c:v copy -c:a copy)
     CMD+=(-map 0:v -map 0:a? -map 0:s? "${SENC[@]}" -map_metadata 0 -map_chapters 0)

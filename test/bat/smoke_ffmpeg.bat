@@ -389,6 +389,36 @@ if "%GENOK%"=="0" (
   echo [%V33%] T33 copy_to_mp4 --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
 )
 
+rem ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
+rem 与 T33 同病理, 但走统一入口 ffmpeg_encode.bat --venc copy --repair, 验证阶段1 unify 后
+rem 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_copy_to_mp4 实现, 统一入口静默丢弃)。
+if not exist "%BRK%" (
+  call :skipcase T41 repair
+) else (
+  set "TD41=%WORK%\cases\T41_repair_unified"
+  if not exist "%TD41%" mkdir "%TD41%" >nul 2>&1
+  copy /y "%BRK%" "%TD41%\src.mp4" >nul 2>&1
+  set "L41=%LOGDIR%\T41_repair_unified.log"
+  set "O41=%TD41%\src.mkv"
+  if exist "%O41%" del /q "%O41%" >nul 2>&1
+  call "%REPO%\ffmpeg_encode.bat" --venc copy --repair "%TD41%\src.mp4" < nul > "%L41%" 2>&1
+  set "RC41=%errorlevel%"
+  set "V41=PASS"
+  if not "%RC41%"=="0" set "V41=FAIL"
+  if not exist "%O41%" set "V41=FAIL"
+  if "%V41%"=="PASS" (
+    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD41%\src.mp4" > "%LOGDIR%\T41_sfr.txt" 2>nul
+    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_sfr.txt") do set "SFR41=%%a"
+    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O41%" > "%LOGDIR%\T41_rfr.txt" 2>nul
+    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_rfr.txt") do set "RFR41=%%a"
+    if not defined SFR41 set "SFR41=0"
+    if not defined RFR41 set "RFR41=0"
+    if "%RFR41%"=="0" set "V41=FAIL"
+    if %RFR41% LSS %SFR41% set "V41=FAIL"
+  )
+  echo [%V41%] T41 encode --venc copy --repair broken_index.mp4 src=%SFR41% out=%RFR41% >> "%SUM%"
+)
+
 rem ============ usage B: double click + typed path (stdin fed) ============
 chcp %CP0% >nul
 call :runB ffmpeg_avc_qsv "%IN%" T6_avc_qsv_B 3836249 B

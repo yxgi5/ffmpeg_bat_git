@@ -36,7 +36,7 @@ python3 test/lint/lint.py --parity-only# 只做对等检查
 python3 test/lint/selftest.py          # 检查检查器自己（38 个用例）
 
 # ② 冒烟套件（或一条命令跑全套：bash test/sh/smoke_all.sh）
-bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T33）
+bash test/sh/smoke_ffmpeg.sh           # sh 族回归全量（T1-T41）
 bash test/sh/smoke_ffmpeg.sh guard     # 只跑参数校验/退出码段
 bash test/sh/smoke_ffmpeg.sh list      # 只跑清单模式段
 bash test/sh/smoke_special_chars.sh    # sh 族元字符矩阵（part A/C/B/D/Z）
@@ -916,7 +916,7 @@ bat 侧从此也有一条「记事本存出来的清单」用例（2026-10-02 �
 `auto_scale` 接不上（`Impossible to convert ... auto_scale_0`）。
 
 **素材**：10bit 与 4K 六种源由 `test/make_fixtures.sh` 造（`bash test/make_fixtures.sh [all|10bit|4k|4k60|4k25|<文件名>]`），
-均含 ac3 音轨 + ass 字幕；产物 `input_*.mkv` 被 `.gitignore` 忽略，**入库的只有那个脚本**。冒烟里的 repair（T33）失效夹具（`broken_index.mp4`，edit-list 病理）则**内联**生成（lavfi 造 base 再 `-ss 1 -c copy`），与既有 inline 夹具同套路、不入库。
+均含 ac3 音轨 + ass 字幕；产物 `input_*.mkv` 被 `.gitignore` 忽略，**入库的只有那个脚本**。冒烟里的 repair（T33 老入口 / T41 统一入口）失效夹具（`broken_index.mp4`，edit-list 病理）则**内联**生成（lavfi 造 base 再 `-ss 1 -c copy`），与既有 inline 夹具同套路、不入库。
 修完的矩阵（Windows UHD 770 + N 卡 / Linux UHD 630）：
 
 | 入口 | hevc 10bit | h264 10bit | 8bit |

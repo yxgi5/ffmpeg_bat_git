@@ -394,6 +394,16 @@ echo.
 echo 由 andreas 编写
 echo ============================================================
 
+rem ---------- 修复模式(--repair / REPAIR=1) ----------
+rem 归一化后强制 mkv 出口 + 注入修复选项(与 ffmpeg_copy_to_mp4.bat 同义)。-ignore_editlist /
+rem -fflags 是输入选项, 放在 -i 之前(见下方 RUN_COM 拼装)。
+set "FB_REPAIR=0"
+if /I "%REPAIR%"=="1" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="true" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="on" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="yes" set "FB_REPAIR=1"
+if "%FB_REPAIR%"=="1" set "EXT=mkv"
+
 call "%~dp0common.bat" init_ext
 if errorlevel 1 exit /b 1
 rem 本段是 -c copy, 哪个构建都能干, 所以不传能力要求(与 :find_ffmpeg 同口径)
@@ -434,6 +444,8 @@ if /I "%EXT%"=="mkv" (
 )
 
 set RUN_COM="%FFMPEG_PATH%" -hide_banner
+rem 修复模式: -ignore_editlist / -fflags 是输入选项, 必须放在 -i 之前
+if "%FB_REPAIR%"=="1" set RUN_COM=%RUN_COM% -ignore_editlist 1 -fflags +igndts+genpts
 set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy -map 0:v -map 0:a? -map 0:s? %SENC% -map_metadata 0 -map_chapters 0 -movflags +faststart
 echo RUN_COM0=%RUN_COM%
 

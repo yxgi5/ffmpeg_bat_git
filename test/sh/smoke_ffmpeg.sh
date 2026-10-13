@@ -458,6 +458,34 @@ else
   fi
 fi
 
+# ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
+# 与 T33 同病理, 但走统一入口 ffmpeg_encode --venc copy --repair, 验证阶段1 unify 后
+# 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_copy_to_mp4 实现, 统一入口静默丢弃)。
+if [ ! -f "$BRK" ]; then
+  mk_fixture "$W/_broken_base_t41.mp4" 320x240 25 4 1M 1
+  ff_run -hide_banner -v error -y -ss 1 -i "$W/_broken_base_t41.mp4" -c copy "$BRK"
+  rm -f "$W/_broken_base_t41.mp4"
+fi
+if [ ! -f "$BRK" ]; then
+  skipcase T41 repair_unified "broken_index fixture unavailable"
+else
+  d="$W/cases/T41_repair_unified"; mkdir -p "$d"; cp -f "$BRK" "$d/src.mp4"
+  LOGF="$LOG/T41_repair_unified.log"; OUT="$d/src.mkv"; rm -f "$OUT"
+  bash "$REPO/ffmpeg_encode.sh" --venc copy --repair "$d/src.mp4" > "$LOGF" 2>&1
+  RC=$?
+  if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
+    SFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$d/src.mp4" 2>/dev/null | head -1)
+    RFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$OUT" 2>/dev/null | head -1)
+    if [ "${RFR:-0}" -gt 0 ] && [ "${RFR:-0}" -ge "${SFR:-0}" ]; then
+      PASS=$((PASS+1)); say "[PASS] T41 repair_unified rc=$RC src_frames=$SFR out_frames=$RFR (ffmpeg_encode --venc copy --repair recovers >= source into mkv)"
+    else
+      FAIL=$((FAIL+1)); say "[FAIL] T41 repair_unified src_frames=${SFR:-?} out_frames=${RFR:-?} (unified entry lost frames vs source)"
+    fi
+  else
+    FAIL=$((FAIL+1)); say "[FAIL] T41 repair_unified rc=$RC (no mkv output; log $LOGF)"
+  fi
+fi
+
 # T6: interactive mode, path via stdin, no bitrate override (src = QSV AVC)
 if can_run ffmpeg_avc_qsv.sh; then
     d="$W/cases/T6_avc_qsv_stdin"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
