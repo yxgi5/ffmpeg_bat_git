@@ -372,8 +372,8 @@ exit /b 0
 
 rem ============================================================================================
 rem :copy_run -- 无损转封装(--venc copy)。与编码流程的四处结构差异:
-rem   1. 无码率表(不重编码, 没有"重"这一说); 2. 输出名不带 -compressed;
-rem   3. 源已是目标容器(EXT)就直接退出; 4. -c copy + **-movflags +faststart**。
+rem   1. 无码率表(不重编码, 没有"重"这一说); 2. 输出名带 -repacked(不带 -compressed);
+rem   3. 源无论是什么容器都处理, 产出 <名>-repacked.<ext>(不再因同容器跳过); 4. -c copy + **-movflags +faststart**。
 rem 第 4 条是 2026-09-17 用户要求加的: 默认 mp4 把索引 moov 写在 mdat 之后, 播放器
 rem 得拿到文件末尾才能起播, 成品常被拷走/边下边播。实测同一夹具不加 =
 rem ftyp/free/mdat/moov, 加了 = ftyp/moov/free/mdat, 字节数完全相同(ffmpeg 就地搬索引)。
@@ -393,6 +393,16 @@ echo 欢迎使用ffmpeg视频压缩批处理工具
 echo.
 echo 由 andreas 编写
 echo ============================================================
+
+rem ---------- 修复模式(--repair / REPAIR=1) ----------
+rem 归一化后强制 mkv 出口 + 注入修复选项(与 ffmpeg_repack.bat 同义)。-ignore_editlist /
+rem -fflags 是输入选项, 放在 -i 之前(见下方 RUN_COM 拼装)。
+set "FB_REPAIR=0"
+if /I "%REPAIR%"=="1" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="true" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="on" set "FB_REPAIR=1"
+if /I "%REPAIR%"=="yes" set "FB_REPAIR=1"
+if "%FB_REPAIR%"=="1" set "EXT=mkv"
 
 call "%~dp0common.bat" init_ext
 if errorlevel 1 exit /b 1
@@ -417,15 +427,7 @@ rem 输入必须含视频流: 无视频流的输入产不出有意义的成品, 
 call "%~dp0common.bat" check_isvideo %SRC_FILE%
 if errorlevel 1 exit /b 3
 
-rem ---------- 源已是目标容器就没什么可做的 ----------
-rem EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
-call "%~dp0common.bat" get_suffix %SRC_FILE% SUFFIX
-echo SUFFIX:%SUFFIX%
-if /I "%SUFFIX%" == ".%EXT%" (
-    echo suffix is %EXT%, no need to convert
-    exit /b 0
-)
-echo suffix is not %EXT%, need to convert
+rem ---------- 输出路径: 始终重命名为 -repacked.<ext>(不再因同容器跳过, 见下方 extract_mp4 之后) ----------
 
 if /I "%EXT%"=="mkv" (
     rem EXT=mkv 而 matroska 装不下 mov_text 软字幕(实测 rc=-40 / 0 字节), 先数一次流
@@ -434,6 +436,8 @@ if /I "%EXT%"=="mkv" (
 )
 
 set RUN_COM="%FFMPEG_PATH%" -hide_banner
+rem 修复模式: -ignore_editlist / -fflags 是输入选项, 必须放在 -i 之前
+if "%FB_REPAIR%"=="1" set RUN_COM=%RUN_COM% -ignore_editlist 1 -fflags +igndts+genpts
 set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy -map 0:v -map 0:a? -map 0:s? %SENC% -map_metadata 0 -map_chapters 0 -movflags +faststart
 echo RUN_COM0=%RUN_COM%
 

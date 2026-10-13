@@ -343,8 +343,8 @@ function enc_prefer_newbuild() {
 # ---------------------------------------------------------------- copy(转封装)
 # 与编码流程的四处结构差异, 都在这里:
 #   1. 无码率表 —— 不查表、不算 percentage、不问码率(没有"重"这一说);
-#   2. 输出名不带 -compressed;
-#   3. 源已是目标容器(EXT)就直接退出 0;
+#   2. 输出名带 -repacked(不带 -compressed);
+#   3. 源无论是什么容器都处理, 产出 <名>-repacked.<ext>(不再因"源已是目标容器"而跳过);
 #   4. -c copy + **-movflags +faststart**。
 # 第 4 条的 faststart 是 2026-09-17 用户要求加的: 默认 mp4 把索引 moov 写在 mdat
 # 之后, 播放器得拿到文件末尾才能起播, 成品常被拷走/边下边播。实测同一夹具不加 =
@@ -356,6 +356,17 @@ function enc_run_copy() {
     echo
     echo 由 andreas 编写
     echo ============================================================
+
+    # ---------- 修复模式(--repair / REPAIR=1) ----------
+    # 与 ffmpeg_repack.sh 同源: 源容器索引损坏(DTS/stsc/editlist)导致 -c copy 到 mp4
+    # 在坏样本处误判 EOF(0 帧空文件); 解法 = -ignore_editlist 1 -fflags +igndts+genpts 重封装,
+    # 且 mkv 对坏时间戳容忍度远高于 mp4。故修复模式强制 mkv 出口 + 注入这两个"输入"选项。
+    local repair_on=0
+    case "${REPAIR:-0}" in 1|true|on|yes|ON|TRUE|On|Yes|YES) repair_on=1 ;; esac
+    if [ "$repair_on" = 1 ]; then
+        echo "[repair] mode ON: 目标容器强制为 mkv; 注入 -ignore_editlist 1 -fflags +igndts+genpts"
+        EXT=mkv
+    fi
 
     init_ext || exit 1
 
@@ -383,25 +394,20 @@ function enc_run_copy() {
     fi
     check_file_exists "$SRC_FILE"
 
-    # ---------- 源已是目标容器就没什么可做的 ----------
-    # EXT 决定"已经是目标容器就退出"的那个后缀: EXT=mkv 时 .mp4 源照样要转
-    local filename0 extension0
-    filename0="$(basename "$SRC_FILE")"
-    extension0="${filename0#*.}"
-    if [ "${extension0,,}" == "${EXT}" ]; then
-        echo -e "suffix ${extension0,,} 已经是${EXT}文件，不需要转换"
-        exit 0
-    fi
-    echo "suffix ${extension0,,} not ${EXT} file, need to convert"
-
-    # ---------- 输出路径(不带 -compressed) ----------
+    # ---------- 输出路径(始终重命名为 -repacked.<ext>, 不再因"源已是目标容器"而跳过) ----------
+    # 2026-10-13 改动: 无论源是什么容器(含 mp4), 都产出 <名>-repacked.<ext>, 绝不覆写源文件;
+    # 旧逻辑"源已是目标容器就 exit 0"已移除 —— 那样会让 mp4 源被静默放过(坏索引也救不回来)。
+    # 重复后缀保护: 源名已以 -repacked 结尾则不再追加, 避免 x-repacked-repacked.mp4。
+    # 产物已存在交给 ff_run 的 FF_ON_EXIST(skip/overwrite/fail, 默认 skip)处理, 与编码入口一致。
     echo "SRC_FILE: $SRC_FILE"
-    local ABS_NAME ABS_PATH filename filename_without_suffix TARGET_FILE
+    local ABS_NAME ABS_PATH filename filename_without_suffix base TARGET_FILE
     ABS_NAME=$(realpath "$SRC_FILE")
     ABS_PATH=$(dirname "$ABS_NAME")
     filename=$(basename "$ABS_NAME")
     filename_without_suffix="${filename%.*}"
-    TARGET_FILE="${ABS_PATH}/${filename_without_suffix}.${EXT}"
+    base="${filename_without_suffix}"
+    case "$base" in *-repacked) ;; *) base="${base}-repacked" ;; esac
+    TARGET_FILE="${ABS_PATH}/${base}.${EXT}"
     echo "ABS_NAME: ${ABS_NAME}"
     echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
@@ -418,6 +424,10 @@ function enc_run_copy() {
     fi
 
     CMD=("$FF" -hide_banner)
+    # 修复模式: -ignore_editlist / -fflags 是"输入"选项, 必须放在 -i 之前
+    if [ "$repair_on" = 1 ]; then
+        CMD+=(-ignore_editlist 1 -fflags +igndts+genpts)
+    fi
     CMD+=(-i "$ABS_NAME")
     CMD+=(-c:v copy -c:a copy)
     CMD+=(-map 0:v -map 0:a? -map 0:s? "${SENC[@]}" -map_metadata 0 -map_chapters 0)
@@ -444,8 +454,8 @@ function enc_known() {
 function enc_run() {
     local enc="$1"
     shift
-    # 转封装(copy)是另一类活: 无码率表 / 不重编码 / 输出名不带 -compressed /
-    # 源已是目标容器就直接跳过。硬塞进下面这条编码流程会到处加 if, 故单独一个函数。
+    # 转封装(copy)是另一类活: 无码率表 / 不重编码 / 输出名带 -repacked(不带 -compressed) /
+    # 源无论容器都处理(产出 <名>-repacked.<ext>, 不再因同容器跳过)。硬塞进下面这条编码流程会到处加 if, 故单独一个函数。
     if [ "$enc" = copy ]; then
         enc_run_copy "$@"
         return $?

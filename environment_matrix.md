@@ -106,20 +106,20 @@
 | Ubuntu 22.04 | bash             | /opt/ ffmpeg-master-gpl |  🟡 |   🟡  |    🟡   |   ❌   |   🟡  |     🟡    |  🟡  | ✅ 模式 |   ➖  |
 
 > B 机是矩阵验证最充分的一台：NVENC（含 AV1）三环境通、QSV 双环境通（Cygwin 豁免）、软编双环境通。  
-> **cmd/PowerShell 行的 ✅ 指二进制本身**（ffmpeg.exe 直接调用已验证）；`.bat` 列的 `6/10` = **2026-09-16 当时** 10 个 bat 中 6 个通过探针实测（4 编码器 + copy_to_mp4 + convert_from_list_qsv），opencmd 属一行起壳脚本不计；剩 3 个 list bat（cuda / libx265 / repack）与本轮所修共享同一行代码，风险低，可选复核。
+> **cmd/PowerShell 行的 ✅ 指二进制本身**（ffmpeg.exe 直接调用已验证）；`.bat` 列的 `6/10` = **2026-09-16 当时** 10 个 bat 中 6 个通过探针实测（4 编码器 + ffmpeg_repack + convert_from_list_qsv），opencmd 属一行起壳脚本不计；剩 3 个 list bat（cuda / libx265 / repack）与本轮所修共享同一行代码，风险低，可选复核。
 > **现值（2026-09-30）**：根目录 `.bat` 入口共 **13 个**（9 个 `ffmpeg_*` + 3 个 `convert_from_list_*` + `repack_from_list`），已全部纳入 `test/bat/` 套件与 `check_env.bat` 覆盖；上表的 10 个是当时的口径，勿再当作当前入口数。
 > **`.sh` 行的本轮复核（AI 在沙箱内直接跑 bash，无需用户介入）**：6 个编码入口 + 4 个 list 脚本全部 rc=0 且产出正确，含静音输入（`-map 0:a?`）、中文/空格文件名、CRLF+BOM 清单；同轮修掉 `check_file_is_text` 悬空调用与 `run_list` 的 CRLF/BOM 兼容（详见 code_review_report.md）。
 >
-> **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash 与命令行工具两条路均被安全策略拦截），改用一次性探针（现位于仓库内 `test/bat/smoke_ffmpeg.bat`〔原名 smoke_ffmpeg_bat.bat〕，一次双击即跑完：4 编码器 + copy_to_mp4 + 交互输入 + 新进程 UTF-8 + 静音输入 + list 模式，日志落 `smoke_logs\`）。
+> **`.bat` 冒烟进度（2026-09-16）**：沙箱无法调用 cmd.exe（Bash 与命令行工具两条路均被安全策略拦截），改用一次性探针（现位于仓库内 `test/bat/smoke_ffmpeg.bat`〔原名 smoke_ffmpeg_bat.bat〕，一次双击即跑完：4 编码器 + ffmpeg_repack + 交互输入 + 新进程 UTF-8 + 静音输入 + list 模式，日志落 `smoke_logs\`）。
 > 第一轮结果：**936 控制台（双击/拖放默认起点）下 5 个含中文 bat 全部在 banner 后立即报 `The system cannot find the path specified.` + `找不到 ffmpeg.exe`** → 定位为守卫 `shift` 连 `%0` 一起移位致 `%~dp0` 失效（详见 code_review_report.md，已修 4ffd990）；同一轮确认 **936→子进程重启路径下 banner 中文完全正常**（原先的 `'�使用方式:'` 报错消失），AVC/HEVC 码率查表值正确（`TARGET_BITRATE` = 3836249 / 2548951，percentage 10~15%）。
-> 第二轮结果（v2 探针）：守卫回归已消除、查表值正确、`copy_to_mp4` 通过；但暴露 **① 守卫标记 `FB_UTF8_GUARD` 泄漏到调用者环境**（`call` 链或同会话第二次运行即跳过守卫 → 936 解析下 banner 报错复现）**② `-map 0:a` 缺 `?`**（静音输入整条失败 errorlevel -22）**③ list 驱动 bat 缺 `call` + 清单路径未 `usebackq` 引号化 + 编码器裸名调用**。三类均已修（守卫首行 `setlocal` / 18 处改 `-map 0:a?` / 4 个 list bat 改 `usebackq`+`call`+`%~dp0` 锚定）。
-> 第三轮结果（v3 探针）：**编码 bat 主链路全绿** —— T1 AVC-QSV / T2 HEVC-NVENC / T3 HEVC-QSV / T4 libx265 / T5 copy_to_mp4 / T6 交互式输入 / T7 新进程 UTF-8 / T10 静音输入 **全部 PASS**，`TARGET_BITRATE` = 3836249 / 2548951 与码率表一致，**全局 banner 检查 `[PASS]`**（三种用法下均无 `is not recognized`），每个产物另有 ffprobe 复核。同轮暴露 list 驱动 bat **第 4 个缺陷**：`SET SRC_FILE=%1` 保留参数引号 → `in ("%SRC_FILE%")` 展开成双重引号路径，cmd 报 `The system cannot find the file "…\list.txt"`（rc=123，0/2）。已改 `%~1` 去引号（commit 2a58d97），**list 模式待第四轮复核**。
+> 第二轮结果（v2 探针）：守卫回归已消除、查表值正确、`ffmpeg_repack` 通过；但暴露 **① 守卫标记 `FB_UTF8_GUARD` 泄漏到调用者环境**（`call` 链或同会话第二次运行即跳过守卫 → 936 解析下 banner 报错复现）**② `-map 0:a` 缺 `?`**（静音输入整条失败 errorlevel -22）**③ list 驱动 bat 缺 `call` + 清单路径未 `usebackq` 引号化 + 编码器裸名调用**。三类均已修（守卫首行 `setlocal` / 18 处改 `-map 0:a?` / 4 个 list bat 改 `usebackq`+`call`+`%~dp0` 锚定）。
+> 第三轮结果（v3 探针）：**编码 bat 主链路全绿** —— T1 AVC-QSV / T2 HEVC-NVENC / T3 HEVC-QSV / T4 libx265 / T5 ffmpeg_repack / T6 交互式输入 / T7 新进程 UTF-8 / T10 静音输入 **全部 PASS**，`TARGET_BITRATE` = 3836249 / 2548951 与码率表一致，**全局 banner 检查 `[PASS]`**（三种用法下均无 `is not recognized`），每个产物另有 ffprobe 复核。同轮暴露 list 驱动 bat **第 4 个缺陷**：`SET SRC_FILE=%1` 保留参数引号 → `in ("%SRC_FILE%")` 展开成双重引号路径，cmd 报 `The system cannot find the file "…\list.txt"`（rc=123，0/2）。已改 `%~1` 去引号（commit 2a58d97），**list 模式待第四轮复核**。
 > 探针已同步到 v4：素材每轮强制重生成（v2 复用旧无音轨片源导致 T1–T4 假 FAIL）、T10 静音测试升为断言、新增全局 banner 检查行、新增 `LIST` 子集参数与 T12（无参数 + cwd 在别处）。
 > 第四轮结果（v4 探针，只跑 `LIST` 子集）：**list 模式全绿** —— T9（cwd=仓库，含空格路径清单）2/2、T11（UTF-8 清单 + 中文文件名）2/2、T12（无参数 + cwd 在别处）2/2，均 rc=0，**全局 banner 检查 `[PASS]`**。T11 是"选 UTF-8 而非 cp936"这一设计决策的实证：`for /f` 读出的中文名完整无损地传给了 ffmpeg 并生成 `中文 测试-compressed.mp4`。T12 的 cwd 判定另被独立佐证：仓库内恰有一个旧的无意义 `list.txt`，若误读则必然 0 产物。
 > **`.bat` 侧至此主链路 + list 模式全部实测通过**（含双击/拖放/交互输入三种用法、936 起点、守卫重启路径与 UTF-8 新进程路径）。
-> **第五轮（v5 探针）✅ 已跑完全绿**：本轮改动 = ① 清理 `lib/common.bat` 里 14 行遗留调试 echo（`in extract()` / `%~dp2` / `%~d2` / `"%~n2"` / `%~x2` / `"%~n2-compressed.mp4"` / `in extract_mp4()` / `"%~n2.mp4"` / `!fpA!` / `!fpB!` / `numA / numB` / `ret=`），这些是原版就带的、每次转码都刷屏；② 新增 `lib/common.bat :check_isvideo`，把 `.sh` 侧早就有的 `check_file_isvideo` 前置校验补到 `.bat` 侧，接线于 **4 编码器 + copy_to_mp4**（后者放在 `suffix is not mp4` 早退之后），失败 `exit /b 3`。探针同步 v5：新增 **T13**（audio-only 输入必须被提前拒绝：日志含 `check_isvideo`、**不含** `matches no streams`〔证明根本没走到 ffmpeg〕、无产物、rc=3）与**全局 hygiene 行**（任一日志含 `in extract` / `ret=` 即 FAIL）。因改动落在共享库上，**本轮建议跑全量（不带第 2 参数）**。<br>**结果（2026-09-16 全量跑完）**：**T1–T13 全部 PASS** —— T13（audio-only 输入）被 `check_isvideo` 提前拦下（rc=3、日志含 `check_isvideo`、**无** `matches no streams`、无产物）；全局 `banner check` 与 `debug check` 双双 `[PASS]`（14 行调试 echo 清零后日志再无 `in extract` / `ret=`）；T9/T11/T12 list 三测 2/2 保持全绿。`TARGET_BITRATE` 仍为 3836249（AVC）/ 2548951（HEVC），与码率表一致。
+> **第五轮（v5 探针）✅ 已跑完全绿**：本轮改动 = ① 清理 `lib/common.bat` 里 14 行遗留调试 echo（`in extract()` / `%~dp2` / `%~d2` / `"%~n2"` / `%~x2` / `"%~n2-compressed.mp4"` / `in extract_mp4()` / `"%~n2.mp4"` / `!fpA!` / `!fpB!` / `numA / numB` / `ret=`），这些是原版就带的、每次转码都刷屏；② 新增 `lib/common.bat :check_isvideo`，把 `.sh` 侧早就有的 `check_file_isvideo` 前置校验补到 `.bat` 侧，接线于 **4 编码器 + ffmpeg_repack**（后者放在 `suffix is not mp4` 早退之后），失败 `exit /b 3`。探针同步 v5：新增 **T13**（audio-only 输入必须被提前拒绝：日志含 `check_isvideo`、**不含** `matches no streams`〔证明根本没走到 ffmpeg〕、无产物、rc=3）与**全局 hygiene 行**（任一日志含 `in extract` / `ret=` 即 FAIL）。因改动落在共享库上，**本轮建议跑全量（不带第 2 参数）**。<br>**结果（2026-09-16 全量跑完）**：**T1–T13 全部 PASS** —— T13（audio-only 输入）被 `check_isvideo` 提前拦下（rc=3、日志含 `check_isvideo`、**无** `matches no streams`、无产物）；全局 `banner check` 与 `debug check` 双双 `[PASS]`（14 行调试 echo 清零后日志再无 `in extract` / `ret=`）；T9/T11/T12 list 三测 2/2 保持全绿。`TARGET_BITRATE` 仍为 3836249（AVC）/ 2548951（HEVC），与码率表一致。
 
-> **第六轮（2026-09-16，路径元字符加固；分 6a / 6b 两步）**：起点是用户反馈**片库确有含 `&` 的片名**。**6a** 做了 5 类改动，但探针实测只 13/20 绿 —— 其中"删掉 `^&` 转义"与"把 `set` 改成包装写法"两项是**误判造成的回归**（原版 `^&` 是在补偿包装写法的不配对，不是缺陷）。**6b** 顺着 6a 的失败日志找到真正病根：**`set "VAR=值"` 包装写法要求「值里不能出现字面量引号」，而本仓库的 `RUN_COM`/`SRC_CODEC`/`SRC_FILE`/`TARGET_FILE` 存的正是带引号的路径或整条命令行** —— 值里第一个引号与包装引号配对闭合后，其后的路径段落落进"未加引号区"，`&` 断行、`( )` 触发 `was unexpected at this time`。修法：所有"值里会出现引号"的 `set` 改非包装写法 `set VAR=值`（引号配对平衡，`& ( ) ^` 全在引号内），并去掉不再需要的 `^&` 补偿（5 文件 57 行），每个脚本头部补「路径/命令行拼接规则」注释块。<br>**6a 中保留有效的部分**：`if [%1] neq []` / `SET SRC_FILE=%1` → `if not "%~1"==""` + `set "SRC_FILE=%~1"`；去掉 `call %RUN_COM%`（避免整条命令行二次 `%` 展开）；4 个 list 驱动 bat 的 `EnableDelayedExpansion` → `DisableDelayedExpansion`；编码器 `%SRC_RESOLUTION%` 移出延迟展开块。<br>**验证方式**：探针 `smoke_special_chars.bat`（仓库外、纯 ASCII + CRLF）—— **A** 19 个文件名字符用例（`&` `%` `!` `( )` `[ ]` `;` `,` `=` `#` `$` `+` `'` `~` `@` 外加 `A & B (2020)` / `Tora! Tora! Tora! (1970)` / `A&B!C(2) 100%` 与子目录 `sub & dir (x)`）走 `ffmpeg_copy_to_mp4`；**C** 3 个真实片名形状走 `ffmpeg_avc_qsv`；**B** `convert_from_list_qsv` 清单驱动 6 条含元字符条目；**D** 无参数模式（stdin，判定 PASS/SKIP/FAIL）；**Z** 构造微测（Z1 = 非包装 `set` 保住含 `& ( ) !` 的带引号值；Z2a/Z2b = `set /p` 读重定向 stdin 在"直接 call"与"经 cp65001 守卫 `cmd /c` 转发"下的差异）。A07（片名含脱字符）标 SKIP：`call` 二次解析会让 `^` 翻倍，探针无法既建同名文件又传参。<br>**静态复核**：`audit_set_forms2.py`（危险 `set` 形态）与 `mini_cmd_scan.py`（用最坏片名展开后逐行找"引号外元字符"，内置已知好/坏行自校准）全仓 0 命中（只剩 `endlocal & set …`、`set /a (…^)/…` 等刻意构造）。<br>**6b 实测结果（2026-09-16）**：A **18 PASS + 1 SKIP**、C **3/3**、B **6/6**、D **SKIP**、Z1 **PASS** —— 元字符片名已全程走通，`set` 写法修正生效。D 的 SKIP 机制**已由四路判别用例定论（2026-09-16）**：**元凶是 `chcp 65001` —— 它会把"文件重定向"的 stdin 读空（EOF），但管道与控制台不受影响**。证据矩阵（探针 part Z/D 同轮实测）：Z2d 守卫复刻 + 文件重定向 → 读到；**Z2e = Z2d + `chcp 65001` → 读空（唯一差异项）**；Z2f = Z2d + `for /f` 子进程 → 读到（排除 `find_ffmpeg`）；Z2g = Z2d + 块内 `set /p` → 读到（排除块语法）；D1 = 真实脚本 + 预置 `FFMPEG_BIN`（短路 `find_ffmpeg`、零子进程）→ 仍读空（与 Z2e 交叉印证）。管道不受影响的解释：管道是流式无"文件位置"概念，守卫子进程接力读也不冲突；文件重定向则依赖句柄位置，`chcp 65001` 切换控制台代码页后 cmd 对该句柄的读返回 EOF。**对真实用法零影响**：双击后手输 = 控制台设备（T 套件 mode-B T6/T7 实测通过）、拖放 = argv、管道 = 流式，三种入口全不受 `chcp 65001` 影响。**探针自身 bug**：写 Z1 判定行的 echo 句里有裸 `&`，把该行劈成两条命令 → `( was unexpected at this time` 致探针提前终止（首跑 summary 缺 Z1/Z2 判定行）；已改写并给 `mini_cmd_scan.py` 补上"只扫仓库内"与"跳过 echo 行"两个盲区，修正后可复现该 bug（旧行标红 / 新行干净）。**新增 `smoke_all.bat`**：一次双击串跑 T1–T13 套件 + 本矩阵探针。**T 套件回归已跑并全绿（2026-09-16）**：4 编码器 × 三种用法共 8 项 PASS（含 mode B 交互输入、mode C 全新 UTF-8 控制台）、`copy_to_mp4` PASS、静音输入 PASS、T13 纯音频拦截 rc=3 PASS、T9/T11/T12 list 三测各 2/2、banner 与 debug 卫生检查双双 PASS。即 6b 对核心路径（RUN_COM 组装 / 非包装 `set` / 交互分支 / list bat 延迟展开 / 编码器延迟块）的改动**未引入回归**。**取证方式**：新增 `smoke_all.bat`（仓库外）一键串跑 T1–T13 套件 + 特殊字符矩阵。<br>**已知边界（刻意未改）**：`call` 传参链路仍会二次解析 `%`（片名 `a%b%c` 形态仍失败，`100% Wolf.mp4` 单 `%` 安全）；**文件名含 `^` 不受支持**；「仓库自身路径含 `!`」不受支持；**6g（2026-09-16，用户实测触发）**：用户在新开的 **cp936** cmd 窗口直接运行 `convert_from_list_cuda.bat`，报出一串「中文注释碎片被当命令执行」—— 4 个 list bat 是全仓最后还剩「文件中途裸 `chcp 65001`、不重启进程」的脚本：936 入口下，第 5 行 `chcp 65001` 把**当前 cmd 进程的批处理读取器**打进错位状态（936 双字节与 65001 三字节的字符计数不一致），之后该进程 `call` 读进来的编码器 bat 凡含中文的行都会被吞掉行首（`rem` 前缀丢失 → 行尾被当命令执行），编码器自己的守卫也因此被吞而失效。此前「多轮实测稳定」只是**入口控制台恰好已是 65001**（`chcp` 为 no-op，无从错位）的运气。修法：4 个 list bat 补上与编码器同款的 ASCII 守卫（`setlocal` + `FB_UTF8_GUARD` + `chcp 65001 >nul` + `cmd /c call "%~f0" %*` 重启 + `:main`），全仓从此**不存在任何文件中途 chcp**。**守卫复核（2026-09-16，smoke_all.bat）**：本次探针**从 cp936 控制台启动（summary 首行 startCP: 936）**——正好是触发 6g 缺陷的那个入口条件：T1–T13 全 PASS、T9/T11/T12 各 2/2、banner 与 debug 检查双 PASS，元字符矩阵 A 18+1 SKIP / C 3/3 / B 6/6 / Z 全符合预期。**此前一直是盲区的「cp936 入口」至此被实测覆盖。**子进程里 marker 已定义 → list bat 调编码器时编码器守卫直接 `goto main`，链路全程 65001、读取器干净。均与片库路径无关。
+> **第六轮（2026-09-16，路径元字符加固；分 6a / 6b 两步）**：起点是用户反馈**片库确有含 `&` 的片名**。**6a** 做了 5 类改动，但探针实测只 13/20 绿 —— 其中"删掉 `^&` 转义"与"把 `set` 改成包装写法"两项是**误判造成的回归**（原版 `^&` 是在补偿包装写法的不配对，不是缺陷）。**6b** 顺着 6a 的失败日志找到真正病根：**`set "VAR=值"` 包装写法要求「值里不能出现字面量引号」，而本仓库的 `RUN_COM`/`SRC_CODEC`/`SRC_FILE`/`TARGET_FILE` 存的正是带引号的路径或整条命令行** —— 值里第一个引号与包装引号配对闭合后，其后的路径段落落进"未加引号区"，`&` 断行、`( )` 触发 `was unexpected at this time`。修法：所有"值里会出现引号"的 `set` 改非包装写法 `set VAR=值`（引号配对平衡，`& ( ) ^` 全在引号内），并去掉不再需要的 `^&` 补偿（5 文件 57 行），每个脚本头部补「路径/命令行拼接规则」注释块。<br>**6a 中保留有效的部分**：`if [%1] neq []` / `SET SRC_FILE=%1` → `if not "%~1"==""` + `set "SRC_FILE=%~1"`；去掉 `call %RUN_COM%`（避免整条命令行二次 `%` 展开）；4 个 list 驱动 bat 的 `EnableDelayedExpansion` → `DisableDelayedExpansion`；编码器 `%SRC_RESOLUTION%` 移出延迟展开块。<br>**验证方式**：探针 `smoke_special_chars.bat`（仓库外、纯 ASCII + CRLF）—— **A** 19 个文件名字符用例（`&` `%` `!` `( )` `[ ]` `;` `,` `=` `#` `$` `+` `'` `~` `@` 外加 `A & B (2020)` / `Tora! Tora! Tora! (1970)` / `A&B!C(2) 100%` 与子目录 `sub & dir (x)`）走 `ffmpeg_repack`；**C** 3 个真实片名形状走 `ffmpeg_avc_qsv`；**B** `convert_from_list_qsv` 清单驱动 6 条含元字符条目；**D** 无参数模式（stdin，判定 PASS/SKIP/FAIL）；**Z** 构造微测（Z1 = 非包装 `set` 保住含 `& ( ) !` 的带引号值；Z2a/Z2b = `set /p` 读重定向 stdin 在"直接 call"与"经 cp65001 守卫 `cmd /c` 转发"下的差异）。A07（片名含脱字符）标 SKIP：`call` 二次解析会让 `^` 翻倍，探针无法既建同名文件又传参。<br>**静态复核**：`audit_set_forms2.py`（危险 `set` 形态）与 `mini_cmd_scan.py`（用最坏片名展开后逐行找"引号外元字符"，内置已知好/坏行自校准）全仓 0 命中（只剩 `endlocal & set …`、`set /a (…^)/…` 等刻意构造）。<br>**6b 实测结果（2026-09-16）**：A **18 PASS + 1 SKIP**、C **3/3**、B **6/6**、D **SKIP**、Z1 **PASS** —— 元字符片名已全程走通，`set` 写法修正生效。D 的 SKIP 机制**已由四路判别用例定论（2026-09-16）**：**元凶是 `chcp 65001` —— 它会把"文件重定向"的 stdin 读空（EOF），但管道与控制台不受影响**。证据矩阵（探针 part Z/D 同轮实测）：Z2d 守卫复刻 + 文件重定向 → 读到；**Z2e = Z2d + `chcp 65001` → 读空（唯一差异项）**；Z2f = Z2d + `for /f` 子进程 → 读到（排除 `find_ffmpeg`）；Z2g = Z2d + 块内 `set /p` → 读到（排除块语法）；D1 = 真实脚本 + 预置 `FFMPEG_BIN`（短路 `find_ffmpeg`、零子进程）→ 仍读空（与 Z2e 交叉印证）。管道不受影响的解释：管道是流式无"文件位置"概念，守卫子进程接力读也不冲突；文件重定向则依赖句柄位置，`chcp 65001` 切换控制台代码页后 cmd 对该句柄的读返回 EOF。**对真实用法零影响**：双击后手输 = 控制台设备（T 套件 mode-B T6/T7 实测通过）、拖放 = argv、管道 = 流式，三种入口全不受 `chcp 65001` 影响。**探针自身 bug**：写 Z1 判定行的 echo 句里有裸 `&`，把该行劈成两条命令 → `( was unexpected at this time` 致探针提前终止（首跑 summary 缺 Z1/Z2 判定行）；已改写并给 `mini_cmd_scan.py` 补上"只扫仓库内"与"跳过 echo 行"两个盲区，修正后可复现该 bug（旧行标红 / 新行干净）。**新增 `smoke_all.bat`**：一次双击串跑 T1–T13 套件 + 本矩阵探针。**T 套件回归已跑并全绿（2026-09-16）**：4 编码器 × 三种用法共 8 项 PASS（含 mode B 交互输入、mode C 全新 UTF-8 控制台）、`ffmpeg_repack` PASS、静音输入 PASS、T13 纯音频拦截 rc=3 PASS、T9/T11/T12 list 三测各 2/2、banner 与 debug 卫生检查双双 PASS。即 6b 对核心路径（RUN_COM 组装 / 非包装 `set` / 交互分支 / list bat 延迟展开 / 编码器延迟块）的改动**未引入回归**。**取证方式**：新增 `smoke_all.bat`（仓库外）一键串跑 T1–T13 套件 + 特殊字符矩阵。<br>**已知边界（刻意未改）**：`call` 传参链路仍会二次解析 `%`（片名 `a%b%c` 形态仍失败，`100% Wolf.mp4` 单 `%` 安全）；**文件名含 `^` 不受支持**；「仓库自身路径含 `!`」不受支持；**6g（2026-09-16，用户实测触发）**：用户在新开的 **cp936** cmd 窗口直接运行 `convert_from_list_cuda.bat`，报出一串「中文注释碎片被当命令执行」—— 4 个 list bat 是全仓最后还剩「文件中途裸 `chcp 65001`、不重启进程」的脚本：936 入口下，第 5 行 `chcp 65001` 把**当前 cmd 进程的批处理读取器**打进错位状态（936 双字节与 65001 三字节的字符计数不一致），之后该进程 `call` 读进来的编码器 bat 凡含中文的行都会被吞掉行首（`rem` 前缀丢失 → 行尾被当命令执行），编码器自己的守卫也因此被吞而失效。此前「多轮实测稳定」只是**入口控制台恰好已是 65001**（`chcp` 为 no-op，无从错位）的运气。修法：4 个 list bat 补上与编码器同款的 ASCII 守卫（`setlocal` + `FB_UTF8_GUARD` + `chcp 65001 >nul` + `cmd /c call "%~f0" %*` 重启 + `:main`），全仓从此**不存在任何文件中途 chcp**。**守卫复核（2026-09-16，smoke_all.bat）**：本次探针**从 cp936 控制台启动（summary 首行 startCP: 936）**——正好是触发 6g 缺陷的那个入口条件：T1–T13 全 PASS、T9/T11/T12 各 2/2、banner 与 debug 检查双 PASS，元字符矩阵 A 18+1 SKIP / C 3/3 / B 6/6 / Z 全符合预期。**此前一直是盲区的「cp936 入口」至此被实测覆盖。**子进程里 marker 已定义 → list bat 调编码器时编码器守卫直接 `goto main`，链路全程 65001、读取器干净。均与片库路径无关。
 
 ### 机器 C：Ultra 7 265K（Arrow Lake 核显，AV1 验证平台，待引入）
 
@@ -187,7 +187,7 @@ h264 侧虽有 `VAEntrypointEncSliceLP`，但 `-low_power 1` 报 `Driver does no
 
 | 组 | 用例 | 结果 |
 | --- | --- | --- |
-| 带参模式 | `h264_vaapi` / `hevc_vaapi` / `libx264` / `libx265` / `avc_qsv` / `hevc_qsv` / `copy_to_mp4`（7 项应成功） | **7/7 产出正确**（`v=h264|hevc` + `a=aac`） |
+| 带参模式 | `h264_vaapi` / `hevc_vaapi` / `libx264` / `libx265` / `avc_qsv` / `hevc_qsv` / `ffmpeg_repack`（7 项应成功） | **7/7 产出正确**（`v=h264|hevc` + `a=aac`） |
 | 带参模式（预期失败） | `av1_qsv`（`Unknown encoder`）/ `hevc_nvenc`（`Device setup failed`）/ `av1_nvenc` / `hevc_nvenc_cygwin` | **4/4 干净失败**：非零 rc、无产物、错误信息明确 |
 | 交互模式 | 无参 + stdin 喂路径；再测**码率覆盖** `900k`（日志 `real TARGET_BITRATE = 900k`） | **2/2 PASS** |
 | list 模式 | `convert_from_list_libx265` / `convert_from_list_qsv` / `repack_from_list`（3 条目，含**带空格文件名** `ep 2.mkv`） | **3/3，每条目均产出** |
@@ -309,7 +309,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 | ffmpeg_hevc_vaapi.sh | ✅（已加 /opt 软偏好：有 /opt 即走 master，无则回退 4.4.2 仍⛔） | ✅ |
 | ffmpeg_h264_vaapi.sh | ✅（已改用 AVC 表，ref 720p = 2040182） | ✅ |
 | ffmpeg_libx265.sh / ffmpeg_libx264.sh | ✅ / ✅（已补执行位，可直接 `./` 调用） | ✅ / ✅ |
-| ffmpeg_copy_to_mp4.sh | ✅（已 mp4 后缀正确早退；mkv/mov → `<名>.mp4`） | ✅ |
+| ffmpeg_repack.sh | ✅（已 mp4 后缀正确早退；mkv/mov → `<名>.mp4`） | ✅ |
 | ffmpeg_hevc_nvenc.sh / av1_nvenc.sh / hevc_nvenc_cygwin.sh | ❌ 预期失败（无 N 卡），rc=1 + `Convert failed！`；cygwin 版已补执行位，`-hwaccel cuvid`+`hwdownload` 命令构建正确 → `CUDA_ERROR_NO_DEVICE` | ❌ 同上 |
 | list（qsv / libx265 / repack / cuda） | ✅ CRLF+BOM+中文+空格清单逐条读全（见④）；cuda 版 Linux 分发 + 失败传播 rc=1（见⑤） | ✅ 2/2 且硬解生效 |
 | 边界（纯音频 / 不存在 / 2 参数） | rc=1 + 中文提示（不是视频文件! / file not exists! / More than one parameter） | ✅ |
@@ -481,7 +481,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 13. **Linux list 模式（`run_list`）**：本轮 `</dev/null` 修复为跨机器通用（所有 Linux ffmpeg 都会从 stdin 吃 1 字节），~~**A 机（i7-9700T Ubuntu）首次上机时需一并复跑 list 用例**~~ ✅ **已于 2026-09-16 复跑：5 条目清单全部产出（`outputs=5/5`），且 3 条目含空格的 CRLF+BOM 清单亦通过 —— `</dev/null` 修复跨机器成立**；`.bat` 侧无需改动
 14. ~~**A 机 `/opt/ffmpeg` master-gpl（2026-09-16 下午到货）**~~ ✅ 已完成：双构建各跑一遍套件**均 PASS=22/22**，并据本轮证据定论 **4.4.2 的 QSV 硬解=静默软解**（`-hwaccel qsv` 不报错但 `pixfmt` 仍是源格式；显式 `-hwaccel_device hw` 才 `Device setup failed`），AV1 在 Gen9.5 仍不可用（master 里 `av1_qsv`/`av1_vaapi` 打不开编码器），**`libsvtav1` 为 A 机新增可用软编 AV1**；另沉淀两条探测方法学教训（`-h encoder=<名>` 对未知编码器**也返回 rc=0** → 必须 grep `not recognized`；解码是否真硬解**看 `pixfmt`/`Selecting decoder` 而非耗时**）。**遗留观察项（非缺陷，暂不改）**：4.4.2 下 QSV 脚本实为「软解+硬编」，若日后希望"要么真硬解、要么显式告警"，可在 QSV 脚本里加一条 hwaccel 生效判定
 15. ~~**C 机 Linux 复查轮**~~ ✅ 已完成（2026-09-16 下午，SSH 远程）：同一套件双构建各 **PASS=22/22**；`ffmpeg_av1_qsv.sh` 在 C 机**真产出 AV1**（A 机为预期失败，已把套件期望值参数化）；1080p 查表值与 B 机 `.bat` 探针一致（AVC `3836249` / HEVC `2548951` / AV1 `1656818`）；**`hevc_vaapi` 归因收口**——用 `/opt` 里的 gyan 4.4.3 复现同一错误、gyan 5.1.2 与 master 成功，判定为 **FFmpeg 4.4.x 老路径在 Arrow Lake 上的缺陷、与 Ubuntu 打包无关**；QSV 硬解「静默软解」机制与 A 机统一；新增两条探测陷阱入档（`Lavf` 指纹取错、`-vf` 置于 `-i` 前）
-16. **新增 `ffmpeg_av1_nvenc.bat`（本轮）待 B 机 Windows 侧实测**：`.bat` 家族此前只有 AVC-QSV / HEVC-QSV / HEVC-NVENC / libx265 / copy_to_mp4 五个入口，**唯独缺 AV1 NVENC**（而 `lib/common.bat` 的 `lookup_bitrate` 早已把 `bitrate_table_av1.csv` 列为受支持表、`.sh` 侧也已有实测通过的 `ffmpeg_av1_nvenc.sh`）→ 已补该 `.bat`（以 `ffmpeg_hevc_nvenc.bat` 为骨架，仅改编码器段/码率表/标题，静态自检与 `hevc_nvenc.bat` 同结果）。~~**尚需在 B 机跑一次探针**~~ ✅ **已完成（2026-09-16 晚，B 机双击探针）：T14 PASS — `TARGET_BITRATE=1656818`、产物 `v=av1`、rc=0**（沙箱无法调用 `cmd.exe`，由用户双击执行；**同一轮又补了 `av1_qsv` 入口，见条目 17**）
+16. **新增 `ffmpeg_av1_nvenc.bat`（本轮）待 B 机 Windows 侧实测**：`.bat` 家族此前只有 AVC-QSV / HEVC-QSV / HEVC-NVENC / libx265 / ffmpeg_repack 五个入口，**唯独缺 AV1 NVENC**（而 `lib/common.bat` 的 `lookup_bitrate` 早已把 `bitrate_table_av1.csv` 列为受支持表、`.sh` 侧也已有实测通过的 `ffmpeg_av1_nvenc.sh`）→ 已补该 `.bat`（以 `ffmpeg_hevc_nvenc.bat` 为骨架，仅改编码器段/码率表/标题，静态自检与 `hevc_nvenc.bat` 同结果）。~~**尚需在 B 机跑一次探针**~~ ✅ **已完成（2026-09-16 晚，B 机双击探针）：T14 PASS — `TARGET_BITRATE=1656818`、产物 `v=av1`、rc=0**（沙箱无法调用 `cmd.exe`，由用户双击执行；**同一轮又补了 `av1_qsv` 入口，见条目 17**）
 17. ~~**`av1_qsv.bat` 的对称缺口**~~ ✅ **已补（2026-09-16 晚）**：新增 `ffmpeg_av1_qsv.bat`（以 `ffmpeg_hevc_qsv.bat` 为骨架，diff 仅 5 处：标题/头部注释、两处码率表引用、`lookup_bitrate` 实参、编码器段；参数与 `ffmpeg_av1_qsv.sh` 对齐 = `-c:v av1_qsv -profile:v main -preset fast`），静态自检（`check_bat_static` / `audit_set_forms2` / `mini_cmd_scan`）与骨架**同结果**、守卫区仍 ASCII-only、CRLF 保持。探针新增 **T15** 用例（1080p 期望 `TARGET_BITRATE=1656818`，与 C 机 `.sh` 实测同值）：因 AV1 QSV 取决于硬件，**T15 先用 1 帧 lavfi 试编探测能力，失败则记 `[SKIP]` 而非 FAIL**（探针日志 `smoke_logs\T15_av1_qsv_probe.txt`）→ 在无 AV1 QSV 硬编的机器上跑探针不会变红。**实测（2026-09-16 晚，B 机双击探针 v6）：T15 按预期记 `[SKIP]`**（`Current codec type is unsupported` / rc=-40，该机 Raptor Lake 核显确无 AV1 编码器），**其余 T1–T14 不受影响，banner 与 debug 卫生检查均 `[PASS]`**；**C 机 Win11 侧实跑待补**（用户当前无该环境）
 
 18. **测试套件已入库（2026-09-16 晚）**：`.bat` 族与 `.sh` 族冒烟套件此前放在会话工作区（仓库外），现迁入仓库 `test/bat/`（`smoke_ffmpeg_bat.bat` v6 / `smoke_special_chars.bat` / `smoke_all.bat`）与 `test/sh/`（`smoke_sh.sh`），并**统一改为自定位仓库根**（脚本位置上两级）→ 克隆到任意路径都能跑；`.bat` 运行日志目录（`test/bat/smoke_logs/`、`test/bat/chars_logs/`）已进 `.gitignore`。迁移后已在 **A 机 / C 机** 各按仓库内路径复跑一轮 `.sh` 套件：**均 PASS=22/22**，自定位逻辑验证通过。用法与环境开关见 `test/README.md`
@@ -687,8 +687,8 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       **前导空格 + 7 字符标志位（如 ` V....D `）+ 空格 + 编码器名**——6 个点会在第 7 字符处要求空格
       却撞上标志位末字符 `D` → 永远不匹配 → 全部 NO。实测验证：6 点 0 命中、7 点命中。已改 7 点。
       此 bug 一直存在但被深测掩盖（PROBE 直接跑真编码，不受静态清单影响）。
-    * **② `ffmpeg_copy_to_mp4.bat` 误报 NO-ENTRY**：TMPREQ 行写成 `bat^-^|none^|...`，转义后
-      `-` 粘在 entry 上 → entry token 变 `ffmpeg_copy_to_mp4.bat-`（缺了 entry 与 enc 字段之间的
+    * **② `ffmpeg_repack.bat` 误报 NO-ENTRY**：TMPREQ 行写成 `bat^-^|none^|...`，转义后
+      `-` 粘在 entry 上 → entry token 变 `ffmpeg_repack.bat-`（缺了 entry 与 enc 字段之间的
       分隔符）→ `if not exist` 必然成立。连锁反应：`:wrapper` 对 repack_from_list 的目标状态查表
       也失配 → UNKNOWN。已补 `^|-^|`。
     * **③ 探针表格后一行裸报错 `The system cannot find the file specified.`**：
@@ -701,7 +701,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       新解析支持 **flag 任意位置**：`/probe`、`-probe`、`--probe`（与 sh 侧 `--probe` 对齐），
       位置参数只剩可选 repo_path；`"" PROBE` 旧写法保持兼容（空参数被跳过）。
     * 全部为静态修复（沙箱跑不了 cmd.exe），待用户复跑验证：QUICK 应看到 libx264/libx265/… 全 yes、
-      copy_to_mp4=OK、repack=OK；PROBE 的 summary 计数与探针表一致。
+      ffmpeg_repack=OK、repack=OK；PROBE 的 summary 计数与探针表一致。
 
 32. **check_env.bat 探针改判「真实产物」，rc 不再是判据（2026-09-17）**：
     * 用户复跑暴露：修复后的快查 enc 全 yes 正常了，但深测仍 `av1_qsv PROBE-OK rc=0`——
@@ -709,10 +709,10 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       `Task finished with error code -22` / `Conversion failed` / 输出 0 字节。
     * **根因**：入口 `.bat` 是交互式设计，末尾无条件 `exit /b 0`（「转换已出错或完成，
       默认不替换」）→ 探针只看入口 rc 时**任何入口都永远 PROBE-OK**；且
-      `ffmpeg_copy_to_mp4.bat` 对 mp4 输入直接 `goto :eof` 什么都不做，双重假象。
+      `ffmpeg_repack.bat` 对 mp4 输入直接 `goto :eof` 什么都不做，双重假象。
     * **修复**：`:probe_entry` / `:probe_list` 改为**判定真实输出文件**（存在且 >4096 字节，
       3s 320x240 梯点编码产物为几十 KB 量级，4096 是安全下限），并打印 `out=<size>B`；
-      remux 入口（copy_to_mp4 / repack_from_list）改喂 `.mkv` 夹具——remux 拒绝 mp4 进
+      remux 入口（ffmpeg_repack / repack_from_list）改喂 `.mkv` 夹具——remux 拒绝 mp4 进
       mp4 出、且 arg 模式带 `-n` 会与同名输入冲突（与冒烟 T5 的 remux_me.mkv 同思路）。
       PROBE-FAIL 新增一种形态：`rc=0 but no real output (0B) - see run.log`。
     * sh 侧不受影响：入口 .sh 如实传递 ffmpeg 退出码，rc 即判据（C 机深测 fail=4 就是这么抓到的）。
@@ -826,7 +826,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       展开会把日志里的 `&`/`>` 当成命令分隔符/重定向，这是批处理的经典陷阱。
     * **`-map` 盘点结论**：12 个编码入口（两族）**都已带**
       `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`；
-      **只有 remux 族（`ffmpeg_copy_to_mp4` 两族）没有 `-map`** → 默认选流只留 1 视频 + 1 音频，
+      **只有 remux 族（`ffmpeg_repack` 两族）没有 `-map`** → 默认选流只留 1 视频 + 1 音频，
       多音轨/字幕会被丢掉。**用户裁定：与编码入口完全一致** → 两族 remux 已补齐 `-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`。实测（双音轨 eng/chi + srt 的 mkv）：改动前输出 1 视频 + 1 音频，改动后 **4 条流全保留**（2 音轨 + 字幕转 mov_text），rc=0。新增 lint **L16** 把该集合钉死（两族 19 个 mp4 出口；把 remux 的 map 行注释掉即报 FAIL，已实测召回）。**（2026-09-28 修订：编码类出口的视频映射已改为 `-map 0:V`，remux 两族保留 `-map 0:v` —— 见第 51 条）**
     * **打包坑**：仓库根目录躺着 **4.3 GB 测试片**（`input_4k25.mov` 1.9G 等），
       已被 `.gitignore` 忽略、未被跟踪（`git status` 干净）。给远端投包时**必须 `--exclude`**，
@@ -859,7 +859,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
     * **纠错记录**：上一轮把沙箱 bash 报的 `rc=127` 当成"ffmpeg 真返回 127"，据此写下
       「所以 `.bat` 侧必须写 `if errorlevel 1`」——方向正好反了（127 只是 MSYS 对同一个负码的渲染）。
       教训：**跨运行时的退出码必须先取原始 32 位值再下结论**。
-    * **remux moov 前置（用户要求）**：`ffmpeg_copy_to_mp4.{bat,sh}` 补 `-movflags +faststart`。
+    * **remux moov 前置（用户要求）**：`ffmpeg_repack.{bat,sh}` 补 `-movflags +faststart`。
       实测同夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**
       （ffmpeg 就地搬索引，日志 `Starting second pass: moving the moov atom to the beginning of the file`）；
       `.sh` 入口真跑确认 moov 在第二位、双音轨（eng/chi）全保留。新增 lint **L17** 钉住两个 remux 出口
@@ -1448,7 +1448,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
       但同时**只保留 1 视频 + 1 音频** —— 那次成功的代价是丢掉第二音轨/字幕/章节（见第 30、37 条）。
     * **修法**：编码类出口的视频映射 `-map 0:v` → **`-map 0:V`**（大写 V = 不含 attached picture 的视频流），
       共 **19 个文件 21 处**（两族 12 个编码入口 + `ffmpeg_dvd_hevc` 的 4 处）。两套 ffmpeg 都支持该说明符。
-    * **remux 两族（`ffmpeg_copy_to_mp4.{sh,bat}`）保持 `-map 0:v`，这是有意的例外**：它们
+    * **remux 两族（`ffmpeg_repack.{sh,bat}`）保持 `-map 0:v`，这是有意的例外**：它们
       `-c:v copy` 不重新编码，mp4 **能**放下复制过来的 mjpeg 封面 —— 实测同一素材输出 **3 条流全在**
       （h264 + aac + mjpeg，`attached_pic=1`）。改成 `0:V` 会**悄悄丢掉今天还在的封面**。
       判据是「重编码 vs 复制」，不是风格统一，改前请重新量。
@@ -1461,11 +1461,11 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
 
       另用**自造素材**（`testsrc` + `anullsrc` 3s，再 `-attach cover.jpg -metadata:s:t:0
       mimetype=image/jpeg` 造出 `attached_pic=1` 的 mkv）跑真入口：旧写法 rc≠0、0 字节；
-      `ffmpeg_hevc_nvenc.sh`（已修）**rc=0 / 21 487 B / hevc+aac**；`ffmpeg_copy_to_mp4.sh`
+      `ffmpeg_hevc_nvenc.sh`（已修）**rc=0 / 21 487 B / hevc+aac**；`ffmpeg_repack.sh`
       **rc=0 / 3 条流（封面在）**。这条自造素材的做法可直接复用做回归。
     * **回归网**：lint **L16 重写** —— 编码类必须 `-map 0:V`、remux 必须 `-map 0:v`，
       两边写反都报 FAIL（错误信息直接引「0 字节」症状）；`selftest` 增 2 条用例
-      （`ffmpeg_probe.sh` 残留 `0:v` 必须被抓、`ffmpeg_copy_to_mp4.sh` 被改成 `0:V` 必须被抓），
+      （`ffmpeg_probe.sh` 残留 `0:v` 必须被抓、`ffmpeg_repack.sh` 被改成 `0:V` 必须被抓），
       共 **51 cases / 0 FAIL**。
     * **附带踩到的坑（记一笔）**：Windows 文件系统**大小写不敏感** —— 我用 `cyg_v.mp4` / `cyg_V.mp4`
       存两组对照产物，第二次运行直接**覆盖**了第一次（`md5` 一致才发现）。在 Windows 上做 A/B 对照，
@@ -1527,7 +1527,7 @@ AV1 硬解：master `-hwaccel qsv` → `Selecting decoder 'av1_qsv'` ✅；VAAPI
         随便写，一旦进块括号就用全角。② **别用 `find` / `findstr` 计数** —— PATH 里一旦有
         Git Bash / MSYS2 的 `/usr/bin`，`find` 会变成 **GNU find**（实测把 `",video,"` 当路径扫全盘，
         刷一屏 Permission denied 且巨慢）。改成 `for /f` 逐行解析 + 延迟扩展递增。
-      两族 `lib/common.*` 各加闸门；`ffmpeg_copy_to_mp4.*`（remux）**不动** —— 它本来就是 copy，封面一直在（第 51 条已记）。
+      两族 `lib/common.*` 各加闸门；`ffmpeg_repack.*`（remux）**不动** —— 它本来就是 copy，封面一直在（第 51 条已记）。
       **remux 里的 `-c:v copy` 是合法的**（它不重编码，全局复制就是它的本分）—— 现在 lint 明确只禁编码出口。
     * **回归网**：lint **L16 扩写** —— 编码类必须 ①**不得出现未加流号的 `-c:v copy`** ②引用封面映射变量
       ③有 `-c:v:0 <编码器>` ④不得出现未加作用域的 `-profile:v`；`lib/common.*` 必须同时定义封面映射字面量

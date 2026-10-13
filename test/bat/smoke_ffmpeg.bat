@@ -15,7 +15,7 @@ rem   - new case T31 for the --dry-run switch: rc=0, the command line comes
 rem     out with the input named in it, and NOTHING is produced. Runs on the
 rem     libx264 entry -> no hardware, never SKIPped. Same T-id as the .sh twin.
 rem v11 changes vs v10 (2026-10-02):
-rem   - new case T30: a Notepad-style list (CRLF line ends + UTF-8 BOM) must
+rem   - new case T21: a Notepad-style list (CRLF line ends + UTF-8 BOM) must
 rem     still produce one output per entry. The .sh side has covered this
 rem     since T21 (run_list strips the BOM); the .bat wrappers did not -- cmd's
 rem     for /f swallowed the BOM into the first path, check_isvideo then said
@@ -94,7 +94,7 @@ set "REPO=%~1"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
 rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat 族回归冒烟（T1-T31）" "用法: test\bat\smoke_ffmpeg.bat [仓库路径] [LIST]" "第二个参数写 LIST 时只跑清单段（T9 / T11 / T12 / T23 / T30）"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat 族回归冒烟（T1-T31）" "用法: test\bat\smoke_ffmpeg.bat [仓库路径] [LIST]" "第二个参数写 LIST 时只跑清单段（T9 / T11 / T12 / T23 / T21）"
 if defined FB_WANT_HELP exit /b 0
 set "ONLY=%~2"
 if /I not "%ONLY%"=="LIST" set "ONLY="
@@ -344,11 +344,11 @@ rem so the check is a relation ("LT:3836249"), not an exact number.
 chcp %CP0% >nul
 call :runA ffmpeg_libx264 "%LOWBR%" T17_libx264_lowbr LT:3836249 S A h264
 
-rem ============ T5: copy_to_mp4 (mov -> mp4, no bitrate table) ============
+rem ============ T5: ffmpeg_repack (mov -> mp4, no bitrate table) ============
 chcp %CP0% >nul
-call :runA ffmpeg_copy_to_mp4 "%INMOV%" T5_copy_to_mp4_A 0 C A h264
+call :runA ffmpeg_repack "%INMOV%" T5_ffmpeg_repack_A 0 C A h264
 
-rem ============ T33 (shared sh/bat): copy_to_mp4 --repair 抢救失效样本 ============
+rem ============ T33 (shared sh/bat): ffmpeg_repack --repair 抢救失效样本 ============
 rem 失效样本 broken_index.mp4 内联生成(与既有夹具同套路, 不入库):
 rem   base lavfi 造 320x240@25 4s, 再 "-ss 1 -c copy" 注入 edit list, 使默认 mp4
 rem   复制丢帧; --repair(-ignore_editlist +igndts+genpts)转 mkv 保真。
@@ -369,9 +369,9 @@ if "%GENOK%"=="0" (
   if not exist "%TD%" mkdir "%TD%" >nul 2>&1
   copy /y "%BRK%" "%TD%\src.mp4" >nul 2>&1
   set "L33=%LOGDIR%\T33_repair.log"
-  set "O33=%TD%\src.mkv"
+  set "O33=%TD%\src-repacked.mkv"
   if exist "%O33%" del /q "%O33%" >nul 2>&1
-  call "%REPO%\ffmpeg_copy_to_mp4.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
+  call "%REPO%\ffmpeg_repack.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
   set "RC33=%errorlevel%"
   set "V33=PASS"
   if not "%RC33%"=="0" set "V33=FAIL"
@@ -386,7 +386,37 @@ if "%GENOK%"=="0" (
     if "%RFR33%"=="0" set "V33=FAIL"
     if %RFR33% LSS %SFR33% set "V33=FAIL"
   )
-  echo [%V33%] T33 copy_to_mp4 --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
+  echo [%V33%] T33 ffmpeg_repack --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
+)
+
+rem ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
+rem 与 T33 同病理, 但走统一入口 ffmpeg_encode.bat --venc copy --repair, 验证阶段1 unify 后
+rem 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_repack 实现, 统一入口静默丢弃)。
+if not exist "%BRK%" (
+  call :skipcase T41 repair
+) else (
+  set "TD41=%WORK%\cases\T41_repair_unified"
+  if not exist "%TD41%" mkdir "%TD41%" >nul 2>&1
+  copy /y "%BRK%" "%TD41%\src.mp4" >nul 2>&1
+  set "L41=%LOGDIR%\T41_repair_unified.log"
+  set "O41=%TD41%\src-repacked.mkv"
+  if exist "%O41%" del /q "%O41%" >nul 2>&1
+  call "%REPO%\ffmpeg_encode.bat" --venc copy --repair "%TD41%\src.mp4" < nul > "%L41%" 2>&1
+  set "RC41=%errorlevel%"
+  set "V41=PASS"
+  if not "%RC41%"=="0" set "V41=FAIL"
+  if not exist "%O41%" set "V41=FAIL"
+  if "%V41%"=="PASS" (
+    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD41%\src.mp4" > "%LOGDIR%\T41_sfr.txt" 2>nul
+    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_sfr.txt") do set "SFR41=%%a"
+    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O41%" > "%LOGDIR%\T41_rfr.txt" 2>nul
+    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_rfr.txt") do set "RFR41=%%a"
+    if not defined SFR41 set "SFR41=0"
+    if not defined RFR41 set "RFR41=0"
+    if "%RFR41%"=="0" set "V41=FAIL"
+    if %RFR41% LSS %SFR41% set "V41=FAIL"
+  )
+  echo [%V41%] T41 encode --venc copy --repair broken_index.mp4 src=%SFR41% out=%RFR41% >> "%SUM%"
 )
 
 rem ============ usage B: double click + typed path (stdin fed) ============
@@ -465,7 +495,7 @@ if not errorlevel 1 ( set "V23=FAIL" & set "N23=%N23% bannerParseErr;" )
 echo [%V23%] T23 missing list entry aborts the wrapper rc=%RC23% >> "%SUM%"
 if not "%N23%"=="" echo        why: %N23% >> "%SUM%"
 
-rem ============ T30: CRLF + UTF-8 BOM list (twin of sh T21) ============
+rem ============ T21: CRLF + UTF-8 BOM list (twin of sh T21) ============
 rem sh T21 has covered this since the beginning: run_list strips a leading
 rem BOM from the first list line. The .bat wrappers did not, so a list saved
 rem by Notepad lost its first entry and the whole run died with rc=3
@@ -474,30 +504,99 @@ rem it in :RUN_ONE; this case pins that down: 3 entries -> 3 outputs, rc=0.
 rem The BOM is generated here (certutil -decodehex of "ef bb bf" + copy /b)
 rem instead of shipping a fixture: nothing external, nothing invisible.
 chcp %CP0% >nul
-set "T30D=%WORK%\cases\T30_list_crlf_bom"
-if not exist "%T30D%" mkdir "%T30D%" >nul 2>&1
-copy /y "%IN%" "%T30D%\bom1.mp4" >nul
-copy /y "%IN%" "%T30D%\bom2.mp4" >nul
-copy /y "%IN%" "%T30D%\bom3.mp4" >nul
-del /q "%T30D%\*-compressed.mp4" >nul 2>&1
->  "%T30D%\names.txt" echo %T30D%\bom1.mp4
->> "%T30D%\names.txt" echo %T30D%\bom2.mp4
->> "%T30D%\names.txt" echo %T30D%\bom3.mp4
->  "%T30D%\bom.hex" echo ef bb bf
-certutil -decodehex "%T30D%\bom.hex" "%T30D%\bom.bin" >nul 2>&1
-copy /b "%T30D%\bom.bin" + "%T30D%\names.txt" "%T30D%\list.txt" >nul 2>&1
-call "%REPO%\convert_from_list_libx265.bat" "%T30D%\list.txt" < nul > "%LOGDIR%\T30_list_crlf_bom.log" 2>&1
-set "RC30=%errorlevel%"
-set "CNT30=0"
-for %%c in ("%T30D%\*-compressed.mp4") do set /a CNT30+=1
-set "V30=PASS"
-set "N30="
-if not "%RC30%"=="0" ( set "V30=FAIL" & set "N30=%N30% rc=%RC30% want0;" )
-if not "%CNT30%"=="3" ( set "V30=FAIL" & set "N30=%N30% outputs=%CNT30% want3;" )
-findstr /i /c:"is not recognized" "%LOGDIR%\T30_list_crlf_bom.log" >nul 2>&1
-if not errorlevel 1 ( set "V30=FAIL" & set "N30=%N30% bannerParseErr;" )
-echo [%V30%] T30 CRLF + UTF-8 BOM list : %CNT30% of 3 outputs, rc=%RC30% >> "%SUM%"
-if not "%N30%"=="" echo        why: %N30% >> "%SUM%"
+set "T21D=%WORK%\cases\T21_list_crlf_bom"
+if not exist "%T21D%" mkdir "%T21D%" >nul 2>&1
+copy /y "%IN%" "%T21D%\bom1.mp4" >nul
+copy /y "%IN%" "%T21D%\bom2.mp4" >nul
+copy /y "%IN%" "%T21D%\bom3.mp4" >nul
+del /q "%T21D%\*-compressed.mp4" >nul 2>&1
+>  "%T21D%\names.txt" echo %T21D%\bom1.mp4
+>> "%T21D%\names.txt" echo %T21D%\bom2.mp4
+>> "%T21D%\names.txt" echo %T21D%\bom3.mp4
+>  "%T21D%\bom.hex" echo ef bb bf
+certutil -decodehex "%T21D%\bom.hex" "%T21D%\bom.bin" >nul 2>&1
+copy /b "%T21D%\bom.bin" + "%T21D%\names.txt" "%T21D%\list.txt" >nul 2>&1
+call "%REPO%\convert_from_list_libx265.bat" "%T21D%\list.txt" < nul > "%LOGDIR%\T21_list_crlf_bom.log" 2>&1
+set "RC21=%errorlevel%"
+set "CNT21=0"
+for %%c in ("%T21D%\*-compressed.mp4") do set /a CNT21+=1
+set "V21=PASS"
+set "N21="
+if not "%RC21%"=="0" ( set "V21=FAIL" & set "N21=%N21% rc=%RC21% want0;" )
+if not "%CNT21%"=="3" ( set "V21=FAIL" & set "N21=%N21% outputs=%CNT21% want3;" )
+findstr /i /c:"is not recognized" "%LOGDIR%\T21_list_crlf_bom.log" >nul 2>&1
+if not errorlevel 1 ( set "V21=FAIL" & set "N21=%N21% bannerParseErr;" )
+echo [%V21%] T21 CRLF + UTF-8 BOM list : %CNT21% of 3 outputs, rc=%RC21% >> "%SUM%"
+if not "%N21%"=="" echo        why: %N21% >> "%SUM%"
+
+rem ============ T6: interactive mode, path via stdin (twin of sh T6) ============
+rem No bitrate override; stdin = path then a blank line (keeps computed bitrate).
+call :gate ffmpeg_avc_qsv
+if defined GATED ( call :skipcase T6 ffmpeg_avc_qsv
+) else ( call :runB ffmpeg_avc_qsv "%IN%" T6_avc_qsv_stdin 3836249 avc_qsv_stdin )
+
+rem ============ T18: interactive bitrate override via stdin (twin of sh T18) ============
+rem stdin = path + "900k" + blank -> the wrapper must honour the override.
+call :runB2 ffmpeg_libx264 "%IN%" T18_libx264_stdin_br 900k libx264_stdin_br 900k
+
+rem ============ T22: 5-entry list -> 5 outputs (twin of sh T22) ============
+chcp %CP0% >nul
+set "T22D=%WORK%\cases\T22_list_5entry"
+if not exist "%T22D%" mkdir "%T22D%" >nul 2>&1
+copy /y "%IN%" "%T22D%\e1.mkv" >nul
+copy /y "%IN%" "%T22D%\e2.mkv" >nul
+copy /y "%IN%" "%T22D%\e3.mkv" >nul
+copy /y "%IN%" "%T22D%\e4.mkv" >nul
+copy /y "%IN%" "%T22D%\e5.mkv" >nul
+del /q "%T22D%\*-compressed.mp4" >nul 2>&1
+>  "%T22D%\list.txt" echo %T22D%\e1.mkv
+>> "%T22D%\list.txt" echo %T22D%\e2.mkv
+>> "%T22D%\list.txt" echo %T22D%\e3.mkv
+>> "%T22D%\list.txt" echo %T22D%\e4.mkv
+>> "%T22D%\list.txt" echo %T22D%\e5.mkv
+call "%REPO%\convert_from_list_libx265.bat" "%T22D%\list.txt" < nul > "%LOGDIR%\T22_list_5entry.log" 2>&1
+set "RC22=%errorlevel%"
+set "CNT22=0"
+for %%c in ("%T22D%\*-compressed.mp4") do set /a CNT22+=1
+set "V22=PASS"
+set "N22="
+if not "%RC22%"=="0" ( set "V22=FAIL" & set "N22=%N22% rc=%RC22% want0;" )
+if not "%CNT22%"=="5" ( set "V22=FAIL" & set "N22=%N22% outputs=%CNT22% want5;" )
+findstr /i /c:"is not recognized" "%LOGDIR%\T22_list_5entry.log" >nul 2>&1
+if not errorlevel 1 ( set "V22=FAIL" & set "N22=%N22% bannerParseErr;" )
+echo [%V22%] T22 5-entry list -> 5 outputs, rc=%RC22% >> "%SUM%"
+if not "%N22%"=="" echo        why: %N22% >> "%SUM%"
+
+rem ============ T24: missing input file -> non-zero, no output (twin of sh T24) ============
+chcp %CP0% >nul
+set "T24D=%WORK%\cases\T24_missing"
+if not exist "%T24D%" mkdir "%T24D%" >nul 2>&1
+set "T24IN=%T24D%\does_not_exist.mp4"
+set "T24OUT=%T24D%\does_not_exist-compressed.mp4"
+set "T24LOG=%LOGDIR%\T24_missing.log"
+call "%REPO%\ffmpeg_avc_qsv.bat" "%T24IN%" < nul > "%T24LOG%" 2>&1
+set "RC24=%errorlevel%"
+set "V24=PASS"
+set "N24="
+if "%RC24%"=="0" ( set "V24=FAIL" & set "N24=%N24% rc=0 want non-zero;" )
+if exist "%T24OUT%" ( set "V24=FAIL" & set "N24=%N24% outputWrittenForMissingInput;" )
+echo [%V24%] T24 missing input rejected rc=%RC24% >> "%SUM%"
+if not "%N24%"=="" echo        why: %N24% >> "%SUM%"
+
+rem ============ T25: a non-text list file must be rejected (twin of sh T25) ============
+chcp %CP0% >nul
+set "T25D=%WORK%\cases\T25_badlist"
+if not exist "%T25D%" mkdir "%T25D%" >nul 2>&1
+>  "%T25D%\blob.hex" echo 00 01 02
+certutil -decodehex "%T25D%\blob.hex" "%T25D%\blob.bin" >nul 2>&1
+set "T25LOG=%LOGDIR%\T25_badlist.log"
+call "%REPO%\convert_from_list_qsv.bat" "%T25D%\blob.bin" < nul > "%T25LOG%" 2>&1
+set "RC25=%errorlevel%"
+set "V25=PASS"
+set "N25="
+if "%RC25%"=="0" ( set "V25=FAIL" & set "N25=%N25% rc=0 want non-zero;" )
+echo [%V25%] T25 non-text list file rejected rc=%RC25% >> "%SUM%"
+if not "%N25%"=="" echo        why: %N25% >> "%SUM%"
 
 :LISTONLY
 rem T9/T11/T12 run convert_from_list_qsv.bat, which needs QSV AVC hardware.
@@ -573,29 +672,30 @@ findstr /i /c:"-c:v:0 libx265" "%T32LOG%" >nul 2>&1
 if errorlevel 1 set "V32=FAIL" & set "N32=%N32% noLibx265Args"
 echo [%V32%] T32 encode_libx265 rc=%RC32% -- unified entry arg mode >> "%SUM%"
 if not "%N32%"=="" echo        why: %N32% >> "%SUM%"
-rem ============ T33: 新旧入口同参 -> RUN_COM 逐字一致 ============
+rem ============ T42: 新旧入口同参 -> RUN_COM 逐字一致 ============
 rem 这是"等价"的直接证据。老用例只断言各自跑通, 不断言两个入口命令行相同 ——
 rem 抽内核时最值得盯的就是这个, 任何一侧改了参数顺序或多一个空格都会被抓到。
 rem 比较方式用 findstr 抽行 + fc 字节比对, **不用** for /f 读回来:
 rem 后者那套 for /f "delims=" %%L in ('... "...%VAR%"...') 的嵌套引号在 cmd 下
 rem 会被吞, 表现为整个文件被当命令执行、套件跑不到断言就死(2026-10-08 踩过)。
+rem (原 T33 双重占用: 此处"新旧入口等价"与 repair 测试撞号, 2026-10-13 起挪到 T42。)
 chcp %CP0% >nul
-set "T33LNEW=%LOGDIR%\T33_equiv_new.log"
-set "T33LOLD=%LOGDIR%\T33_equiv_old.log"
-set "T33FNEW=%LOGDIR%\T33_new.txt"
-set "T33FOLD=%LOGDIR%\T33_old.txt"
-call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T33LNEW%" 2>&1
-call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T33LOLD%" 2>&1
-findstr /b /c:"RUN_COM0=" "%T33LNEW%" > "%T33FNEW%"
-findstr /b /c:"RUN_COM0=" "%T33LOLD%" > "%T33FOLD%"
-set "V33=PASS"
-set "N33="
-for %%A in ("%T33FNEW%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=newNoRUN_COM"
-for %%A in ("%T33FOLD%") do if %%~zA LEQ 1 set "V33=FAIL" & set "N33=%N33% oldNoRUN_COM"
-fc /b "%T33FNEW%" "%T33FOLD%" >nul 2>&1
-if errorlevel 1 set "V33=FAIL" & set "N33=%N33% RUN_COM differs"
-echo [%V33%] T33 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
-if not "%N33%"=="" echo        why: %N33% >> "%SUM%"
+set "T42LNEW=%LOGDIR%\T42_equiv_new.log"
+set "T42LOLD=%LOGDIR%\T42_equiv_old.log"
+set "T42FNEW=%LOGDIR%\T42_new.txt"
+set "T42FOLD=%LOGDIR%\T42_old.txt"
+call "%REPO%\ffmpeg_encode.bat" --venc libx265 --dry-run "%IN%" < nul > "%T42LNEW%" 2>&1
+call "%REPO%\ffmpeg_libx265.bat" --dry-run "%IN%" < nul > "%T42LOLD%" 2>&1
+findstr /b /c:"RUN_COM0=" "%T42LNEW%" > "%T42FNEW%"
+findstr /b /c:"RUN_COM0=" "%T42LOLD%" > "%T42FOLD%"
+set "V42=PASS"
+set "N42="
+for %%A in ("%T42FNEW%") do if %%~zA LEQ 1 set "V42=FAIL" & set "N42=newNoRUN_COM"
+for %%A in ("%T42FOLD%") do if %%~zA LEQ 1 set "V42=FAIL" & set "N42=%N42% oldNoRUN_COM"
+fc /b "%T42FNEW%" "%T42FOLD%" >nul 2>&1
+if errorlevel 1 set "V42=FAIL" & set "N42=%N42% RUN_COM differs"
+echo [%V42%] T42 unified --venc libx265 vs ffmpeg_libx265.bat -- byte identical RUN_COM >> "%SUM%"
+if not "%N42%"=="" echo        why: %N42% >> "%SUM%"
 rem ============ T34: --dec 的命令行形态 ============
 rem 阶段 1 的统一入口断言, 每条单独加、单独在真机跑一遍冒烟。
 rem 这里用 --dry-run 断言命令行, 所以本机有没有硬编都能跑。
@@ -649,11 +749,11 @@ set "RC36=%errorlevel%"
 if "%RC36%"=="0" set "V36=FAIL"
 echo [%V36%] T36 unknown and missing --venc both rejected >> "%SUM%"
 rem ============ T37: --venc copy 并入转封装 ============
-rem 三个要点: 产物与源同名(不带 -compressed)、带 moov 前置、源已是目标容器能早退。
+rem 三个要点: 产出 <名>-repacked.mp4(不带 -compressed)、带 moov 前置、源无论容器都处理(不再早退)。
 rem ⚠️ 别在 %WORK% 里留多余文件: 元字符矩阵会数这个目录的文件, 之前 A19 就是这么挂的。
 chcp %CP0% >nul
 set "L37=%LOGDIR%\T37_copy.log"
-set "O37=%WORK%\unified remux.mp4"
+set "O37=%WORK%\unified remux-repacked.mp4"
 del /q "%O37%" >nul 2>&1
 del /q "%WORK%\unified remux-compressed.mp4" >nul 2>&1
 copy /y "%INMOV%" "%WORK%\unified remux.mov" >nul 2>&1
@@ -665,7 +765,71 @@ if not exist "%O37%" set "V37=FAIL"
 if exist "%WORK%\unified remux-compressed.mp4" set "V37=FAIL"
 findstr /c:"-movflags +faststart" "%L37%" >nul 2>&1
 if errorlevel 1 set "V37=FAIL"
-echo [%V37%] T37 copy -- remux with faststart and plain output name >> "%SUM%"
+echo [%V37%] T37 copy -- remux with faststart and -repacked name >> "%SUM%"
+echo. >> "%SUM%"
+rem ============ T38: --venc copy 对"源已是目标容器"的 mp4 也处理 -> -repacked.mp4 ============
+rem 与 sh T38 对齐: 不再因同容器早退, 产出 <名>-repacked.mp4, 且源文件不被覆写。
+if not exist "%WORK%\cases\T38_copy_same" mkdir "%WORK%\cases\T38_copy_same" >nul 2>&1
+copy /y "%IN%" "%WORK%\cases\T38_copy_same\already.mp4" >nul 2>&1
+set "L38=%LOGDIR%\T38_copy_same.log"
+set "O38=%WORK%\cases\T38_copy_same\already-repacked.mp4"
+if exist "%O38%" del /q "%O38%" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy "%WORK%\cases\T38_copy_same\already.mp4" < nul > "%L38%" 2>&1
+set "RC38=%errorlevel%"
+set "V38=PASS"
+if not "%RC38%"=="0" set "V38=FAIL"
+if not exist "%O38%" set "V38=FAIL"
+echo [%V38%] T38 copy on already-mp4 source -> already-repacked.mp4 (no skip) >> "%SUM%"
+echo. >> "%SUM%"
+rem ============ T39: 软件 AV1(libsvtav1, 阶段1 新增) ============
+rem 与 sh T39 对齐: 构建没有该编码器时 SKIP 而不是 FAIL。
+"%FF%" -hide_banner -encoders 2>nul | findstr /c:"libsvtav1" >nul 2>&1
+if errorlevel 1 (
+  call :skipcase T39 svtav1
+) else (
+  if not exist "%WORK%\cases\T39_svtav1" mkdir "%WORK%\cases\T39_svtav1" >nul 2>&1
+  copy /y "%IN%" "%WORK%\cases\T39_svtav1\clip.mp4" >nul 2>&1
+  set "L39=%LOGDIR%\T39_svtav1.log"
+  set "O39=%WORK%\cases\T39_svtav1\clip-compressed.mp4"
+  if exist "%O39%" del /q "%O39%" >nul 2>&1
+  call "%REPO%\ffmpeg_encode.bat" --venc libsvtav1 "%WORK%\cases\T39_svtav1\clip.mp4" < nul > "%L39%" 2>&1
+  set "RC39=%errorlevel%"
+  set "V39=PASS"
+  if not "%RC39%"=="0" set "V39=FAIL"
+  if not exist "%O39%" set "V39=FAIL"
+  echo [%V39%] T39 svtav1 rc=%RC39% -- software AV1 >> "%SUM%"
+)
+echo. >> "%SUM%"
+rem ============ T40: copy 不解码也不重编码, 给了 --dec 要明说被忽略 ============
+rem 与 sh T40 对齐: --dec cuda 在 --venc copy 下应被明确告知忽略(不是默默吞掉)。
+set "L40=%LOGDIR%\T40_copy_dec.log"
+call "%REPO%\ffmpeg_encode.bat" --venc copy --dec cuda --dry-run "%IN%" < nul > "%L40%" 2>&1
+set "RC40=%errorlevel%"
+set "V40=PASS"
+if not "%RC40%"=="0" set "V40=FAIL"
+findstr /c:"无效" /c:"忽略" "%L40%" >nul 2>&1
+if errorlevel 1 set "V40=FAIL"
+echo [%V40%] T40 copy+--dec reported as ignored (not silently dropped) rc=%RC40% >> "%SUM%"
+echo. >> "%SUM%"
+rem ============ T43: 薄壳 ffmpeg_repack 对 mp4 源 -> -repacked.mp4; 产物已存在走 FF_ON_EXIST ============
+rem 与 sh T43 对齐。
+if not exist "%WORK%\cases\T43_repack" mkdir "%WORK%\cases\T43_repack" >nul 2>&1
+copy /y "%IN%" "%WORK%\cases\T43_repack\clip.mp4" >nul 2>&1
+set "L43=%LOGDIR%\T43_repack.log"
+set "O43=%WORK%\cases\T43_repack\clip-repacked.mp4"
+if exist "%O43%" del /q "%O43%" >nul 2>&1
+call "%REPO%\ffmpeg_repack.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43%" 2>&1
+set "RC43=%errorlevel%"
+set "V43=PASS"
+if not "%RC43%"=="0" set "V43=FAIL"
+if not exist "%O43%" set "V43=FAIL"
+if "%V43%"=="PASS" (
+  set "L43B=%LOGDIR%\T43_repack_skip.log"
+  call "%REPO%\ffmpeg_repack.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43B%" 2>&1
+  findstr /c:"SKIPPED" "%L43B%" >nul 2>&1
+  if errorlevel 1 set "V43=FAIL"
+)
+echo [%V43%] T43 ffmpeg_repack mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
@@ -770,6 +934,26 @@ set "LOG=%LOGDIR%\%LOGN%.log"
 for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
 del /q "%OUT%" >nul 2>&1
 ( echo %~2 & echo. & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
+set "RC=%errorlevel%"
+call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
+exit /b 0
+
+rem ============================================================
+rem :runB2 <batname> <input> <logname> <expected TARGET_BITRATE> <modelabel> <line2>
+rem   interactive, stdin fed with: line1 = input path, line2 = custom (e.g. a
+rem   bitrate override), line3 = blank (keeps computed defaults)
+rem ============================================================
+:runB2
+set "NAM=%~1"
+set "INP=%~2"
+set "LOGN=%~3"
+set "EXP=%~4"
+set "MDL=%~5"
+set "L2=%~6"
+set "LOG=%LOGDIR%\%LOGN%.log"
+for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
+del /q "%OUT%" >nul 2>&1
+( echo %~2 & echo %L2% & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
 set "RC=%errorlevel%"
 call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
 exit /b 0

@@ -416,7 +416,7 @@ CASES = [
     ),
     (
         "L16: rewriting the remux entry to -map 0:V would drop its cover art",
-        "ffmpeg_copy_to_mp4.sh", False,
+        "ffmpeg_repack.sh", False,
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
@@ -633,7 +633,7 @@ CASES = [
     ),
     (
         "L16 precision: the remux keeps its bare `-c:v copy` (no re-encode there)",
-        "ffmpeg_copy_to_mp4.sh", False,
+        "ffmpeg_repack.sh", False,
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
@@ -651,7 +651,7 @@ CASES = [
     ),
     (
         "L17: a remux entry that leaves moov behind mdat is caught",
-        "ffmpeg_copy_to_mp4.bat", True,
+        "ffmpeg_repack.bat", True,
         "@echo off\n"
         ":main\n"
         "setlocal\n"
@@ -669,7 +669,7 @@ CASES = [
     ),
     (
         "L17 precision: a .sh remux entry with +faststart stays silent",
-        "ffmpeg_copy_to_mp4.sh", False,
+        "ffmpeg_repack.sh", False,
         "#!/bin/bash\n"
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"

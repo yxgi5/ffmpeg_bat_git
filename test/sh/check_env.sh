@@ -181,7 +181,7 @@ ffmpeg_hevc_nvenc.sh|hevc_nvenc|nvidia|NVIDIA NVENC HEVC
 ffmpeg_av1_nvenc.sh|av1_nvenc|nvidia|AV1 NVENC needs Ada (RTX 40) or newer
 ffmpeg_h264_vaapi.sh|h264_vaapi|render|VAAPI is a Linux kernel API
 ffmpeg_hevc_vaapi.sh|hevc_vaapi|render|VAAPI is a Linux kernel API
-ffmpeg_copy_to_mp4.sh|-|none|remux only, no encoder involved
+ffmpeg_repack.sh|-|none|remux only, no encoder involved
 EOF
 }
 

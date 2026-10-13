@@ -7,9 +7,10 @@
 #   families share the same T-id, the same 1080p60 fixture and
 #   the same expected TARGET_BITRATE, so a T-number difference
 #   between the two families is a real cross-family divergence.
-#   sh-only cases are T8 / T18 / T19 / T20 / T21 / T22 /
-#   T24 / T25 (see test/README.md for the full table). T23 is
-#   shared since 2026-09-17, when the .bat wrappers started to
+#   sh-only cases are T8 / T19 (Linux VAAPI; Windows has no equivalent entry).
+#   T18/T21/T22/T24/T25 used to be sh-only too, but since 2026-10-13 the .bat
+#   harness carries twins for them, so the two families now share those ids.
+#   T23 is shared since 2026-09-17, when the .bat wrappers started to
 #   fail fast on a failed child.
 #
 #   Location: <repo>/test/sh/  - the repo root is derived from
@@ -417,14 +418,14 @@ else
     gate_arg T15 ffmpeg_av1_qsv.sh 1707157 av1 "AV1 QSV (needs Arrow Lake or newer iGPU)"
 fi
 
-# T5: copy_to_mp4 remux, no bitrate table; output keeps the source name
-d="$W/cases/T5_copy_to_mp4"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mkv"
-LOGF="$LOG/T5_copy_to_mp4.log"; OUT="$d/remux_me.mp4"; rm -f "$OUT"
-bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/remux_me.mkv" > "$LOGF" 2>&1
+# T5: ffmpeg_repack remux, no bitrate table; output keeps the source name
+d="$W/cases/T5_ffmpeg_repack"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mkv"
+LOGF="$LOG/T5_ffmpeg_repack.log"; OUT="$d/remux_me-repacked.mp4"; rm -f "$OUT"
+bash "$REPO/ffmpeg_repack.sh" "$d/remux_me.mkv" > "$LOGF" 2>&1
 RC=$?
-judge T5 copy_to_mp4 ok INFO h264 "arg: remux mov -> mp4, no re-encode"
+judge T5 ffmpeg_repack ok INFO h264 "arg: remux mov -> mp4, no re-encode"
 
-# ============ T33 (shared sh/bat): copy_to_mp4 --repair 抢救失效样本 ============
+# ============ T33 (shared sh/bat): ffmpeg_repack --repair 抢救失效样本 ============
 # 失效样本 broken_index.mp4 内联生成(与既有夹具同一套路, 不入库):
 #   base 用 lavfi 造 320x240@25 4s, 再 "-ss 1 -c copy" 注入 edit list / 非零起点,
 #   这正是「默认 -c copy 到 mp4(faststart) 会丢帧; --repair(-ignore_editlist
@@ -442,8 +443,8 @@ if [ "$GENOK" = 0 ] || [ ! -f "$BRK" ]; then
   skipcase T33 repair "broken_index fixture generation failed"
 else
   d="$W/cases/T33_repair"; mkdir -p "$d"; cp -f "$BRK" "$d/src.mp4"
-  LOGF="$LOG/T33_repair.log"; OUT="$d/src.mkv"; rm -f "$OUT"
-  bash "$REPO/ffmpeg_copy_to_mp4.sh" --repair "$d/src.mp4" > "$LOGF" 2>&1
+  LOGF="$LOG/T33_repair.log"; OUT="$d/src-repacked.mkv"; rm -f "$OUT"
+  bash "$REPO/ffmpeg_repack.sh" --repair "$d/src.mp4" > "$LOGF" 2>&1
   RC=$?
   if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
     SFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$d/src.mp4" 2>/dev/null | head -1)
@@ -455,6 +456,34 @@ else
     fi
   else
     FAIL=$((FAIL+1)); say "[FAIL] T33 repair rc=$RC (no mkv output; log $LOGF)"
+  fi
+fi
+
+# ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
+# 与 T33 同病理, 但走统一入口 ffmpeg_encode --venc copy --repair, 验证阶段1 unify 后
+# 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_repack 实现, 统一入口静默丢弃)。
+if [ ! -f "$BRK" ]; then
+  mk_fixture "$W/_broken_base_t41.mp4" 320x240 25 4 1M 1
+  ff_run -hide_banner -v error -y -ss 1 -i "$W/_broken_base_t41.mp4" -c copy "$BRK"
+  rm -f "$W/_broken_base_t41.mp4"
+fi
+if [ ! -f "$BRK" ]; then
+  skipcase T41 repair_unified "broken_index fixture unavailable"
+else
+  d="$W/cases/T41_repair_unified"; mkdir -p "$d"; cp -f "$BRK" "$d/src.mp4"
+  LOGF="$LOG/T41_repair_unified.log"; OUT="$d/src-repacked.mkv"; rm -f "$OUT"
+  bash "$REPO/ffmpeg_encode.sh" --venc copy --repair "$d/src.mp4" > "$LOGF" 2>&1
+  RC=$?
+  if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
+    SFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$d/src.mp4" 2>/dev/null | head -1)
+    RFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$OUT" 2>/dev/null | head -1)
+    if [ "${RFR:-0}" -gt 0 ] && [ "${RFR:-0}" -ge "${SFR:-0}" ]; then
+      PASS=$((PASS+1)); say "[PASS] T41 repair_unified rc=$RC src_frames=$SFR out_frames=$RFR (ffmpeg_encode --venc copy --repair recovers >= source into mkv)"
+    else
+      FAIL=$((FAIL+1)); say "[FAIL] T41 repair_unified src_frames=${SFR:-?} out_frames=${RFR:-?} (unified entry lost frames vs source)"
+    fi
+  else
+    FAIL=$((FAIL+1)); say "[FAIL] T41 repair_unified rc=$RC (no mkv output; log $LOGF)"
   fi
 fi
 
@@ -509,7 +538,7 @@ mklist() {   # mklist <dir> <listfile> <eol:lf|crlf> <bom:0|1> <names...>
 }
 
 if part_in list; then
-head1 "part list: T9/T11/T12/T23 mirror the .bat harness, T21-T22 are sh-only extensions"
+head1 "part list: T9/T11/T12/T23 mirror the .bat harness; T21/T22 are also mirrored on the .bat side since 2026-10-13"
 
 # convert_from_list_qsv.sh needs QSV AVC hardware. Probe ONCE for the whole
 # part: on a box without QSV (e.g. the Raspberry Pi test box) the three list
@@ -655,19 +684,20 @@ bash "$REPO/ffmpeg_encode.sh" --venc libx265 "$d/clip.mp4" < /dev/null > "$LOGF"
 RC=$?
 judge T32 encode_libx265 ok INFO hevc "arg: --venc libx265 (unified entry, real run)"
 
-# T33: T32 的产物必须与老入口逐字同参 —— 用 --dry-run 比对 RUN_COM, 这是"等价"的
+# T42: T32 的产物必须与老入口逐字同参 —— 用 --dry-run 比对 RUN_COM, 这是"等价"的
 # 直接证据(老入口 T1 只断言自己跑通, 不断言两个入口命令行一致)。
-d="$W/cases/T33_equiv"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
-LOG_NEW="$LOG/T33_equiv_new.log"; LOG_OLD="$LOG/T33_equiv_old.log"
+# (原 T33 双重占用: 此处"新旧入口等价"与 repair 测试撞号, 2026-10-13 起挪到 T42。)
+d="$W/cases/T42_equiv"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+LOG_NEW="$LOG/T42_equiv_new.log"; LOG_OLD="$LOG/T42_equiv_old.log"
 bash "$REPO/ffmpeg_encode.sh"        --venc libx265 --dry-run "$d/clip.mp4" < /dev/null > "$LOG_NEW" 2>&1
 bash "$REPO/ffmpeg_libx265.sh"            --dry-run "$d/clip.mp4" < /dev/null > "$LOG_OLD" 2>&1
 RC=0
 A="$(grep -m1 '^RUN_COM:' "$LOG_NEW" | sed 's/^RUN_COM: //')"
 B="$(grep -m1 '^RUN_COM:' "$LOG_OLD" | sed 's/^RUN_COM: //')"
 if [ -n "$A" ] && [ "$A" = "$B" ]; then
-    PASS=$((PASS+1)); say "[PASS] T33 unified --venc libx265 == ffmpeg_libx265.sh (byte-identical RUN_COM)"
+    PASS=$((PASS+1)); say "[PASS] T42 unified --venc libx265 == ffmpeg_libx265.sh (byte-identical RUN_COM)"
 else
-    FAIL=$((FAIL+1)); say "[FAIL] T33 RUN_COM differs: new=[${A:0:90}] old=[${B:0:90}]"
+    FAIL=$((FAIL+1)); say "[FAIL] T42 RUN_COM differs: new=[${A:0:90}] old=[${B:0:90}]"
 fi
 
 # T34: --dec 各取值的命令行形态。软件编 + dry-run, 所以本机有没有硬编都能跑。
@@ -729,7 +759,7 @@ fi
 # T37: --venc copy 并入转封装。四个要点一次验完: rc=0 / 产物与源同名的 .mp4 /
 # moov 前置(ftyp/moov/free/mdat 而不是 ftyp/free/mdat/moov)/ 没有 -compressed 后缀。
 d="$W/cases/T37_copy"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mov"
-LOGF="$LOG/T37_copy.log"; OUT="$d/remux_me.mp4"; rm -f "$OUT" "$d/remux_me-compressed.mp4"
+LOGF="$LOG/T37_copy.log"; OUT="$d/remux_me-repacked.mp4"; rm -f "$OUT" "$d/remux_me-compressed.mp4"
 bash "$REPO/ffmpeg_encode.sh" --venc copy "$d/remux_me.mov" < /dev/null > "$LOGF" 2>&1
 RC=$?
 COPY_WHY=""
@@ -759,16 +789,15 @@ else
     FAIL=$((FAIL+1)); say "[FAIL] T37 copy:$COPY_WHY"
 fi
 
-# T38: copy 遇到"源已是目标容器"直接退出 0, 不产垃圾文件
+# T38: copy 统一入口对"源已是目标容器"的 mp4 也处理 -> 产出 <名>-repacked.mp4(不跳过、不覆写源)
 d="$W/cases/T38_copy_same"; mkdir -p "$d"; cp -f "$IN" "$d/already.mp4"
-LOGF="$LOG/T38_copy_same.log"; rm -f "$d/already.mp4.tmp"
+LOGF="$LOG/T38_copy_same.log"; OUT="$d/already-repacked.mp4"; rm -f "$OUT"
 bash "$REPO/ffmpeg_encode.sh" --venc copy "$d/already.mp4" < /dev/null > "$LOGF" 2>&1
 RC=$?
-SKIPMSG="$(grep -c '不需要转换' "$LOGF")"
-if [ "$RC" -eq 0 ] && [ "$SKIPMSG" -ge 1 ]; then
-    PASS=$((PASS+1)); say "[PASS] T38 copy on an already-mp4 source exits 0 and says why"
+if [ "$RC" -eq 0 ] && [ -f "$OUT" ] && [ -f "$d/already.mp4" ]; then
+    PASS=$((PASS+1)); say "[PASS] T38 copy on an already-mp4 source remuxes to already-repacked.mp4 (no skip, source intact)"
 else
-    FAIL=$((FAIL+1)); say "[FAIL] T38 copy same-container rc=$RC msg=$SKIPMSG"
+    FAIL=$((FAIL+1)); say "[FAIL] T38 copy same-container rc=$RC out=$([ -f "$OUT" ] && echo yes || echo no)"
 fi
 
 # T39: 软件 AV1(libsvtav1, 阶段1 新增)。构建没有该编码器时 SKIP 而不是 FAIL。
@@ -790,6 +819,25 @@ if [ "$RC" -eq 0 ] && grep -qa '无效' "$LOGF"; then
     PASS=$((PASS+1)); say "[PASS] T40 --dec on --venc copy is reported as ignored, not silently dropped"
 else
     FAIL=$((FAIL+1)); say "[FAIL] T40 copy+--dec rc=$RC (want rc=0 and an explicit 'ignored' note)"
+fi
+
+# T43 (shared sh/bat): 薄壳 ffmpeg_repack 对 mp4 源也处理 -> -repacked.mp4;
+# 产物已存在走 FF_ON_EXIST(默认 skip, 与编码入口一致)。
+d="$W/cases/T43_repack"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
+LOGF="$LOG/T43_repack.log"; OUT="$d/clip-repacked.mp4"; rm -f "$OUT"
+bash "$REPO/ffmpeg_repack.sh" "$d/clip.mp4" > "$LOGF" 2>&1
+RC=$?
+if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
+    LOGF2="$LOG/T43_repack_skip.log"
+    bash "$REPO/ffmpeg_repack.sh" "$d/clip.mp4" > "$LOGF2" 2>&1
+    SKIPNOTE="$(grep -c '跳过' "$LOGF2")"
+    if [ "$SKIPNOTE" -ge 1 ]; then
+        PASS=$((PASS+1)); say "[PASS] T43 repack mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip skips"
+    else
+        FAIL=$((FAIL+1)); say "[FAIL] T43 repack re-run did not report skip (FF_ON_EXIST) msg=$SKIPNOTE"
+    fi
+else
+    FAIL=$((FAIL+1)); say "[FAIL] T43 repack mp4 source rc=$RC out=$([ -f "$OUT" ] && echo yes || echo no)"
 fi
 
 # ---- global hygiene: no log may carry the banner parse error or a shell error ----

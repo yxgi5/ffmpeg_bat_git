@@ -92,7 +92,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 | `ffmpeg_libx265.bat` | HEVC 软编 | 无硬件要求（保底方案） |
 | **`ffmpeg_encode.bat`** | **统一入口** | **`--venc` 指定编码器**：`libx264` `libx265` `libsvtav1`（软件 AV1） / `avc_qsv` `hevc_qsv` `av1_qsv` / `avc_nvenc` `hevc_nvenc` `av1_nvenc` / `copy`（仅换容器，带 moov 前置）。可选 `--dec auto\|cpu\|none\|qsv\|cuda`（省略用编码器族的固定解码；与族不一致只警告不拦）。下面每个单编码器入口都是它的薄壳，**老用法完全兼容**（详见 `TODO.md` §7） |
 | `ffmpeg_libx264.bat` | H.264 软编 | 无硬件要求（H.264 保底，与 `.sh` 侧对齐） |
-| `ffmpeg_copy_to_mp4.bat` | 不重编码 | 仅换容器，已是 mp4 则直接退出；**moov 前置**（`-movflags +faststart`，边下边播可用） |
+| `ffmpeg_repack.bat` | 不重编码 | 仅换容器，无论源格式都产出 `<名>-repacked.<ext>`（绝不覆写源）；**moov 前置**（`-movflags +faststart`，边下边播可用） |
 | `ffmpeg_dvd_hevc.bat` | HEVC（默认 `nvenc`→`qsv`→`libx265` 自动挑） | **DVD-Video / 蓝光** 专用：ISO / `VIDEO_TS` 目录 / `BDMV` 目录 / 光驱 / 单个 `.m2ts` → HEVC MKV。DVD 那一路需带 `libdvdread`+`libdvdnav` 的 ffmpeg（有 `dvdvideo` 解复用器），否则脚本直接报错退出；蓝光那一路走 `m2ts` 直读，不需要它。`VENC=` 可显式指定（含 `h264_qsv` / `av1_qsv` 等），见后文 |
 
 **清单批量**（不带参数默认读 `list.txt`，也可指定）：
@@ -139,7 +139,7 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 
 `ffmpeg_dvd_hevc` 之外的每个顶层入口（`ffmpeg_av1_nvenc` / `av1_qsv` / `avc_qsv` /
 `hevc_nvenc` / `hevc_qsv` / `hevc_vaapi` / `h264_vaapi` / `libx264` / `libx265` /
-`copy_to_mp4`，两族同名）都认这个开关 —— 与 DVD 脚本的 `EXT` **同名同义**，
+`ffmpeg_repack`，两族同名）都认这个开关 —— 与 DVD 脚本的 `EXT` **同名同义**，
 区别只在默认值：那里默认 `mkv`，这里默认 `mp4`。
 
 > ⚠️ **VAAPI 两个入口已废弃（阶段 3，2026-10-11）**：`ffmpeg_h264_vaapi.sh` /
@@ -152,11 +152,11 @@ AV1 定位为软件编码参考表（SVT-AV1 实测等画质 r≈0.53–0.61，�
 rem Windows: 开关写在脚本之前; 引号形式最稳(set EXT=mkv && ... 会把空格一起塞进值里,
 rem 入口已做了去空格兜底, 但 set "EXT=mkv" 是推荐写法)
 set "EXT=mkv" && ffmpeg_libx265.bat  "D:\video\xxx.mp4"
-set "EXT=mkv" && ffmpeg_copy_to_mp4.bat "D:\video\xxx.mov"
+set "EXT=mkv" && ffmpeg_repack.bat "D:\video\xxx.mov"
 
 # Linux / Cygwin / MSYS2
 EXT=mkv ./ffmpeg_libx265.sh  xxx.mp4
-EXT=mkv ./ffmpeg_copy_to_mp4.sh xxx.mov
+EXT=mkv ./ffmpeg_repack.sh xxx.mov
 ```
 
 不设就是 `mp4`，命令行与加开关之前**逐字相同**。`EXT` 不分大小写（`MKV` 同 `mkv`）；
@@ -167,9 +167,9 @@ EXT=mkv ./ffmpeg_copy_to_mp4.sh xxx.mov
 
 | | `mp4`（默认） | `mkv` |
 | --- | --- | --- |
-| 自动输出名 | `xxx-compressed.mp4`（remux 是 `xxx.mp4`） | `xxx-compressed.mkv`（remux 是 `xxx.mkv`） |
+| 自动输出名 | `xxx-compressed.mp4`（remux 是 `xxx-repacked.mp4`） | `xxx-compressed.mkv`（remux 是 `xxx-repacked.mkv`） |
 | 字幕怎么装 | `-c:s mov_text` | `-c:s copy`（见下） |
-| remux 的"已转过"判据 | 后缀已是 `.mp4` 就退出 | 后缀已是 `.mkv` 就退出 |
+| remux 的"已转过"判据 | 始终重命名为 `-repacked`，不再因同容器跳过 | 同上 |
 
 **字幕这块为什么不是无条件 `copy`**：2026-10-02 实测，源里的软字幕是 `mov_text`
 （mp4 的软字幕格式，本仓库自己的产物就是）时，`-c:s copy` 进 mkv 会走到
@@ -935,7 +935,7 @@ DRY_RUN=1 ./ffmpeg_libx264.sh xxx.mp4
 **白名单**（`SWITCH_KEYS` 与 `:ps_set` 两族逐字一致，lint 会比对）：
 `ext` `bitrate_no_half` `ff_on_exist` `ff_hwaccel` `dvd_ext` `mode` `dvd_title` `prefix` `filt` `vfilt_extra` `audio` `split_chapter` `extra_titles` `vbitrate` `venc` `dec` `dry_run` `repair`（新增 `dec` 是阶段 1 统一入口的 `--dec` 解码器开关，见 TODO.md §6 #3，此前漏抄；`repair` 为修复模式开关，见下方「修复模式」）。
 
-**修复模式（`--repair` / `REPAIR=1`）**：桌面 `坏MP4修复经验.md` 的固化——源容器索引损坏（DTS/stsc/editlist）导致 `-c copy` 到 mp4 在坏样本处误判 EOF、产出 0 字节时，用 `-ignore_editlist 1 -fflags +igndts+genpts` 重封装即可抢救；且 mkv 对坏时间戳容忍度远高于 mp4，故修复模式会**强制目标容器为 mkv**。`repack_from_list.sh` 透传 `REPAIR` 即整批进入修复模式。
+**修复模式（`--repair` / `REPAIR=1`）**：桌面 `坏MP4修复经验.md` 的固化——源容器索引损坏（DTS/stsc/editlist）导致 `-c copy` 到 mp4 在坏样本处误判 EOF、产出 0 字节时，用 `-ignore_editlist 1 -fflags +igndts+genpts` 重封装即可抢救；且 mkv 对坏时间戳容忍度远高于 mp4，故修复模式会**强制目标容器为 mkv**。`ffmpeg_repack` 与统一入口 `ffmpeg_encode --venc copy` 均认此开关；`repack_from_list.sh` 透传 `REPAIR` 即整批进入修复模式。修复模式产物同样套用 remux 的 `-repacked` 命名：`<名>-repacked.mkv`。
 
 **布尔开关（不取值，写了就是开）**：`dry_run`（在 `SWITCH_FLAGS` / `:parse_switches` 里单独处理 —— 其余开关按 `--key value` 取下一个参数当值，会把紧跟其后的文件名吃掉）。
 
