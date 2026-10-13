@@ -7,9 +7,10 @@
 #   families share the same T-id, the same 1080p60 fixture and
 #   the same expected TARGET_BITRATE, so a T-number difference
 #   between the two families is a real cross-family divergence.
-#   sh-only cases are T8 / T18 / T19 / T20 / T21 / T22 /
-#   T24 / T25 (see test/README.md for the full table). T23 is
-#   shared since 2026-09-17, when the .bat wrappers started to
+#   sh-only cases are T8 / T19 (Linux VAAPI; Windows has no equivalent entry).
+#   T18/T21/T22/T24/T25 used to be sh-only too, but since 2026-10-13 the .bat
+#   harness carries twins for them, so the two families now share those ids.
+#   T23 is shared since 2026-09-17, when the .bat wrappers started to
 #   fail fast on a failed child.
 #
 #   Location: <repo>/test/sh/  - the repo root is derived from
@@ -537,7 +538,7 @@ mklist() {   # mklist <dir> <listfile> <eol:lf|crlf> <bom:0|1> <names...>
 }
 
 if part_in list; then
-head1 "part list: T9/T11/T12/T23 mirror the .bat harness, T21-T22 are sh-only extensions"
+head1 "part list: T9/T11/T12/T23 mirror the .bat harness; T21/T22 are also mirrored on the .bat side since 2026-10-13"
 
 # convert_from_list_qsv.sh needs QSV AVC hardware. Probe ONCE for the whole
 # part: on a box without QSV (e.g. the Raspberry Pi test box) the three list

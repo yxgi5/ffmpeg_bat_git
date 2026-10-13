@@ -15,7 +15,7 @@ rem   - new case T31 for the --dry-run switch: rc=0, the command line comes
 rem     out with the input named in it, and NOTHING is produced. Runs on the
 rem     libx264 entry -> no hardware, never SKIPped. Same T-id as the .sh twin.
 rem v11 changes vs v10 (2026-10-02):
-rem   - new case T30: a Notepad-style list (CRLF line ends + UTF-8 BOM) must
+rem   - new case T21: a Notepad-style list (CRLF line ends + UTF-8 BOM) must
 rem     still produce one output per entry. The .sh side has covered this
 rem     since T21 (run_list strips the BOM); the .bat wrappers did not -- cmd's
 rem     for /f swallowed the BOM into the first path, check_isvideo then said
@@ -94,7 +94,7 @@ set "REPO=%~1"
 if not defined REPO for %%I in ("%~dp0..\..") do set "REPO=%%~fI"
 rem 统一 --help / -help / -h: 与 sh 孪生同一套版式(见 lib\common.bat 的 :want_help / :usage)
 call "%REPO%\lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat 族回归冒烟（T1-T31）" "用法: test\bat\smoke_ffmpeg.bat [仓库路径] [LIST]" "第二个参数写 LIST 时只跑清单段（T9 / T11 / T12 / T23 / T30）"
+if defined FB_WANT_HELP call "%REPO%\lib\common.bat" usage "smoke_ffmpeg.bat  -  bat 族回归冒烟（T1-T31）" "用法: test\bat\smoke_ffmpeg.bat [仓库路径] [LIST]" "第二个参数写 LIST 时只跑清单段（T9 / T11 / T12 / T23 / T21）"
 if defined FB_WANT_HELP exit /b 0
 set "ONLY=%~2"
 if /I not "%ONLY%"=="LIST" set "ONLY="
@@ -495,7 +495,7 @@ if not errorlevel 1 ( set "V23=FAIL" & set "N23=%N23% bannerParseErr;" )
 echo [%V23%] T23 missing list entry aborts the wrapper rc=%RC23% >> "%SUM%"
 if not "%N23%"=="" echo        why: %N23% >> "%SUM%"
 
-rem ============ T30: CRLF + UTF-8 BOM list (twin of sh T21) ============
+rem ============ T21: CRLF + UTF-8 BOM list (twin of sh T21) ============
 rem sh T21 has covered this since the beginning: run_list strips a leading
 rem BOM from the first list line. The .bat wrappers did not, so a list saved
 rem by Notepad lost its first entry and the whole run died with rc=3
@@ -504,30 +504,99 @@ rem it in :RUN_ONE; this case pins that down: 3 entries -> 3 outputs, rc=0.
 rem The BOM is generated here (certutil -decodehex of "ef bb bf" + copy /b)
 rem instead of shipping a fixture: nothing external, nothing invisible.
 chcp %CP0% >nul
-set "T30D=%WORK%\cases\T30_list_crlf_bom"
-if not exist "%T30D%" mkdir "%T30D%" >nul 2>&1
-copy /y "%IN%" "%T30D%\bom1.mp4" >nul
-copy /y "%IN%" "%T30D%\bom2.mp4" >nul
-copy /y "%IN%" "%T30D%\bom3.mp4" >nul
-del /q "%T30D%\*-compressed.mp4" >nul 2>&1
->  "%T30D%\names.txt" echo %T30D%\bom1.mp4
->> "%T30D%\names.txt" echo %T30D%\bom2.mp4
->> "%T30D%\names.txt" echo %T30D%\bom3.mp4
->  "%T30D%\bom.hex" echo ef bb bf
-certutil -decodehex "%T30D%\bom.hex" "%T30D%\bom.bin" >nul 2>&1
-copy /b "%T30D%\bom.bin" + "%T30D%\names.txt" "%T30D%\list.txt" >nul 2>&1
-call "%REPO%\convert_from_list_libx265.bat" "%T30D%\list.txt" < nul > "%LOGDIR%\T30_list_crlf_bom.log" 2>&1
-set "RC30=%errorlevel%"
-set "CNT30=0"
-for %%c in ("%T30D%\*-compressed.mp4") do set /a CNT30+=1
-set "V30=PASS"
-set "N30="
-if not "%RC30%"=="0" ( set "V30=FAIL" & set "N30=%N30% rc=%RC30% want0;" )
-if not "%CNT30%"=="3" ( set "V30=FAIL" & set "N30=%N30% outputs=%CNT30% want3;" )
-findstr /i /c:"is not recognized" "%LOGDIR%\T30_list_crlf_bom.log" >nul 2>&1
-if not errorlevel 1 ( set "V30=FAIL" & set "N30=%N30% bannerParseErr;" )
-echo [%V30%] T30 CRLF + UTF-8 BOM list : %CNT30% of 3 outputs, rc=%RC30% >> "%SUM%"
-if not "%N30%"=="" echo        why: %N30% >> "%SUM%"
+set "T21D=%WORK%\cases\T21_list_crlf_bom"
+if not exist "%T21D%" mkdir "%T21D%" >nul 2>&1
+copy /y "%IN%" "%T21D%\bom1.mp4" >nul
+copy /y "%IN%" "%T21D%\bom2.mp4" >nul
+copy /y "%IN%" "%T21D%\bom3.mp4" >nul
+del /q "%T21D%\*-compressed.mp4" >nul 2>&1
+>  "%T21D%\names.txt" echo %T21D%\bom1.mp4
+>> "%T21D%\names.txt" echo %T21D%\bom2.mp4
+>> "%T21D%\names.txt" echo %T21D%\bom3.mp4
+>  "%T21D%\bom.hex" echo ef bb bf
+certutil -decodehex "%T21D%\bom.hex" "%T21D%\bom.bin" >nul 2>&1
+copy /b "%T21D%\bom.bin" + "%T21D%\names.txt" "%T21D%\list.txt" >nul 2>&1
+call "%REPO%\convert_from_list_libx265.bat" "%T21D%\list.txt" < nul > "%LOGDIR%\T21_list_crlf_bom.log" 2>&1
+set "RC21=%errorlevel%"
+set "CNT21=0"
+for %%c in ("%T21D%\*-compressed.mp4") do set /a CNT21+=1
+set "V21=PASS"
+set "N21="
+if not "%RC21%"=="0" ( set "V21=FAIL" & set "N21=%N21% rc=%RC21% want0;" )
+if not "%CNT21%"=="3" ( set "V21=FAIL" & set "N21=%N21% outputs=%CNT21% want3;" )
+findstr /i /c:"is not recognized" "%LOGDIR%\T21_list_crlf_bom.log" >nul 2>&1
+if not errorlevel 1 ( set "V21=FAIL" & set "N21=%N21% bannerParseErr;" )
+echo [%V21%] T21 CRLF + UTF-8 BOM list : %CNT21% of 3 outputs, rc=%RC21% >> "%SUM%"
+if not "%N21%"=="" echo        why: %N21% >> "%SUM%"
+
+rem ============ T6: interactive mode, path via stdin (twin of sh T6) ============
+rem No bitrate override; stdin = path then a blank line (keeps computed bitrate).
+call :gate ffmpeg_avc_qsv
+if defined GATED ( call :skipcase T6 ffmpeg_avc_qsv
+) else ( call :runB ffmpeg_avc_qsv "%IN%" T6_avc_qsv_stdin 3836249 avc_qsv_stdin )
+
+rem ============ T18: interactive bitrate override via stdin (twin of sh T18) ============
+rem stdin = path + "900k" + blank -> the wrapper must honour the override.
+call :runB2 ffmpeg_libx264 "%IN%" T18_libx264_stdin_br 900k libx264_stdin_br 900k
+
+rem ============ T22: 5-entry list -> 5 outputs (twin of sh T22) ============
+chcp %CP0% >nul
+set "T22D=%WORK%\cases\T22_list_5entry"
+if not exist "%T22D%" mkdir "%T22D%" >nul 2>&1
+copy /y "%IN%" "%T22D%\e1.mkv" >nul
+copy /y "%IN%" "%T22D%\e2.mkv" >nul
+copy /y "%IN%" "%T22D%\e3.mkv" >nul
+copy /y "%IN%" "%T22D%\e4.mkv" >nul
+copy /y "%IN%" "%T22D%\e5.mkv" >nul
+del /q "%T22D%\*-compressed.mp4" >nul 2>&1
+>  "%T22D%\list.txt" echo %T22D%\e1.mkv
+>> "%T22D%\list.txt" echo %T22D%\e2.mkv
+>> "%T22D%\list.txt" echo %T22D%\e3.mkv
+>> "%T22D%\list.txt" echo %T22D%\e4.mkv
+>> "%T22D%\list.txt" echo %T22D%\e5.mkv
+call "%REPO%\convert_from_list_libx265.bat" "%T22D%\list.txt" < nul > "%LOGDIR%\T22_list_5entry.log" 2>&1
+set "RC22=%errorlevel%"
+set "CNT22=0"
+for %%c in ("%T22D%\*-compressed.mp4") do set /a CNT22+=1
+set "V22=PASS"
+set "N22="
+if not "%RC22%"=="0" ( set "V22=FAIL" & set "N22=%N22% rc=%RC22% want0;" )
+if not "%CNT22%"=="5" ( set "V22=FAIL" & set "N22=%N22% outputs=%CNT22% want5;" )
+findstr /i /c:"is not recognized" "%LOGDIR%\T22_list_5entry.log" >nul 2>&1
+if not errorlevel 1 ( set "V22=FAIL" & set "N22=%N22% bannerParseErr;" )
+echo [%V22%] T22 5-entry list -> 5 outputs, rc=%RC22% >> "%SUM%"
+if not "%N22%"=="" echo        why: %N22% >> "%SUM%"
+
+rem ============ T24: missing input file -> non-zero, no output (twin of sh T24) ============
+chcp %CP0% >nul
+set "T24D=%WORK%\cases\T24_missing"
+if not exist "%T24D%" mkdir "%T24D%" >nul 2>&1
+set "T24IN=%T24D%\does_not_exist.mp4"
+set "T24OUT=%T24D%\does_not_exist-compressed.mp4"
+set "T24LOG=%LOGDIR%\T24_missing.log"
+call "%REPO%\ffmpeg_avc_qsv.bat" "%T24IN%" < nul > "%T24LOG%" 2>&1
+set "RC24=%errorlevel%"
+set "V24=PASS"
+set "N24="
+if "%RC24%"=="0" ( set "V24=FAIL" & set "N24=%N24% rc=0 want non-zero;" )
+if exist "%T24OUT%" ( set "V24=FAIL" & set "N24=%N24% outputWrittenForMissingInput;" )
+echo [%V24%] T24 missing input rejected rc=%RC24% >> "%SUM%"
+if not "%N24%"=="" echo        why: %N24% >> "%SUM%"
+
+rem ============ T25: a non-text list file must be rejected (twin of sh T25) ============
+chcp %CP0% >nul
+set "T25D=%WORK%\cases\T25_badlist"
+if not exist "%T25D%" mkdir "%T25D%" >nul 2>&1
+>  "%T25D%\blob.hex" echo 00 01 02
+certutil -decodehex "%T25D%\blob.hex" "%T25D%\blob.bin" >nul 2>&1
+set "T25LOG=%LOGDIR%\T25_badlist.log"
+call "%REPO%\convert_from_list_qsv.bat" "%T25D%\blob.bin" < nul > "%T25LOG%" 2>&1
+set "RC25=%errorlevel%"
+set "V25=PASS"
+set "N25="
+if "%RC25%"=="0" ( set "V25=FAIL" & set "N25=%N25% rc=0 want non-zero;" )
+echo [%V25%] T25 non-text list file rejected rc=%RC25% >> "%SUM%"
+if not "%N25%"=="" echo        why: %N25% >> "%SUM%"
 
 :LISTONLY
 rem T9/T11/T12 run convert_from_list_qsv.bat, which needs QSV AVC hardware.
@@ -865,6 +934,26 @@ set "LOG=%LOGDIR%\%LOGN%.log"
 for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
 del /q "%OUT%" >nul 2>&1
 ( echo %~2 & echo. & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
+set "RC=%errorlevel%"
+call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
+exit /b 0
+
+rem ============================================================
+rem :runB2 <batname> <input> <logname> <expected TARGET_BITRATE> <modelabel> <line2>
+rem   interactive, stdin fed with: line1 = input path, line2 = custom (e.g. a
+rem   bitrate override), line3 = blank (keeps computed defaults)
+rem ============================================================
+:runB2
+set "NAM=%~1"
+set "INP=%~2"
+set "LOGN=%~3"
+set "EXP=%~4"
+set "MDL=%~5"
+set "L2=%~6"
+set "LOG=%LOGDIR%\%LOGN%.log"
+for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
+del /q "%OUT%" >nul 2>&1
+( echo %~2 & echo %L2% & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
 set "RC=%errorlevel%"
 call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
 exit /b 0

@@ -416,19 +416,18 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T15 | `ffmpeg_av1_qsv` | arg | 1707157 / av1 | ✅ | ✅ |
 | T16 | `ffmpeg_libx264` | arg | 3836249 / h264 | ✅ | ✅ |
 | T17 | 低码率源 clamp（400k 源） | arg | `< 3836249` / h264 | ✅ | ✅ |
-| T18 | `ffmpeg_libx264` stdin 指定码率 900k | stdin | `900k` / h264 | ✅ | — |
+| T18 | `ffmpeg_libx264` stdin 指定码率 900k | stdin | `900k` / h264 | ✅ | ✅ |
 | T19 | `ffmpeg_hevc_vaapi` | arg | 2548951 / hevc | ✅ | 无此入口 |
 | T20 | 已撤销：Cygwin NVENC 变体 2026-09-30 合并进 T2（`hevc_nvenc`） | — | — | — | — |
-| T21 | 清单 CRLF + UTF-8 BOM | 清单 3 条目 | 3/3 产物 | ✅ | — |
-| T22 | `run_list` 的 `</dev/null` 隔离 | 5 条目清单 | 5/5 产物 | ✅ | — |
+| T21 | 清单 CRLF + UTF-8 BOM | 3 条目清单，BOM 用 `certutil -decodehex` 现场生成（`ef bb bf` 拼到清单头） | 3/3 产物 + `rc=0`（修之前 cmd 的 `for /f` 把 BOM 吃进首条路径 → `rc=3`） | ✅ | ✅ |
+| T22 | `run_list` 的 `</dev/null` 隔离 | 5 条目清单 | 5/5 产物 | ✅ | ✅ |
 | T23 | 清单条目文件缺失 → 中止 | 清单含不存在的路径 | `rc=1` | ✅ | ✅ |
-| T24 | 输入文件不存在 | 不存在的路径 | `rc=1` | ✅ | — |
-| T25 | 清单不是文本文件 | 传一个 mp4 当清单 | `rc=1` | ✅ | — |
+| T24 | 输入文件不存在 | 不存在的路径 | `rc=1` | ✅ | ✅ |
+| T25 | 清单不是文本文件 | 传一个二进制文件当清单 | `rc=1` | ✅ | ✅ |
 | T26 | `EXT=mkv`：输出名与容器都跟开关走 | `ffmpeg_libx265` arg | `xxx-compressed.mkv` 且 ffprobe `format_name=matroska`；不得同时写出 `.mp4` | ✅ | ✅ |
 | T27 | `EXT=mkv` 遇 `mov_text` 软字幕源 | mux 一条 mov_text 字幕的 mp4 当源 | rc=0，产物非 0 字节，字幕流 `ass`（`-c:s copy` 在此是 rc=-40 / 0 字节） | ✅ | ✅ |
 | T28 | `BITRATE_NO_HALF=1` 跳过「查表值 /2」 | 同一片源的两次 `ffmpeg_libx265` arg 运行 | 第二次 `TARGET_BITRATE` **正好是第一次的 2 倍**（1080p60 夹具：2548951 → 5097902） | ✅ | ✅ |
 | T29 | 配置文件是唯一真源 | `FB_DEFAULTS` 指向一份写着 `EXT=mkv` 的临时配置，命令行**不给**任何覆盖 | 出 `clip-compressed.mkv`、不出 `.mp4`（测试不碰仓库里那份 `lib/defaults.cfg`） | ✅ | ✅ |
-| T30 | 清单 CRLF + UTF-8 BOM（sh 侧 T21 的 bat 孪生） | 3 条目清单，BOM 用 `certutil -decodehex` **现场生成**（`ef bb bf` 拼到清单头） | 3/3 产物 + `rc=0`。修之前 cmd 的 `for /f` 把 BOM 吃进第一条路径，`check_isvideo` 判「不是视频」，整份清单 `rc=3` | ✅ | — |
 | T31 | 干跑 `--dry-run` / `DRY_RUN` | `ffmpeg_libx264` 带 `--dry-run` 跑一次 | `rc=0`，日志里有 `[dry-run]` 提示且打出的命令带输入文件名，**并且不出产物** | ✅ | ✅ |
 
 补充断言（两族都有）：`banner check` —— 任何日志里都不得出现
@@ -887,7 +886,7 @@ T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重�
 不是补一个静态 fixture 文件**：该清单里是 WORK 目录下的绝对路径，预置文件写不出正确内容；sh 侧
 `smoke_ffmpeg.sh` 正是用 `printf '\xE7\xAC\xAC…'` 字节转义**现场生成**（保持脚本 ASCII-only），故 sh 侧 T11 恒可跑
 （sh 侧注释：`the .bat harness T11 uses a stale fixture and SKIPs when it is missing; here the names are made on the fly`）。
-**T30 已经按这个思路补上了**：BOM 清单用 `certutil -decodehex` 现场生成，不依赖任何外部 fixture，
+**T21 已经按这个思路补上了**（原编号 T30，2026-10-13 与 sh T21 对齐）：BOM 清单用 `certutil -decodehex` 现场生成，不依赖任何外部 fixture，
 bat 侧从此也有一条「记事本存出来的清单」用例（2026-10-02 实测 3/3 产物 rc=0） —— T11 要照抄这个做法 | 全 PASS（A01–A20 / C81–C83 / Z…） | 无 `.bat` 孪生（`tools/` 只有 `.sh`） |
 | Cygwin64 | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
 | MINGW64（MSYS2，需显式 `MSYSTEM=MINGW64` + `PATH=/mingw64/bin:/usr/bin:/bin`） | PASS=21 FAIL=0 SKIP=4 | PASS=28 SKIP=1 | PASS=22 SKIP=0 |
