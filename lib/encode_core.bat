@@ -445,6 +445,22 @@ echo.
 echo SRC_FILE:%SRC_FILE%
 call "%~dp0common.bat" extract_mp4 %SRC_FILE% TARGET_PATH TARGET_NAME %EXT%
 set TARGET_FILE="%TARGET_PATH:"=%%TARGET_NAME:"=%"
+
+rem ---------- 交互模式可自定义输出文件名(仅交互, 批处理/清单模式不触发; 与编码器 :346 同口径) ----------
+rem 设计目标: 命令行传了源文件就自动命名(<名>-repacked.<ext>), 不询问; 只有交互(无参)
+rem 模式才问, 留空则沿用上面的自动名。--repair 已把 EXT 强制成 mkv, 这里把用户给的
+rem 名也归一成 .mkv(否则扩展名与强制容器不符)。
+IF not defined PARSE_POS (
+    SET /P USER_OUT=请输入输出文件(不输入则自动 <名>-repacked.<ext>):
+    if defined USER_OUT (
+        set "TARGET_FILE=%USER_OUT%"
+        if "%FB_REPAIR%"=="1" (
+            for %%A in ("%USER_OUT%") do set "TARGET_FILE=%%~dpA%%~nA.mkv"
+        )
+    )
+)
+if defined TARGET_FILE set TARGET_FILE="%TARGET_FILE:"=%"
+
 echo TARGET_FILE:%TARGET_FILE%
 
 rem 产物已存在时的策略: 见 lib\common.bat 的 :on_exist

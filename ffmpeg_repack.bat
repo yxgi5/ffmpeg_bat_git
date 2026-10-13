@@ -26,12 +26,13 @@ exit /b %errorlevel%
 
 rem ============================================================
 rem ffmpeg_repack.bat - 无损转封装(remux, 不重编码); 薄壳, 公共流程在 lib\encode_core.bat
-rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址
+rem 用法: 拖放视频文件到本 bat 上, 或双击后输入视频地址(交互模式还会再问一次输出文件名)
 rem 默认出口 mp4; EXT=mkv 可切; --repair / REPAIR=1 强制 mkv 并注入修复选项
 rem 与 7 个编码入口同内核(encode_core.bat 的 :copy_run); 本文件只留三样搬不走的东西:
 rem   cp65001 守卫 + rc 传播(由 :copy_run 内部完成执行) + 自己的 usage 文案与头部说明。
-rem 注: 旧版曾有「交互式手填输出文件名」(SET /P TARGET_FILE), 与全家族其它入口不一致,
-rem     委托后由 :copy_run 统一自动命名 <名>-repacked.<ext>, 该异常已消除。
+rem 输出文件名: 拖放/命令行传了源文件则自动命名 <名>-repacked.<ext>, 绝不询问; 仅交互模式
+rem   (无参双击)会再问一次输出文件名, 留空则沿用自动名, --repair 时归一成 .mkv。
+rem   (旧版独立脚本曾单独有手填输出文件名且与全家族不一致; 现已统一进 :copy_run 同口径)
 rem 注意: 本文件必须保持 CRLF 行尾
 rem ============================================================
 
@@ -46,7 +47,7 @@ if errorlevel 2 exit /b 2
 rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
 rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
 call "%SELF_DIR%lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_repack.bat  -  无损转封装（不重编码，默认 mp4；EXT=mkv 可切）" "用法: ffmpeg_repack.bat 源文件    也可直接把源文件拖到本 bat 上" "本入口没有码率表；源已是目标容器也会重命名为 -repacked"
+if defined FB_WANT_HELP call "%SELF_DIR%lib\common.bat" usage "ffmpeg_repack.bat  -  无损转封装（不重编码，默认 mp4；EXT=mkv 可切）" "用法: ffmpeg_repack.bat [源文件]  也可直接把源文件拖到本 bat 上" "本入口没有码率表；源已是目标容器也会重命名为 -repacked" "无参双击会询问 源文件 与 输出文件名（留空则自动 名-repacked.mp4）"
 if defined FB_WANT_HELP exit /b 0
 
 rem ---------- 公共流程(命令拼装 + 执行 + 退出码)在 lib\encode_core.bat :copy_run ----------

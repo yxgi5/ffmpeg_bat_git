@@ -1,8 +1,8 @@
 #!/bin/bash
 # ffmpeg_encode.sh - 统一编码入口 (TODO.md 阶段 1)
 # 用法: ./ffmpeg_encode.sh --venc <编码器> [--dec <解码器>] [视频文件]
-#   不带文件参数: 交互输入文件路径(编码器还会问输出码率)
-#   带文件参数  : 文件路径, 码率/输出文件名自动决定
+#   不带文件参数: 交互输入文件路径(编码器还会依次问 输出码率 与 输出文件名)
+#   带文件参数  : 文件路径, 码率与输出文件名自动决定(<名>-compressed.<ext>)
 #
 # --venc 取值(编码器, 与 ffmpeg_dvd_hevc.sh 的 --venc 同义, avc_* 是 h264_* 的别名):
 #   libx264 libx265 libsvtav1        软件
@@ -31,7 +31,8 @@ set -- ${PS_REST[@]+"${PS_REST[@]}"}
 
 declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
     "ffmpeg_encode.sh  -  统一压缩入口（软件 / QSV / NVENC / VAAPI + 转封装）" \
-    "用法: ./ffmpeg_encode.sh --venc <编码器> [--dec <解码器>] 视频文件" \
+    "用法: ./ffmpeg_encode.sh --venc <编码器> [--dec <解码器>] [视频文件]" \
+    "  无参数运行会依次询问 源文件 / 输出码率 / 输出文件名（后两者留空则自动 <名>-compressed.<ext>）" \
     "  --venc libx264 libx265 libsvtav1" \
     "        avc_qsv  hevc_qsv  av1_qsv" \
     "        avc_nvenc hevc_nvenc av1_nvenc" \

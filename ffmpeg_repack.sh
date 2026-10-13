@@ -1,7 +1,7 @@
 #!/bin/bash
 # ffmpeg_repack.sh - 无损转封装(remux, 不重编码); 薄壳, 公共流程在 lib/encode_core.sh
-#   不带参数: 交互输入文件路径
-#   带参数  : 文件路径
+#   不带参数: 交互输入文件路径, 随后可自定义输出文件名(留空则自动 <名>-repacked.<ext>)
+#   带参数  : 文件路径, 输出文件名自动决定(<名>-repacked.<ext>), 不询问
 # 默认出口 mp4; EXT=mkv 可切; --repair / REPAIR=1 强制 mkv 并注入修复选项
 # 行为与统一入口 enc_run copy 完全一致 —— 本文件不再自备 ffmpeg 命令, 仅做委托
 # (与 ffmpeg_hevc_qsv.sh 同构: source 两份 lib + parse_switches + help guard + enc_run <enc>)
@@ -22,7 +22,8 @@ set -- ${PS_REST[@]+"${PS_REST[@]}"}
 # 以及"拖到 bat 上"这种 bat 独有的用法)。位置必须早于任何"把 $1 当文件用"的代码。
 declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
     "ffmpeg_repack.sh  -  无损转封装（不重编码，默认 mp4；EXT=mkv 可切）" \
-    "用法: ./ffmpeg_repack.sh 源文件" \
-    "本入口没有码率表；无论源格式都产出 <名>-repacked.<ext>（绝不覆写源）" || :
+    "用法: ./ffmpeg_repack.sh [源文件]" \
+    "  无参数运行会依次询问 源文件 与 输出文件名（留空则自动 <名>-repacked.<ext>）" \
+    "  带参数运行不询问，自动产出 <名>-repacked.<ext>（绝不覆写源）" || :
 
 enc_run copy "$@"
