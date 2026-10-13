@@ -344,11 +344,11 @@ rem so the check is a relation ("LT:3836249"), not an exact number.
 chcp %CP0% >nul
 call :runA ffmpeg_libx264 "%LOWBR%" T17_libx264_lowbr LT:3836249 S A h264
 
-rem ============ T5: copy_to_mp4 (mov -> mp4, no bitrate table) ============
+rem ============ T5: ffmpeg_repack (mov -> mp4, no bitrate table) ============
 chcp %CP0% >nul
-call :runA ffmpeg_copy_to_mp4 "%INMOV%" T5_copy_to_mp4_A 0 C A h264
+call :runA ffmpeg_repack "%INMOV%" T5_ffmpeg_repack_A 0 C A h264
 
-rem ============ T33 (shared sh/bat): copy_to_mp4 --repair 抢救失效样本 ============
+rem ============ T33 (shared sh/bat): ffmpeg_repack --repair 抢救失效样本 ============
 rem 失效样本 broken_index.mp4 内联生成(与既有夹具同套路, 不入库):
 rem   base lavfi 造 320x240@25 4s, 再 "-ss 1 -c copy" 注入 edit list, 使默认 mp4
 rem   复制丢帧; --repair(-ignore_editlist +igndts+genpts)转 mkv 保真。
@@ -371,7 +371,7 @@ if "%GENOK%"=="0" (
   set "L33=%LOGDIR%\T33_repair.log"
   set "O33=%TD%\src-repacked.mkv"
   if exist "%O33%" del /q "%O33%" >nul 2>&1
-  call "%REPO%\ffmpeg_copy_to_mp4.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
+  call "%REPO%\ffmpeg_repack.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
   set "RC33=%errorlevel%"
   set "V33=PASS"
   if not "%RC33%"=="0" set "V33=FAIL"
@@ -386,12 +386,12 @@ if "%GENOK%"=="0" (
     if "%RFR33%"=="0" set "V33=FAIL"
     if %RFR33% LSS %SFR33% set "V33=FAIL"
   )
-  echo [%V33%] T33 copy_to_mp4 --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
+  echo [%V33%] T33 ffmpeg_repack --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
 )
 
 rem ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
 rem 与 T33 同病理, 但走统一入口 ffmpeg_encode.bat --venc copy --repair, 验证阶段1 unify 后
-rem 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_copy_to_mp4 实现, 统一入口静默丢弃)。
+rem 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_repack 实现, 统一入口静默丢弃)。
 if not exist "%BRK%" (
   call :skipcase T41 repair
 ) else (
@@ -811,25 +811,25 @@ findstr /c:"无效" /c:"忽略" "%L40%" >nul 2>&1
 if errorlevel 1 set "V40=FAIL"
 echo [%V40%] T40 copy+--dec reported as ignored (not silently dropped) rc=%RC40% >> "%SUM%"
 echo. >> "%SUM%"
-rem ============ T43: 薄壳 ffmpeg_copy_to_mp4 对 mp4 源 -> -repacked.mp4; 产物已存在走 FF_ON_EXIST ============
+rem ============ T43: 薄壳 ffmpeg_repack 对 mp4 源 -> -repacked.mp4; 产物已存在走 FF_ON_EXIST ============
 rem 与 sh T43 对齐。
 if not exist "%WORK%\cases\T43_repack" mkdir "%WORK%\cases\T43_repack" >nul 2>&1
 copy /y "%IN%" "%WORK%\cases\T43_repack\clip.mp4" >nul 2>&1
 set "L43=%LOGDIR%\T43_repack.log"
 set "O43=%WORK%\cases\T43_repack\clip-repacked.mp4"
 if exist "%O43%" del /q "%O43%" >nul 2>&1
-call "%REPO%\ffmpeg_copy_to_mp4.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43%" 2>&1
+call "%REPO%\ffmpeg_repack.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43%" 2>&1
 set "RC43=%errorlevel%"
 set "V43=PASS"
 if not "%RC43%"=="0" set "V43=FAIL"
 if not exist "%O43%" set "V43=FAIL"
 if "%V43%"=="PASS" (
   set "L43B=%LOGDIR%\T43_repack_skip.log"
-  call "%REPO%\ffmpeg_copy_to_mp4.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43B%" 2>&1
+  call "%REPO%\ffmpeg_repack.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43B%" 2>&1
   findstr /c:"SKIPPED" "%L43B%" >nul 2>&1
   if errorlevel 1 set "V43=FAIL"
 )
-echo [%V43%] T43 copy_to_mp4 mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip >> "%SUM%"
+echo [%V43%] T43 ffmpeg_repack mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========

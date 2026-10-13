@@ -418,14 +418,14 @@ else
     gate_arg T15 ffmpeg_av1_qsv.sh 1707157 av1 "AV1 QSV (needs Arrow Lake or newer iGPU)"
 fi
 
-# T5: copy_to_mp4 remux, no bitrate table; output keeps the source name
-d="$W/cases/T5_copy_to_mp4"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mkv"
-LOGF="$LOG/T5_copy_to_mp4.log"; OUT="$d/remux_me-repacked.mp4"; rm -f "$OUT"
-bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/remux_me.mkv" > "$LOGF" 2>&1
+# T5: ffmpeg_repack remux, no bitrate table; output keeps the source name
+d="$W/cases/T5_ffmpeg_repack"; mkdir -p "$d"; cp -f "$INMOV" "$d/remux_me.mkv"
+LOGF="$LOG/T5_ffmpeg_repack.log"; OUT="$d/remux_me-repacked.mp4"; rm -f "$OUT"
+bash "$REPO/ffmpeg_repack.sh" "$d/remux_me.mkv" > "$LOGF" 2>&1
 RC=$?
-judge T5 copy_to_mp4 ok INFO h264 "arg: remux mov -> mp4, no re-encode"
+judge T5 ffmpeg_repack ok INFO h264 "arg: remux mov -> mp4, no re-encode"
 
-# ============ T33 (shared sh/bat): copy_to_mp4 --repair 抢救失效样本 ============
+# ============ T33 (shared sh/bat): ffmpeg_repack --repair 抢救失效样本 ============
 # 失效样本 broken_index.mp4 内联生成(与既有夹具同一套路, 不入库):
 #   base 用 lavfi 造 320x240@25 4s, 再 "-ss 1 -c copy" 注入 edit list / 非零起点,
 #   这正是「默认 -c copy 到 mp4(faststart) 会丢帧; --repair(-ignore_editlist
@@ -444,7 +444,7 @@ if [ "$GENOK" = 0 ] || [ ! -f "$BRK" ]; then
 else
   d="$W/cases/T33_repair"; mkdir -p "$d"; cp -f "$BRK" "$d/src.mp4"
   LOGF="$LOG/T33_repair.log"; OUT="$d/src-repacked.mkv"; rm -f "$OUT"
-  bash "$REPO/ffmpeg_copy_to_mp4.sh" --repair "$d/src.mp4" > "$LOGF" 2>&1
+  bash "$REPO/ffmpeg_repack.sh" --repair "$d/src.mp4" > "$LOGF" 2>&1
   RC=$?
   if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
     SFR=$(fp_run -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$d/src.mp4" 2>/dev/null | head -1)
@@ -461,7 +461,7 @@ fi
 
 # ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
 # 与 T33 同病理, 但走统一入口 ffmpeg_encode --venc copy --repair, 验证阶段1 unify 后
-# 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_copy_to_mp4 实现, 统一入口静默丢弃)。
+# 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_repack 实现, 统一入口静默丢弃)。
 if [ ! -f "$BRK" ]; then
   mk_fixture "$W/_broken_base_t41.mp4" 320x240 25 4 1M 1
   ff_run -hide_banner -v error -y -ss 1 -i "$W/_broken_base_t41.mp4" -c copy "$BRK"
@@ -821,15 +821,15 @@ else
     FAIL=$((FAIL+1)); say "[FAIL] T40 copy+--dec rc=$RC (want rc=0 and an explicit 'ignored' note)"
 fi
 
-# T43 (shared sh/bat): 薄壳 ffmpeg_copy_to_mp4 对 mp4 源也处理 -> -repacked.mp4;
+# T43 (shared sh/bat): 薄壳 ffmpeg_repack 对 mp4 源也处理 -> -repacked.mp4;
 # 产物已存在走 FF_ON_EXIST(默认 skip, 与编码入口一致)。
 d="$W/cases/T43_repack"; mkdir -p "$d"; cp -f "$IN" "$d/clip.mp4"
 LOGF="$LOG/T43_repack.log"; OUT="$d/clip-repacked.mp4"; rm -f "$OUT"
-bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/clip.mp4" > "$LOGF" 2>&1
+bash "$REPO/ffmpeg_repack.sh" "$d/clip.mp4" > "$LOGF" 2>&1
 RC=$?
 if [ "$RC" -eq 0 ] && [ -f "$OUT" ]; then
     LOGF2="$LOG/T43_repack_skip.log"
-    bash "$REPO/ffmpeg_copy_to_mp4.sh" "$d/clip.mp4" > "$LOGF2" 2>&1
+    bash "$REPO/ffmpeg_repack.sh" "$d/clip.mp4" > "$LOGF2" 2>&1
     SKIPNOTE="$(grep -c '跳过' "$LOGF2")"
     if [ "$SKIPNOTE" -ge 1 ]; then
         PASS=$((PASS+1)); say "[PASS] T43 repack mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip skips"

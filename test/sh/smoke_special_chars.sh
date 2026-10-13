@@ -131,7 +131,7 @@ check_hyg() {   # check_hyg <log> -> "findings;" or empty
     echo "$hits"
 }
 
-# runA <idx> <name>   : part A - remux through ffmpeg_copy_to_mp4.sh
+# runA <idx> <name>   : part A - remux through ffmpeg_repack.sh
 runA() {
     local idx="$1" name="$2"
     local src="$CDIR/$name"
@@ -143,7 +143,7 @@ runA() {
     fi
     rm -f "$expect"
     local logf="$LOG/A$idx.log" rc
-    bash "$REPO/ffmpeg_copy_to_mp4.sh" "$src" > "$logf" 2>&1
+    bash "$REPO/ffmpeg_repack.sh" "$src" > "$logf" 2>&1
     rc=$?
     local v="FAIL" why
     [ -f "$expect" ] && v="PASS"
@@ -191,7 +191,7 @@ runC() {
 # part A: metacharacter matrix (same 20 names as the .bat twin)
 # ============================================================
 say ""
-say "---- part A: one file straight through ffmpeg_copy_to_mp4 ----"
+say "---- part A: one file straight through ffmpeg_repack ----"
 echo "[part A] 20 filename cases ..."
 runA 01 "smoke_plain.mov"
 runA 02 "smoke_amp & test.mov"
@@ -276,7 +276,7 @@ DNAME="smoke_amp & test stdin.mov"   # own name: the expected output must not co
 DEXPECT="$CDIR/${DNAME%.*}.mp4"
 cp -f "$BASE_MOV" "$CDIR/$DNAME"   # part D builds its own input (its name differs from part A's)
 rm -f "$DEXPECT"
-printf '%s\n' "$CDIR/$DNAME" | bash "$REPO/ffmpeg_copy_to_mp4.sh" > "$DLOG" 2>&1
+printf '%s\n' "$CDIR/$DNAME" | bash "$REPO/ffmpeg_repack.sh" > "$DLOG" 2>&1
 DRC=$?
 if [ -f "$DEXPECT" ] && [ "$DRC" -eq 0 ]; then
     PASS=$((PASS+1)); say "[PASS] D0 no-argument rc=$DRC  (metachar path fed over stdin)"
@@ -324,7 +324,7 @@ if [ "$Z3V" = "SETUP-OK" ]; then
     Z3EXP="$CDIR/smoke_back \\ slash.mp4"
     rm -f "$Z3EXP"
     Z3LOG="$LOG/Z3_backslash.log"
-    bash "$REPO/ffmpeg_copy_to_mp4.sh" "$Z3SRC" > "$Z3LOG" 2>&1
+    bash "$REPO/ffmpeg_repack.sh" "$Z3SRC" > "$Z3LOG" 2>&1
     Z3RC=$?
     if [ -f "$Z3EXP" ] && [ "$Z3RC" -eq 0 ]; then Z3V="PASS"; else Z3V="FAIL"; fi
     if [ "$Z3V" = "PASS" ]; then

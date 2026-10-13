@@ -195,6 +195,6 @@ bash test/sh/check_env.sh                # 秒级静态预筛
 | `ffmpeg_h264_vaapi.sh` / `hevc_vaapi.sh` | Linux + `/dev/dri` | A / C |
 | `ffmpeg_dvd_hevc.bat` / `.sh` | DVD-Video 源（ISO / `VIDEO_TS` / 光驱）+ ffmpeg 带 `libdvdread`/`libdvdnav`（`dvdvideo` 解复用器），否则脚本报错退出 | 有 `dvdvideo` 的构建（本机 gyan full；A / C 的 `/opt` master） |
 | `convert_from_list_{qsv,cuda,libx265}.*` | 清单 wrapper：能力取自被调入口；**被调入口返回 4（硬件缺失）时中止整份清单** | 同各自编码器 |
-| `ffmpeg_copy_to_mp4.*` / `repack_from_list.*` | 只要 ffmpeg/ffprobe | 全部 |
+| `ffmpeg_repack.*` / `repack_from_list.*` | 只要 ffmpeg/ffprobe | 全部 |
 | （全部 mp4 出口） | 带 `-map 0:a? -map 0:s? -c:s mov_text …`，多音轨/字幕不再被默认选流丢弃（lint L16 钉住）；**视频映射分两类**：编码类 `-map 0:V`（排除封面图等 attached picture，否则 mp4 装不下重编码后的封面 → 0 字节失败），remux 两族 `-map 0:v`（复制路径保留封面）；**封面保留（2026-09-28）**：编码类 `-c:v:0 <编码器>` 只编码主视频，配合 `-map 0:v:disp:attached_pic?` + **由 ffprobe 流表算出**的 `-c:v:<n> copy`（封面在输出侧的 per-type 下标 = [m, m+n)，m = 非封面视频路数；**写死槽位在 m≥2 时整体错位，会让整条转码 rc=127 写 0 字节**）把封面原样带进 mp4 的 `covr` atom（映射与复制同在 lib 变量里，一起开关；探测不可用时退回槽位 1、2）。`disp:` 说明符需 **ffmpeg 7.1+**；两族各有一个能力闸门，不认就只丢封面、不让编码失败。**注意**：早期版本用全局 `-c:v copy -c:v:0 <编码器>`，会和 `-c:v:0` 撞在同一条流上触发 `Multiple -codec` 警告，已废弃（lint L16 拦）。**位图字幕（2026-09-28）**：mp4 装不下 `hdmv_pgs_subtitle` / `dvd_subtitle`，一进 `-c:s mov_text` 就 EINVAL 写 0 字节；闸门按字幕的 per-type 下标发 `-map -0:s:<i>` 逐条排除（**不是** `-map -0:s`，那会把能救的 ass/subrip 一起丢），文本字幕照常转 mov_text。位图名单是黑名单（PGS / DVD / XSUB / DVB，来源封闭），漏列只会回到"跑失败"，不会静默丢字幕 | 全部 |
 | `bench_calib.*` / `soft_pair_calib.*` / `nvenc_pair_calib.*` | **libvmaf** | B（原生 gyan）/ A、C（`/opt` master） |

@@ -38,7 +38,7 @@ declare -F ff_help_guard >/dev/null 2>&1 && ff_help_guard "$0" "$@" -- \
     "        avc_vaapi hevc_vaapi   (仅 Linux)" \
     "        copy                  (无损转封装, 不重编码)" \
     "  --dec  auto | cpu | none | qsv | cuda   (可省, 默认用编码器族的固定解码)" \
-    "老入口仍然可用: ffmpeg_libx264.sh / ffmpeg_hevc_qsv.sh / ffmpeg_copy_to_mp4.sh …" || :
+    "老入口仍然可用: ffmpeg_libx264.sh / ffmpeg_hevc_qsv.sh / ffmpeg_repack.sh …" || :
 
 # ---------- 校验 --venc ----------
 # parse_switches 只认键名不认语义, 所以取值是否合法由每个脚本自己判(tools/ 那批

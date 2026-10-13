@@ -395,7 +395,7 @@ echo 由 andreas 编写
 echo ============================================================
 
 rem ---------- 修复模式(--repair / REPAIR=1) ----------
-rem 归一化后强制 mkv 出口 + 注入修复选项(与 ffmpeg_copy_to_mp4.bat 同义)。-ignore_editlist /
+rem 归一化后强制 mkv 出口 + 注入修复选项(与 ffmpeg_repack.bat 同义)。-ignore_editlist /
 rem -fflags 是输入选项, 放在 -i 之前(见下方 RUN_COM 拼装)。
 set "FB_REPAIR=0"
 if /I "%REPAIR%"=="1" set "FB_REPAIR=1"

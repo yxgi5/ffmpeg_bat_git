@@ -22,7 +22,7 @@ rem with a self-contained micro-test, so a red result points straight
 rem at the construct that broke.
 rem
 rem Coverage:
-rem   part A : 20 filename metacharacter cases through ffmpeg_copy_to_mp4
+rem   part A : 20 filename metacharacter cases through ffmpeg_repack
 rem   part C : full encoder path (ffmpeg_avc_qsv) for the real-world shapes
 rem   part B : same shapes driven through convert_from_list_qsv (list mode)
 rem   part D : no-argument mode, path fed over stdin (probe can only
@@ -99,7 +99,7 @@ copy /y "%WORK%\base.mp4" "%WORK%\base.mov" >nul
 
 rem ---------------- part A: metacharacter matrix ----------------
 >>"%SUM%" echo.
->>"%SUM%" echo ---- part A: one file straight through ffmpeg_copy_to_mp4 ----
+>>"%SUM%" echo ---- part A: one file straight through ffmpeg_repack ----
 echo [part A] 20 filename cases ...
 call :run 01 "smoke_plain.mov"
 call :run 02 "smoke_amp & test.mov"
@@ -194,7 +194,7 @@ set "IFILE=%WORK%\stdin_path.txt"
 >>"%IFILE%" echo.
 >>"%IFILE%" echo.
 del /q "%CDIR%\smoke_amp & test.mp4" 2>nul
-call "%REPO%\ffmpeg_copy_to_mp4.bat" < "%IFILE%" > "%LDIR%\D0_noarg.log" 2>&1
+call "%REPO%\ffmpeg_repack.bat" < "%IFILE%" > "%LDIR%\D0_noarg.log" 2>&1
 set "DRC=%ERRORLEVEL%"
 set "DV=FAIL"
 if exist "%CDIR%\smoke_amp & test.mp4" set "DV=PASS"
@@ -207,7 +207,7 @@ rem     the path while D0 does not, the stdin eater is a child process that
 rem     find_ffmpeg runs (the for /f where lookup).
 set "FFMPEG=C:\Program Files\ffmpeg\bin\ffmpeg.exe"
 del /q "%CDIR%\smoke_amp & test.mp4" 2>nul
-call "%REPO%\ffmpeg_copy_to_mp4.bat" < "%IFILE%" > "%LDIR%\D1_noarg_ffbin.log" 2>&1
+call "%REPO%\ffmpeg_repack.bat" < "%IFILE%" > "%LDIR%\D1_noarg_ffbin.log" 2>&1
 set "D1RC=%ERRORLEVEL%"
 set "D1V=FAIL"
 if exist "%CDIR%\smoke_amp & test.mp4" set "D1V=PASS"
@@ -365,7 +365,7 @@ exit /b 0
 
 rem ==================================================================
 rem :run <idx> <name>
-rem   copies the fixture to CDIR\<name>, runs copy_to_mp4 on it and
+rem   copies the fixture to CDIR\<name>, runs ffmpeg_repack on it and
 rem   appends one verdict line to the summary.
 rem ==================================================================
 :run
@@ -382,7 +382,7 @@ if not exist "%SRC%" (
     exit /b 0
 )
 if exist "%EXPECT%" del /q "%EXPECT%"
-call "%REPO%\ffmpeg_copy_to_mp4.bat" "%SRC%" > "%LDIR%\A%IDX%.log" 2>&1
+call "%REPO%\ffmpeg_repack.bat" "%SRC%" > "%LDIR%\A%IDX%.log" 2>&1
 set "RC=%ERRORLEVEL%"
 set "V=FAIL"
 if exist "%EXPECT%" set "V=PASS"

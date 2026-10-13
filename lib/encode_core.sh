@@ -358,7 +358,7 @@ function enc_run_copy() {
     echo ============================================================
 
     # ---------- 修复模式(--repair / REPAIR=1) ----------
-    # 与 ffmpeg_copy_to_mp4.sh 同源: 源容器索引损坏(DTS/stsc/editlist)导致 -c copy 到 mp4
+    # 与 ffmpeg_repack.sh 同源: 源容器索引损坏(DTS/stsc/editlist)导致 -c copy 到 mp4
     # 在坏样本处误判 EOF(0 帧空文件); 解法 = -ignore_editlist 1 -fflags +igndts+genpts 重封装,
     # 且 mkv 对坏时间戳容忍度远高于 mp4。故修复模式强制 mkv 出口 + 注入这两个"输入"选项。
     local repair_on=0

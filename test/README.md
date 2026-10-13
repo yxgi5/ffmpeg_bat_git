@@ -252,8 +252,8 @@ test/
 | L13 | `exit` / `exit /b` 取值在白名单内（bat `0,1,2,3,4,5,6`；sh 另允许 `6,8,9`） | 让 §5.2 的退出码契约不漂移（`4` 为 2026-09-30 新增的「硬件缺失」，`6` 为同日新增的「产物已存在」） |
 | L14 | `test/` 下的 `.sh` 在 **git 索引**里必须是 `100755`（读 `git ls-files -s`，不读文件系统） | Windows 上 `core.fileMode=false`，pull 出来丢执行位 |
 | L15 | **失败路径的两族对等**：入口 `.bat` 在 `%RUN_COM%` 之后、清单 wrapper 在子调用之后必须有 `exit /b 1`；`.sh` 入口在编码命令之后必须有 `exit 1`。**且 `.bat` 入口的守卫必须是「负数安全」的**（`if not "%X%"=="0"` 或 `%X% NEQ 0`，`X` = `%ERRORLEVEL%` 或紧接着从它赋值的变量），不允许用 `if errorlevel N` | **2026-09-17 实际缺口（两层）**：① `.bat` 入口一律以无条件 `exit /b 0` 收尾，任何编码失败对调用方都伪装成成功（wrapper 继续跑、探针报 OK）；② 改成 `if errorlevel 1` 后**仍然没修好**——它是**带符号比较**，而 Windows 版 ffmpeg 失败时返回**负** AVERROR（本机 `av1_qsv` 退出码 **-40 / Function not implemented**），`-40 >= 1` 不成立 → 守卫不触发 → 依旧落到 `exit /b 0`。用户正是在复跑探针时看到 `rc=0 but no real output (0B) \| ERRORLEVEL:-40` 才揪出来的。L13 只查取值词表，查不出「失败路径根本不可达」 |
-| L16 | **流映射一致性**：每个 mp4 出口（两族 21 个 `ffmpeg_*`）都必须带 `-map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`，且**视频映射按出口类型区分**：编码类必须 `-map 0:V`，remux 两族必须 `-map 0:v`（两边写反都报 FAIL）；**且编码类必须"保留封面"**：① 引用封面映射变量（`.sh` 的 `${COVER_MAP[@]}` / `.bat` 的 `%COVERMAP%`）② **不得出现未加流号的 `-c:v copy`**（会和 `-c:v:0` 撞在同一条流上，ffmpeg 报 `Multiple -codec ... only the last option will be used`；只有 remux 允许）③ 必须有 `-c:v:0 <编码器>` ④ 不得出现未加作用域的 `-profile:v`（会打死 copy 流）；⑤ **闸门变量必须排在 `-map 0:s?` 之后**（变量里兼带位图字幕的负映射 `-map -0:s:<i>`，而负映射只排除"已映射进来"的流，顺序反了就失效 → 位图字幕把整条打成 0 字节）；`lib/common.{sh,bat}` 必须定义封面映射字面量**且**带上封面复制指令 `-c:v:1 copy`**且**定义位图字幕名单（含 `hdmv_pgs_subtitle`）（封面复制下标**由 ffprobe 数流算出**，写死槽位在多路视频源上会错位到「整条 rc=127 写 0 字节」，`-c:v:1 copy` 现为探测失败时的兜底字面量；remux 与 DVD 入口按白名单豁免） | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露。<br>**2026-09-28 实际缺口（用户报障「前一个命令失败，后一个命令成功」）**：编码类的 `-map 0:v` 会把 **mkvmerge 写入的封面图**（attached picture）当成第二路输出视频流送进编码器，而 mp4 只能把封面存成 mjpeg/png/bmp → `Could not find tag for codec hevc in stream #1, codec not currently supported in container` → `Could not write header … Invalid argument` → **0 字节、整条白跑**（用户那份 2h13m 的 mkv 第 4 条流就是 `mjpeg (attached pic)`，ffprobe `attached_pic=1`）。改 `-map 0:V` 修掉，共 19 文件 21 处。remux 两族**不能**跟着改：它们 `-c:v copy`，mp4 存得下复制过来的 mjpeg 封面（实测输出 3 条流全在、`attached_pic=1`），改成 `0:V` 反而会把今天还在的封面悄悄丢掉。<br>**2026-09-28 同日，用户追加要求「如果有封面的尽可能保留封面呗」**：`0:V` 只是"别炸"，封面本身还是丢了。真正保留封面的写法是「**复制默认 + 只编码主视频**」—— `-c:v copy -c:v:0 libx264`，配 `-map 0:v:disp:attached_pic?`（按 **disposition** 选流，**几层封面都能一起选中**，也不用去数封面在第几路）。`disp:` 是 ffmpeg 7.1+ 才有的说明符，老构建视为**语法错误**、结尾的 `?` 救不了 → 两族各加一个**能力闸门**（`.sh` 的 `cover_map_gate` / `.bat` 的 `:cover_map`：lavfi 假源探一次，不认就只丢封面、绝不让整条编码失败）。copy 流会吃下未加作用域的编码参数，实测**只有 `-profile:v` 致命**（`Error setting up codec context options`）→ profile 一律写 `-profile:v:0`，Cygwin 入口的 `-vf` 同理改 `-filter:v:0`。详见 `environment_matrix.md` 第 52/53 条。<br>**2026-09-28 再追加，位图字幕（用户给了 7 个 DVD ISO 样本后实测）**：`-c:s mov_text` 只能吃文本字幕，遇到 `hdmv_pgs_subtitle` / `dvd_subtitle` 会报 `Subtitle encoding currently only possible from text to text or bitmap to bitmap` → rc=-22 **写 0 字节**。扫用户 838 条清单（657 可访问）**命中 14 个**（Chernobyl 全 5 集、花と蛇 8 部等）。修法：lib 数流时按字幕的 **per-type 下标**发 `-map -0:s:<i>` 负映射（用下标而非 `-map -0:s`，否则同文件里能救的 ass/subrip 会一起丢），随同一变量下发 → 入口零改动。详见 `environment_matrix.md` 第 54 条 |
-| L17 | **moov 前置**：两个 remux 入口（`ffmpeg_copy_to_mp4.{bat,sh}`）必须带 `-movflags +faststart` | **2026-09-17 用户要求**：默认 mp4 把索引 `moov` 写在 `mdat` **之后**，播放器要拿到文件末尾才能起播（大文件拷走/边下边播时很难受）。实测同一夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**（ffmpeg 就地搬索引，日志里是 `Starting second pass: moving the moov atom to the beginning of the file`）。当前只管 remux 两个出口，11 个编码入口仍是默认布局（等用户裁定是否一并前置） |
+| L16 | **流映射一致性**：每个 mp4 出口（两族 21 个 `ffmpeg_*`）都必须带 `-map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0`，且**视频映射按出口类型区分**：编码类必须 `-map 0:V`，remux 两族必须 `-map 0:v`（两边写反都报 FAIL）；**且编码类必须"保留封面"**：① 引用封面映射变量（`.sh` 的 `${COVER_MAP[@]}` / `.bat` 的 `%COVERMAP%`）② **不得出现未加流号的 `-c:v copy`**（会和 `-c:v:0` 撞在同一条流上，ffmpeg 报 `Multiple -codec ... only the last option will be used`；只有 remux 允许）③ 必须有 `-c:v:0 <编码器>` ④ 不得出现未加作用域的 `-profile:v`（会打死 copy 流）；⑤ **闸门变量必须排在 `-map 0:s?` 之后**（变量里兼带位图字幕的负映射 `-map -0:s:<i>`，而负映射只排除"已映射进来"的流，顺序反了就失效 → 位图字幕把整条打成 0 字节）；`lib/common.{sh,bat}` 必须定义封面映射字面量**且**带上封面复制指令 `-c:v:1 copy`**且**定义位图字幕名单（含 `hdmv_pgs_subtitle`）（封面复制下标**由 ffprobe 数流算出**，写死槽位在多路视频源上会错位到「整条 rc=127 写 0 字节」，`-c:v:1 copy` 现为探测失败时的兜底字面量；remux 与 DVD 入口按白名单豁免） | **2026-09-17 实际缺口**：两个 remux 入口（`ffmpeg_repack.{bat,sh}`）没有 `-map`，ffmpeg 默认选流只保留 1 视频 + 1 音频，**多音轨/字幕被静默丢弃**（转封装是个"看不见的破坏"）。该缺口活了很久，直到用户问「`-map 0:v` 是否加」才暴露。<br>**2026-09-28 实际缺口（用户报障「前一个命令失败，后一个命令成功」）**：编码类的 `-map 0:v` 会把 **mkvmerge 写入的封面图**（attached picture）当成第二路输出视频流送进编码器，而 mp4 只能把封面存成 mjpeg/png/bmp → `Could not find tag for codec hevc in stream #1, codec not currently supported in container` → `Could not write header … Invalid argument` → **0 字节、整条白跑**（用户那份 2h13m 的 mkv 第 4 条流就是 `mjpeg (attached pic)`，ffprobe `attached_pic=1`）。改 `-map 0:V` 修掉，共 19 文件 21 处。remux 两族**不能**跟着改：它们 `-c:v copy`，mp4 存得下复制过来的 mjpeg 封面（实测输出 3 条流全在、`attached_pic=1`），改成 `0:V` 反而会把今天还在的封面悄悄丢掉。<br>**2026-09-28 同日，用户追加要求「如果有封面的尽可能保留封面呗」**：`0:V` 只是"别炸"，封面本身还是丢了。真正保留封面的写法是「**复制默认 + 只编码主视频**」—— `-c:v copy -c:v:0 libx264`，配 `-map 0:v:disp:attached_pic?`（按 **disposition** 选流，**几层封面都能一起选中**，也不用去数封面在第几路）。`disp:` 是 ffmpeg 7.1+ 才有的说明符，老构建视为**语法错误**、结尾的 `?` 救不了 → 两族各加一个**能力闸门**（`.sh` 的 `cover_map_gate` / `.bat` 的 `:cover_map`：lavfi 假源探一次，不认就只丢封面、绝不让整条编码失败）。copy 流会吃下未加作用域的编码参数，实测**只有 `-profile:v` 致命**（`Error setting up codec context options`）→ profile 一律写 `-profile:v:0`，Cygwin 入口的 `-vf` 同理改 `-filter:v:0`。详见 `environment_matrix.md` 第 52/53 条。<br>**2026-09-28 再追加，位图字幕（用户给了 7 个 DVD ISO 样本后实测）**：`-c:s mov_text` 只能吃文本字幕，遇到 `hdmv_pgs_subtitle` / `dvd_subtitle` 会报 `Subtitle encoding currently only possible from text to text or bitmap to bitmap` → rc=-22 **写 0 字节**。扫用户 838 条清单（657 可访问）**命中 14 个**（Chernobyl 全 5 集、花と蛇 8 部等）。修法：lib 数流时按字幕的 **per-type 下标**发 `-map -0:s:<i>` 负映射（用下标而非 `-map -0:s`，否则同文件里能救的 ass/subrip 会一起丢），随同一变量下发 → 入口零改动。详见 `environment_matrix.md` 第 54 条 |
+| L17 | **moov 前置**：两个 remux 入口（`ffmpeg_repack.{bat,sh}`）必须带 `-movflags +faststart` | **2026-09-17 用户要求**：默认 mp4 把索引 `moov` 写在 `mdat` **之后**，播放器要拿到文件末尾才能起播（大文件拷走/边下边播时很难受）。实测同一夹具：不加 = `ftyp/free/mdat/moov`，加了 = `ftyp/moov/free/mdat`，**字节数完全相同**（ffmpeg 就地搬索引，日志里是 `Starting second pass: moving the moov atom to the beginning of the file`）。当前只管 remux 两个出口，11 个编码入口仍是默认布局（等用户裁定是否一并前置） |
 
 **2026-10-08 阶段 1 适配（统一入口 `ffmpeg_encode.{sh,bat}`）**：
 
@@ -264,7 +264,7 @@ test/
 * **L17**：moov 前置的出口从 2 个变成 **3 个**（两个 remux + 统一入口的 `copy`）。
   `MOOV_IN_CORE` 登记的是 `ffmpeg_encode.{sh,bat}` —— **只有统一入口**的 copy 段拼在内核里，
   两个 remux 入口是在各自薄壳里拼的；若不限定会把内核 copy 段前置给所有入口，
-  导致老 `copy_to_mp4` 丢 flag 却不报（阶段 1 中踩过一次）。
+  导致老 `ffmpeg_repack` 丢 flag 却不报（阶段 1 中踩过一次）。
 * **冒烟断言**：新增 T32–T43（sh/bat 已对齐）覆盖统一入口，见「冒烟用例」表。
   bat 侧 T32–T37（6 条）同样全过。**逐条加、每加一条就在真机跑一遍冒烟** —— 一次性加 7 条时
   T35/T36 恒 FAIL 且让元字符矩阵多出一条 `A19 rc=3`，整批撤回后才定位到；逐条加则每步基线已知。
@@ -403,7 +403,7 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T2 | `ffmpeg_hevc_nvenc` | arg | 2548951 / hevc | ✅ | ✅ |
 | T3 | `ffmpeg_hevc_qsv` | arg | 2548951 / hevc | ✅ | ✅ |
 | T4 | `ffmpeg_libx265` | arg | 2548951 / hevc | ✅ | ✅ |
-| T5 | `ffmpeg_copy_to_mp4` | arg, mov→mp4 | 不复码率 / h264 | ✅ | ✅ |
+| T5 | `ffmpeg_repack` | arg, mov→mp4 | 不复码率 / h264 | ✅ | ✅ |
 | T6 | `ffmpeg_avc_qsv` | stdin 交互（路径 + 空行） | 3836249 / h264 | ✅ | ✅ |
 | T7 | 全新进程 / 控制台码页 | — | — | SKIP（无对应物） | ✅ usage C |
 | T8 | `ffmpeg_h264_vaapi` | arg | 3836249 / h264 | ✅ | 无此入口 |
@@ -474,7 +474,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 
 | part | 内容 | sh 侧 | bat 侧 |
 |------|------|-------|--------|
-| A | 20 个元字符文件名过 `copy_to_mp4` | ✅ 20/20 实测 | ✅ |
+| A | 20 个元字符文件名过 `ffmpeg_repack` | ✅ 20/20 实测 | ✅ |
 | C | 3 个真实形状走**完整编码** | `ffmpeg_libx264.sh`（无需硬件） | `ffmpeg_avc_qsv.bat` |
 | B | 6 个元字符条目走 **list 模式** | `convert_from_list_libx265.sh`（无需硬件） | `convert_from_list_qsv.bat` |
 | D | 无参模式，路径从 stdin 喂 | **真 PASS**（重定向确实到达 `read`） | SKIP（cp65001 重启的探针取证限制，见其头注释） |
@@ -608,7 +608,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
    历史上以无条件 `exit /b 0` 收尾，ffmpeg 失败也报成功，于是初版深测把**不支持 AV1 编码
    的机器**上的 `av1_qsv` 也判成 `PROBE-OK`。2026-09-17 起入口已按 `.sh` 孪生改为失败传回
    `1`（L15 钉住），但探针**仍然判真实输出文件**（存在且 >4096 字节）——
-   因为「rc=0 却没写出文件」还有别的来源：早期 `copy_to_mp4` 对 mp4 输入直接 no-op
+   因为「rc=0 却没写出文件」还有别的来源：早期 `ffmpeg_repack` 对 mp4 输入直接 no-op
    （2026-10-13 起改为产出 `<名>-repacked.mp4`，不再 no-op），彼时 remux 入口的 `-n` 与同名输入冲突
    （故探针给 remux 喂 `.mkv` 夹具，与冒烟 T5 同思路）；现在 `-repacked` 命名已消除同名冲突，但探针仍沿用 `.mkv` 夹具；
    实测连 `ffmpeg -n` 拒绝覆盖同名输出时**自身就返回 0**（只在日志里留
@@ -639,7 +639,7 @@ ffprobe 进程**，每条外面还套一个 `tr -d '\r'` 命令替换。Windows/
 ### 5.1 入口清单
 
 **共享（12）**：`ffmpeg_avc_qsv`、`ffmpeg_hevc_qsv`、`ffmpeg_av1_qsv`、`ffmpeg_hevc_nvenc`、
-`ffmpeg_av1_nvenc`、`ffmpeg_libx264`、`ffmpeg_libx265`、`ffmpeg_copy_to_mp4`、
+`ffmpeg_av1_nvenc`、`ffmpeg_libx264`、`ffmpeg_libx265`、`ffmpeg_repack`、
 `convert_from_list_qsv`、`convert_from_list_cuda`、`convert_from_list_libx265`、`repack_from_list`
 
 **sh 独有（2，均有正当理由）**
@@ -788,7 +788,7 @@ T19 hevc_vaapi 在 C 机 4.4.2 上通过探针与全用例（此前记录的 4.4
 
 `ssh_run.py --machine d`（`100.70.213.69`，用户 `pi`）。这是四台机器里唯一
 **没有 QSV / NVENC 硬件编码器**的：能力报告快查 `OK 7`（libx264、libx265、
-h264/hevc vaapi、copy_to_mp4 及两个 wrapper），QSV/NVENC 系全部 `NO-ENCODER`。
+h264/hevc vaapi、ffmpeg_repack 及两个 wrapper），QSV/NVENC 系全部 `NO-ENCODER`。
 ffmpeg 是 Raspbian 源的 4.1.3 —— 比 A/C 的 4.4.2 更老，但全部入口脚本照常工作
 （`check_file_isvideo` / `lookup_bitrate` 等纯 shell 逻辑与 ffmpeg 版本解耦）。
 
@@ -860,7 +860,7 @@ T20 随之撤销 —— 实测两版解码路径完全相同，覆盖与 T2 重�
   —— 入口现在把 ffmpeg 的负码 `-40` 归一成契约里的 `1`，`run.log` 里仍能看到原始的
   `ERRORLEVEL:-40`；其余 `PROBE-OK out=…B`；表尾还有 `filt libvmaf : yes`）；
 * ~~**失败守卫的运行时实证**~~ ✅ **2026-09-29 已实证**（原为「本轮最重要的待验项」：`.bat` 侧的 `if not "%FB_RC%"=="0"` 从未在真机跑过一次，静态 + lint 只能证明形状对）：拿 `ffmpeg_dvd_hevc.bat` 在**无章节**的 title 上跑 `SPLIT_CHAPTER=2`，part2 必然失败 —— ffmpeg 返回 **-1094995529**，日志打出 `Convert failed! rc=-1094995529` 且进程 `exit /b 1`（`if errorlevel 1` 是带符号比较，看不见这个负数）。详见 `code_review_report.md` 同日条目；原建议的验证路径（无 AV1 硬编的机器上跑 `ffmpeg_av1_qsv.bat`，期望 `Convert failed! rc=-40`）仍然有效。
-* **拖一部含多音轨的 mkv 上 `ffmpeg_copy_to_mp4.bat`**：除了音轨数要对得上，
+* **拖一部含多音轨的 mkv 上 `ffmpeg_repack.bat`**：除了音轨数要对得上，
   还要确认 moov 前置 —— 用 `ffprobe -v trace` 看原子顺序是 `ftyp` → **`moov`** → `mdat`；
 * **`probe_source` 合并探测的运行时实证**（本轮新增）：拖一部普通片源上任意编码入口
   （如 `ffmpeg_libx265.bat`），窗口的探测段应照旧打出
@@ -908,7 +908,7 @@ bat 侧从此也有一条「记事本存出来的清单」用例（2026-10-02 �
 
 - 完整剧集（路径含中文 + 方括号 + 逗号 + 空格）拖 `ffmpeg_libx264.bat`：端到端 **308 MB** 产物，命令行装配正确；
 - 切 40 s 片段（文件名 `真 素材 [A&B] (测试).mkv`，hevc + ac3 + ass 字幕）跑 6 个 `.bat` 入口：
-  `libx265` / `hevc_qsv` / `hevc_nvenc` / `av1_nvenc` / `copy_to_mp4` 全 rc=0，**`avc_qsv` rc=1、产物 0 字节**（见下）；
+  `libx265` / `hevc_qsv` / `hevc_nvenc` / `av1_nvenc` / `ffmpeg_repack` 全 rc=0，**`avc_qsv` rc=1、产物 0 字节**（见下）；
 - ISO：`H:\Downloads\中高艺\中高艺丝袜视频DVD系列\DVD001(Canndy)\DVD001(Canndy).iso`（3.4 GB，中文路径 + 括号）
   走 `ffmpeg_dvd_hevc.bat`：预览识别到正片 720x576 / 1682 s，`APPLY=1` 端到端出片
   （title1 182 MB、title2 224 MB，speed 25x）。盘本身带 `libdvdread: CHECK_VALUE failed`

@@ -34,7 +34,7 @@ if errorlevel 2 exit /b 2
 rem 统一 --help / -help / -h: 打印用法后退出, 不干活(见 lib\common.bat 的 :want_help / :usage)
 rem 刻意用两条独立的 if 而不是 ( ) 块: usage 的参数里不许出现半角右括号(会提前闭块)。
 call "%~dp0lib\common.bat" want_help %*
-if defined FB_WANT_HELP call "%~dp0lib\common.bat" usage "repack_from_list.bat  -  按清单逐条无损转封装为 mp4" "用法: repack_from_list.bat 清单文件    不带参数默认 list.txt" "清单每行一个视频路径；逐条调用 ffmpeg_copy_to_mp4.bat"
+if defined FB_WANT_HELP call "%~dp0lib\common.bat" usage "repack_from_list.bat  -  按清单逐条无损转封装为 mp4" "用法: repack_from_list.bat 清单文件    不带参数默认 list.txt" "清单每行一个视频路径；逐条调用 ffmpeg_repack.bat"
 if defined FB_WANT_HELP exit /b 0
 
 SET "SRC_FILE="
@@ -51,7 +51,7 @@ echo SRC_FILE="%SRC_FILE%"
 rem ---------- 开关透传(无人值守留痕) ----------
 rem 本脚本经 parse_switches 接受标准 --key value 开关(EXT / BITRATE_NO_HALF /
 rem   FF_HWACCEL / FF_ON_EXIST 等, 见 readme.md 的开关表), 设成环境变量后原样透传给下游入口
-rem   ffmpeg_copy_to_mp4.bat; 老的环境变量写法仍兼容。
+rem   ffmpeg_repack.bat; 老的环境变量写法仍兼容。
 rem 默认值统一写在 lib\defaults.cfg —— 无人值守前改那个文件即可, 命令行
 rem   set XXX=... 的临时覆盖优先。 load_defaults 把默认值装进本进程环境(子进程
 rem   继承), 再回显一行: 跑一整晚的日志里能一眼看出这份清单是按什么设置转的。
@@ -91,7 +91,7 @@ set "LINE=%~1"
 rem 第一个字符是 UTF-8 BOM(U+FEFF, 下面那个引号里就是它, 不可见)时才剁;
 rem   for /f 在 cp65001 下会把 EF BB BF 解成这一个字符。
 if "%LINE:~0,1%"=="﻿" set "LINE=%LINE:~1%"
-call "%~dp0ffmpeg_copy_to_mp4.bat" "%LINE%"
+call "%~dp0ffmpeg_repack.bat" "%LINE%"
 set "RC=%errorlevel%"
 exit /b %RC%
 

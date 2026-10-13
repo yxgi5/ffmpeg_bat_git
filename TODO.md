@@ -18,10 +18,10 @@
 | `ffmpeg_hevc_qsv.sh` vs `ffmpeg_avc_qsv.sh` | 33 | 200 / 209 |
 | `ffmpeg_hevc_vaapi.sh` vs `ffmpeg_h264_vaapi.sh` | 32 | 227 / 207 |
 | `ffmpeg_hevc_nvenc.sh` vs `ffmpeg_av1_nvenc.sh` | 33 | 197 / 233 |
-| `ffmpeg_libx265.sh` vs `ffmpeg_copy_to_mp4.sh` | 171 | 193 / 110 |
+| `ffmpeg_libx265.sh` vs `ffmpeg_repack.sh` | 171 | 193 / 110 |
 
 即：**9 个编码入口 ≈ 一份 ~170 行公共内核 + 每份 20–40 行差异**。
-（`copy_to_mp4` 是 remux，无码率表；`dvd_hevc` 751 行、多 title/ISO —— 两者是真·另一类，不属此列。）
+（`ffmpeg_repack` 是 remux，无码率表；`dvd_hevc` 751 行、多 title/ISO —— 两者是真·另一类，不属此列。）
 
 ## 2. 目标形态（已同意）
 
@@ -38,7 +38,7 @@ tools/*                   不动结构，只做开关参数化（环境变量照
 这张映射 lint 里已经有了（`P02` 的 `family_table(codec)`），运行时照抄一份即可。
 所以真正新增的参数只有两个：**`--venc`（编码器）** 与 **`--dec`（解码器）**。
 
-`copy_to_mp4` 按 2026-10-08 拍板**并入**为 `--venc copy`（见 §6 第 4 项：moov 前置一起带过来）。
+`ffmpeg_repack` 按 2026-10-08 拍板**并入**为 `--venc copy`（见 §6 第 4 项：moov 前置一起带过来）。
 
 ## 3. 淘汰清单（2026-10-04 调整版）
 
@@ -144,7 +144,7 @@ tools/*                   不动结构，只做开关参数化（环境变量照
 | 1 | 统一入口**叫什么** | **`ffmpeg_encode`**（`ffmpeg_encode.sh` / `.bat`） |
 | 2 | 老名字薄壳**保留多久** | **待定** —— 见下方「§6 #2 决策项（附选项与代价）」 |
 | 3 | `--dec` 的取值集合 | **含 `cpu` 语义，语义就是 `none`**（一次 `-hwaccel` 都不加），与现有 `FF_HWACCEL=none` 对齐 |
-| 4 | `copy_to_mp4` 是否并入 | **并入**（`--venc copy`）。⚠️ **`-movflags +faststart`（moov 前置）必须一起带过来** —— 它是转封装能"拷走/边下边播"的关键，且 9 个编码入口目前都**没有**它，合并时别漏 |
+| 4 | `ffmpeg_repack` 是否并入 | **并入**（`--venc copy`）。⚠️ **`-movflags +faststart`（moov 前置）必须一起带过来** —— 它是转封装能"拷走/边下边播"的关键，且 9 个编码入口目前都**没有**它，合并时别漏 |
 | 5 | 阶段 1 后冒烟 T1–T31 怎么改 | **按新入口名重写断言**，老 T-id 保留含义 |
 | 6 | VAAPI 淘汰后，Linux 上的 VAAPI 用户怎么走 | **用 QSV 等替代**（`--venc <hevc_qsv/avc_qsv> --dec qsv`）；不保留 `--dec vaapi` 取值 |
 
@@ -179,8 +179,8 @@ tools/*                   不动结构，只做开关参数化（环境变量照
 ### 验证
 
 * **逐字对拍**（阶段 0 基线 vs 阶段 1）：sh 侧 9 个老入口 `--dry-run`/`--help` 逐字 diff **0**；
-  `ffmpeg_encode.sh` 对拍老入口 **9/9 IDENTICAL**。bat 侧 7 个老入口 + `copy_to_mp4.bat` **7/7 IDENTICAL**。
-* `copy` 的 `RUN_COM` 与 `ffmpeg_copy_to_mp4` 一致（含 `-c:s mov_text` 与 `+faststart`）。
+  `ffmpeg_encode.sh` 对拍老入口 **9/9 IDENTICAL**。bat 侧 7 个老入口 + `ffmpeg_repack.bat` **7/7 IDENTICAL**。
+* `copy` 的 `RUN_COM` 与 `ffmpeg_repack` 一致（含 `-c:s mov_text` 与 `+faststart`）。
 * `--dec` 五个取值逐一实测；混合组合的警告实测。
 * `smoke_all.bat`：**44 PASS / 6 SKIP / 5 FAIL**，5 个失败全是阶段 0 既存项（未扩大）。
 * lint `31 PASS / 0 FAIL`。
@@ -245,7 +245,7 @@ sh 侧 `enc_dec_warn` 用的是 `$fam_d`（族）。这是一处**两族漂移**
   * 后续防线：`banner check` 这条断言已把「无解析噪声」钉住 —— 以后谁再引入这类噪声，冒烟直接 FAIL，
     不必再靠人肉分辨日志。
 
-> 第 4 项对阶段 0 的约束：`copy_to_mp4` 与 9 个编码入口有**四处**结构差异 ——
+> 第 4 项对阶段 0 的约束：`ffmpeg_repack` 与 9 个编码入口有**四处**结构差异 ——
 > 无码率表、输出名不带 `-compressed`、源已是目标容器即跳过、`-c copy` + faststart。
 > 抽内核时要把这些留成钩子位，不能让公共流程假设"一定有码率表"。
 

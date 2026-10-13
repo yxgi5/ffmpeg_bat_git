@@ -784,7 +784,7 @@ function _ff_native_exec() {
     # ---- "-hwaccel auto" 的 D3D 回退(2026-09-30 实测) ----
     #   Windows 会话处于「已断开 / 锁屏」时 D3D 设备创建被拒, 而 gyan 的 -hwaccel auto
     #   不是优雅降级, 是**直接崩**(0xC0000005 / Segmentation fault) —— 实测三族
-    #   (cmd、Cygwin、MINGW64)在同一状态下一起崩, 不带 hwaccel 的 copy_to_mp4 与
+    #   (cmd、Cygwin、MINGW64)在同一状态下一起崩, 不带 hwaccel 的 ffmpeg_repack 与
     #   dvd 工具链却全过。所以: 只在命令里带 "-hwaccel auto" 时, 把 stderr 收进临时
     #   文件; 失败且 stderr 出现 D3D 特征码, 就去掉这一对参数重跑一次, 编码器与其余
     #   参数一字不动。

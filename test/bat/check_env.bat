@@ -146,7 +146,7 @@ del /q "%TMPREQ%" >nul 2>&1
 >> "%TMPREQ%" echo ffmpeg_av1_qsv.bat^|av1_qsv^|qsv^|AV1 QSV needs Arrow Lake or newer iGPU
 >> "%TMPREQ%" echo ffmpeg_hevc_nvenc.bat^|hevc_nvenc^|nvidia^|NVIDIA NVENC HEVC
 >> "%TMPREQ%" echo ffmpeg_av1_nvenc.bat^|av1_nvenc^|nvidia^|AV1 NVENC needs Ada RTX 40 or newer
->> "%TMPREQ%" echo ffmpeg_copy_to_mp4.bat^|-^|none^|remux only - no encoder involved
+>> "%TMPREQ%" echo ffmpeg_repack.bat^|-^|none^|remux only - no encoder involved
 
 rem ---- the one entry this report cannot feed. It is not judged by encoder /
 rem device (it encodes with the software encoder like any other), it is judged
@@ -162,7 +162,7 @@ call :na_input "%DVD_ENTRY%"
 call :wrapper convert_from_list_cuda.bat ffmpeg_hevc_nvenc.bat
 call :wrapper convert_from_list_libx265.bat ffmpeg_libx265.bat
 call :wrapper convert_from_list_qsv.bat ffmpeg_hevc_qsv.bat
-call :wrapper repack_from_list.bat ffmpeg_copy_to_mp4.bat
+call :wrapper repack_from_list.bat ffmpeg_repack.bat
 echo.
 
 rem ---- tooling and data inventory ----
@@ -181,14 +181,14 @@ if exist "%TINY%" goto HAVE_CLIP
 if not exist "%TINY%" goto NO_FIXTURE
 :HAVE_CLIP
 call :hdr
-rem copy_to_mp4 is a remuxer: it refuses mp4-in/mp4-out and writes the
+rem ffmpeg_repack is a remuxer: it refuses mp4-in/mp4-out and writes the
 rem output next to the input, so it probes with a .mkv-named copy (same
 rem fixture trick as smoke case T5). Everything else is an encoder entry.
 for %%f in ("%REPO%\ffmpeg_*.bat") do (
     if /I "%%~nxf"=="%DVD_ENTRY%" (
         call :pskip "%%~nxf"
     ) else (
-        if /I "%%~nxf"=="ffmpeg_copy_to_mp4.bat" (
+        if /I "%%~nxf"=="ffmpeg_repack.bat" (
             call :probe_entry "%%~nxf" remux
         ) else (
             call :probe_entry "%%~nxf" enc

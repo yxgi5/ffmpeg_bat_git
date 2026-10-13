@@ -775,7 +775,7 @@ def check_sh_invariants(inv):
     bads = []
     core = core_text()
     for f in inv["all_sh"]:
-        if not f.startswith("ffmpeg_") or f == "ffmpeg_copy_to_mp4.sh":
+        if not f.startswith("ffmpeg_") or f == "ffmpeg_repack.sh":
             continue
         p = os.path.join(ROOT, f)
         if not os.path.isfile(p):
@@ -1118,7 +1118,7 @@ def check_fail_propagation(inv):
 # drops every extra audio track and every subtitle - a container conversion
 # quietly throwing away the alternate-language tracks is very hard to notice.
 # The 12 encoder entries always carried the full set; the two remux entries
-# (ffmpeg_copy_to_mp4.{bat,sh}) did not until 2026-09-17, found by the user
+# (ffmpeg_repack.{bat,sh}) did not until 2026-09-17, found by the user
 # asking what `-map 0:v` was doing there. This rule pins the set for EVERY
 # mp4-producing entry in both families.
 STREAM_MAP_TOKENS = ("-map 0:a?", "-map 0:s?",
@@ -1151,8 +1151,8 @@ STREAM_MAP_VIDEO = "-map 0:V"
 # mkv: output kept 4 streams (h264 + 2 aac + mjpeg). Rewriting them to 0:V
 # would silently drop a poster that the remux keeps right now. The distinction
 # is re-encode vs copy, not style - do NOT "unify" it without re-measuring.
-STREAM_MAP_VIDEO_KEEP_ATTACHED = {"ffmpeg_copy_to_mp4.bat": "-map 0:v",
-                                  "ffmpeg_copy_to_mp4.sh": "-map 0:v"}
+STREAM_MAP_VIDEO_KEEP_ATTACHED = {"ffmpeg_repack.bat": "-map 0:v",
+                                  "ffmpeg_repack.sh": "-map 0:v"}
 
 # 2026-09-22: ffmpeg_dvd_hevc.{bat,sh} is exempted from the "-c:s mov_text" token
 # ONLY. DVD subtitles are run-length **bitmap** streams (dvd_subtitle); ffmpeg
@@ -1223,8 +1223,8 @@ SUB_BITMAP_LITERAL = "hdmv_pgs_subtitle"
 #     附件流), 而且它的 VFILT/VENC_ARGS 拼装方式与通用入口不同 —— 不为一个不存在的
 #     场景去改一条已经验证过的路径。
 COVER_MAP_SKIP = {
-    "ffmpeg_copy_to_mp4.bat": "remux: -map 0:v 已经带上封面, 再加一条会重复映射",
-    "ffmpeg_copy_to_mp4.sh": "remux: -map 0:v 已经带上封面, 再加一条会重复映射",
+    "ffmpeg_repack.bat": "remux: -map 0:v 已经带上封面, 再加一条会重复映射",
+    "ffmpeg_repack.sh": "remux: -map 0:v 已经带上封面, 再加一条会重复映射",
     "ffmpeg_dvd_hevc.bat": "dvdvideo 源没有封面流",
     "ffmpeg_dvd_hevc.sh": "dvdvideo 源没有封面流",
 }
@@ -1244,7 +1244,7 @@ def check_stream_map(inv):
                 continue
             _, t = read_text(p)
             # 薄壳入口(阶段0): 命令体要看内核里它选中的那一支, 见 entry_body_sh /
-            # entry_body_bat 的说明; 非薄壳(dvd_hevc / copy_to_mp4)仍只看自己。
+            # entry_body_bat 的说明; 非薄壳(dvd_hevc / ffmpeg_repack)仍只看自己。
             if fam == "sh":
                 t = entry_body_sh(t, core) or t
             else:
@@ -1366,8 +1366,8 @@ def check_stream_map(inv):
 # the index in place ("Starting second pass: moving the moov atom to the
 # beginning of the file"). Pinned for both remux entries. The 11 encoder
 # entries still write the default layout until the user asks for it there too.
-MOOV_FRONT = {"ffmpeg_copy_to_mp4.bat": "-movflags +faststart",
-              "ffmpeg_copy_to_mp4.sh": "-movflags +faststart",
+MOOV_FRONT = {"ffmpeg_repack.bat": "-movflags +faststart",
+              "ffmpeg_repack.sh": "-movflags +faststart",
               # 阶段1: 转封装并入统一入口(--venc copy)之后, moov 前置多了一个落点。
               # 不给它登记的话, 把 enc_run_copy 里那句删掉不会有任何规则报出来。
               "ffmpeg_encode.bat": "-movflags +faststart",
@@ -1388,7 +1388,7 @@ def check_moov_front(inv):
         _, t = read_text(p)
         # 阶段1 起转封装住在核心里(enc_run_copy), 统一入口文件里只有一句 enc_run,
         # 所以**只对统一入口**把内核的 copy 段拼进来。别的 remux 入口仍只看自己 ——
-        # 要是给所有 sh 都拼上, 老 copy_to_mp4.sh 自己丢掉 flag 也不会报了。
+        # 要是给所有 sh 都拼上, 老 ffmpeg_repack.sh 自己丢掉 flag 也不会报了。
         if f in MOOV_IN_CORE:
             if f.endswith(".sh"):
                 t = core_fn_text(core, "enc_run_copy") + "\n" + t
