@@ -408,6 +408,22 @@ function enc_run_copy() {
     base="${filename_without_suffix}"
     case "$base" in *-repacked) ;; *) base="${base}-repacked" ;; esac
     TARGET_FILE="${ABS_PATH}/${base}.${EXT}"
+
+    # ---------- 交互模式可自定义输出文件名(仅交互, 批处理/清单模式不触发) ----------
+    # 设计目标同编码器: 命令行传源文件则自动命名(<名>-repacked.<ext>), 不询问;
+    # 仅交互(无参)模式问, 留空沿用自动名。--repair 强制 mkv 时把用户给的名也归一成 .mkv。
+    if [ "$param_number" -eq 0 ]; then
+        echo "请输入输出文件(不输入则自动 ${TARGET_FILE}): "
+        local USER_OUT
+        read -r USER_OUT
+        if [ -n "$USER_OUT" ]; then
+            local out="$USER_OUT"
+            case "$out" in *.*) ;; *) out="${out}.${EXT}" ;; esac
+            if [ "$repair_on" = 1 ]; then out="${out%.*}.mkv"; fi
+            case "$out" in /*) TARGET_FILE="$out" ;; *) TARGET_FILE="${ABS_PATH}/${out}" ;; esac
+        fi
+    fi
+
     echo "ABS_NAME: ${ABS_NAME}"
     echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
 
@@ -619,6 +635,20 @@ function enc_run() {
     filename=$(basename "$ABS_NAME")
     filename_without_suffix="${filename%.*}"
     TARGET_FILE="${ABS_PATH}/${filename_without_suffix}-compressed.${EXT}"
+
+    # ---------- 交互模式可自定义输出文件名(仅交互, 批处理/清单模式不触发) ----------
+    # 设计目标: 命令行传了源文件就自动命名(<名>-compressed.<ext>), 不询问; 只有
+    # 交互(无参)模式才问, 留空则沿用上面的自动名。与 .bat 侧 :346 同口径。
+    if [ "$param_number" -eq 0 ]; then
+        echo "请输入输出文件(不输入则自动 ${TARGET_FILE}): "
+        local USER_OUT
+        read -r USER_OUT
+        if [ -n "$USER_OUT" ]; then
+            local out="$USER_OUT"
+            case "$out" in *.*) ;; *) out="${out}.${EXT}" ;; esac
+            case "$out" in /*) TARGET_FILE="$out" ;; *) TARGET_FILE="${ABS_PATH}/${out}" ;; esac
+        fi
+    fi
 
     echo "ABS_NAME: ${ABS_NAME}"
     echo -e "\033[42;31mTARGET_FILE: '$TARGET_FILE'\033[0m"
