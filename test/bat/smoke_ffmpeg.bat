@@ -362,62 +362,64 @@ if not exist "%BRK%" (
   )
   if exist "%WORK%\_broken_base.mp4" del /q "%WORK%\_broken_base.mp4" >nul 2>&1
 )
-if "%GENOK%"=="0" (
-  call :skipcase T33 repair
-) else (
-  set "TD=%WORK%\cases\T33_repair"
-  if not exist "%TD%" mkdir "%TD%" >nul 2>&1
-  copy /y "%BRK%" "%TD%\src.mp4" >nul 2>&1
-  set "L33=%LOGDIR%\T33_repair.log"
-  set "O33=%TD%\src-repacked.mkv"
-  if exist "%O33%" del /q "%O33%" >nul 2>&1
-  call "%REPO%\ffmpeg_repack.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
-  set "RC33=%errorlevel%"
-  set "V33=PASS"
-  if not "%RC33%"=="0" set "V33=FAIL"
-  if not exist "%O33%" set "V33=FAIL"
-  if "%V33%"=="PASS" (
-    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD%\src.mp4" > "%LOGDIR%\T33_sfr.txt" 2>nul
-    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T33_sfr.txt") do set "SFR33=%%a"
-    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O33%" > "%LOGDIR%\T33_rfr.txt" 2>nul
-    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T33_rfr.txt") do set "RFR33=%%a"
-    if not defined SFR33 set "SFR33=0"
-    if not defined RFR33 set "RFR33=0"
-    if "%RFR33%"=="0" set "V33=FAIL"
-    if %RFR33% LSS %SFR33% set "V33=FAIL"
-  )
-  echo [%V33%] T33 ffmpeg_repack --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
-)
+if "%GENOK%"=="0" goto T33_SKIP
+set "TD=%WORK%\cases\T33_repair"
+if not exist "%TD%" mkdir "%TD%" >nul 2>&1
+copy /y "%BRK%" "%TD%\src.mp4" >nul 2>&1
+set "L33=%LOGDIR%\T33_repair.log"
+set "O33=%TD%\src-repacked.mkv"
+if exist "%O33%" del /q "%O33%" >nul 2>&1
+call "%REPO%\ffmpeg_repack.bat" --repair "%TD%\src.mp4" < nul > "%L33%" 2>&1
+set "RC33=%errorlevel%"
+set "V33=PASS"
+if not "%RC33%"=="0" set "V33=FAIL"
+if not exist "%O33%" set "V33=FAIL"
+if not "%V33%"=="PASS" goto T33_CHK_DONE
+"%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD%\src.mp4" > "%LOGDIR%\T33_sfr.txt" 2>nul
+for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T33_sfr.txt") do set "SFR33=%%a"
+"%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O33%" > "%LOGDIR%\T33_rfr.txt" 2>nul
+for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T33_rfr.txt") do set "RFR33=%%a"
+if not defined SFR33 set "SFR33=0"
+if not defined RFR33 set "RFR33=0"
+if "%RFR33%"=="0" set "V33=FAIL"
+if %RFR33% LSS %SFR33% set "V33=FAIL"
+:T33_CHK_DONE
+echo [%V33%] T33 ffmpeg_repack --repair broken_index.mp4 src=%SFR33% out=%RFR33% >> "%SUM%"
+goto T33_END
+:T33_SKIP
+call :skipcase T33 repair
+:T33_END
 
 rem ============ T41 (shared sh/bat): ffmpeg_encode --venc copy --repair (统一入口) ============
 rem 与 T33 同病理, 但走统一入口 ffmpeg_encode.bat --venc copy --repair, 验证阶段1 unify 后
 rem 修复模式在统一入口上同样生效(此前只在老入口 ffmpeg_repack 实现, 统一入口静默丢弃)。
-if not exist "%BRK%" (
-  call :skipcase T41 repair
-) else (
-  set "TD41=%WORK%\cases\T41_repair_unified"
-  if not exist "%TD41%" mkdir "%TD41%" >nul 2>&1
-  copy /y "%BRK%" "%TD41%\src.mp4" >nul 2>&1
-  set "L41=%LOGDIR%\T41_repair_unified.log"
-  set "O41=%TD41%\src-repacked.mkv"
-  if exist "%O41%" del /q "%O41%" >nul 2>&1
-  call "%REPO%\ffmpeg_encode.bat" --venc copy --repair "%TD41%\src.mp4" < nul > "%L41%" 2>&1
-  set "RC41=%errorlevel%"
-  set "V41=PASS"
-  if not "%RC41%"=="0" set "V41=FAIL"
-  if not exist "%O41%" set "V41=FAIL"
-  if "%V41%"=="PASS" (
-    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD41%\src.mp4" > "%LOGDIR%\T41_sfr.txt" 2>nul
-    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_sfr.txt") do set "SFR41=%%a"
-    "%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O41%" > "%LOGDIR%\T41_rfr.txt" 2>nul
-    for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_rfr.txt") do set "RFR41=%%a"
-    if not defined SFR41 set "SFR41=0"
-    if not defined RFR41 set "RFR41=0"
-    if "%RFR41%"=="0" set "V41=FAIL"
-    if %RFR41% LSS %SFR41% set "V41=FAIL"
-  )
-  echo [%V41%] T41 encode --venc copy --repair broken_index.mp4 src=%SFR41% out=%RFR41% >> "%SUM%"
-)
+if not exist "%BRK%" goto T41_SKIP
+set "TD41=%WORK%\cases\T41_repair_unified"
+if not exist "%TD41%" mkdir "%TD41%" >nul 2>&1
+copy /y "%BRK%" "%TD41%\src.mp4" >nul 2>&1
+set "L41=%LOGDIR%\T41_repair_unified.log"
+set "O41=%TD41%\src-repacked.mkv"
+if exist "%O41%" del /q "%O41%" >nul 2>&1
+call "%REPO%\ffmpeg_encode.bat" --venc copy --repair "%TD41%\src.mp4" < nul > "%L41%" 2>&1
+set "RC41=%errorlevel%"
+set "V41=PASS"
+if not "%RC41%"=="0" set "V41=FAIL"
+if not exist "%O41%" set "V41=FAIL"
+if not "%V41%"=="PASS" goto T41_CHK_DONE
+"%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%TD41%\src.mp4" > "%LOGDIR%\T41_sfr.txt" 2>nul
+for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_sfr.txt") do set "SFR41=%%a"
+"%FP%" -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "%O41%" > "%LOGDIR%\T41_rfr.txt" 2>nul
+for /f "usebackq tokens=*" %%a in ("%LOGDIR%\T41_rfr.txt") do set "RFR41=%%a"
+if not defined SFR41 set "SFR41=0"
+if not defined RFR41 set "RFR41=0"
+if "%RFR41%"=="0" set "V41=FAIL"
+if %RFR41% LSS %SFR41% set "V41=FAIL"
+:T41_CHK_DONE
+echo [%V41%] T41 encode --venc copy --repair broken_index.mp4 src=%SFR41% out=%RFR41% >> "%SUM%"
+goto T41_END
+:T41_SKIP
+call :skipcase T41 repair
+:T41_END
 
 rem ============ usage B: double click + typed path (stdin fed) ============
 chcp %CP0% >nul
@@ -904,7 +906,9 @@ set "MDL=%~6"
 set "EXPCODEC=%~7"
 set "FRESH=%~8"
 set "LOG=%LOGDIR%\%LOGN%.log"
-if /I "%OM%"=="C" (
+if /I "%NAM%"=="ffmpeg_repack" (
+    for %%X in ("%INP%") do set "OUT=%%~dpnX-repacked.mp4"
+) else if /I "%OM%"=="C" (
     for %%X in ("%INP%") do set "OUT=%%~dpnX.mp4"
 ) else (
     for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
