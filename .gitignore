@@ -31,6 +31,7 @@ desktop.ini
 test/bat/smoke_logs/
 test/bat/chars_logs/
 test/sh/logs/
+test/battmp/
 
 # ===== Python 字节码缓存（任意子目录下，lint 跑过就会生成）=====
 __pycache__/
