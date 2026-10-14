@@ -477,7 +477,7 @@ SKIP 明确表示「本机跑不了」，不是「没测过」。
 | A | 20 个元字符文件名过 `ffmpeg_repack` | ✅ 20/20 实测 | ✅ |
 | C | 3 个真实形状走**完整编码** | `ffmpeg_libx264.sh`（无需硬件） | `ffmpeg_avc_qsv.bat` |
 | B | 6 个元字符条目走 **list 模式** | `convert_from_list_libx265.sh`（无需硬件） | `convert_from_list_qsv.bat` |
-| D | 无参模式，路径从 stdin 喂 | **真 PASS**（重定向确实到达 `read`） | SKIP（cp65001 重启的探针取证限制，见其头注释） |
+| D | 无参模式，路径从 stdin 喂 | **真 PASS**（重定向确实到达 `read`） | SKIP（cp65001 重启的探针取证限制，见其头注释；可用的 stdin 喂入绕法见 §7 第 13 条，但本矩阵的取证构造未改） |
 | Z | 构造微测试 | `${name%.*}` 剥后缀 / `while IFS= read -r` 往返 / **反斜杠文件名**（Linux 合法，Windows 造不出→SKIP） | `set` 形态与 cp65001 守卫复刻（Windows 专属构造） |
 
 三处**刻意分歧**都有依据：sh 侧 C/B 段选软编入口是为了**整套不需要任何硬件**；
@@ -1033,3 +1033,12 @@ bat 侧从此也有一条「记事本存出来的清单」用例（2026-10-02 �
       同理走 `_ff_native_exec`。另外 `MPGS` 从空格拼的串改成数组、`pick_dvd_ff` 里
       PATH 遍历加了引号 —— 输出目录带空格时（`C:\Program Files\...` 就是）前者会被
       切成几段，报出来的错完全看不出是路径问题。
+13. **给 `.bat` 入口喂多行 stdin（冒烟 T6/T18 这类交互用例）不能用管道，且必须整体避开 `chcp`——2026-10-14 才彻底厘清**。cmd 的 `SET /P` 从重定向来源读行时有一连串陷阱，任何一个都让"第 2 行起"静默丢失（症状：交互码率覆盖不生效、或输出名变成一个空格被 ffmpeg 拒掉）。逐个陷阱与修法：
+    * **管道只交付第 1 行**：`(echo a & echo 900k) | wrapper.bat` 之后每个 `SET /P` 都读到 EOF——所以 T18 的 `900k`（第 2 行）从没到过 `BIT`。测试喂 stdin **一律用临时文件 `< file`**，不用管道。
+    * **`chcp` 这条命令本身会吃掉重定向文件的 stdin**——哪怕码页已是目标值（重复 `chcp 65001` 照样冲掉）。它不止在入口的 cp65001 守卫里，**`lib/common.bat` 与 `lib/encode_core.bat` 顶部也各有一条、每次 `call` 都跑一遍**，于是每 `call common.bat parse_switches` 就把文件 stdin 冲掉一次（这层最隐蔽，排查时最容易被"明明没在读 stdin 的函数怎么会吃掉它"绕晕）。修法：新增 `FB_NO_CHCP` 标志，入口守卫与两个库顶部都用 `if not defined FB_NO_CHCP` 守住的 `chcp`；冒烟控制台本就是 cp65001，no-BOM 文件不 `chcp` 也读得对（lint L02/L04 要求入口保持无 BOM，所以不能靠给入口加 BOM 来解决）。
+    * **`ffmpeg -version` / `ffprobe -version` / `where`（经 `for /f`）都会吸走重定向文件 stdin**。库内所有这类探测统一补 `< nul`（`find_ffmpeg` 的版本探针正是漏网的那个）。
+    * **`cmd /c call "%~f0"` 重启会丢掉重定向文件的 stdin**（父进程的 `chcp` 先把句柄冲坏，子进程再继承）。`FB_NO_CHCP` 直接 `goto main` 不重启，顺带绕开这层。
+    * **`set /p X=提示 & echo ...`（`& echo` 与 `set /p` 同行）会破坏文件读取**——排查时自己加的调试行正好触发它，白绕一圈。调试读取务必写成独立一行 `set /p`、`echo` 放下一行。
+    * **文件喂入的 `SET /P` 会在值上留一个尾随空格**；末尾多送一个空行会读回一个"空格"，被 ffmpeg 当成输出文件名而报 `Unable to choose an output format for ' '`。所以只送必需的行，让末尾的 `BIT` / `TARGET_FILE` 提示读 EOF 回落到计算默认值；`BIT` 被覆盖后还要剥掉尾随空格、并让 `TARGET_BITRATE` 与（可能被覆盖的）实际码率同步，judge 才读得到 `900k`。
+
+    现成配方：`test/bat/smoke_ffmpeg.bat` 的 `:runB` / `:runB2`（临时文件 + `FB_NO_CHCP` + 只送必需行）＋ 入口与 `lib/common.bat` / `lib/encode_core.bat` 里的 `FB_NO_CHCP` 守卫 ＋ `find_ffmpeg` 版本探针的 `< nul`。这些陷阱的单独取证早在 `test/bat/smoke_special_chars.bat` 的 Z2d/Z2e/Z2f 就有（"guard relaunch drops file-redirected stdin" / "chcp 65001 eats the redirected stdin" / "`where` consumes the returned stdin"）——本轮是把它们串起来、给出可用绕法，并落到冒烟套件里。
