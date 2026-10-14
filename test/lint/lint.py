@@ -1774,7 +1774,7 @@ def check_call_arg_equals(inv):
 _PAREN_AFTER_KW = re.compile(r'(?i)(\b(else|in)|\|\||&&)\s*$')
 _PAREN_IF_HEAD = re.compile(r'(?i)^\s*(if|for)\b')
 _PAREN_PURE_CLOSE = re.compile(r'^\)+\s*$')
-_PAREN_CLOSE_ELSE = re.compile(r'^(\)+)\s*else\s*(\(+)\s*$')
+_PAREN_CLOSE_ELSE = re.compile(r'^(\)+)\s*else\s*(?:if\b[^()]*)?(\(+)\s*$')
 
 
 def _paren_strip_quoted(s):

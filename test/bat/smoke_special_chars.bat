@@ -25,8 +25,8 @@ rem Coverage:
 rem   part A : 20 filename metacharacter cases through ffmpeg_repack
 rem   part C : full encoder path (ffmpeg_avc_qsv) for the real-world shapes
 rem   part B : same shapes driven through convert_from_list_qsv (list mode)
-rem   part D : no-argument mode, path fed over stdin (probe can only
-rem            approximate console typing, hence the SKIP verdict)
+rem   part D : no-argument mode, path fed over stdin (FB_NO_CHCP + a file
+rem            redirect; PASSES now -- see the D0 block for why)
 rem   part Z : construct micro-tests (set forms, list-call caret,
 rem            stdin - direct, forwarded, and through an ASCII
 rem            replica of the cp65001 relaunch guard)
@@ -190,28 +190,37 @@ rem before the prompt); Z2e / Z2f isolate chcp and the for /f lookup.
 >>"%SUM%" echo ---- part D: no-argument mode, path from stdin ----
 echo [part D] no-argument mode ...
 set "IFILE=%WORK%\stdin_path.txt"
+rem Send ONLY the path line. FB_NO_CHCP makes the entry skip its cp65001
+rem relaunch (which is what used to drop a file-redirected stdin -- the old
+rem SKIP verdict); find_ffmpeg's version probe is already redirected from
+rem nul, so the path reaches the SET /P prompt. A trailing blank line is
+rem deliberately NOT sent: it would read back as a single space, which
+rem ffmpeg then rejects as the output filename (the T6/T18 lesson,
+rem test/README.md section 7).
 > "%IFILE%" echo %CDIR%\smoke_amp ^& test.mov
->>"%IFILE%" echo.
->>"%IFILE%" echo.
-del /q "%CDIR%\smoke_amp & test.mp4" 2>nul
+del /q "%CDIR%\smoke_amp & test-repacked.mp4" 2>nul
+set "FB_NO_CHCP=1"
 call "%REPO%\ffmpeg_repack.bat" < "%IFILE%" > "%LDIR%\D0_noarg.log" 2>&1
+set "FB_NO_CHCP="
 set "DRC=%ERRORLEVEL%"
 set "DV=FAIL"
-if exist "%CDIR%\smoke_amp & test.mp4" set "DV=PASS"
-if "%DRC%"=="1" if not exist "%CDIR%\smoke_amp & test.mp4" set "DV=SKIP"
->>"%SUM%" echo [%DV%] D0 no-argument rc=%DRC%  (SKIP = file-redirected stdin never reaches the no-arg branch, see Z2a/Z2d)
+if exist "%CDIR%\smoke_amp & test-repacked.mp4" set "DV=PASS"
+if "%DRC%"=="1" if not exist "%CDIR%\smoke_amp & test-repacked.mp4" set "DV=SKIP"
+>>"%SUM%" echo [%DV%] D0 no-argument rc=%DRC%  (SKIP would mean file-redirected stdin still fails to reach the no-arg branch)
 
 rem D1: the same call, but FFMPEG is pre-set (file) so find_ffmpeg takes its
 rem     first branch and spawns NO child before the prompt. If D1 now reads
 rem     the path while D0 does not, the stdin eater is a child process that
 rem     find_ffmpeg runs (the for /f where lookup).
 set "FFMPEG=C:\Program Files\ffmpeg\bin\ffmpeg.exe"
-del /q "%CDIR%\smoke_amp & test.mp4" 2>nul
+del /q "%CDIR%\smoke_amp & test-repacked.mp4" 2>nul
+set "FB_NO_CHCP=1"
 call "%REPO%\ffmpeg_repack.bat" < "%IFILE%" > "%LDIR%\D1_noarg_ffbin.log" 2>&1
+set "FB_NO_CHCP="
 set "D1RC=%ERRORLEVEL%"
 set "D1V=FAIL"
-if exist "%CDIR%\smoke_amp & test.mp4" set "D1V=PASS"
-if "%D1RC%"=="1" if not exist "%CDIR%\smoke_amp & test.mp4" set "D1V=noRead"
+if exist "%CDIR%\smoke_amp & test-repacked.mp4" set "D1V=PASS"
+if "%D1RC%"=="1" if not exist "%CDIR%\smoke_amp & test-repacked.mp4" set "D1V=noRead"
 set "FFMPEG="
 >>"%SUM%" echo [%D1V%] D1 same, but no child before the prompt  (rc=%D1RC%, see D1_noarg_ffbin.log)
 
@@ -375,7 +384,10 @@ set "SRC=%CDIR%\%NAME%"
 rem %~dp2 on a bare relative name resolves against the CURRENT directory,
 rem which gets the "sub & dir (x)\..." case wrong. Derive it from the
 rem assembled absolute path instead.
-for %%F in ("%SRC%") do set "EXPECT=%%~dpnF.mp4"
+rem ffmpeg_repack writes "<base>-repacked.mp4" (the -repacked suffix, aligned
+rem with the T5/runA twin) -- so the expected output carries that suffix too,
+rem NOT a bare .mp4 (that mismatch is what turned all of part A red).
+for %%F in ("%SRC%") do set "EXPECT=%%~dpnF-repacked.mp4"
 copy /y "%WORK%\base.mov" "%SRC%" >nul 2>nul
 if not exist "%SRC%" (
     >>"%SUM%" echo [SETUP-FAIL] A%IDX% "%NAME%"  could not create test file

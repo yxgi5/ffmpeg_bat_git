@@ -47,6 +47,10 @@ COMMON_BAT = "\n".join([
     'rem it silently restores the 0-byte crash on pgs / dvd_subtitle sources',
     'set "CM_BITMAP=hdmv_pgs_subtitle dvd_subtitle xsub dvb_subtitle"',
     'set "COVERMAP=-map 0:v:disp:attached_pic? -c:v:1 copy -c:v:2 copy"',
+    'rem SENC subtitle-exit pair: mp4 -> mov_text, mkv -> copy (L16 checks both',
+    'rem literals live in the lib; the real one sets them in :init_ext)',
+    'set "SENC=-c:s mov_text"',
+    'if /I "%EXT%"=="mkv" set "SENC=-c:s copy"',
     "exit /b 0",
 ])
 
@@ -57,6 +61,8 @@ GATE_LIB_SH = (
     "#!/bin/bash\n"
     "COVER_MAP=(-map \"0:v:disp:attached_pic?\" -c:v:1 copy -c:v:2 copy)\n"
     "_SUB_BITMAP=\"hdmv_pgs_subtitle dvd_subtitle xsub dvb_subtitle\"\n"
+    "SENC=(-c:s mov_text)\n"
+    "SENC_MKV=(-c:s copy)\n"
 )
 
 # ---------------------------------------------------------------- the cases
@@ -173,6 +179,20 @@ CASES = [
         "@echo off\n:main\nsetlocal\n"
         "if defined X (\n"
         "    if defined Y (set A=1) else (set A=2)\n"
+        ")\n"
+        "exit /b 0\n",
+        set(), {"L23"},
+    ),
+    (
+        "L23 precision: a multi-branch if (...) else if (...) else ( stays silent",
+        "blockelseif.bat", True,
+        "@echo off\n:main\nsetlocal\n"
+        "if /I \"%NAM%\"==\"repack\" (\n"
+        "    set \"OUT=a-repacked.mp4\"\n"
+        ") else if /I \"%OM%\"==\"C\" (\n"
+        "    set \"OUT=b.mp4\"\n"
+        ") else (\n"
+        "    set \"OUT=c-compressed.mp4\"\n"
         ")\n"
         "exit /b 0\n",
         set(), {"L23"},
@@ -388,7 +408,7 @@ CASES = [
         "cover_map_gate ffmpeg\n"
         "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
         "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
-        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "\"${SENC[@]}\" -map_metadata 0 -map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
         "\"${CMD[@]}\"\n"
         "if [ $? -ne 0 ]; then\n"
@@ -480,7 +500,7 @@ CASES = [
         "set RUN_COM=\"%FFMPEG_PATH%\" -hide_banner\n"
         "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v:0 libx264 -profile:v:0 high\n"
         "set RUN_COM=%RUN_COM% -map 0:V -map 0:a? -map 0:s? %COVERMAP% "
-        "-c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "%SENC% -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
         "set \"FB_RC=%ERRORLEVEL%\"\n"
         "if not \"%FB_RC%\"==\"0\" (\n"
@@ -620,7 +640,7 @@ CASES = [
         "cover_map_gate ffmpeg\n"
         "CMD+=(-c:v:0 libx264 -profile:v:0 high)\n"
         "CMD+=(-map 0:V -map 0:a? -map 0:s? ${COVER_MAP[@]+\"${COVER_MAP[@]}\"} "
-        "-c:s mov_text -map_metadata 0 -map_chapters 0)\n"
+        "\"${SENC[@]}\" -map_metadata 0 -map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
         "\"${CMD[@]}\"\n"
         "if [ $? -ne 0 ]; then\n"
@@ -638,7 +658,7 @@ CASES = [
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
         "CMD+=(-c:v copy -c:a copy)\n"
-        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "CMD+=(-map 0:v -map 0:a? -map 0:s? \"${SENC[@]}\" -map_metadata 0 "
         "-map_chapters 0)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
         "\"${CMD[@]}\"\n"
@@ -657,7 +677,7 @@ CASES = [
         "setlocal\n"
         "set RUN_COM=\"C:\\ffmpeg\\ffmpeg.exe\" -hide_banner\n"
         "set RUN_COM=%RUN_COM% -i %SRC_FILE% -c:v copy -c:a copy "
-        "-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 -map_chapters 0\n"
+        "-map 0:v -map 0:a? -map 0:s? %SENC% -map_metadata 0 -map_chapters 0\n"
         "%RUN_COM%\n"
         "set \"FB_RC=%ERRORLEVEL%\"\n"
         "if not \"%FB_RC%\"==\"0\" (\n"
@@ -674,7 +694,7 @@ CASES = [
         "CMD=(ffmpeg -hide_banner)\n"
         "CMD+=(-i \"$ABS_NAME\")\n"
         "CMD+=(-c:v copy -c:a copy)\n"
-        "CMD+=(-map 0:v -map 0:a? -map 0:s? -c:s mov_text -map_metadata 0 "
+        "CMD+=(-map 0:v -map 0:a? -map 0:s? \"${SENC[@]}\" -map_metadata 0 "
         "-map_chapters 0)\n"
         "CMD+=(-movflags +faststart)\n"
         "CMD+=(-n \"$TARGET_FILE\")\n"
