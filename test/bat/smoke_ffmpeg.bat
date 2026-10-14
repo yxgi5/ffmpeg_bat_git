@@ -809,7 +809,7 @@ call "%REPO%\ffmpeg_encode.bat" --venc copy --dec cuda --dry-run "%IN%" < nul > 
 set "RC40=%errorlevel%"
 set "V40=PASS"
 if not "%RC40%"=="0" set "V40=FAIL"
-findstr /c:"无效" /c:"忽略" "%L40%" >nul 2>&1
+findstr /c:"ignored" "%L40%" >nul 2>&1
 if errorlevel 1 set "V40=FAIL"
 echo [%V40%] T40 copy+--dec reported as ignored (not silently dropped) rc=%RC40% >> "%SUM%"
 echo. >> "%SUM%"
@@ -825,13 +825,13 @@ set "RC43=%errorlevel%"
 set "V43=PASS"
 if not "%RC43%"=="0" set "V43=FAIL"
 if not exist "%O43%" set "V43=FAIL"
+set "L43B=%LOGDIR%\T43_repack_skip.log"
 if "%V43%"=="PASS" (
-  set "L43B=%LOGDIR%\T43_repack_skip.log"
   call "%REPO%\ffmpeg_repack.bat" "%WORK%\cases\T43_repack\clip.mp4" < nul > "%L43B%" 2>&1
   findstr /c:"SKIPPED" "%L43B%" >nul 2>&1
   if errorlevel 1 set "V43=FAIL"
 )
-echo [%V43%] T43 ffmpeg_repack mp4 source -> -repacked.mp4; re-run FF_ON_EXIST=skip >> "%SUM%"
+echo [%V43%] T43 ffmpeg_repack mp4 source -^> -repacked.mp4; re-run FF_ON_EXIST=skip >> "%SUM%"
 echo. >> "%SUM%"
 if "%BAD%"=="0" (echo [PASS] banner check: no "is not recognized" in any log) >> "%SUM%"
 rem ============ global: lib debug echoes must be gone (hygiene) =========
@@ -937,7 +937,16 @@ set "MDL=%~5"
 set "LOG=%LOGDIR%\%LOGN%.log"
 for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
 del /q "%OUT%" >nul 2>&1
-( echo %~2 & echo. & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
+rem feed stdin via a file (not a pipe): a pipe drops every line after the
+rem first under SET /P, and chcp 65001 (the entry guard) corrupts SET /P
+rem reads from a redirected file -- so we set FB_NO_CHCP and redirect a file.
+rem Only the path line is sent: the BIT / TARGET_FILE prompts then read EOF and
+rem keep their computed defaults (a trailing blank line would read back as a
+rem single space, which ffmpeg rejects as the output filename).
+set "FB_NO_CHCP=1"
+( echo %~2 ) > "%LOGDIR%\.stdin_%NAM%.txt"
+call "%REPO%\%NAM%.bat" < "%LOGDIR%\.stdin_%NAM%.txt" > "%LOG%" 2>&1
+set "FB_NO_CHCP="
 set "RC=%errorlevel%"
 call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
 exit /b 0
@@ -957,7 +966,12 @@ set "L2=%~6"
 set "LOG=%LOGDIR%\%LOGN%.log"
 for %%X in ("%INP%") do set "OUT=%%~dpnX-compressed.mp4"
 del /q "%OUT%" >nul 2>&1
-( echo %~2 & echo %L2% & echo. ) | call "%REPO%\%NAM%.bat" > "%LOG%" 2>&1
+rem feed stdin via a file (not a pipe): see :runB note. Send path + the custom
+rem bitrate override; no trailing blank line so TARGET_FILE reads EOF (default).
+set "FB_NO_CHCP=1"
+( echo %~2 & echo %L2% ) > "%LOGDIR%\.stdin_%NAM%.txt"
+call "%REPO%\%NAM%.bat" < "%LOGDIR%\.stdin_%NAM%.txt" > "%LOG%" 2>&1
+set "FB_NO_CHCP="
 set "RC=%errorlevel%"
 call :judge %NAM% %MDL% %EXP% "%OUT%" %RC% "%LOG%" h264
 exit /b 0

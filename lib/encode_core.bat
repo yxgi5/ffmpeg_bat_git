@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 >nul
+if not defined FB_NO_CHCP chcp 65001 >nul
 rem ============================================================
 rem lib/encode_core.bat - 编码入口的公共内核 (TODO.md 阶段 0)
 rem
@@ -314,6 +314,12 @@ if %TARGET_BITRATE% leq 0 (
 )
 
 IF not defined PARSE_POS SET /P BIT=请输入输出码率(如1150k,不输入则保持默认):
+rem A file-fed SET /P leaves a trailing space on the value; strip it so the
+rem ffmpeg arg and the summary are clean, and keep TARGET_BITRATE in sync with
+rem the bitrate actually encoded (the interactive override must be reported,
+rem not the stale table value -- T18 asserts on it).
+if defined BIT if "%BIT:~-1%"==" " set "BIT=%BIT:~0,-1%"
+if defined BIT set "TARGET_BITRATE=%BIT%"
 echo TARGET_BITRATE=%BIT%
 rem ---------- 封面保留能力门: 见 lib\common.bat 的 :cover_map ----------
 call "%~dp0common.bat" cover_map
