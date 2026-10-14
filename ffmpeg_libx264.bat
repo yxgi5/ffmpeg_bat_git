@@ -18,6 +18,11 @@ rem in the same cmd session skips the guard and the garbled banner
 rem line comes back. The child cmd /c below still inherits it.
 setlocal
 set "SELF_DIR=%~dp0"
+rem When the harness feeds stdin via a redirected file (T6/T18), skip chcp:
+rem the chcp command itself breaks SET /P reads from a redirected file. The
+rem harness console already runs under UTF-8 (cp65001), so this no-BOM file
+rem still reads correctly here; interactive double-click is unaffected.
+if defined FB_NO_CHCP goto main
 if defined FB_UTF8_GUARD goto main
 set "FB_UTF8_GUARD=1"
 chcp 65001 >nul

@@ -47,6 +47,11 @@ if defined PARSE_POS (
     SET "SRC_FILE=list.txt"
 )
 echo SRC_FILE="%SRC_FILE%"
+rem T25 (twin of sh T25): a non-text (binary) list file must be rejected, not
+rem fed to ffmpeg as a garbage source. Scan for a NUL byte; lists are small.
+set "FF_LIST_CHK=%SRC_FILE%"
+powershell -NoProfile -Command "$b=[System.IO.File]::ReadAllBytes($env:FF_LIST_CHK); $n=0; foreach($x in $b){if($x -eq 0){$n=1;break}}; if($n -eq 1){exit 1}else{exit 0}" >nul 2>&1
+if errorlevel 1 echo Not a plain text list file! binary content detected & exit /b 1
 rem ---------- 开关透传(无人值守留痕) ----------
 rem 本脚本不解析任何开关: 它们全部以环境变量的形式原样传给下游入口 ——
 rem   EXT(输出容器) / BITRATE_NO_HALF(目标码率不除 2) / FF_HWACCEL(软硬解) /

@@ -95,7 +95,7 @@ if not defined ENC_OK (
     exit /b 1
 )
 rem copy 不解码也不重编码, 给了 --dec 就说清楚, 而不是默默忽略
-if /I "%ENC%"=="copy" if defined DEC echo 注意: --venc copy 是转封装, 不解码也不重编码, --dec 对它无效(已忽略)。
+if /I "%ENC%"=="copy" if defined DEC echo 注意: --venc copy 是转封装, 不解码也不重编码, --dec 对它无效 (ignored)。
 
 rem ---------- 公共流程 ----------
 if /I "%ENC%"=="copy" call "%SELF_DIR%lib\encode_core.bat" copy_run

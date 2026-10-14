@@ -1,5 +1,5 @@
 
-chcp 65001 >nul
+if not defined FB_NO_CHCP chcp 65001 >nul
 rem ============================================================
 rem lib\common.bat - 公共子程序库 (P1 重构)
 rem 用法: call "%~dp0lib\common.bat" <函数名> [参数...]
@@ -237,7 +237,7 @@ rem 版本串走"先写临时文件再 for /f usebackq 回读" —— 本机真�
 rem for /f 反引号直接跑 %FFBIN%\ffmpeg.exe(那样是变量展开的程序路径, lint L21 会拦)
 set "FF_SHOW=%FFBIN%\ffmpeg.exe"
 set "FF_VER="
-if defined TEMP "%FF_SHOW%" -hide_banner -version > "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
+if defined TEMP "%FF_SHOW%" -hide_banner -version < nul > "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
 if defined TEMP if exist "%TEMP%\ffmpeg_bat_ffver.tmp" for /f "usebackq tokens=3" %%v in ("%TEMP%\ffmpeg_bat_ffver.tmp") do if not defined FF_VER set "FF_VER=%%v"
 if defined TEMP del "%TEMP%\ffmpeg_bat_ffver.tmp" 2>nul
 echo ============================================================
@@ -297,7 +297,7 @@ if not defined FFPROBE_PATH (
 if "%PS_LAST%"=="%PS_FILE%" exit /b %PS_RC%
 set "PS_LAST=%PS_FILE%"
 set "PS_TMP=%TEMP%\ffmpeg_bat_probe_%RANDOM%%RANDOM%.tmp"
-"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate -of flat "%PS_FILE%" > "%PS_TMP%" 2>nul
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries stream=codec_type,codec_name,profile,pix_fmt,width,height,r_frame_rate,bit_rate:format=size,duration,bit_rate -of flat "%PS_FILE%" < nul > "%PS_TMP%" 2>nul
 set "PS_RC=%ERRORLEVEL%"
 for /f "usebackq tokens=1,* delims==" %%a in ("%PS_TMP%") do set "P_%%a=%%~b"
 del "%PS_TMP%" 2>nul
@@ -341,7 +341,7 @@ rem   负数安全: Windows 版 ffmpeg 失败时返回**负** AVERROR(本机 av1
 rem   而 `if not errorlevel 1` 是带符号比较, -40 >= 1 不成立 -> 会误判成功。
 set "QSV_ENC_OK=0"
 if "%~2"=="" exit /b 0
-"%FFMPEG_PATH%" -hide_banner -v error -init_hw_device qsv=hw -filter_hw_device hw -f lavfi -i color=c:color=black:s=320x240:r=30 -frames:v 1 -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v %~2 -f null - >nul 2>nul
+"%FFMPEG_PATH%" -hide_banner -v error -init_hw_device qsv=hw -filter_hw_device hw -f lavfi -i color=c:color=black:s=320x240:r=30 -frames:v 1 -vf "format=nv12,hwupload=extra_hw_frames=64" -c:v %~2 -f null - < nul >nul 2>nul
 set "FB_RC=%ERRORLEVEL%"
 if "%FB_RC%"=="0" set "QSV_ENC_OK=1"
 exit /b 0
@@ -390,7 +390,7 @@ if not defined PF_ENT (
 )
 set "%PF_OUT%="
 set "PF_TMP=%TEMP%\ffmpeg_bat_pfield_%RANDOM%%RANDOM%.tmp"
-"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries %PF_ENT% -of csv=p=0 "%PF_FILE%" > "%PF_TMP%" 2>nul
+"%FFPROBE_PATH%" -v error -hide_banner -select_streams v:0 -show_entries %PF_ENT% -of csv=p=0 "%PF_FILE%" < nul > "%PF_TMP%" 2>nul
 set "PF_RC=%ERRORLEVEL%"
 rem 累加用固定名 PF_VAL: do 子句里出现 %变量% 会在**解析时**冻结, 固定名最省心
 set "PF_VAL="
@@ -449,7 +449,7 @@ rem 计数**纯 bat**, 不用 find/findstr: PATH 里一旦有 Git Bash / MSYS2 �
 rem `find` 就变成 GNU find —— 实测它把 ",video," 当路径扫全盘, 刷一屏
 rem Permission denied 还巨慢。逐行解析 + 延迟扩展递增。
 rem csv 行尾带 CR, 所以 attached_pic 只比首字符; 列序固定为 编码,类型,封面位。
-"%FFPROBE_PATH%" -v error -show_entries stream=codec_name,codec_type -show_entries stream_disposition=attached_pic -of csv=p=0 %SRC_FILE% > "%CM_TMP%" 2>nul
+"%FFPROBE_PATH%" -v error -show_entries stream=codec_name,codec_type -show_entries stream_disposition=attached_pic -of csv=p=0 %SRC_FILE% < nul > "%CM_TMP%" 2>nul
 setlocal enabledelayedexpansion
 for /f "usebackq delims=" %%L in ("%CM_TMP%") do (
     for /f "tokens=1,2,3 delims=," %%A in ("%%L") do (
@@ -489,7 +489,7 @@ echo [sub]   mp4 装不下位图字幕; EXT=mkv 时若要保住它, 请让源里
 :cover_aftersub
 rem ---- 封面部分 ----
 if not defined FFMPEG_PATH goto cover_noff
-"%FFMPEG_PATH%" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 -t 0.04 -map 0:v:disp:attached_pic? -f null - >nul 2>nul
+"%FFMPEG_PATH%" -hide_banner -v error -f lavfi -i color=c=black:s=16x16:r=1 -t 0.04 -map 0:v:disp:attached_pic? -f null - < nul >nul 2>nul
 if not "%ERRORLEVEL%"=="0" goto cover_nodisp
 set "COVERMAP=%COVERMAP% -map 0:v:disp:attached_pic?"
 if "%CM_VT%"=="" goto cover_fallback
