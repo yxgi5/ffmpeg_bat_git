@@ -12,6 +12,8 @@
 #   harness carries twins for them, so the two families now share those ids.
 #   T23 is shared since 2026-09-17, when the .bat wrappers started to
 #   fail fast on a failed child.
+#   T44 is shared from the start (2026-10-20): both harnesses pin the
+#   "directory / non-video list line is skipped, not fatal" ruling.
 #
 #   Location: <repo>/test/sh/  - the repo root is derived from
 #   this script's own path (two levels up), so a clone anywhere
@@ -670,6 +672,29 @@ bash "$REPO/convert_from_list_libx265.sh" "$d/badlist.txt" > "$LOGF" 2>&1
 RC=$?
 if [ "$RC" -ne 0 ]; then PASS=$((PASS+1)); say "[PASS] T23 missing list entry aborts run rc=$RC"
 else FAIL=$((FAIL+1)); say "[FAIL] T23 missing list entry rc=$RC want non-zero"; fi
+
+# T44 (both families, 2026-10-20): a list line that EXISTS but is not an encodable
+# video - a directory, or a file with no video stream - must be SKIPPED, not abort
+# the whole list. A MISSING line still aborts (T23 just above). libx265 wrapper on
+# purpose: software, no hardware, never SKIPped (same wrapper as the .bat twin, so
+# both families run the identical fixture shape). Assertions grab the ASCII tags
+# [skip-dir] / [skip-nonvideo] - the skip message is bilingual, the tag is the part
+# a grep can rely on.
+d="$W/cases/T44_list_skip"; mkdir -p "$d/adir"
+cp -f "$IN" "$d/keep1.mp4"; cp -f "$IN" "$d/keep2.mp4"
+printf 'not a video\n' > "$d/notes.txt"
+printf '%s\n' "$d/keep1.mp4" "$d/adir" "$d/notes.txt" "$d/keep2.mp4" > "$d/list.txt"
+LOGF="$LOG/T44_list_skip.log"; rm -f "$d"/*-compressed.mp4
+bash "$REPO/convert_from_list_libx265.sh" "$d/list.txt" > "$LOGF" 2>&1
+RC=$?
+n=0; for i in 1 2; do [ -f "$d/keep${i}-compressed.mp4" ] && n=$((n+1)); done
+ok=1
+[ "$RC" -eq 0 ] || ok=0
+[ "$n" -eq 2 ] || ok=0
+grep -q '\[skip-dir\]' "$LOGF" || ok=0
+grep -q '\[skip-nonvideo\]' "$LOGF" || ok=0
+if [ "$ok" -eq 1 ]; then PASS=$((PASS+1)); say "[PASS] T44 list skips dir/non-video lines  outputs=$n/2 rc=$RC"
+else FAIL=$((FAIL+1)); say "[FAIL] T44 list skip rc=$RC outputs=$n/2 (want rc=0, 2 outputs, both skip tags)"; sed 's/^/       | /' "$LOGF" | tail -8 >> "$SUM"; fi
 
 # ============================================================================================
 # 统一入口 ffmpeg_encode.sh (TODO.md 阶段 1)。老入口 T1-T31 一条没动, 断言的是

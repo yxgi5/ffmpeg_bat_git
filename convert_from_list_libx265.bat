@@ -81,11 +81,15 @@ rem   就冻结), 而开延迟展开又会吃掉片名里的 '!'(Tora! Tora! Tor
 rem   所以这里 call 到 :RUN_ONE, 在子程序里按普通展开处理。
 rem   只处理第一行 —— BOM 只可能出现在文件开头。
 
+rem 跳过计数(2026-10-20): 目录行/无视频流行只累加不中止, 判定与原因见 :RUN_ONE
+set "SKIPPED=0"
 for /f "usebackq delims=" %%i in ("%SRC_FILE%") do (
     call :RUN_ONE "%%i"
     if errorlevel 4 if not errorlevel 5 goto LIST_HWFAIL
     if errorlevel 1 goto LIST_FAIL
 )
+rem 汇总放在循环外: for 块里 %SKIPPED% 在块解析时就冻结, 读不到累加后的值
+if %SKIPPED% GTR 0 echo [list] 跳过 %SKIPPED% 条(目录/非视频), 其余条目已处理
 exit /b 0
 
 :RUN_ONE
@@ -94,8 +98,30 @@ rem 第一个字符是 UTF-8 BOM(U+FEFF, 下面那个引号里就是它, 不可�
 rem   for /f 在 cp65001 下会把 EF BB BF 解成这一个字符。
 if "%LINE:~0,1%"=="﻿" set "LINE=%LINE:~1%"
 rem %FWD% 以 --key=value 形式收集(见 :fwd_one), 在 for 块内 call 时值不会被吞
+rem 行不存在 -> 中止整份清单(与 T23 的契约一致): 路径缺失多半是清单本身写错了,
+rem   继续跑只会让后面的条目一条条陪葬; 它与"存在但不是可编码输入"是两回事,
+rem   后者按用户裁定(2026-10-20)跳过, 见下面两个分支。
+if not exist "%LINE%" (
+    echo [list] 条目不存在, 中止整份清单: "%LINE%"
+    exit /b 1
+)
+rem 是目录 -> 跳过: if exist "路径\"(带引号 + 尾随反斜杠)才是 cmd 里稳定的
+rem   "是目录"判据, 实测对空目录与含 & / 圆括号的目录名都可靠(2026-10-20)。
+if exist "%LINE%\" (
+    echo [skip-dir] 是目录, 已跳过: "%LINE%"
+    set /a SKIPPED+=1
+    exit /b 0
+)
 call "%~dp0ffmpeg_libx265.bat" %FWD% "%LINE%"
 set "RC=%errorlevel%"
+rem rc=3 = 下游入口的 check_isvideo 判定"无视频流": 非视频文件(或探测失败的文件)
+rem   都会走到这。按用户裁定跳过而非中止 —— 清单里混进一条非视频行, 不该让整份
+rem   清单陪葬。硬件缺失(4)与真正的转码失败仍由外层 for 块中止(LIST_HWFAIL/LIST_FAIL)。
+if "%RC%"=="3" (
+    echo [skip-nonvideo] 不是可编码视频[无视频流], 已跳过: "%LINE%"
+    set /a SKIPPED+=1
+    exit /b 0
+)
 exit /b %RC%
 
 :LIST_HWFAIL

@@ -273,7 +273,9 @@ function lookup_bitrate() {
 
 # 对清单文件逐行执行指定脚本 (P1 重构新增)
 # 用法: run_list <清单文件> <目标脚本路径>
-# 说明: 用 while read 替代旧的 for line in $(cat ...) 写法, 兼容含空格的文件名; 空行跳过; 任一行失败立即退出
+# 说明: 用 while read 替代旧的 for line in $(cat ...) 写法, 兼容含空格的文件名; 空行跳过
+#       2026-10-20 起(用户裁定): 行是目录、或入口判"无视频流"(rc=3)时**跳过**并继续,
+#       不再让整份清单陪葬; 行不存在仍旧中止(与 T23 契约一致), 硬件缺失(rc=4)仍旧中止
 #       兼容 Windows 记事本清单: 去行尾 CR(CRLF) 与首行 BOM, 否则 \r 会被当成文件名的一部分
 #       子进程 stdin 必须重定向到 /dev/null: 循环体以 "done < $list_file" 提供输入,
 #       子进程继承该 fd 后, Linux 版 ffmpeg 会从 stdin 读走 1 字节(键盘交互探测,
@@ -282,7 +284,7 @@ function lookup_bitrate() {
 function run_list() {
     local list_file="$1"
     local script="$2"
-    local line first=1
+    local line first=1 skipped=0
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%$'\r'}"
         if [ "$first" -eq 1 ]; then
@@ -290,6 +292,19 @@ function run_list() {
             first=0
         fi
         [ -z "$line" ] && continue
+        # 行不存在 -> 中止整份清单(与 .bat 侧 :RUN_ONE 同一裁定, T23 契约):
+        #   路径缺失多半是清单本身写错了, 继续跑只会让后面的条目一条条陪葬;
+        #   它与"存在但不是可编码输入"是两回事, 后者按用户裁定跳过(下面两个分支)。
+        if [ ! -e "$line" ]; then
+            echo -e "\033[41;36m[list] 条目不存在, 中止整份清单: $line\033[0m" >&2
+            exit 1
+        fi
+        # 是目录 -> 跳过(清单里混进目录行不该让整份清单 abort)
+        if [ -d "$line" ]; then
+            echo "[skip-dir] 是目录, 已跳过: $line"
+            skipped=$((skipped + 1))
+            continue
+        fi
         echo "$line"
         # FWD: 调用方(清单驱动)把生效开关收集成的 --key value 数组, 显式转发给每个入口。
         #   为空时(清单驱动没设)按 ${FWD[@]+...} 退化成只传文件名 —— 行为不变。
@@ -302,11 +317,21 @@ function run_list() {
             echo -e "\033[43;30m硬件缺失(rc=4): 本入口在这台机器上不可用, 中止整份清单\033[0m"
             exit 4
         fi
+        # rc=3 = 无视频流(check_isvideo): 非视频文件/探测失败的文件 -> 跳过而非中止
+        if [ "$rc" -eq 3 ]; then
+            echo "[skip-nonvideo] 不是可编码视频[无视频流], 已跳过: $line"
+            skipped=$((skipped + 1))
+            continue
+        fi
         if [ "$rc" -ne 0 ]; then
             echo -e "\033[41;36mConvert failed！\033[0m"
             exit 1
         fi
     done < "$list_file"
+    if [ "$skipped" -gt 0 ]; then
+        echo "[list] 跳过 $skipped 条(目录/非视频), 其余条目已处理"
+    fi
+    return 0
 }
 
 # ================================================================
