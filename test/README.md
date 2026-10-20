@@ -422,6 +422,7 @@ bash test/sh/smoke_ffmpeg.sh [all|parity|list|guard]
 | T21 | 清单 CRLF + UTF-8 BOM | 3 条目清单，BOM 用 `certutil -decodehex` 现场生成（`ef bb bf` 拼到清单头） | 3/3 产物 + `rc=0`（修之前 cmd 的 `for /f` 把 BOM 吃进首条路径 → `rc=3`） | ✅ | ✅ |
 | T22 | `run_list` 的 `</dev/null` 隔离 | 5 条目清单 | 5/5 产物 | ✅ | ✅ |
 | T23 | 清单条目文件缺失 → 中止 | 清单含不存在的路径 | `rc=1` | ✅ | ✅ |
+| T44 | 清单行是目录/非视频 → **跳过**而非中止 | 混合清单：2 视频 + 1 目录 + 1 非视频文件（跑 libx265 wrapper，无硬件依赖） | 2/2 产物 + `rc=0` + 两条 ASCII 跳过标记（`[skip-dir]` / `[skip-nonvideo]`）；**行缺失仍旧中止，那是 T23** | ✅ | ✅ |
 | T24 | 输入文件不存在 | 不存在的路径 | `rc=1` | ✅ | ✅ |
 | T25 | 清单不是文本文件 | 传一个二进制文件当清单 | `rc=1` | ✅ | ✅ |
 | T26 | `EXT=mkv`：输出名与容器都跟开关走 | `ffmpeg_libx265` arg | `xxx-compressed.mkv` 且 ffprobe `format_name=matroska`；不得同时写出 `.mp4` | ✅ | ✅ |

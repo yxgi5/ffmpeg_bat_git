@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem smoke_ffmpeg.bat (v12)  *** ASCII ONLY / CRLF ***
+rem smoke_ffmpeg.bat (v13)  *** ASCII ONLY / CRLF ***
 rem
 rem Automated smoke harness for the ffmpeg_bat_git .bat family.
 rem Usage modes covered:
@@ -10,6 +10,11 @@ rem   C) fresh process     -> console already UTF-8 (opencmd.bat style)
 rem Every run captures stdout+stderr into smoke_logs\*.log, and a verdict
 rem table is written to smoke_logs\summary.txt
 rem
+rem v13 changes vs v12 (2026-10-20):
+rem   - new case T44: a list line that exists but is not an encodable video (a
+rem     directory, or a file with no video stream) must be SKIPPED, not abort
+rem     the whole list; a MISSING line still aborts (that stays T23). Runs on
+rem     the libx265 wrapper -> no hardware, never SKIPped. Same T-id as .sh.
 rem v12 changes vs v11 (2026-10-04):
 rem   - new case T31 for the --dry-run switch: rc=0, the command line comes
 rem     out with the input named in it, and NOTHING is produced. Runs on the
@@ -599,6 +604,44 @@ set "N25="
 if "%RC25%"=="0" ( set "V25=FAIL" & set "N25=%N25% rc=0 want non-zero;" )
 echo [%V25%] T25 non-text list file rejected rc=%RC25% >> "%SUM%"
 if not "%N25%"=="" echo        why: %N25% >> "%SUM%"
+
+rem ============ T44: list lines that are a directory / non-video are SKIPPED (twin of sh T44) ============
+rem 2026-10-20 user ruling: a list line that EXISTS but is not an encodable video
+rem (a directory, or a file with no video stream) must be skipped, not abort the
+rem whole list. A MISSING line still aborts -- that stays T23 above. libx265
+rem wrapper on purpose: software encoder, no hardware, never SKIPped (same
+rem wrapper as the sh twin, so both families run the identical fixture shape).
+rem Assertions grab the ASCII tags [skip-dir] / [skip-nonvideo]: this file is
+rem ASCII-only, and findstr cannot match the Chinese half of the message.
+chcp %CP0% >nul
+set "T44D=%WORK%\cases\T44_list_skip"
+if not exist "%T44D%" mkdir "%T44D%" >nul 2>&1
+if not exist "%T44D%\adir" mkdir "%T44D%\adir" >nul 2>&1
+copy /y "%IN%" "%T44D%\keep1.mp4" >nul 2>&1
+copy /y "%IN%" "%T44D%\keep2.mp4" >nul 2>&1
+echo not a video> "%T44D%\notes.txt"
+del /q "%T44D%\*-compressed.mp4" >nul 2>&1
+>  "%T44D%\list.txt" echo %T44D%\keep1.mp4
+>> "%T44D%\list.txt" echo %T44D%\adir
+>> "%T44D%\list.txt" echo %T44D%\notes.txt
+>> "%T44D%\list.txt" echo %T44D%\keep2.mp4
+set "T44LOG=%LOGDIR%\T44_list_skip.log"
+call "%REPO%\convert_from_list_libx265.bat" "%T44D%\list.txt" < nul > "%T44LOG%" 2>&1
+set "RC44=%errorlevel%"
+set "CNT44=0"
+for %%c in ("%T44D%\*-compressed.mp4") do set /a CNT44+=1
+set "V44=PASS"
+set "N44="
+if not "%RC44%"=="0" ( set "V44=FAIL" & set "N44=%N44% rc=%RC44% want0;" )
+if not "%CNT44%"=="2" ( set "V44=FAIL" & set "N44=%N44% outputs=%CNT44% want2;" )
+findstr /c:"[skip-dir]" "%T44LOG%" >nul 2>&1
+if errorlevel 1 ( set "V44=FAIL" & set "N44=%N44% noDirSkipMsg;" )
+findstr /c:"[skip-nonvideo]" "%T44LOG%" >nul 2>&1
+if errorlevel 1 ( set "V44=FAIL" & set "N44=%N44% noVideoSkipMsg;" )
+findstr /i /c:"is not recognized" "%T44LOG%" >nul 2>&1
+if not errorlevel 1 ( set "V44=FAIL" & set "N44=%N44% bannerParseErr;" )
+echo [%V44%] T44 list skips dir/non-video lines : %CNT44% of 2 outputs, rc=%RC44% >> "%SUM%"
+if not "%N44%"=="" echo        why: %N44% >> "%SUM%"
 
 :LISTONLY
 rem T9/T11/T12 run convert_from_list_qsv.bat, which needs QSV AVC hardware.
